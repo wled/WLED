@@ -31,7 +31,7 @@ public:
 
   bool begin(uint8_t pin, uint32_t sampleRateHz, uint16_t samplesPerFrame);
   void end();
-  bool isRunning() const { return _running; }
+  bool isRunning() const { return _ctx != nullptr; }
 
   uint16_t readSamples(int16_t* buffer, uint16_t numSamples, uint32_t timeoutMs = 100);
 
@@ -40,7 +40,7 @@ public:
   //void checkADC(); // check ADC status, reset if overflow happened (watchdog function, needs to be called frequently if used, i.e. put this in main loop)
 
 private:
-  WLEDAdcManager();
+WLEDAdcManager();
   ~WLEDAdcManager();
   WLEDAdcManager(const WLEDAdcManager&) = delete;
   WLEDAdcManager& operator=(const WLEDAdcManager&) = delete;
@@ -53,20 +53,10 @@ private:
   bool _oneshotRead(adc_channel_t ch, int* outRaw);
   bool _initCali();
 
+  struct ContinuousCtx;          // forward declaration
   SemaphoreHandle_t _mutex;
-
-  uint8_t        _pin;
-  adc_channel_t  _channel;
-  uint32_t       _sampleRate;
-  uint16_t       _samplesPerFrame;
-  adc_continuous_handle_t _handle;
-  bool           _running;
-
-  int16_t*       _cache;
-  uint16_t       _cacheSize;
-  uint16_t       _cacheCount;
-
   adc_cali_handle_t _cali;
+  ContinuousCtx*    _ctx;        // nullptr when continuous mode is idle
 };
 
 #endif // ARDUINO_ARCH_ESP32

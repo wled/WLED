@@ -11,7 +11,7 @@
  * replaces analogRead() and analogReadMilliVolts() with managed functions for code compatibility
 
 
-Note: chip revision 0 and 1 of the C6 have a hardware bug and the effective ADC resolution is only 8bit, was solved in rev. 2 (around mid 2025)
+Note: C6 chip revision 0 and 1 have a hardware bug and the effective ADC resolution is only 8bit, was solved in rev. 2 (around mid 2025)
       https://docs.espressif.com/projects/esp-chip-errata/en/latest/esp32c6/03-errata-description/esp32c6/sar-adc-missing-lower-four-bits.html#sar-adc-loss-of-precision-in-lower-four-bits-of-sar-adc
 
  TODO:
@@ -52,6 +52,17 @@ static bool _isADC1(uint8_t pin, int8_t ch) {
 #endif
 }
 
+struct WLEDAdcManager::ContinuousCtx {
+  uint8_t        pin;
+  adc_channel_t  channel;
+  uint32_t       sampleRate;
+  uint16_t       samplesPerFrame;
+  adc_continuous_handle_t handle;
+  int16_t*       cache;
+  uint16_t       cacheSize;
+  uint16_t       cacheCount;
+};
+
 bool WLEDAdcManager::_pinToChannel(uint8_t pin, adc_channel_t* ch) {
   int8_t c = digitalPinToAnalogChannel(pin);
   if (c < 0 || !_isADC1(pin, c)) return false;
@@ -65,16 +76,9 @@ WLEDAdcManager& WLEDAdcManager::instance() {
 }
 
 WLEDAdcManager::WLEDAdcManager()
-  : _pin(0xFF)
-  , _channel(ADC_CHANNEL_0)
-  , _sampleRate(0)
-  , _samplesPerFrame(0)
-  , _handle(nullptr)
-  , _running(false)
-  , _cache(nullptr)
-  , _cacheSize(0)
-  , _cacheCount(0)
-  , _cali(nullptr) {
+  : _mutex(nullptr)
+  , _cali(nullptr)
+  , _ctx(nullptr) {
   _mutex = xSemaphoreCreateMutex();
 }
 
@@ -89,33 +93,60 @@ WLEDAdcManager::~WLEDAdcManager() {
 // initilizes the manager and the hardware and starts sampling
 bool WLEDAdcManager::begin(uint8_t pin, uint32_t sampleRateHz, uint16_t samplesPerFrame) {
   xSemaphoreTake(_mutex, portMAX_DELAY);
-  _endContinuousADC();
-  _cacheCount = 0;
 
-  if (!_pinToChannel(pin, &_channel)) {
+  // tear down any previous session completely
+  if (_ctx) {
+    _endContinuousADC();
+    if (_ctx->cache) { free(_ctx->cache); _ctx->cache = nullptr; }
+    free(_ctx);
+    _ctx = nullptr;
+  }
+
+  adc_channel_t channel;
+  if (!_pinToChannel(pin, &channel)) {
     xSemaphoreGive(_mutex);
     return false;
   }
-  _pin = pin;
-  _sampleRate = sampleRateHz;
-  _samplesPerFrame = samplesPerFrame;
 
-  if (_cache) free(_cache);
-  _cacheSize = samplesPerFrame;
-  _cache = (int16_t*)calloc(_cacheSize, sizeof(int16_t));
+  _ctx = (ContinuousCtx*)calloc(1, sizeof(ContinuousCtx));
+  if (!_ctx) {
+    xSemaphoreGive(_mutex);
+    return false;
+  }
+
+  _ctx->pin = pin;
+  _ctx->channel = channel;
+  _ctx->sampleRate = sampleRateHz;
+  _ctx->samplesPerFrame = samplesPerFrame;
+  _ctx->cacheSize = samplesPerFrame;
+  _ctx->cacheCount = 0;
+  _ctx->cache = (int16_t*)calloc(_ctx->cacheSize, sizeof(int16_t));
+  if (!_ctx->cache) {
+    free(_ctx);
+    _ctx = nullptr;
+    xSemaphoreGive(_mutex);
+    return false;
+  }
 
   bool ok = _initContinuousADC();
+  if (!ok) {
+    free(_ctx->cache);
+    free(_ctx);
+    _ctx = nullptr;
+  }
   xSemaphoreGive(_mutex);
   return ok;
 }
 
-// stop sampling and de-initilize the hardware so it can be used by analogRead() or to sample a different pin
+// stop sampling and deinitialize the AdcManager continuous mode (use this if you want to sample a different pin or do not need to sample anymore)
 void WLEDAdcManager::end() {
   xSemaphoreTake(_mutex, portMAX_DELAY);
-  _endContinuousADC();
-  _cacheCount = 0;
-  if (_cache) { free(_cache); _cache = nullptr; _cacheSize = 0; }
-  _pin = 0xFF;
+  if (_ctx) {
+    _endContinuousADC();
+    if (_ctx->cache) { free(_ctx->cache); _ctx->cache = nullptr; }
+    free(_ctx);
+    _ctx = nullptr;
+  }
   xSemaphoreGive(_mutex);
 }
 
@@ -141,14 +172,15 @@ void WLEDAdcManager::checkADC() {
 */
 // initialize the hardware
 bool WLEDAdcManager::_initContinuousADC() {
-  if (_handle) return true; // already initialized
-  size_t frameBytes = (size_t)_samplesPerFrame * sizeof(adc_digi_output_data_t);
+  if (!_ctx) return false;       // begin() not called
+  if (_ctx->handle) return true; // already initialized
+  size_t frameBytes = (size_t)_ctx->samplesPerFrame * sizeof(adc_digi_output_data_t);
   adc_continuous_handle_cfg_t hcfg = {
     .max_store_buf_size = frameBytes * 1, // hold two frames in buffer, caller needs to drain it fast enough to avoid data loss
     .conv_frame_size    = ADCMANAGER_DMA_BLOCKSIZE, // use fixed DMA buffer size of 256 bytes (ADC driver creates 5 DMA descriptors with one buffer each, at 20kHz this means an interrupt every 1.4ms
     .flags = { .flush_pool = false }, // do not flush the store buffer on overrun but discard new samples (true means discard oldest, is much slower and can cause issues, do not set true)
   };
-  if (adc_continuous_new_handle(&hcfg, &_handle) != ESP_OK) return false;
+  if (adc_continuous_new_handle(&hcfg, &_ctx->handle) != ESP_OK) return false;
 
   // register buffer overflow callback (sets flag, main loop needs to call checkADC() to clear overflow - this is to prevent wifi stalling due to a now fixed IDF bug causing a lockup)
   //adc_continuous_evt_cbs_t cbs = { .on_conv_done = nullptr, .on_pool_ovf = _onPoolOvf };
@@ -156,46 +188,46 @@ bool WLEDAdcManager::_initContinuousADC() {
 
   adc_digi_pattern_config_t pat = {
     .atten     = ADC_ATTEN_DB_12,
-    .channel   = (uint8_t)_channel,
+    .channel   = (uint8_t)_ctx->channel,
     .unit      = ADC_UNIT_1,
     .bit_width = ADC_BITWIDTH_12,
   };
   adc_continuous_config_t cfg = {
     .pattern_num    = 1,
     .adc_pattern    = &pat,
-    .sample_freq_hz = _sampleRate,
+    .sample_freq_hz = _ctx->sampleRate,
     .conv_mode      = ADC_CONV_SINGLE_UNIT_1,
     .format         = WLED_ADC_DIGI_FORMAT,
   };
   // initialize and start sampling
-  if (adc_continuous_config(_handle, &cfg) != ESP_OK || adc_continuous_start(_handle) != ESP_OK) {
+  if (adc_continuous_config(_ctx->handle, &cfg) != ESP_OK || adc_continuous_start(_ctx->handle) != ESP_OK) {
     _endContinuousADC();
     return false;
   }
-  _running = true;
   return true;
 }
 
+// stop sampling and de-initilize the hardware so it can be used by analogRead() but keeps the continuous _ctx configuration
 void WLEDAdcManager::_endContinuousADC() {
-  if (_handle) {
-    adc_continuous_stop(_handle);
-    adc_continuous_deinit(_handle);
-    _handle = nullptr;
+  if (!_ctx) return;
+  if (_ctx->handle) {
+    adc_continuous_stop(_ctx->handle);
+    adc_continuous_deinit(_ctx->handle);
+    _ctx->handle = nullptr;
   }
-  _running = false;
 }
 
 void WLEDAdcManager::_drainToCache() {
-  if (!_handle || !_cache) return; // note: checking _handle is redundant but also does not hurt (caller checks _running)
+  if (!_ctx || !_ctx->handle || !_ctx->cache) return; // safety check
   adc_digi_output_data_t temp[32]; // size of data packets to request, 32 samples at 22kHz is 1.5ms, leftover samples are lost
-  _cacheCount = 0;
-  while (_cacheCount < _cacheSize) {
+  _ctx->cacheCount = 0;
+  while (_ctx->cacheCount < _ctx->cacheSize) {
     uint32_t n = 0;
     // read what is available in the buffer in chunks (no timeout means do not wait for any additional samples)
-    if (adc_continuous_read(_handle, (uint8_t*)temp, sizeof(temp), &n, 0) != ESP_OK || n == 0) break;
+    if (adc_continuous_read(_ctx->handle, (uint8_t*)temp, sizeof(temp), &n, 0) != ESP_OK || n == 0) break;
     uint16_t cnt = n / sizeof(adc_digi_output_data_t);
-    for (uint16_t i = 0; i < cnt && _cacheCount < _cacheSize; i++) {
-      _cache[_cacheCount++] = (int16_t)(temp[i].WLED_ADC_OUT_TYPE.data);
+    for (uint16_t i = 0; i < cnt && _ctx->cacheCount < _ctx->cacheSize; i++) {
+      _ctx->cache[_ctx->cacheCount++] = (int16_t)(temp[i].WLED_ADC_OUT_TYPE.data);
     }
   }
 }
@@ -205,20 +237,20 @@ void WLEDAdcManager::_drainToCache() {
 // it waits up to timeoutMs per fetch of tmpBfrSize (128) samples, if not enough samples are available, it returns what it got
 // to poll the buffer and "just give me what you got" use a timeout of 0. On read error, it restarts the driver so no action needed by caller.
 uint16_t WLEDAdcManager::readSamples(int16_t* buffer, uint16_t numSamples, uint32_t timeoutMs) {
-  if (!_running || !buffer || !numSamples) return false;
+  if (!_ctx || !buffer || !numSamples) return 0;
   // note: DMA uses SOC_ADC_DIGI_MAX_BITWIDTH which is 12bits on all checked units TODO: should make sure and handle this to future proof it
   xSemaphoreTake(_mutex, portMAX_DELAY);
 
   uint16_t out = 0; // number of samples written to the buffer
   // check if any data was cached during an intermediate analogRead()
-  if (_cacheCount) {
-    uint16_t copy = _cacheCount < numSamples ? _cacheCount : numSamples;
-    memcpy(buffer, _cache, copy * sizeof(int16_t));
+  if (_ctx->cacheCount) {
+    uint16_t copy = _ctx->cacheCount < numSamples ? _ctx->cacheCount : numSamples;
+    memcpy(buffer, _ctx->cache, copy * sizeof(int16_t));
     out = copy;
-    if (copy < _cacheCount) {
-      memmove(_cache, _cache + copy, (_cacheCount - copy) * sizeof(int16_t));
+    if (copy < _ctx->cacheCount) {
+      memmove(_ctx->cache, _ctx->cache + copy, (_ctx->cacheCount - copy) * sizeof(int16_t));
     }
-    _cacheCount -= copy;
+    _ctx->cacheCount -= copy;
   }
 
   if (out >= numSamples) {
@@ -233,7 +265,7 @@ uint16_t WLEDAdcManager::readSamples(int16_t* buffer, uint16_t numSamples, uint3
     uint32_t n = 0;
     uint16_t want = (numSamples - out) < tmpBfrSize ? (numSamples - out) : tmpBfrSize;
     size_t wantBytes = want * sizeof(adc_digi_output_data_t);
-    esp_err_t err = adc_continuous_read(_handle, (uint8_t*)temp, wantBytes, &n, pdMS_TO_TICKS(timeoutMs));
+    esp_err_t err = adc_continuous_read(_ctx->handle, (uint8_t*)temp, wantBytes, &n, pdMS_TO_TICKS(timeoutMs));
 
     // copy the data into 16bit buffer
     if (n > 0) {
@@ -261,7 +293,7 @@ uint16_t WLEDAdcManager::readSamples(int16_t* buffer, uint16_t numSamples, uint3
   return out;
 }
 
-// a one-shot read takes about 0.8-2.5ms if continuous reading is active, 0.2ms otherwise
+// a one-shot read takes about 0.7-2.5ms if continuous reading is active, depending on chip type (ESP32 is slower, newer ones are faster), 0.2ms otherwise
 bool WLEDAdcManager::_oneshotRead(adc_channel_t ch, int* outRaw) {
   adc_oneshot_unit_handle_t h;
   adc_oneshot_unit_init_cfg_t icfg = {
@@ -293,9 +325,9 @@ int WLEDAdcManager::analogRead(uint8_t pin) {
   if (!_pinToChannel(pin, &ch)) return 0;
 
   xSemaphoreTake(_mutex, portMAX_DELAY);
-  if (_running) {
+  if (_ctx) { // continuous sampling is used
     _drainToCache();
-    _endContinuousADC();
+    _endContinuousADC();  // stop sampling and free the ADC hardware if in use
     _oneshotRead(ch, &raw);
     _initContinuousADC(); // re-init and start sampling again
   } else {
