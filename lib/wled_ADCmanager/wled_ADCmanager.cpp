@@ -18,9 +18,9 @@ Note: C6 chip revision 0 and 1 have a hardware bug and the effective ADC resolut
  - could add the option to use hardware IIR filter, although the lowest coefficient setting of 2 already has a 3dB cutoff around 2kHz (to be confirmed) at 20kHz sample rate
  - IIR filter are supported on all modern ESP32 but probably lacking on ESP32 classic, there we would need to do it in post-processing i.e. when writing the sample buffer
  - need to add a "buffer full" callback? -> is added but no longer needed with the bug being fixed in latest tasmota IDF
+ - there is an edge-case issue: when continuous sampling is running, several analog pins are configured and the pin-info page is open it can lead to crashes (some issue with semaphore)
  */
 
-//#include "wled_adcmanager.h"
 #include "wled.h"
 
 // prevent macro recursion of arduino overrides
@@ -32,7 +32,7 @@ Note: C6 chip revision 0 and 1 have a hardware bug and the effective ADC resolut
 #ifdef ARDUINO_ARCH_ESP32
 
 #define ADCMANAGER_DMA_BLOCKSIZE 128 // DMA buffer block size, IDF driver uses 5 blocks under the hood, there is an ISR call each time a block finishes so dont make it too small
-#define ADCMANAGER_READBUFFERSAMPLES 256 // number of bytes read per chunk from the ADC buffer (stack buffer), samples is bytes/sizeof(adc_digi_output_data_t) i.e. divide by 4
+#define ADCMANAGER_READBUFFERSAMPLES 128 // number of samples to read per chunk from the ADC buffer (stack buffer), do not set higher than 128 or stack overflow may occur
 
 #include <string.h>
 
