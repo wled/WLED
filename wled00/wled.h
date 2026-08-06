@@ -653,9 +653,8 @@ WLED_GLOBAL byte touchThreshold                               _INIT(TOUCH_THRESH
 // notifications
 WLED_GLOBAL bool sendNotifications    _INIT(false);           // master notification switch
 WLED_GLOBAL bool sendNotificationsRT  _INIT(false);           // master notification switch (runtime)
-WLED_GLOBAL unsigned long notificationSentTime _INIT(0);
-WLED_GLOBAL byte notificationSentCallMode _INIT(CALL_MODE_INIT);
-WLED_GLOBAL uint8_t notificationCount _INIT(0);
+// notify() send-retry bookkeeping lives in sync_notifier.cpp (NotifierSendState) -
+// nothing outside that file needs it; call notifyRetryIfNeeded() instead.
 WLED_GLOBAL uint8_t syncGroups    _INIT(0x01);                // sync send groups this instance syncs to (bit mapped)
 WLED_GLOBAL uint8_t receiveGroups _INIT(0x01);                // sync receive groups this instance belongs to (bit mapped)
 WLED_GLOBAL bool receiveNotificationBrightness _INIT(true);       // apply brightness from incoming notifications
@@ -726,8 +725,6 @@ WLED_GLOBAL byte realtimeMode _INIT(REALTIME_MODE_INACTIVE);
 WLED_GLOBAL byte realtimeOverride _INIT(REALTIME_OVERRIDE_NONE);
 WLED_GLOBAL IPAddress realtimeIP _INIT_N(((0, 0, 0, 0)));
 WLED_GLOBAL unsigned long realtimeTimeout _INIT(0);
-WLED_GLOBAL uint8_t tpmPacketCount _INIT(0);
-WLED_GLOBAL uint16_t tpmPayloadFrameSize _INIT(0);
 WLED_GLOBAL bool useMainSegmentOnly _INIT(false);
 WLED_GLOBAL bool realtimeRespectLedMaps _INIT(true);                     // Respect LED maps when receiving realtime data
 
