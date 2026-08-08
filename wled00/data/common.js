@@ -186,10 +186,10 @@ function connectWs(onOpen) {
 // start: start pixel index
 // len: number of pixels to send
 // colors: Uint8Array with RGB values (3*len bytes)
-function sendDDP(ws, start, len, colors) {
+function sendDDP(ws, start, len, colors, isESP8266=false) {
 	if (!colors || colors.length < len * 3) return false; // not enough color data
-	let maxDDPpx = 472; // must fit into one WebSocket frame of 1428 bytes, DDP header is 10+1 bytes -> 472 RGB pixels
-	//let maxDDPpx = 172; // ESP8266: must fit into one WebSocket frame of 528 bytes -> 172 RGB pixels TODO: add support for ESP8266?
+	 // data must fit into one WebSocket frame of 1428 bytes, DDP header is 10+1 bytes -> 472 RGB pixels (ESP8266: 528 bytes -> 172 RGB pixels)
+	let maxDDPpx = isESP8266 ? 172 : 472;
 	if (!ws || ws.readyState !== WebSocket.OPEN) return false;
 	// send in chunks of maxDDPpx
 	for (let i = 0; i < len; i += maxDDPpx) {
@@ -200,7 +200,7 @@ function sendDDP(ws, start, len, colors) {
 		let pkt = new Uint8Array(11 + dLen); // DDP header is 10 bytes, plus 1 byte for WLED websocket protocol indicator
 		pkt[0] = 0x02; // DDP protocol indicator for WLED websocket. Note: below DDP protocol bytes are offset by 1
 		pkt[1] = 0x40; // flags: 0x40 = no push, 0x41 = push (i.e. render), note: this is DDP protocol byte 0
-		pkt[2] = 0x00; // reserved
+		pkt[2] = 0x00; // upper nibble is reserved, lower nibble is sequence number, if set to 0 no sequence checking is done (if enabled)
 		pkt[3] = 0x0B; // RGB, 8bit per channel
 		pkt[4] = 0x01; // destination id (not used but 0x01 is default output)
 		pkt[5] = (off >> 24) & 255; // DDP protocol 4-7 is offset

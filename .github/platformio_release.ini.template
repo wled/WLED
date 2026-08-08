@@ -35,6 +35,10 @@ default_envs = nodemcuv2
                esp32s3dev_16MB_opi
                esp32s3dev_8MB_opi
                esp32s3dev_8MB_qspi
+<<<<<<< HEAD
+=======
+               esp32s3dev_8MB_none
+>>>>>>> a0253c8fdca58b27566bee3f997ccdceced0bbef
                esp32s3_4M_qspi
                ; HUB75 release-only envs
                esp32dev_hub75
@@ -42,3 +46,7 @@ default_envs = nodemcuv2
                adafruit_matrixportal_esp32s3
                esp32s3dev_16MB_opi_hub75 ;; MoonHub
                esp32s3dev_4MB_qspi_hub75 ;; HD-WF2
+<<<<<<< HEAD
+=======
+               waveshare_esp32s3_32MB_hub75
+>>>>>>> a0253c8fdca58b27566bee3f997ccdceced0bbef

@@ -30,7 +30,11 @@ int fileReadCallback(void) {
 int fileReadBlockCallback(void * buffer, int numberOfBytes) {
   #ifdef CONFIG_IDF_TARGET_ESP32C3
   unsigned t0 = millis();
+<<<<<<< HEAD
   while (strip.isUpdating() && (millis() - t0 < 15)) yield(); // be nice, but not too nice. Waits up to 15ms to avoid glitches
+=======
+  while (strip.isUpdating() && (millis() - t0 < 150)) yield(); // be nice, but not too nice. Waits up to 150ms to avoid glitches
+>>>>>>> a0253c8fdca58b27566bee3f997ccdceced0bbef
   #endif
   return file.read((uint8_t*)buffer, numberOfBytes);
 }

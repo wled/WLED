@@ -42,7 +42,7 @@
 #define DEFAULT_MODE       (uint8_t)0
 #define DEFAULT_SPEED      (uint8_t)128
 #define DEFAULT_INTENSITY  (uint8_t)128
-#define DEFAULT_COLOR      (uint32_t)0xFFAA00
+#define DEFAULT_COLOR      (uint32_t)0xFFA000
 #define DEFAULT_C1         (uint8_t)128
 #define DEFAULT_C2         (uint8_t)128
 #define DEFAULT_C3         (uint8_t)16
@@ -562,7 +562,7 @@ class Segment {
   public:
 
     Segment(uint16_t sStart=0, uint16_t sStop=30, uint16_t sStartY = 0, uint16_t sStopY = 1)
-    : colors{DEFAULT_COLOR,BLACK,BLACK}
+    : colors{BLACK,BLACK,BLACK} // set colors to black, will be updated to orange if segment is created as "auto segment" or from UI
     , start(sStart)
     , stop(sStop > sStart ? sStop : sStart+1) // minimum length is 1
     , startY(sStartY)
@@ -618,6 +618,7 @@ class Segment {
       DEBUGFX_PRINTLN();
       #endif
       clearName();
+      stopTransition();   // deallocate "_t" (transition) and with it "_segOld" note: _segOld has _t=null, see copy constructor
       #ifdef WLED_ENABLE_GIF
       endImagePlayback(this);
       #endif
@@ -879,6 +880,7 @@ class WS2812FX {
       printSize(),                                // prints memory usage for strip components
 #endif
       finalizeInit(),                             // initialises strip components
+      updatePixelBuffer(),                        // (re)allocate memory for _pixels[]
       service(),                                  // executes effect functions when due and calls strip.show()
       setCCT(uint16_t k),                         // sets global CCT (either in relative 0-255 value or in K)
       setBrightness(uint8_t b, bool direct = false),    // sets strip brightness

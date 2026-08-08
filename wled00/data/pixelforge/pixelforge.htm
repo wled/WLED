@@ -252,6 +252,7 @@ button, .btn {
 	</div>
 
 	<div id="iTab" class="tabc active">
+		<div id="iTabContent">
 		<h3 style="margin-top:20px;">Target Segment</h3>
 		<select id="seg"></select>
 
@@ -320,6 +321,8 @@ button, .btn {
 			</div>
 		</div>
 		<button class="btn" id="up">Convert & Upload to WLED</button>
+		</div>
+		<div id="iTab8266" style="display:none;">Not available on ESP8266</div>
 	</div>
 </div>
 
@@ -424,6 +427,10 @@ let fL; // file list
 const classics=['console_font_4x6.wbf','console_font_5x12.wbf','console_font_5x8.wbf','console_font_6x8.wbf','console_font_7x9.wbf']; // classic WLED fonts list
 let pT = []; // local tools list from JSON
 let wv = [0, 0]; // wled version [major, minor], updated in fsMem(), used to check tool compatibility
+<<<<<<< HEAD
+=======
+let is8266 = false; // restrictions apply for ESP8266, set when getting the info
+>>>>>>> a0253c8fdca58b27566bee3f997ccdceced0bbef
 const remoteURL = 'https://wled.github.io/wled-web-tools/pftools.json'; // tools list
 const toolsjson = 'pftools.json';
 // note: the pftools.json must use major.minor for tool versions (e.g. 0.95 or 1.1), otherwise the update check won't work
@@ -434,15 +441,18 @@ const toolsjson = 'pftools.json';
 	const s = document.createElement('script');
 	s.src = 'common.js';
 	s.onerror = () => setTimeout(loadFiles, 100);
-	s.onload = () => {
-		loadResources(['style.css','omggif.js'], init); // load omggif.js then call init()
+	s.onload = async () => {
+		getLoc(); // set up loc/locip for getURL() before any fetch (file mode / reverse proxy)
+		await fsMem(); // update & show file system memory info, also updates wled version (wv) and is8266
+		const resources = ['style.css'];
+		if (!is8266) resources.push('omggif.js'); // omggif is not available on ESP8266
+		loadResources(resources, init); // load omggif.js then call init()
 	};
 	document.head.appendChild(s);
 })();
 
 /* init */
 async function init() {
-	getLoc();
 	// create off screen canvas
 	rv = cE('canvas');
 	rvc = rv.getContext('2d',{willReadFrequently:true});
@@ -450,7 +460,6 @@ async function init() {
 	await flU(); // update file list
 	tabSw(localStorage.tab||'img'); // switch to last open tab or image tab by default
 	await segLoad(); // load available segments
-	await fsMem(); // update & show file system memory info, also updates wled version (wv)
 	await loadTools(); // load additional tools list from pftools.json
 }
 
@@ -707,6 +716,7 @@ async function fsMem(){
 				const m = info.ver.match(/\d+/g); // extract all numbers from version string (e.g. "16.1.0-beta" → [16, 1])
 				wv = [parseInt(m[0]) || 0, parseInt(m[1]) || 0];
 			}
+			if (info.arch === 'esp8266') is8266 = true;
 		}
 	}catch(e){console.error(e);}
 }
@@ -1263,7 +1273,15 @@ function tabSw(tab) {
 		getId(id).classList.toggle('active', tab===['img','txt','oth'][i%3]);
 	});
 	localStorage.tab=tab;
-	({txt:()=>{txtSegLoad(); scanFonts();}, img:imgLoad}[tab]||(()=>{}))(); // on tab switch, load images and available fonts
+	if (tab === 'img') {
+		getId('iTab8266').style.display = is8266 ? 'block' : 'none'; // show "not available" on ESP8266
+		getId('iTabContent').style.display = is8266 ? 'none' : '';   // show normal image tool on ESP32
+		if (!is8266) imgLoad();
+	}
+	if (tab === 'txt') {
+		txtSegLoad();
+		scanFonts();
+	}
 }
 'Img,Txt,Oth'.split(',').forEach((s,i)=>{
 	getId('t'+s).onclick=()=>tabSw(['img','txt','oth'][i]);
