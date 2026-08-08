@@ -776,8 +776,7 @@ WLED_GLOBAL byte currentPreset _INIT(0);
 
 WLED_GLOBAL byte errorFlag _INIT(0);
 
-WLED_GLOBAL String messageHead, messageSub;
-WLED_GLOBAL byte optionType;
+// messageHead/messageSub/optionType are private to wled_server.cpp - see there.
 
 WLED_GLOBAL bool configNeedsWrite  _INIT(false);        // flag to initiate saving of config
 WLED_GLOBAL bool doReboot          _INIT(false);        // flag to initiate reboot from async handlers
@@ -797,7 +796,7 @@ WLED_GLOBAL AsyncWebSocket ws _INIT_N((("/ws")));
 #ifndef WLED_DISABLE_HUESYNC
 WLED_GLOBAL AsyncClient     *hueClient _INIT(NULL);
 #endif
-WLED_GLOBAL AsyncWebHandler *editHandler _INIT(nullptr);
+// editHandler is private to wled_server.cpp - see there.
 
 // udp interface objects
 WLED_GLOBAL WiFiUDP notifierUdp, rgbUdp, notifier2Udp;
