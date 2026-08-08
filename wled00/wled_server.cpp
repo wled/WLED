@@ -25,6 +25,12 @@
 // forward declarations
 static void createEditHandler();
 
+// Runtime state private to this file - previously WLED_GLOBAL, a leftover from
+// when all state lived in one big extern block regardless of who used it.
+static AsyncWebHandler *editHandler = nullptr;
+static String messageHead, messageSub;
+static byte optionType;
+
 
 // define flash strings once (saves flash memory)
 static const char s_redirecting[] PROGMEM = "Redirecting...";
