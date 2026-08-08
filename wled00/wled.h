@@ -196,9 +196,7 @@ using PSRAMDynamicJsonDocument = BasicJsonDocument<PSRAM_Allocator>;
 #ifndef WLED_DISABLE_ESPNOW
   #include <wled_espnow.h>
 #endif
-#if ESP_IDF_VERSION >= ESP_IDF_VERSION_VAL(5, 5, 0)
-  #include <wled_ADCmanager.h>
-#endif
+#include <wled_ADCmanager.h>
 #include "colors.h"
 #include "fcn_declare.h"
 #ifndef WLED_DISABLE_OTA

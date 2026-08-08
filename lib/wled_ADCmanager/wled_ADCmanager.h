@@ -5,10 +5,10 @@
 
 #pragma once
 
-#include <stdint.h>
-
 #ifdef ARDUINO_ARCH_ESP32
+#if ESP_IDF_VERSION >= ESP_IDF_VERSION_VAL(5, 5, 0)
 
+#include <stdint.h>
 #include <Arduino.h>
 #include <driver/gpio.h>
 #include <esp_adc/adc_continuous.h>
@@ -59,15 +59,13 @@ WLEDAdcManager();
   ContinuousCtx*    _ctx;        // nullptr when continuous mode is idle
 };
 
-#endif // ARDUINO_ARCH_ESP32
-
 // override of native Arduino functions for compatibility with external usermods
-#if defined(ARDUINO_ARCH_ESP32)
+
 #undef analogRead
 #define analogRead(pin) WLEDAdcManager::instance().analogRead(pin)
 #undef analogReadMilliVolts
 #define analogReadMilliVolts(pin) WLEDAdcManager::instance().analogReadMilliVolts(pin)
-#else
 // ESP8266: do not override analogRead
 // we could add analogReadMilliVolts() which would just return (int)(analogRead(pin) / 1023.0f);
-#endif
+#endif // ESP_IDF_VERSION >= ESP_IDF_VERSION_VAL(5, 5, 0)
+#endif // ARDUINO_ARCH_ESP32

@@ -21,15 +21,13 @@ Note: C6 chip revision 0 and 1 have a hardware bug and the effective ADC resolut
  - there is an edge-case issue: when continuous sampling is running, several analog pins are configured and the pin-info page is open it can lead to crashes (some issue with semaphore)
  */
 
-#include "wled.h"
+#ifdef ARDUINO_ARCH_ESP32
+#if ESP_IDF_VERSION >= ESP_IDF_VERSION_VAL(5, 5, 0)
 
+#include "wled.h"
 // prevent macro recursion of arduino overrides
 #undef analogRead
-#if defined(ARDUINO_ARCH_ESP32)
 #undef analogReadMilliVolts
-#endif
-
-#ifdef ARDUINO_ARCH_ESP32
 
 #define ADCMANAGER_DMA_BLOCKSIZE 128 // DMA buffer block size, IDF driver uses 5 blocks under the hood, there is an ISR call each time a block finishes so dont make it too small
 #define ADCMANAGER_READBUFFERSAMPLES 128 // number of samples to read per chunk from the ADC buffer (stack buffer), do not set higher than 128 or stack overflow may occur
@@ -353,4 +351,5 @@ int WLEDAdcManager::analogReadMilliVolts(uint8_t pin) {
   int mv = 0;
   return (adc_cali_raw_to_voltage(_cali, raw, &mv) == ESP_OK) ? mv : (raw * 3300) / 4095;
 }
+#endif // ESP_IDF_VERSION >= ESP_IDF_VERSION_VAL(5, 5, 0)
 #endif // ARDUINO_ARCH_ESP32
