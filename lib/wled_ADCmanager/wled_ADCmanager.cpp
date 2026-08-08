@@ -33,24 +33,9 @@ Note: C6 chip revision 0 and 1 have a hardware bug and the effective ADC resolut
 
 #define ADCMANAGER_DMA_BLOCKSIZE 128 // DMA buffer block size, IDF driver uses 5 blocks under the hood, there is an ISR call each time a block finishes so dont make it too small
 #define ADCMANAGER_READBUFFERSAMPLES 128 // number of samples to read per chunk from the ADC buffer (stack buffer), do not set higher than 128 or stack overflow may occur
+#define ADCMANAGER_LOCK_TIMEOUT_MS 10 // timeout for mutex lock, this should be as short as possible but still allow for readSamples() to complete before doing analogRead(), may need tweaking
 
 #include <string.h>
-
-static bool _isADC1(uint8_t pin, int8_t ch) {
-#if defined(CONFIG_IDF_TARGET_ESP32)
-  (void)ch; return (pin >= 32 && pin <= 39);
-#elif defined(CONFIG_IDF_TARGET_ESP32S2)
-  return (ch >= 0 && ch <= 9);
-#elif defined(CONFIG_IDF_TARGET_ESP32S3)
-  return (ch >= 0 && ch <= 9);
-#elif defined(CONFIG_IDF_TARGET_ESP32C3)
-  return (ch >= 0 && ch <= 4);
-#elif defined(CONFIG_IDF_TARGET_ESP32C6)
-  (void)ch; return (pin <= 5);
-#else
-  (void)pin; (void)ch; return true;
-#endif
-}
 
 struct WLEDAdcManager::ContinuousCtx {
   uint8_t        pin;
@@ -65,10 +50,11 @@ struct WLEDAdcManager::ContinuousCtx {
 
 bool WLEDAdcManager::_pinToChannel(uint8_t pin, adc_channel_t* ch) {
   int8_t c = digitalPinToAnalogChannel(pin);
-  if (c < 0 || !_isADC1(pin, c)) return false;
+  if (c < 0 || c >= SOC_ADC_CHANNEL_NUM(0)) return false; // check if channel is withing ADC1 range (SOC_ADC_CHANNEL_NUM(0) is the number of channels on ADC1)
   *ch = (adc_channel_t)c;
   return true;
 }
+
 
 WLEDAdcManager& WLEDAdcManager::instance() {
   static WLEDAdcManager inst;
@@ -92,7 +78,7 @@ WLEDAdcManager::~WLEDAdcManager() {
 
 // initilizes the manager and the hardware and starts sampling
 bool WLEDAdcManager::begin(uint8_t pin, uint32_t sampleRateHz, uint16_t samplesPerFrame) {
-  xSemaphoreTake(_mutex, portMAX_DELAY);
+  if (!_mutex || xSemaphoreTake(_mutex, pdMS_TO_TICKS(ADCMANAGER_LOCK_TIMEOUT_MS)) != pdTRUE) return false;
 
   // tear down any previous session completely
   if (_ctx) {
@@ -140,7 +126,7 @@ bool WLEDAdcManager::begin(uint8_t pin, uint32_t sampleRateHz, uint16_t samplesP
 
 // stop sampling and deinitialize the AdcManager continuous mode (use this if you want to sample a different pin or do not need to sample anymore)
 void WLEDAdcManager::end() {
-  xSemaphoreTake(_mutex, portMAX_DELAY);
+  if (!_mutex || xSemaphoreTake(_mutex, pdMS_TO_TICKS(ADCMANAGER_LOCK_TIMEOUT_MS)) != pdTRUE) return;
   if (_ctx) {
     _endContinuousADC();
     if (_ctx->cache) { free(_ctx->cache); _ctx->cache = nullptr; }
@@ -176,7 +162,7 @@ bool WLEDAdcManager::_initContinuousADC() {
   if (_ctx->handle) return true; // already initialized
   size_t frameBytes = (size_t)_ctx->samplesPerFrame * sizeof(adc_digi_output_data_t);
   adc_continuous_handle_cfg_t hcfg = {
-    .max_store_buf_size = frameBytes * 1, // hold two frames in buffer, caller needs to drain it fast enough to avoid data loss
+    .max_store_buf_size = frameBytes, // hold single frame in buffer, caller needs to drain it fast enough to avoid data loss (can increase to avoid data loss but still need to drain fast enough at one point)
     .conv_frame_size    = ADCMANAGER_DMA_BLOCKSIZE, // use fixed DMA buffer size of 256 bytes (ADC driver creates 5 DMA descriptors with one buffer each, at 20kHz this means an interrupt every 1.4ms
     .flags = { .flush_pool = false }, // do not flush the store buffer on overrun but discard new samples (true means discard oldest, is much slower and can cause issues, do not set true)
   };
@@ -220,7 +206,6 @@ void WLEDAdcManager::_endContinuousADC() {
 void WLEDAdcManager::_drainToCache() {
   if (!_ctx || !_ctx->handle || !_ctx->cache) return; // safety check
   adc_digi_output_data_t temp[32]; // size of data packets to request, 32 samples at 22kHz is 1.5ms, leftover samples are lost
-  _ctx->cacheCount = 0;
   while (_ctx->cacheCount < _ctx->cacheSize) {
     uint32_t n = 0;
     // read what is available in the buffer in chunks (no timeout means do not wait for any additional samples)
@@ -237,9 +222,14 @@ void WLEDAdcManager::_drainToCache() {
 // it waits up to timeoutMs per fetch of tmpBfrSize (128) samples, if not enough samples are available, it returns what it got
 // to poll the buffer and "just give me what you got" use a timeout of 0. On read error, it restarts the driver so no action needed by caller.
 uint16_t WLEDAdcManager::readSamples(int16_t* buffer, uint16_t numSamples, uint32_t timeoutMs) {
-  if (!_ctx || !buffer || !numSamples) return 0;
+  if (!buffer || !numSamples) return 0;
   // note: DMA uses SOC_ADC_DIGI_MAX_BITWIDTH which is 12bits on all checked units TODO: should make sure and handle this to future proof it
-  xSemaphoreTake(_mutex, portMAX_DELAY);
+  if (!_mutex || xSemaphoreTake(_mutex, pdMS_TO_TICKS(ADCMANAGER_LOCK_TIMEOUT_MS)) != pdTRUE) return 0;
+  // check if continuous mode is running AFTER we take the semaphore, otherwise we could have a race with analogRead()
+  if (!_ctx || !_ctx->handle) {
+    xSemaphoreGive(_mutex);
+    return 0;
+  }
 
   uint16_t out = 0; // number of samples written to the buffer
   // check if any data was cached during an intermediate analogRead()
@@ -324,7 +314,7 @@ int WLEDAdcManager::analogRead(uint8_t pin) {
   adc_channel_t ch;
   if (!_pinToChannel(pin, &ch)) return 0;
 
-  xSemaphoreTake(_mutex, portMAX_DELAY);
+  if (!_mutex || xSemaphoreTake(_mutex, pdMS_TO_TICKS(ADCMANAGER_LOCK_TIMEOUT_MS)) != pdTRUE) return 0;
   if (_ctx) { // continuous sampling is used
     _drainToCache();
     _endContinuousADC();  // stop sampling and free the ADC hardware if in use
