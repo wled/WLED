@@ -758,7 +758,7 @@ WLED_GLOBAL unsigned long ntpLastSyncTime _INIT(NTP_NEVER);
 WLED_GLOBAL unsigned long ntpPacketSentTime _INIT(NTP_NEVER);
 WLED_GLOBAL IPAddress ntpServerIP;
 WLED_GLOBAL uint16_t ntpLocalPort _INIT(2390);
-WLED_GLOBAL uint16_t rolloverMillis _INIT(0);
+// rolloverMillis is private to wled.cpp - use getRolloverMillis() instead.
 WLED_GLOBAL float longitude _INIT(WLED_LON);
 WLED_GLOBAL float latitude _INIT(WLED_LAT);
 WLED_GLOBAL time_t sunrise _INIT(0);

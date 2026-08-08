@@ -886,7 +886,7 @@ void serializeInfo(JsonObject root)
   // Total PSRAM size in MB, round up to correct for allocator overhead
   root[F("psrSz")] = (ESP.getPsramSize() + (1024U * 1024U - 1)) / (1024U * 1024U); 
   #endif
-  root[F("uptime")] = millis()/1000 + rolloverMillis*4294967;
+  root[F("uptime")] = millis()/1000 + getRolloverMillis()*4294967;
 
   char time[32];
   getTimeString(time);
