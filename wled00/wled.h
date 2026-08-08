@@ -592,10 +592,9 @@ WLED_GLOBAL uint8_t paletteBlend _INIT(0);        // determines blending and wra
 
 // transitions
 WLED_GLOBAL uint8_t       blendingStyle            _INIT(0);      // effect blending/transitionig style
-WLED_GLOBAL bool          transitionActive         _INIT(false);
+// transitionActive/transitionStartTime are private to led.cpp - see there.
 WLED_GLOBAL uint16_t      transitionDelay          _INIT(750);    // global transition duration
 WLED_GLOBAL uint16_t      transitionDelayDefault   _INIT(750);    // default transition time (stored in cfg.json)
-WLED_GLOBAL unsigned long transitionStartTime;
 WLED_GLOBAL bool          jsonTransitionOnce       _INIT(false);  // flag to override transitionDelay (playlist, JSON API: "live" & "seg":{"i"} & "tt")
 WLED_GLOBAL uint8_t       randomPaletteChangeTime  _INIT(5);      // amount of time [s] between random palette changes (min: 1s, max: 255s)
 WLED_GLOBAL bool          useHarmonicRandomPalette _INIT(true);   // use *harmonic* random palette generation (nicer looking) or truly random
@@ -606,9 +605,7 @@ WLED_GLOBAL bool nightlightActiveOld _INIT(false);
 WLED_GLOBAL uint32_t nightlightDelayMs _INIT(10);
 WLED_GLOBAL byte nightlightDelayMinsDefault _INIT(nightlightDelayMins);
 WLED_GLOBAL unsigned long nightlightStartTime;
-WLED_GLOBAL unsigned long lastNlUpdate;
-WLED_GLOBAL byte briNlT _INIT(0);                     // current nightlight brightness
-WLED_GLOBAL byte colNlT[] _INIT_N(({ 0, 0, 0, 0 }));        // current nightlight color
+// lastNlUpdate/briNlT/colNlT are private to led.cpp - see there.
 
 // brightness
 WLED_GLOBAL unsigned long lastOnTime _INIT(0);
