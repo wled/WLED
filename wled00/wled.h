@@ -693,13 +693,9 @@ WLED_GLOBAL bool showWelcomePage _INIT(false);
 #ifndef WLED_DISABLE_HUESYNC
 WLED_GLOBAL byte hueError _INIT(HUE_ERROR_INACTIVE);
 // WLED_GLOBAL uint16_t hueFailCount _INIT(0);
-WLED_GLOBAL float hueXLast _INIT(0), hueYLast _INIT(0);
-WLED_GLOBAL uint16_t hueHueLast _INIT(0), hueCtLast _INIT(0);
-WLED_GLOBAL byte hueSatLast _INIT(0), hueBriLast _INIT(0);
-WLED_GLOBAL unsigned long hueLastRequestSent _INIT(0);
-WLED_GLOBAL bool hueAuthRequired _INIT(false);
-WLED_GLOBAL bool hueReceived _INIT(false);
-WLED_GLOBAL bool hueStoreAllowed _INIT(false), hueNewKey _INIT(false);
+// hueXLast/hueYLast/hueHueLast/hueCtLast/hueSatLast/hueBriLast/hueLastRequestSent/
+// hueAuthRequired/hueReceived/hueNewKey/hueClient are private to hue.cpp - see there.
+WLED_GLOBAL bool hueStoreAllowed _INIT(false);
 #endif
 
 // countdown
@@ -793,9 +789,6 @@ WLED_GLOBAL bool ledStatusState _INIT(false); // the current LED state
 WLED_GLOBAL AsyncWebServer server _INIT_N(((80, {0, WLED_REQUEST_MAX_QUEUE, WLED_REQUEST_MIN_HEAP, WLED_REQUEST_HEAP_USAGE})));
 #ifdef WLED_ENABLE_WEBSOCKETS
 WLED_GLOBAL AsyncWebSocket ws _INIT_N((("/ws")));
-#endif
-#ifndef WLED_DISABLE_HUESYNC
-WLED_GLOBAL AsyncClient     *hueClient _INIT(NULL);
 #endif
 WLED_GLOBAL AsyncWebHandler *editHandler _INIT(nullptr);
 
