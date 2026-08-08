@@ -150,7 +150,7 @@ void notify(byte callMode, bool followUp)
   //next value to be added has index: udpOut[offs + 0]
 
 #ifndef WLED_DISABLE_ESPNOW
-  if (enableESPNow && useESPNowSync && statusESPNow == ESP_NOW_STATE_ON) {
+  if (enableESPNow && useESPNowSync && getStatusESPNow() == ESP_NOW_STATE_ON) {
     partial_packet_t buffer = {'W', 0, 1, {0}};
     // send global data
     DEBUG_PRINTLN(F("ESP-NOW sending first packet."));

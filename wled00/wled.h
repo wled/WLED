@@ -342,7 +342,7 @@ WLED_GLOBAL std::vector<WiFiConfig> multiWiFi;
 WLED_GLOBAL IPAddress dnsAddress _INIT_N(((  8,   8,  8,  8)));   // Google's DNS
 WLED_GLOBAL char cmDNS[33]       _INIT(MDNS_NAME);                // mDNS address (*.local, replaced by wledXXXXXX if default is used)
 WLED_GLOBAL char apSSID[33]      _INIT("");                       // AP off by default (unless setup)
-WLED_GLOBAL int8_t selectedWiFi  _INIT(0);
+// selectedWiFi is private to wled.cpp - use getSelectedWiFi() instead.
 WLED_GLOBAL byte apChannel       _INIT(6);                        // 2.4GHz WiFi AP channel (1-13)
 WLED_GLOBAL byte apHide          _INIT(0);                        // hidden AP SSID
 WLED_GLOBAL byte apBehavior      _INIT(AP_BEHAVIOR_BOOT_NO_CONN); // access point opens when no connection after boot by default
@@ -512,12 +512,12 @@ WLED_GLOBAL bool hueApplyColor _INIT(true);
 #endif
 
 WLED_GLOBAL uint16_t serialBaud _INIT(1152); // serial baud rate, multiply by 100
-WLED_GLOBAL bool     serialCanRX _INIT(false);
+// serialCanRX is private to wled.cpp - use isSerialCanRX() instead.
 WLED_GLOBAL bool     serialCanTX _INIT(false);
 
 #ifndef WLED_DISABLE_ESPNOW
 WLED_GLOBAL bool enableESPNow        _INIT(false);  // global on/off for ESP-NOW
-WLED_GLOBAL byte statusESPNow        _INIT(ESP_NOW_STATE_UNINIT); // state of ESP-NOW stack (0 uninitialised, 1 initialised, 2 error)
+// statusESPNow is private to wled.cpp - use getStatusESPNow() instead.
 WLED_GLOBAL bool useESPNowSync       _INIT(false);  // use ESP-NOW wireless technology for sync
 //WLED_GLOBAL char linked_remote[13]   _INIT("");     // MAC of ESP-NOW remote (Wiz Mote)
 WLED_GLOBAL std::vector<std::array<char, 13>> linked_remotes; // MAC of ESP-NOW remotes (Wiz Mote)
@@ -603,7 +603,7 @@ WLED_GLOBAL bool          useHarmonicRandomPalette _INIT(true);   // use *harmon
 // nightlight
 WLED_GLOBAL bool nightlightActive _INIT(false);
 WLED_GLOBAL bool nightlightActiveOld _INIT(false);
-WLED_GLOBAL uint32_t nightlightDelayMs _INIT(10);
+// nightlightDelayMs is private to led.cpp - use getNightlightDelayMs() instead.
 WLED_GLOBAL byte nightlightDelayMinsDefault _INIT(nightlightDelayMins);
 WLED_GLOBAL unsigned long nightlightStartTime;
 WLED_GLOBAL unsigned long lastNlUpdate;
@@ -691,7 +691,7 @@ WLED_GLOBAL bool showWelcomePage _INIT(false);
 
 // hue
 #ifndef WLED_DISABLE_HUESYNC
-WLED_GLOBAL byte hueError _INIT(HUE_ERROR_INACTIVE);
+// hueError is private to hue.cpp - use getHueError() instead.
 // WLED_GLOBAL uint16_t hueFailCount _INIT(0);
 WLED_GLOBAL float hueXLast _INIT(0), hueYLast _INIT(0);
 WLED_GLOBAL uint16_t hueHueLast _INIT(0), hueCtLast _INIT(0);
@@ -712,7 +712,7 @@ WLED_GLOBAL bool doAdvancePlaylist _INIT(false);
 
 //improv
 WLED_GLOBAL byte improvActive _INIT(0); //0: no improv packet received, 1: improv active, 2: provisioning
-WLED_GLOBAL byte improvError _INIT(0);
+// improvError is private to improv.cpp - use getImprovError() instead.
 
 //playlists
 WLED_GLOBAL int16_t currentPlaylist _INIT(-1);
@@ -757,7 +757,7 @@ WLED_GLOBAL time_t localTime _INIT(0);
 WLED_GLOBAL unsigned long ntpLastSyncTime _INIT(NTP_NEVER);
 WLED_GLOBAL unsigned long ntpPacketSentTime _INIT(NTP_NEVER);
 WLED_GLOBAL IPAddress ntpServerIP;
-WLED_GLOBAL uint16_t ntpLocalPort _INIT(2390);
+// ntpLocalPort is private to wled.cpp - use getNtpLocalPort() instead.
 WLED_GLOBAL uint16_t rolloverMillis _INIT(0);
 WLED_GLOBAL float longitude _INIT(WLED_LON);
 WLED_GLOBAL float latitude _INIT(WLED_LAT);
@@ -769,7 +769,7 @@ WLED_GLOBAL Toki toki _INIT(Toki());
 WLED_GLOBAL size_t fsBytesUsed _INIT(0);
 WLED_GLOBAL size_t fsBytesTotal _INIT(0);
 WLED_GLOBAL unsigned long presetsModifiedTime _INIT(0L);
-WLED_GLOBAL bool doCloseFile _INIT(false);
+// doCloseFile is private to file.cpp - use isDoCloseFile() instead.
 
 // presets
 WLED_GLOBAL byte currentPreset _INIT(0);
@@ -811,15 +811,11 @@ WLED_GLOBAL WS2812FX   strip         _INIT(WS2812FX());
 WLED_GLOBAL std::vector<BusConfig> busConfigs;    //temporary, to remember values from network callback until after
 WLED_GLOBAL bool       doInitBusses  _INIT(false);
 WLED_GLOBAL int8_t     loadLedmap    _INIT(-1);
-WLED_GLOBAL uint8_t    currentLedmap _INIT(0);
+// currentLedmap is private to FX_fcn.cpp - use getCurrentLedmap() instead.
 #ifndef ESP8266
 WLED_GLOBAL char  *ledmapNames[WLED_MAX_LEDMAPS-1] _INIT_N(({nullptr}));
 #endif
-#if WLED_MAX_LEDMAPS>16
-WLED_GLOBAL uint32_t ledMaps _INIT(0); // bitfield representation of available ledmaps
-#else
-WLED_GLOBAL uint16_t ledMaps _INIT(0); // bitfield representation of available ledmaps
-#endif
+// ledMaps is private to util.cpp - use getLedMaps() instead.
 
 // global I2C SDA pin (used for usermods)
 #ifndef I2CSDAPIN

@@ -658,7 +658,7 @@ void serializeState(JsonObject root, bool forPreset, bool includeBri, bool segme
 
     root["ps"] = (currentPreset > 0) ? currentPreset : -1;
     root[F("pl")] = currentPlaylist;
-    root[F("ledmap")] = currentLedmap;
+    root[F("ledmap")] = getCurrentLedmap();
 
     UsermodManager::addToJsonState(root);
 
@@ -667,7 +667,7 @@ void serializeState(JsonObject root, bool forPreset, bool includeBri, bool segme
     nl["dur"] = nightlightDelayMins;
     nl["mode"] = nightlightMode;
     nl[F("tbri")] = nightlightTargetBri;
-    nl[F("rem")] = nightlightActive ? (int)(nightlightDelayMs - (millis() - nightlightStartTime)) / 1000 : -1; // seconds remaining
+    nl[F("rem")] = nightlightActive ? (int)(getNightlightDelayMs() - (millis() - nightlightStartTime)) / 1000 : -1; // seconds remaining
 
     JsonObject udpn = root.createNestedObject("udpn");
     udpn[F("send")] = sendNotificationsRT;
@@ -809,7 +809,7 @@ void serializeInfo(JsonObject root)
 
   JsonArray ledmaps = root.createNestedArray(F("maps"));
   for (size_t i=0; i<WLED_MAX_LEDMAPS; i++) {
-    if ((ledMaps>>i) & 0x00000001U) {
+    if ((getLedMaps()>>i) & 0x00000001U) {
       JsonObject ledmaps0 = ledmaps.createNestedObject();
       ledmaps0["id"] = i;
       #ifndef ESP8266

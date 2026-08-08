@@ -571,7 +571,7 @@ void getSettingsJS(byte subPage, Print& settingsScript)
     printSetFormCheckbox(settingsScript,PSTR("HB"),hueApplyBri);
     printSetFormCheckbox(settingsScript,PSTR("HC"),hueApplyColor);
     char hueErrorString[25];
-    switch (hueError)
+    switch (getHueError())
     {
       case HUE_ERROR_INACTIVE     : strcpy_P(hueErrorString,PSTR("Inactive"));                break;
       case HUE_ERROR_ACTIVE       : strcpy_P(hueErrorString,PSTR("Active"));                  break;
@@ -580,7 +580,7 @@ void getSettingsJS(byte subPage, Print& settingsScript)
       case HUE_ERROR_PUSHLINK     : strcpy_P(hueErrorString,PSTR("Link button not pressed")); break;
       case HUE_ERROR_JSON_PARSING : strcpy_P(hueErrorString,PSTR("JSON parsing error"));      break;
       case HUE_ERROR_TIMEOUT      : strcpy_P(hueErrorString,PSTR("Timeout"));                 break;
-      default: sprintf_P(hueErrorString,PSTR("Bridge Error %i"),hueError);
+      default: sprintf_P(hueErrorString,PSTR("Bridge Error %i"),getHueError());
     }
 
     printSetClassElementHTML(settingsScript,PSTR("sip"),0,hueErrorString);

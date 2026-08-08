@@ -4,6 +4,13 @@
  * LED methods
  */
 
+// Runtime state private to this file - previously WLED_GLOBAL, a leftover from
+// when all state lived in one big extern block regardless of who used it.
+// json.cpp only ever reads it for status reporting, so it gets a by-value
+// getter rather than a mutable reference.
+static uint32_t nightlightDelayMs = 10;
+uint32_t getNightlightDelayMs() { return nightlightDelayMs; }
+
  // applies chosen setment properties to legacy values
 void setValuesFromSegment(uint8_t s) {
   const Segment& seg = strip.getSegment(s);

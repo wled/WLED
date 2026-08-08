@@ -559,7 +559,7 @@ void handleSettingsSet(AsyncWebServerRequest *request, byte subPage)
     utcOffsetSecs = request->arg(F("UO")).toInt();
 
     //start ntp if not already connected
-    if (ntpEnabled && WLED_CONNECTED && !ntpConnected) ntpConnected = ntpUdp.begin(ntpLocalPort);
+    if (ntpEnabled && WLED_CONNECTED && !ntpConnected) ntpConnected = ntpUdp.begin(getNtpLocalPort());
     ntpLastSyncTime = NTP_NEVER; // force new NTP query
 
     longitude = request->arg(F("LN")).toFloat();

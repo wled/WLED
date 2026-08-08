@@ -122,6 +122,7 @@ bool writeObjectToFile(const char* file, const char* key, const JsonDocument* co
 bool readObjectFromFileUsingId(const char* file, uint16_t id, JsonDocument* dest, const JsonDocument* filter = nullptr);
 bool readObjectFromFile(const char* file, const char* key, JsonDocument* dest, const JsonDocument* filter = nullptr);
 void updateFSInfo();
+bool isDoCloseFile();
 void closeFile();
 inline bool writeObjectToFileUsingId(const String &file, uint16_t id, const JsonDocument* content) { return writeObjectToFileUsingId(file.c_str(), id, content); };
 inline bool writeObjectToFile(const String &file, const char* key, const JsonDocument* content) { return writeObjectToFile(file.c_str(), key, content); };
@@ -134,6 +135,9 @@ bool checkBackupExists(const char* filename);
 bool validateJsonFile(const char* filename);
 void dumpFilesToSerial();
 
+//FX_fcn.cpp
+uint8_t getCurrentLedmap();
+
 //hue.cpp
 void handleHue();
 void reconnectHue();
@@ -141,6 +145,9 @@ void onHueError(void* arg, AsyncClient* client, int8_t error);
 void onHueConnect(void* arg, AsyncClient* client);
 void sendHuePoll();
 void onHueData(void* arg, AsyncClient* client, void *data, size_t len);
+#ifndef WLED_DISABLE_HUESYNC
+byte getHueError();
+#endif
 
 //image_loader.cpp
 class Segment;
@@ -169,6 +176,7 @@ void sendImprovInfoResponse();
 void startImprovWifiScan();
 void handleImprovWifiScan();
 void sendImprovIPRPCResult(ImprovRPCType type);
+byte getImprovError();
 
 //ir.cpp
 void initIR();
@@ -205,6 +213,7 @@ void updateInterfaces(uint8_t callMode);
 void handleTransitions();
 void handleNightlight();
 byte scaledBri(byte in);
+uint32_t getNightlightDelayMs();
 
 #ifdef WLED_ENABLE_LOXONE
 //lx_parser.cpp
@@ -293,6 +302,14 @@ void handleRemote();
 bool isAsterisksOnly(const char* str, byte maxLen);
 void handleSettingsSet(AsyncWebServerRequest *request, byte subPage);
 bool handleSet(AsyncWebServerRequest *request, const String& req, bool apply=true);
+
+//wled.cpp
+int8_t   getSelectedWiFi();
+bool     isSerialCanRX();
+uint16_t getNtpLocalPort();
+#ifndef WLED_DISABLE_ESPNOW
+byte getStatusESPNow();
+#endif
 
 //udp.cpp
 void notify(byte callMode, bool followUp=false);
@@ -438,6 +455,11 @@ void userLoop();
 #define inoise8 perlin8   // fastled legacy alias
 #define inoise16 perlin16 // fastled legacy alias
 #define hex2int(a) (((a)>='0' && (a)<='9') ? (a)-'0' : ((a)>='A' && (a)<='F') ? (a)-'A'+10 : ((a)>='a' && (a)<='f') ? (a)-'a'+10 : 0)
+#if WLED_MAX_LEDMAPS>16
+uint32_t getLedMaps();
+#else
+uint16_t getLedMaps();
+#endif
 [[gnu::pure]] int getNumVal(const String &req, uint16_t pos);
 void parseNumber(const char* str, byte &val, byte minv=0, byte maxv=255);
 bool getVal(JsonVariant elem, byte &val, byte vmin=0, byte vmax=255); // getVal supports inc/decrementing and random ("X~Y(r|[w]~[-][Z])" form)

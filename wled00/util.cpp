@@ -684,6 +684,19 @@ um_data_t* simulateSound(uint8_t simulationId)
   return um_data;
 }
 
+// Runtime state private to this file - previously WLED_GLOBAL, a leftover from
+// when all state lived in one big extern block regardless of who used it.
+// json.cpp only ever reads it for status reporting, so it gets a by-value
+// getter rather than a mutable reference. Type matches the original
+// WLED_MAX_LEDMAPS-dependent conditional.
+#if WLED_MAX_LEDMAPS>16
+static uint32_t ledMaps = 0; // bitfield representation of available ledmaps
+uint32_t getLedMaps() { return ledMaps; }
+#else
+static uint16_t ledMaps = 0; // bitfield representation of available ledmaps
+uint16_t getLedMaps() { return ledMaps; }
+#endif
+
 static const char s_ledmap_tmpl[] PROGMEM = "ledmap%d.json";
 // enumerate all ledmapX.json files on FS and extract ledmap names if existing
 void enumerateLedmaps() {

@@ -12,6 +12,13 @@
 
 #define FS_BUFSIZE 256
 
+// Runtime state private to this file - previously WLED_GLOBAL, a leftover from
+// when all state lived in one big extern block regardless of who used it.
+// wled.cpp only ever reads it (to decide whether to call closeFile() from the
+// main loop), so it gets a by-value getter rather than a mutable reference.
+static bool doCloseFile = false;
+bool isDoCloseFile() { return doCloseFile; }
+
 /*
  * Structural requirements for files managed by writeObjectToFile() and readObjectFromFile() utilities:
  * 1. File must be a string representation of a valid JSON object
