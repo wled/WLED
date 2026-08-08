@@ -611,7 +611,7 @@ WLED_GLOBAL byte briNlT _INIT(0);                     // current nightlight brig
 WLED_GLOBAL byte colNlT[] _INIT_N(({ 0, 0, 0, 0 }));        // current nightlight color
 
 // brightness
-WLED_GLOBAL unsigned long lastOnTime _INIT(0);
+// lastOnTime is private to button.cpp - see there.
 WLED_GLOBAL bool offMode             _INIT(!turnOnAtBoot);
 WLED_GLOBAL byte briS                _INIT(128);           // default brightness
 WLED_GLOBAL byte bri                 _INIT(briS);          // global brightness (set)
