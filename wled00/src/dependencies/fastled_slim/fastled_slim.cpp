@@ -99,15 +99,17 @@ __attribute__((optimize("O2"))) void hsv2rgb_rainbow(uint16_t h, uint8_t s, uint
     }
   }
   if(isRGBW) {
-    rgbdata[0] = b;
+    rgbdata[0] = b; // CRGBW has color order [b,g,r,w]
     rgbdata[1] = g;
     rgbdata[2] = r;
-    //rgbdata[3] = 0; // white
+    rgbdata[3] = 0; // HSV does not contain white, so set it to black to not leave garbage data
   } else {
-    rgbdata[0] = r;
+    rgbdata[0] = r; // CRGB has color order [r,g,b]
     rgbdata[1] = g;
     rgbdata[2] = b;
   }
+  
+
 }
 
 

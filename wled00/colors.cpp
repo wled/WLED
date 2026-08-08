@@ -15,7 +15,7 @@
 
 /*
  * color blend function
- * the calculation for each color is: result = (C1*(256-blend)+C2+C2*blend) / 256
+ * the calculation for each color is: result = (C1*(256-blend)+C2*blend) / 256
  */
 uint32_t WLED_O2_ATTR IRAM_ATTR color_blend(uint32_t color1, uint32_t color2, uint8_t blend) {
   // min / max blend checking is omitted: calls with 0 or 255 are rare, checking lowers overall performance
@@ -144,7 +144,7 @@ uint32_t ColorFromPalette(const CRGBPalette16& pal, unsigned index, uint8_t brig
   return RGBW32(red1,green1,blue1,0);
 }
 
-void setRandomColor(byte* rgb)
+void setRandomColor(CRGBW &rgb)
 {
   lastRandomIndex = get_random_wheel_index(lastRandomIndex);
   colorHStoRGB(lastRandomIndex*256,255,rgb);
@@ -283,10 +283,10 @@ void loadCustomPalettes() {
             size_t palSize = MIN(pal.size(), 36);
             palSize -= palSize % 2; // make sure size is multiple of 2
             for (size_t i=0, j=0; i<palSize && pal[i].as<int>()<256; i+=2) {
-              uint8_t rgbw[] = {0,0,0,0};
+              CRGBW rgbw = 0;
               if (colorFromHexString(rgbw, pal[i+1].as<const char *>())) { // will catch non-string entires
                 tcp[ j ] = (uint8_t) pal[ i ].as<int>(); // index
-                for (size_t c=0; c<3; c++) tcp[j+1+c] = rgbw[c]; // only use RGB component
+                for (size_t c=0; c<3; c++) tcp[j+1+c] = rgbw.raw[2-c]; // only use RGB component (raw is B,G,R,W i.e. [0] = blue
                 DEBUGFX_PRINTF_P(PSTR("%2u -> %3d [%3d,%3d,%3d]\n"), i, int(tcp[j]), int(tcp[j+1]), int(tcp[j+2]), int(tcp[j+3]));
                 j += 4;
               }
@@ -321,7 +321,7 @@ size_t removeUsermodPalettes(const char *name) {
   return before - usermodPalettes.size();
 }
 
-// convert HSV (16bit hue) to RGB (32bit with white = 0), optimized for speed
+// convert HSV (16bit hue) to RGB (32bit, white stays unmodified), optimized for speed
 WLED_O2_ATTR void hsv2rgb_spectrum(const CHSV32& hsv, CRGBW& rgb) {
   unsigned p, q, t;
   unsigned region = ((unsigned)hsv.h * 6) >> 16; // h / (65536 / 6)
@@ -412,17 +412,15 @@ CHSV rgb2hsv(const CRGB c) {  // CRGB to CHSV
   return CHSV(hsv);
 }
 
-void colorHStoRGB(uint16_t hue, byte sat, byte* rgb) { //hue, sat to rgb
-  CRGBW crgb;
-  hsv2rgb_spectrum(CHSV32(hue, sat, 255), crgb);
-  rgb[0] = crgb.r;
-  rgb[1] = crgb.g;
-  rgb[2] = crgb.b;
+void colorHStoRGB(uint16_t hue, byte sat, CRGBW &rgb) { //hue, sat to rgb
+  rgb = 0; // init to black, white is unused so make sure it does not contain garbage
+  hsv2rgb_spectrum(CHSV32(hue, sat, 255), rgb);
 }
 
 //get RGB values from color temperature in K (https://tannerhelland.com/2012/09/18/convert-temperature-rgb-algorithm-code.html)
-void colorKtoRGB(uint16_t kelvin, byte* rgb) //white spectrum to rgb, calc
+void colorKtoRGB(uint16_t kelvin, CRGBW &rgb) //white spectrum to rgb, calc
 {
+  rgb = 0; // init to black, white is unused so make sure it does not contain garbage
   int r = 0, g = 0, b = 0;
   float temp = kelvin / 100.0f;
   if (temp <= 66.0f) {
@@ -439,36 +437,36 @@ void colorKtoRGB(uint16_t kelvin, byte* rgb) //white spectrum to rgb, calc
     b = 255;
   }
   //g += 12; //mod by Aircoookie, a bit less accurate but visibly less pinkish
-  rgb[0] = (uint8_t) constrain(r, 0, 255);
-  rgb[1] = (uint8_t) constrain(g, 0, 255);
-  rgb[2] = (uint8_t) constrain(b, 0, 255);
-  rgb[3] = 0;
+  rgb.r = (uint8_t) constrain(r, 0, 255);
+  rgb.g = (uint8_t) constrain(g, 0, 255);
+  rgb.b = (uint8_t) constrain(b, 0, 255);
 }
 
-void colorCTtoRGB(uint16_t mired, byte* rgb) //white spectrum to rgb, bins
+void colorCTtoRGB(uint16_t mired, CRGBW &rgb) //white spectrum to rgb, bins
 {
+  rgb = 0; // init to black, white is unused so make sure it does not contain garbage
   //this is only an approximation using WS2812B with gamma correction enabled
   if (mired > 475) {
-    rgb[0]=255;rgb[1]=199;rgb[2]=92;//500
+    rgb.r=255;rgb.g=199;rgb.b=92;//500
   } else if (mired > 425) {
-    rgb[0]=255;rgb[1]=213;rgb[2]=118;//450
+    rgb.r=255;rgb.g=213;rgb.b=118;//450
   } else if (mired > 375) {
-    rgb[0]=255;rgb[1]=216;rgb[2]=118;//400
+    rgb.r=255;rgb.g=216;rgb.b=118;//400
   } else if (mired > 325) {
-    rgb[0]=255;rgb[1]=234;rgb[2]=140;//350
+    rgb.r=255;rgb.g=234;rgb.b=140;//350
   } else if (mired > 275) {
-    rgb[0]=255;rgb[1]=243;rgb[2]=160;//300
+    rgb.r=255;rgb.g=243;rgb.b=160;//300
   } else if (mired > 225) {
-    rgb[0]=250;rgb[1]=255;rgb[2]=188;//250
+    rgb.r=250;rgb.g=255;rgb.b=188;//250
   } else if (mired > 175) {
-    rgb[0]=247;rgb[1]=255;rgb[2]=215;//200
+    rgb.r=247;rgb.g=255;rgb.b=215;//200
   } else {
-    rgb[0]=237;rgb[1]=255;rgb[2]=239;//150
+    rgb.r=237;rgb.g=255;rgb.b=239;//150
   }
 }
 
 #ifndef WLED_DISABLE_HUESYNC
-void colorXYtoRGB(float x, float y, byte* rgb) //coordinates to rgb (https://www.developers.meethue.com/documentation/color-conversions-rgb-xy)
+void colorXYtoRGB(float x, float y, CRGBW &rgb) //coordinates to rgb (https://www.developers.meethue.com/documentation/color-conversions-rgb-xy)
 {
   float z = 1.0f - x - y;
   float X = (1.0f / y) * x;
@@ -519,9 +517,10 @@ void colorXYtoRGB(float x, float y, byte* rgb) //coordinates to rgb (https://www
       b = 1.0f;
     }
   }
-  rgb[0] = byte(255.0f*r);
-  rgb[1] = byte(255.0f*g);
-  rgb[2] = byte(255.0f*b);
+  rgb = 0; // init to black, white is unused so make sure it does not contain garbage
+  rgb.r = byte(255.0f*r);
+  rgb.g = byte(255.0f*g);
+  rgb.b = byte(255.0f*b);
 }
 
 void colorRGBtoXY(const byte* rgb, float* xy) //rgb to coordinates (https://www.developers.meethue.com/documentation/color-conversions-rgb-xy)
@@ -535,7 +534,7 @@ void colorRGBtoXY(const byte* rgb, float* xy) //rgb to coordinates (https://www.
 #endif // WLED_DISABLE_HUESYNC
 
 //RRGGBB / WWRRGGBB order for hex
-void colorFromDecOrHexString(byte* rgb, const char* in)
+void colorFromDecOrHexString(CRGBW &rgb, const char* in)
 {
   if (in[0] == 0) return;
   char first = in[0];
@@ -548,30 +547,27 @@ void colorFromDecOrHexString(byte* rgb, const char* in)
   {
     c = strtoul(in, NULL, 10);
   }
-
-  rgb[0] = R(c);
-  rgb[1] = G(c);
-  rgb[2] = B(c);
-  rgb[3] = W(c);
+  rgb = c;
 }
 
 //contrary to the colorFromDecOrHexString() function, this uses the more standard RRGGBB / RRGGBBWW order
-bool colorFromHexString(byte* rgb, const char* in) {
+bool colorFromHexString(CRGBW &rgb, const char* in) {
   if (in == nullptr) return false;
   size_t inputSize = strnlen(in, 9);
   if (inputSize != 6 && inputSize != 8) return false;
 
   uint32_t c = strtoul(in, NULL, 16);
+  rgb = 0; // init to black in case white is unused
 
   if (inputSize == 6) {
-    rgb[0] = (c >> 16);
-    rgb[1] = (c >>  8);
-    rgb[2] =  c       ;
+    rgb.r = (c >> 16);
+    rgb.g = (c >>  8);
+    rgb.b =  c       ;
   } else {
-    rgb[0] = (c >> 24);
-    rgb[1] = (c >> 16);
-    rgb[2] = (c >>  8);
-    rgb[3] =  c       ;
+    rgb.r = (c >> 24);
+    rgb.g = (c >> 16);
+    rgb.b = (c >>  8);
+    rgb.w =  c       ;
   }
   return true;
 }
@@ -593,16 +589,15 @@ static inline float maxf(float v, float w)
 uint32_t colorBalanceFromKelvin(uint16_t kelvin, uint32_t rgb)
 {
   //remember so that slow colorKtoRGB() doesn't have to run for every setPixelColor()
-  static byte correctionRGB[4] = {0,0,0,0};
+  static CRGBW correctionRGB = 0;
   static uint16_t lastKelvin = 0;
   if (lastKelvin != kelvin) colorKtoRGB(kelvin, correctionRGB);  // convert Kelvin to RGB
   lastKelvin = kelvin;
-  byte rgbw[4];
-  rgbw[0] = ((uint16_t) correctionRGB[0] * R(rgb)) /255; // correct R
-  rgbw[1] = ((uint16_t) correctionRGB[1] * G(rgb)) /255; // correct G
-  rgbw[2] = ((uint16_t) correctionRGB[2] * B(rgb)) /255; // correct B
-  rgbw[3] =                                W(rgb);
-  return RGBW32(rgbw[0],rgbw[1],rgbw[2],rgbw[3]);
+  CRGBW rgbw = rgb; // initializes white channel
+  rgbw.r = ((uint16_t) correctionRGB.r * R(rgb)) /255; // correct R
+  rgbw.g = ((uint16_t) correctionRGB.g * G(rgb)) /255; // correct G
+  rgbw.b = ((uint16_t) correctionRGB.b * B(rgb)) /255; // correct B
+  return rgbw.color32;
 }
 
 //approximates a Kelvin color temperature from an RGB color.

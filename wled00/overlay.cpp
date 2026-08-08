@@ -81,11 +81,11 @@ static void _overlayAnalogCountdown()
     byte pixelCnt = perc*overlaySize;
     if (analogClock12pixel + pixelCnt > overlayMax)
     {
-      strip.setRange(analogClock12pixel, overlayMax, ((uint32_t)colSec[3] << 24)| ((uint32_t)colSec[0] << 16) | ((uint32_t)colSec[1] << 8) | colSec[2]);
-      strip.setRange(overlayMin, overlayMin +pixelCnt -(1+ overlayMax -analogClock12pixel), ((uint32_t)colSec[3] << 24)| ((uint32_t)colSec[0] << 16) | ((uint32_t)colSec[1] << 8) | colSec[2]);
+      strip.setRange(analogClock12pixel, overlayMax, colSec.color32);
+      strip.setRange(overlayMin, overlayMin +pixelCnt -(1+ overlayMax -analogClock12pixel), colSec.color32);
     } else
     {
-      strip.setRange(analogClock12pixel, analogClock12pixel + pixelCnt, ((uint32_t)colSec[3] << 24)| ((uint32_t)colSec[0] << 16) | ((uint32_t)colSec[1] << 8) | colSec[2]);
+      strip.setRange(analogClock12pixel, analogClock12pixel + pixelCnt, colSec.color32);
     }
   }
 }
