@@ -1,5 +1,5 @@
 /*
- * ADC manager to handle continous ADC sampling in parallel with single-shot pin reads
+ * ADC manager to handle continuous ADC sampling in parallel with single-shot pin reads
  * by @dedehai (2026) licensed under EUPL 1.2 license
  *
  * supports sampling a single pin in continuous ADC mode
@@ -69,6 +69,9 @@ WLEDAdcManager::WLEDAdcManager()
 WLEDAdcManager::~WLEDAdcManager() {
   end();
   if (_mutex) vSemaphoreDelete(_mutex);
+#if ADC_CALI_SCHEME_CURVE_FITTING_SUPPORTED
+  if (_cali) adc_cali_delete_scheme_curve_fitting(_cali);
+#endif
 #if ADC_CALI_SCHEME_LINE_FITTING_SUPPORTED
   if (_cali) adc_cali_delete_scheme_line_fitting(_cali);
 #endif
@@ -134,26 +137,6 @@ void WLEDAdcManager::end() {
   xSemaphoreGive(_mutex);
 }
 
-/*
-// buffer overflow callback, we need to watch this as permanent overflow causes stalls in combination with wifi -> it does not it was an IDF bug
-volatile bool _overflow = false;
-static bool IRAM_ATTR __attribute__((noinline)) _onPoolOvf(adc_continuous_handle_t handle,
-                                  const adc_continuous_evt_data_t* edata,
-                                  void* user_data) {
-  //auto* mgr = static_cast<WLEDAdcManager*>(user_data);
-  _overflow = true;   // one word write, ISR-safe, no locks, no copying
-  return false;            // nothing to wake
-}
-
-void WLEDAdcManager::checkADC() {
-  if (_running && _overflow) {
-    adc_continuous_stop(_handle);
-    adc_continuous_flush_pool(_handle); // flush remaining data, we want fresh samples
-    adc_continuous_start(_handle);
-    _overflow = false;
-  }
-}
-*/
 // initialize the hardware
 bool WLEDAdcManager::_initContinuousADC() {
   if (!_ctx) return false;       // begin() not called
@@ -166,7 +149,8 @@ bool WLEDAdcManager::_initContinuousADC() {
   };
   if (adc_continuous_new_handle(&hcfg, &_ctx->handle) != ESP_OK) return false;
 
-  // register buffer overflow callback (sets flag, main loop needs to call checkADC() to clear overflow - this is to prevent wifi stalling due to a now fixed IDF bug causing a lockup)
+  // register callback, can be used to trigger a task. not implemented here. Callback can also be used to set a flag for polling
+  // for example implementation see https://github.com/espressif/esp-idf/blob/v5.5/examples/peripherals/adc/continuous_read/main/continuous_read_main.c
   //adc_continuous_evt_cbs_t cbs = { .on_conv_done = nullptr, .on_pool_ovf = _onPoolOvf };
   //adc_continuous_register_event_callbacks(_handle, &cbs, this);
 

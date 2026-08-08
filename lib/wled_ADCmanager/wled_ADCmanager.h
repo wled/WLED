@@ -1,5 +1,5 @@
 /*
- * ADC manager to handle continous ADC sampling in parallel with single-shot pin reads
+ * ADC manager to handle continuous ADC sampling in parallel with single-shot pin reads
  * by @dedehai (2026) licensed under EUPL 1.2 license
  */
 
@@ -37,7 +37,6 @@ public:
 
   int analogRead(uint8_t pin);
   int analogReadMilliVolts(uint8_t pin);
-  //void checkADC(); // check ADC status, reset if overflow happened (watchdog function, needs to be called frequently if used, i.e. put this in main loop)
 
 private:
   WLEDAdcManager();
