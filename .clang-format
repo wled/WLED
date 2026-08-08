@@ -1,23 +1,21 @@
 ---
+# Deliberately minimal: every key below is here because leaving it at the
+# Google default (or at the value the earlier draft of this file used)
+# measurably increased the diff against WLED's existing code. Options that
+# already matched Google's default, or made no measurable difference, were
+# left out rather than spelled out for documentation's sake.
+#
+# Requires clang-format 16+ (AlignTrailingComments' Kind-based syntax below
+# needs it). Verified to parse cleanly on clang-format 16, 18 and 22.
 BasedOnStyle: Google
-AlignAfterOpenBracket: DontAlign
-AlignConsecutiveDeclarations: Consecutive
-AlignEscapedNewlines: DontAlign
-AlignOperands: DontAlign
-AlignTrailingComments: false
-AllowAllArgumentsOnNextLine: false
-AllowShortCaseLabelsOnASingleLine: true
-AllowShortFunctionsOnASingleLine: None
-AllowShortIfStatementsOnASingleLine: Always
-AlwaysBreakBeforeMultilineStrings: false
-BreakBeforeTernaryOperators: false
-BreakConstructorInitializersBeforeComma: true
-BreakStringLiterals: false
-ColumnLimit: 240
-ContinuationIndentWidth: 2
-IndentPPDirectives: BeforeHash
-KeepEmptyLinesAtTheStartOfBlocks: true
-MaxEmptyLinesToKeep: 2
-ReflowComments: false
-SortIncludes: Never
-SpacesBeforeTrailingComments: 1
+ColumnLimit: 240                                     # WLED convention: wide lines, not the 80-col default
+AlignTrailingComments: Leave                         # preserves existing comment-column alignment; forcing "Never" re-collapses spacing on every touched line, breaking alignment with untouched neighbours
+AllowShortCaseLabelsOnASingleLine: true              # matches the `case X: doThing(); break;` style used throughout
+AllowShortFunctionsOnASingleLine: Inline             # keeps short wrapper/getter functions on one line, closer to existing code than Google's stricter default
+AllowShortIfStatementsOnASingleLine: AllIfsAndElse   # un-deprecates the old "Always" value used before; matches existing single-line if/else usage
+BreakConstructorInitializers: BeforeComma            # non-deprecated replacement for BreakConstructorInitializersBeforeComma
+InsertNewlineAtEOF: true                             # text files should end with a newline
+KeepEmptyLinesAtTheStartOfBlocks: true                # deliberately kept in its deprecated spelling: the modern nested "KeepEmptyLines" key errors out on clang-format 16 and 18, and CodeRabbit's suggested "KeepEmptyLinesAtTopOfFunctions" is an unknown key on 14/16/18/22 alike. This old alias parses cleanly on all of them.
+MaxEmptyLinesToKeep: 2                               # existing code frequently uses double blank lines; Google's default of 1 would touch far more of it
+ReflowComments: false                                # don't rewrap comment text/wording
+SortIncludes: Never                                  # WLED sometimes orders includes deliberately (platform/feature guards); alphabetising risks reordering them and breaking a build
