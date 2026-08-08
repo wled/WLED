@@ -335,6 +335,19 @@ int WLEDAdcManager::analogRead(uint8_t pin) {
 
 bool WLEDAdcManager::_initCali() {
   if (_cali) return true;
+
+#if ADC_CALI_SCHEME_CURVE_FITTING_SUPPORTED
+  adc_cali_curve_fitting_config_t cfg = {
+    .unit_id  = ADC_UNIT_1,
+    #if SOC_ADC_CALIB_CHAN_COMPENS_SUPPORTED
+    //.chan     = adc_channel_t(channel); // per channel calibration is not implemented (C5, C6, P4 support it). trading complexity for a few mV of inaccuracy here.
+    #endif
+    .atten    = ADC_ATTEN_DB_12,
+    .bitwidth = ADC_BITWIDTH_12,
+  };
+  if (adc_cali_create_scheme_curve_fitting(&cfg, &_cali) == ESP_OK) return true;
+#endif
+
 #if ADC_CALI_SCHEME_LINE_FITTING_SUPPORTED
   adc_cali_line_fitting_config_t cfg = {
     .unit_id  = ADC_UNIT_1,
@@ -354,7 +367,7 @@ int WLEDAdcManager::analogReadMilliVolts(uint8_t pin) {
   adc_channel_t ch;
   if (!_pinToChannel(pin, &ch)) return 0;
   int raw = analogRead(pin);
-  if (!_cali && !_initCali()) return (raw * 3300) / 4095;
+  if (!_cali && !_initCali()) return (raw * 3300) / 4095; // fallback to linear conversion if calibration fails
 
   int mv = 0;
   return (adc_cali_raw_to_voltage(_cali, raw, &mv) == ESP_OK) ? mv : (raw * 3300) / 4095;
