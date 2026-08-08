@@ -115,6 +115,9 @@
     #include <LittleFS.h>
   #endif
   #include "esp_task_wdt.h"
+  #if ESP_IDF_VERSION >= ESP_IDF_VERSION_VAL(5, 5, 0)
+  #include <wled_ADCmanager.h>
+  #endif
 #endif
 #include <Wire.h>
 #include <SPI.h>
@@ -196,7 +199,6 @@ using PSRAMDynamicJsonDocument = BasicJsonDocument<PSRAM_Allocator>;
 #ifndef WLED_DISABLE_ESPNOW
   #include <wled_espnow.h>
 #endif
-#include <wled_ADCmanager.h>
 #include "colors.h"
 #include "fcn_declare.h"
 #ifndef WLED_DISABLE_OTA
