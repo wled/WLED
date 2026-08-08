@@ -18,20 +18,20 @@ Note: C6 chip revision 0 and 1 have a hardware bug and the effective ADC resolut
  - could add the option to use hardware IIR filter, although the lowest coefficient setting of 2 already has a 3dB cutoff around 2kHz (to be confirmed) at 20kHz sample rate
  - IIR filter are supported on all modern ESP32 but probably lacking on ESP32 classic, there we would need to do it in post-processing i.e. when writing the sample buffer
  - need to add a "buffer full" callback? -> is added but no longer needed with the bug being fixed in latest tasmota IDF
- - there is an edge-case issue: when continuous sampling is running, several analog pins are configured and the pin-info page is open it can lead to crashes (some issue with semaphore)
+ - there is an edge-case issue: when continuous sampling is running, several analog pins are configured and the pin-info page is open it can lead to crashes (some issue with semaphore) -> cannot reproduce now, might be solved with added semaphore timeout
  */
+#include "wled.h"
 
 #ifdef ARDUINO_ARCH_ESP32
 #if ESP_IDF_VERSION >= ESP_IDF_VERSION_VAL(5, 5, 0)
 
-#include "wled.h"
 // prevent macro recursion of arduino overrides
 #undef analogRead
 #undef analogReadMilliVolts
 
 #define ADCMANAGER_DMA_BLOCKSIZE 128 // DMA buffer block size, IDF driver uses 5 blocks under the hood, there is an ISR call each time a block finishes so dont make it too small
 #define ADCMANAGER_READBUFFERSAMPLES 128 // number of samples to read per chunk from the ADC buffer (stack buffer), do not set higher than 128 or stack overflow may occur
-#define ADCMANAGER_LOCK_TIMEOUT_MS 10 // timeout for mutex lock, this should be as short as possible but still allow for readSamples() to complete before doing analogRead(), may need tweaking
+#define ADCMANAGER_LOCK_TIMEOUT_MS 10 // timeout for mutex lock, this should be as short as possible but still allow for readSamples() to complete before doing analogRead()
 
 #include <string.h>
 
@@ -217,8 +217,9 @@ void WLEDAdcManager::_drainToCache() {
 
 // read samples acquired in continuous mode. They are written as 12bit unsigned values into the passed buffer
 // tries to read "numSamples" and returns the actual number of samples written into the buffer
-// it waits up to timeoutMs per fetch of tmpBfrSize (128) samples, if not enough samples are available, it returns what it got
+// it waits up to timeoutMs total while fetching tmpBfrSize (128) samples at a time, if not enough samples are available, it returns what it got
 // to poll the buffer and "just give me what you got" use a timeout of 0. On read error, it restarts the driver so no action needed by caller.
+// note: maximum timeout is ADCMANAGER_LOCK_TIMEOUT_MS-1, so make sure to call this function in reasonable intervals if you need all samples (or increase the lock time)
 uint16_t WLEDAdcManager::readSamples(int16_t* buffer, uint16_t numSamples, uint32_t timeoutMs) {
   if (!buffer || !numSamples) return 0;
   // note: DMA uses SOC_ADC_DIGI_MAX_BITWIDTH which is 12bits on all checked units TODO: should make sure and handle this to future proof it
@@ -229,6 +230,9 @@ uint16_t WLEDAdcManager::readSamples(int16_t* buffer, uint16_t numSamples, uint3
     return 0;
   }
 
+  const uint32_t maxReadTimeoutMs = ADCMANAGER_LOCK_TIMEOUT_MS - 1;
+  const uint32_t readTimeoutMs = timeoutMs < maxReadTimeoutMs ? timeoutMs : maxReadTimeoutMs;
+  const uint32_t readStartMs = millis();
   uint16_t out = 0; // number of samples written to the buffer
   // check if any data was cached during an intermediate analogRead()
   if (_ctx->cacheCount) {
@@ -250,10 +254,14 @@ uint16_t WLEDAdcManager::readSamples(int16_t* buffer, uint16_t numSamples, uint3
   adc_digi_output_data_t temp[tmpBfrSize];
 
   while (out < numSamples) {
+    const uint32_t elapsedMs = millis() - readStartMs;
+    if (elapsedMs >= readTimeoutMs) break;
+
     uint32_t n = 0;
     uint16_t want = (numSamples - out) < tmpBfrSize ? (numSamples - out) : tmpBfrSize;
     size_t wantBytes = want * sizeof(adc_digi_output_data_t);
-    esp_err_t err = adc_continuous_read(_ctx->handle, (uint8_t*)temp, wantBytes, &n, pdMS_TO_TICKS(timeoutMs));
+    uint32_t remainingMs = readTimeoutMs - elapsedMs;
+    esp_err_t err = adc_continuous_read(_ctx->handle, (uint8_t*)temp, wantBytes, &n, pdMS_TO_TICKS(remainingMs));
 
     // copy the data into 16bit buffer
     if (n > 0) {
