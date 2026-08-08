@@ -6,11 +6,8 @@
 #   docs/cpp.instructions.md          — C++ coding conventions
 #   docs/web.instructions.md          — Web UI coding conventions
 #   docs/cicd.instructions.md         — GitHub Actions / CI-CD conventions
-<<<<<<< HEAD
-=======
 #   docs/hardening.instructions.md    — basic rules for code hardening and robustness
 #   docs/securecode.instructions.md   — more detailed checklists for common vulnerabilities
->>>>>>> a0253c8fdca58b27566bee3f997ccdceced0bbef
 #
 # NOTE: This file must be committed (tracked by git) for CodeRabbit to read
 # it from the repository.  If it is listed in .gitignore, CodeRabbit will
@@ -29,10 +26,6 @@ reviews:
   # sequence_diagrams: false
   auto_review:
     enabled: true
-<<<<<<< HEAD
-    ignore_title_keywords:
-      - WIP
-=======
     base_branches:
       - main
       - 16_x
@@ -48,17 +41,12 @@ reviews:
       enabled: true    # cppcheck works fine without Arduino headers
     clang:
       enabled: true    # clang tidy likewise works
->>>>>>> a0253c8fdca58b27566bee3f997ccdceced0bbef
 
   path_instructions:
     - path: "**/*.{cpp,h,hpp,ino}"
       instructions: >
         Follow the C++ coding conventions documented in docs/cpp.instructions.md
-<<<<<<< HEAD
-        and the general project guidelines in .github/copilot-instructions.md.
-=======
         and the general project guidelines in AGENTS.md and .github/copilot-instructions.md.
->>>>>>> a0253c8fdca58b27566bee3f997ccdceced0bbef
 
         Key rules: 2-space indentation (no tabs), camelCase functions/variables,
         PascalCase classes, UPPER_CASE macros. No C++ exceptions — use return codes and debug macros.
@@ -66,10 +54,6 @@ reviews:
         Hot-path optimization guidelines (attributes, uint_fast types, caching,
         unsigned range checks) apply from pixel set/get operations and strip.show() downward —
         NOT to effect functions in FX.cpp, which have diverse contributor styles.
-<<<<<<< HEAD
-# disabled - the below instruction has no effect
-# When initially reviewing a PR, summarize good practices (top 5) and create a prioritized list of suggested improvements (focus on major ones).
-=======
 
         When reviewing PRs labeled "AI" or when source code appears to be AI-generated, perform these additional checks:
         1. VERIFY all referenced preprocessor macros, constants and flags exist by searching the codebase - do not trust the AI's claims about what exists.
@@ -101,7 +85,6 @@ reviews:
         repeated bounds/range checks or internal uses of already-sanitized data.
         When it is unclear whether a value has been sanitized upstream, prefer
         requesting clarification over raising a false-positive finding.
->>>>>>> a0253c8fdca58b27566bee3f997ccdceced0bbef
 
     - path: "wled00/data/**"
       instructions: >
@@ -110,10 +93,6 @@ reviews:
         Key rules: indent HTML and JavaScript with tabs, CSS with tabs.
         Files here are built into wled00/html_*.h and wled00/js_*.h by tools/cdata.js — never
         edit those generated headers directly.
-<<<<<<< HEAD
-# disabled - the below instruction has no effect
-# When initially reviewing a PR, summarize good practices (top 5) and create a prioritized list of suggested improvements (focus on major ones).
-=======
 
     # ── Security hardening — WebUI (always an ingress/output surface) ────────
     - path: "wled00/data/**"
@@ -129,7 +108,6 @@ reviews:
         unsafe location.href or location.replace() assignments, and DOM insertion
         from fetched or config-derived data — regardless of where the data
         originates.
->>>>>>> a0253c8fdca58b27566bee3f997ccdceced0bbef
 
     - path: "wled00/html_*.h"
       instructions: >
@@ -149,10 +127,6 @@ reviews:
         Each usermod lives in its own directory under usermods/ and is implemented
         as a .cpp file with a dedicated library.json file to manage dependencies. 
         Follow the same C++ conventions as the core firmware (docs/cpp.instructions.md).
-<<<<<<< HEAD
-# disabled - the below instruction has no effect
-# When initially reviewing a PR, summarize good practices (top 6) and create a prioritized list of suggested improvements (skip minor ones).
-=======
 
     # ── Security hardening — usermods (trust-boundary-aware, narrow scope) ───
     - path: "usermods/**/*.{cpp,h,hpp}"
@@ -180,7 +154,6 @@ reviews:
           - Internal logic that operates on values already confirmed safe at ingress
           - Repeated range checks on values that have already been clamped
           - General memory-safety patterns unrelated to ingress-derived data flow
->>>>>>> a0253c8fdca58b27566bee3f997ccdceced0bbef
 
     - path: ".github/workflows/*.{yml,yaml}"
       instructions: >
@@ -192,11 +165,6 @@ reviews:
         scoped to least privilege. Never interpolate github.event.* values directly
         into run: steps — pass them through an env: variable to prevent script
         injection. Do not use pull_request_target unless fully justified.
-<<<<<<< HEAD
-# disabled - the below instruction has no effect
-# When initially reviewing a PR, summarize good practices (top 6) and create a prioritized list of suggested improvements.
-=======
->>>>>>> a0253c8fdca58b27566bee3f997ccdceced0bbef
 
     - path: "**/*.instructions.md"
       instructions: |
@@ -214,8 +182,6 @@ reviews:
         3. If new AI-facing rules were added without updating a related HUMAN_ONLY
            reference section, note this as a suggestion (not a required fix).
 
-<<<<<<< HEAD
-=======
     # ── Secrets / sensitive information scanning ────────────────────────────
     - path: "platformio*.ini*"
       instructions: >
@@ -283,7 +249,6 @@ reviews:
           - Generic prose describing what a field means without supplying a value.
           - Asterisk-masked values (e.g., ******, ••••••).
 
->>>>>>> a0253c8fdca58b27566bee3f997ccdceced0bbef
   finishing_touches:
     # Docstrings | Options for generating Docstrings for your PRs/MRs.
     docstrings:

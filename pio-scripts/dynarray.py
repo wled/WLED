@@ -19,17 +19,7 @@ DYNARRAY_INJECTION = (
 def inject_before_marker(path, marker):
     """Patch a linker script file in-place, inserting DYNARRAY_INJECTION before marker."""
     original = path.read_text()
-<<<<<<< HEAD
-    marker_pos = original.find(marker)
-    if marker_pos < 0:
-        raise RuntimeError(
-            f"DYNARRAY injection marker not found in linker script: path={path}, marker={marker!r}"
-        )
-    patched = original[:marker_pos] + DYNARRAY_INJECTION + original[marker_pos:]
-    path.write_text(patched)
-=======
     path.write_text(original.replace(marker, DYNARRAY_INJECTION + marker, 1))
->>>>>>> a0253c8fdca58b27566bee3f997ccdceced0bbef
 
 
 if env.get("PIOPLATFORM") == "espressif32":
@@ -49,10 +39,7 @@ if env.get("PIOPLATFORM") == "espressif32":
         # leaves the ASSERTs satisfied.
         build_dir = Path(env.subst("$BUILD_DIR"))
         patched_path = build_dir / "dynarray_sections.ld"
-<<<<<<< HEAD
-=======
         import shutil
->>>>>>> a0253c8fdca58b27566bee3f997ccdceced0bbef
         shutil.copy(sections_ld_path, patched_path)
         inject_before_marker(patched_path, "_rodata_end = ABSOLUTE(.);")
 

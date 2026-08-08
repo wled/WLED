@@ -37,22 +37,14 @@ def check_elf_modules(elf_path: Path, env, module_lib_builders) -> set[str]:
         Returns the set of build_dir basenames for confirmed modules.
     """
     readelf_path = _get_readelf_path(env)
-<<<<<<< HEAD
-=======
     secho(f"INFO: Checking for usermod compilation units...")
 
->>>>>>> a0253c8fdca58b27566bee3f997ccdceced0bbef
     try:
         result = subprocess.run(
             [readelf_path, "--debug-dump=info", "--dwarf-depth=1", str(elf_path)],
             capture_output=True, text=True, errors="ignore", timeout=120,
         )
         output = result.stdout
-<<<<<<< HEAD
-        if result.returncode != 0 or result.stderr.strip():
-            secho(f"WARNING: readelf exited {result.returncode}: {result.stderr.strip()}", fg="yellow", err=True)
-=======
->>>>>>> a0253c8fdca58b27566bee3f997ccdceced0bbef
     except (subprocess.TimeoutExpired, FileNotFoundError, OSError) as e:
         secho(f"WARNING: readelf failed ({e}); skipping per-module validation", fg="yellow", err=True)
         return {Path(b.build_dir).name for b in module_lib_builders}  # conservative pass

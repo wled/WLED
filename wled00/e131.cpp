@@ -24,13 +24,8 @@ static void handleDDPPacket(e131_packet_t* p, size_t packetLen) {
   if (packetLen < DDP_HEADER_LEN) return; // too short to safely read any DDP header fields
 
   // reject unsupported color data types (only RGB and RGBW are supported)
-<<<<<<< HEAD
-  uint8_t maskedType = p->dataType & 0x3F; // mask out custom and reserved flags, only type bits are relevant
-  if (maskedType != DDP_TYPE_RGB24 && maskedType != DDP_TYPE_RGBW32) return;
-=======
   //uint8_t maskedType = p->dataType & 0x3F; // mask out custom and reserved flags, only type bits are relevant
   //if (maskedType != DDP_TYPE_RGB24 && maskedType != DDP_TYPE_RGBW32) return;
->>>>>>> a0253c8fdca58b27566bee3f997ccdceced0bbef
 
   // note: for maximum compatibility we do not reject unknonw or malformed data types but simply default to RGB24 and check there is enough data available in the packet to do so
   //       also we assume 8bit per channel and currently do not support other bit depths

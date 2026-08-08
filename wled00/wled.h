@@ -7,11 +7,7 @@
  */
 
 // version code in format yymmddb (b = daily build)
-<<<<<<< HEAD
-#define VERSION 2605011
-=======
 #define VERSION 2606301
->>>>>>> a0253c8fdca58b27566bee3f997ccdceced0bbef
 
 //uncomment this if you have a "my_config.h" file you'd like to use
 //#define WLED_USE_MY_CONFIG
@@ -476,10 +472,7 @@ WLED_GLOBAL bool arlsForceMaxBri _INIT(false);                    // enable to f
   WLED_GLOBAL int dmxInputTransmitPin _INIT(-1);
   WLED_GLOBAL int dmxInputReceivePin _INIT(-1);
   WLED_GLOBAL int dmxInputEnablePin _INIT(-1);
-<<<<<<< HEAD
-=======
   #if defined(ARDUINO_ARCH_ESP32) && (SOC_UART_NUM > 2)
->>>>>>> a0253c8fdca58b27566bee3f997ccdceced0bbef
   WLED_GLOBAL int dmxInputPort _INIT(2);
   #else
   WLED_GLOBAL int dmxInputPort _INIT(1);  // some MCUs only have two UART units
