@@ -25,6 +25,19 @@
 #endif
 extern "C" void usePWMFixedNMI();
 
+// Runtime state private to this file - previously WLED_GLOBAL, a leftover from
+// when all state lived in one big extern block regardless of who used it.
+static unsigned long lastMqttReconnectAttempt = 0;  // used for other periodic tasks too
+static unsigned long lastReconnectAttempt = 0;
+static uint16_t udpRgbPort = 19446; // Hyperion port
+static ESPAsyncE131 e131(handleE131Packet);
+static ESPAsyncE131 ddp(handleE131Packet);
+#if defined(STATUSLED)
+static unsigned long ledStatusLastMillis = 0;
+static uint8_t ledStatusType = 0; // current status type - corresponds to number of blinks per second
+static bool ledStatusState = false; // the current LED state
+#endif
+
 /*
  * Main WLED class implementation. Mostly initialization and connection logic
  */

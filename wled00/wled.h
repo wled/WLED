@@ -476,7 +476,7 @@ WLED_GLOBAL bool e131SkipOutOfSequence _INIT(false);              // freeze inst
 WLED_GLOBAL uint16_t pollReplyCount _INIT(0);                     // count number of replies for ArtPoll node report
 
 // mqtt
-WLED_GLOBAL unsigned long lastMqttReconnectAttempt _INIT(0);  // used for other periodic tasks too
+// lastMqttReconnectAttempt is private to wled.cpp - see there.
 #ifndef WLED_DISABLE_MQTT
   #ifndef MQTT_MAX_TOPIC_LEN
     #define MQTT_MAX_TOPIC_LEN 32
@@ -580,7 +580,7 @@ WLED_GLOBAL uint16_t userVar0 _INIT(0), userVar1 _INIT(0); //available for use i
 WLED_GLOBAL bool apActive _INIT(false);
 WLED_GLOBAL byte apClients _INIT(0);
 WLED_GLOBAL bool forceReconnect _INIT(false);
-WLED_GLOBAL unsigned long lastReconnectAttempt _INIT(0);
+// lastReconnectAttempt is private to wled.cpp - see there.
 WLED_GLOBAL bool interfacesInited _INIT(false);
 WLED_GLOBAL bool wasConnected _INIT(false);
 
@@ -680,7 +680,7 @@ WLED_GLOBAL bool stateChanged _INIT(false);
 // network
 WLED_GLOBAL uint16_t udpPort    _INIT(21324); // WLED notifier default port
 WLED_GLOBAL uint16_t udpPort2   _INIT(65506); // WLED notifier supplemental port
-WLED_GLOBAL uint16_t udpRgbPort _INIT(19446); // Hyperion port
+// udpRgbPort is private to wled.cpp - see there.
 WLED_GLOBAL uint8_t  udpNumRetries _INIT(0);  // Number of times a UDP sync message is retransmitted. Increase to increase reliability
 WLED_GLOBAL bool     udpConnected _INIT(false);
 WLED_GLOBAL bool     udp2Connected _INIT(false);
@@ -783,11 +783,7 @@ WLED_GLOBAL bool configNeedsWrite  _INIT(false);        // flag to initiate savi
 WLED_GLOBAL bool doReboot          _INIT(false);        // flag to initiate reboot from async handlers
 
 // status led
-#if defined(STATUSLED)
-WLED_GLOBAL unsigned long ledStatusLastMillis _INIT(0);
-WLED_GLOBAL uint8_t ledStatusType _INIT(0); // current status type - corresponds to number of blinks per second
-WLED_GLOBAL bool ledStatusState _INIT(false); // the current LED state
-#endif
+// ledStatusLastMillis/ledStatusType/ledStatusState are private to wled.cpp - see there.
 
 // server library objects
 WLED_GLOBAL AsyncWebServer server _INIT_N(((80, {0, WLED_REQUEST_MAX_QUEUE, WLED_REQUEST_MIN_HEAP, WLED_REQUEST_HEAP_USAGE})));
@@ -802,8 +798,7 @@ WLED_GLOBAL AsyncWebHandler *editHandler _INIT(nullptr);
 // udp interface objects
 WLED_GLOBAL WiFiUDP notifierUdp, rgbUdp, notifier2Udp;
 WLED_GLOBAL WiFiUDP ntpUdp;
-WLED_GLOBAL ESPAsyncE131 e131 _INIT_N(((handleE131Packet)));
-WLED_GLOBAL ESPAsyncE131 ddp  _INIT_N(((handleE131Packet)));
+// e131/ddp (the ESPAsyncE131 objects) are private to wled.cpp - see there.
 WLED_GLOBAL bool e131NewData _INIT(false);
 
 // led fx library object
