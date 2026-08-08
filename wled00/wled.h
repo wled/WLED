@@ -766,8 +766,7 @@ WLED_GLOBAL time_t sunset _INIT(0);
 WLED_GLOBAL Toki toki _INIT(Toki());
 
 // General filesystem
-WLED_GLOBAL size_t fsBytesUsed _INIT(0);
-WLED_GLOBAL size_t fsBytesTotal _INIT(0);
+// fsBytesUsed/fsBytesTotal are private to file.cpp - use getFsBytesUsed()/getFsBytesTotal() instead.
 WLED_GLOBAL unsigned long presetsModifiedTime _INIT(0L);
 WLED_GLOBAL bool doCloseFile _INIT(false);
 

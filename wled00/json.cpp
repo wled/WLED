@@ -838,8 +838,8 @@ void serializeInfo(JsonObject root)
   wifi_info[F("ap")] = apActive;
 
   JsonObject fs_info = root.createNestedObject("fs");
-  fs_info["u"] = fsBytesUsed / 1000;
-  fs_info["t"] = fsBytesTotal / 1000;
+  fs_info["u"] = getFsBytesUsed() / 1000;
+  fs_info["t"] = getFsBytesTotal() / 1000;
   fs_info[F("pmt")] = presetsModifiedTime;
 
   root[F("ndc")] = nodeListEnabled ? (int)Nodes.size() : -1;
