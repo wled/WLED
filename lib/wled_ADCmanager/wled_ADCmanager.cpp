@@ -261,7 +261,7 @@ uint16_t WLEDAdcManager::readSamples(int16_t* buffer, uint16_t numSamples, uint3
     uint16_t want = (numSamples - out) < tmpBfrSize ? (numSamples - out) : tmpBfrSize;
     size_t wantBytes = want * sizeof(adc_digi_output_data_t);
     uint32_t remainingMs = readTimeoutMs - elapsedMs;
-    esp_err_t err = adc_continuous_read(_ctx->handle, (uint8_t*)temp, wantBytes, &n, pdMS_TO_TICKS(remainingMs));
+    esp_err_t err = adc_continuous_read(_ctx->handle, (uint8_t*)temp, wantBytes, &n, remainingMs);
 
     // copy the data into 16bit buffer
     if (n > 0) {
