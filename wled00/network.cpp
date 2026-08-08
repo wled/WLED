@@ -436,6 +436,10 @@ void installIPv6RABlocker() {
 }
 #endif
 
+// Runtime state private to this file - previously WLED_GLOBAL, a leftover from
+// when all state lived in one big extern block regardless of who used it.
+static byte apClients = 0;
+
 //handle Ethernet connection event
 void WiFiEvent(WiFiEvent_t event)
 {

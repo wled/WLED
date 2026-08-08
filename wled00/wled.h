@@ -578,7 +578,7 @@ WLED_GLOBAL uint16_t userVar0 _INIT(0), userVar1 _INIT(0); //available for use i
 // internal global variable declarations
 // wifi
 WLED_GLOBAL bool apActive _INIT(false);
-WLED_GLOBAL byte apClients _INIT(0);
+// apClients is private to network.cpp - see there.
 WLED_GLOBAL bool forceReconnect _INIT(false);
 WLED_GLOBAL unsigned long lastReconnectAttempt _INIT(0);
 WLED_GLOBAL bool interfacesInited _INIT(false);
