@@ -363,14 +363,10 @@ bool WLEDAdcManager::_initCali() {
 #endif
 
 int WLEDAdcManager::analogReadMilliVolts(uint8_t pin) {
-  int result_mv = 0;
-  adc_channel_t ch;
-  if (!_pinToChannel(pin, &ch)) return 0;
-  int raw = analogRead(pin);
-  if (!_cali && !_initCali()) return (raw * 3300) / 4095; // fallback to linear conversion if calibration fails
-
+  int raw = analogRead(pin); // returns 0 on an invalid pin or error
   int mv = 0;
-  return (adc_cali_raw_to_voltage(_cali, raw, &mv) == ESP_OK) ? mv : (raw * 3300) / 4095;
+  if ((_cali || _initCali()) && adc_cali_raw_to_voltage(_cali, raw, &mv) == ESP_OK) return mv;
+  return (raw * 3300) / 4095; // fallback to linear conversion if calibration fails
 }
 #endif // ESP_IDF_VERSION >= ESP_IDF_VERSION_VAL(5, 5, 0)
 #endif // ARDUINO_ARCH_ESP32

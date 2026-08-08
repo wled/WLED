@@ -1,4 +1,5 @@
 {
   "name": "wled-ADCmanager",
+  "platforms": ["espressif32"],
   "build": { "libArchive": false }
 }

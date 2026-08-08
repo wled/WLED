@@ -40,7 +40,7 @@ public:
   //void checkADC(); // check ADC status, reset if overflow happened (watchdog function, needs to be called frequently if used, i.e. put this in main loop)
 
 private:
-WLEDAdcManager();
+  WLEDAdcManager();
   ~WLEDAdcManager();
   WLEDAdcManager(const WLEDAdcManager&) = delete;
   WLEDAdcManager& operator=(const WLEDAdcManager&) = delete;
