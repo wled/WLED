@@ -6,6 +6,18 @@
 
 #ifndef WLED_DISABLE_HUESYNC
 
+// Hue bridge sync runtime state - private to this file, nothing outside hue.cpp
+// needs any of it (previously these were WLED_GLOBAL, a leftover from when all
+// state lived in one big extern block regardless of who actually used it).
+static float hueXLast = 0, hueYLast = 0;
+static uint16_t hueHueLast = 0, hueCtLast = 0;
+static byte hueSatLast = 0, hueBriLast = 0;
+static unsigned long hueLastRequestSent = 0;
+static bool hueAuthRequired = false;
+static bool hueReceived = false;
+static bool hueNewKey = false;
+static AsyncClient *hueClient = nullptr;
+
 void handleHue()
 {
   if (hueReceived)
