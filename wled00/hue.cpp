@@ -6,6 +6,13 @@
 
 #ifndef WLED_DISABLE_HUESYNC
 
+// Runtime state private to this file - previously WLED_GLOBAL, a leftover from
+// when all state lived in one big extern block regardless of who used it.
+// xml.cpp only ever reads it for settings-page status reporting, so it gets
+// a by-value getter rather than a mutable reference.
+static byte hueError = HUE_ERROR_INACTIVE;
+byte getHueError() { return hueError; }
+
 void handleHue()
 {
   if (hueReceived)

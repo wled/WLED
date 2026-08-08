@@ -10,6 +10,13 @@
   #define DIMPROV_PRINTF(x...)
 #endif
 
+// Runtime state private to this file - previously WLED_GLOBAL, a leftover from
+// when all state lived in one big extern block regardless of who used it.
+// wled.cpp only ever reads it (to decide whether to send an Improv RPC
+// result), so it gets a by-value getter rather than a mutable reference.
+static byte improvError = 0;
+byte getImprovError() { return improvError; }
+
 #if defined(CONFIG_IDF_TARGET_ESP32S2) || defined(CONFIG_IDF_TARGET_ESP32C3) || defined(CONFIG_IDF_TARGET_ESP32C5) || defined(CONFIG_IDF_TARGET_ESP32S3) // ToDO check if C6, C61, P4 support this
 #undef WLED_DISABLE_IMPROV_WIFISCAN
 #define WLED_DISABLE_IMPROV_WIFISCAN

@@ -31,6 +31,13 @@
 
 static_assert(MAX_NUM_SEGMENTS >= WLED_MAX_BUSSES, "Max segments must be at least max number of busses!");
 
+// Runtime state private to this file - previously WLED_GLOBAL, a leftover from
+// when all state lived in one big extern block regardless of who used it.
+// json.cpp only ever reads it for status reporting, so it gets a by-value
+// getter rather than a mutable reference.
+static uint8_t currentLedmap = 0;
+uint8_t getCurrentLedmap() { return currentLedmap; }
+
 
 ///////////////////////////////////////////////////////////////////////////////
 // Segment class implementation

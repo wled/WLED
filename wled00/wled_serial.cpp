@@ -72,7 +72,7 @@ static void sendBytes(){
 
 void handleSerial()
 {
-  if (!(serialCanRX && Serial)) return; // arduino docs: `if (Serial)` indicates whether or not the USB CDC serial connection is open. For all non-USB CDC ports, this will always return true
+  if (!(isSerialCanRX() && Serial)) return; // arduino docs: `if (Serial)` indicates whether or not the USB CDC serial connection is open. For all non-USB CDC ports, this will always return true
 
   static auto state = AdaState::Header_A;
   static uint16_t count = 0;

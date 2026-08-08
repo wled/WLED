@@ -25,6 +25,25 @@
 #endif
 extern "C" void usePWMFixedNMI();
 
+// Runtime state private to this file - previously WLED_GLOBAL, a leftover from
+// when all state lived in one big extern block regardless of who used it.
+// Each is read-only from outside this file, so each gets a by-value getter
+// rather than a mutable reference: an accidental write from elsewhere is now
+// a build error instead of a silent bug.
+static int8_t selectedWiFi = 0;
+static bool   serialCanRX = false;
+// nobody in the codebase writes ntpLocalPort at runtime beyond this default,
+// so it's a constexpr rather than a mutable static.
+static constexpr uint16_t ntpLocalPort = 2390;
+int8_t   getSelectedWiFi() { return selectedWiFi; }
+bool     isSerialCanRX()   { return serialCanRX;   }
+uint16_t getNtpLocalPort() { return ntpLocalPort;  }
+
+#ifndef WLED_DISABLE_ESPNOW
+static byte statusESPNow = ESP_NOW_STATE_UNINIT; // state of ESP-NOW stack (0 uninitialised, 1 initialised, 2 error)
+byte getStatusESPNow() { return statusESPNow; }
+#endif
+
 /*
  * Main WLED class implementation. Mostly initialization and connection logic
  */
@@ -113,7 +132,7 @@ void WLED::loop()
   handleAlexa();
   #endif
 
-  if (doCloseFile) {
+  if (isDoCloseFile()) {
     closeFile();
     yield();
   }
@@ -1069,7 +1088,7 @@ void WLED::handleConnection()
   #endif
 
     if (improvActive) {
-      if (improvError == 3) sendImprovStateResponse(0x00, true);
+      if (getImprovError() == 3) sendImprovStateResponse(0x00, true);
       sendImprovStateResponse(0x04);
       if (improvActive > 1) sendImprovIPRPCResult(ImprovRPCType::Command_Wifi);
     }
