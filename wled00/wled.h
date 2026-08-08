@@ -854,9 +854,7 @@ WLED_GLOBAL int8_t spi_sclk  _INIT(SPISCLKPIN);
 #endif
 
 // global ArduinoJson buffer
-#if defined(ARDUINO_ARCH_ESP32)
-WLED_GLOBAL SemaphoreHandle_t jsonBufferLockMutex _INIT(xSemaphoreCreateRecursiveMutex());
-#endif
+// jsonBufferLockMutex/jsonBufferLock are private to util.cpp - see there.
 #ifdef BOARD_HAS_PSRAM
 // if board has PSRAM, use it for JSON document (allocated in setup())
 WLED_GLOBAL JsonDocument *pDoc _INIT(nullptr);
@@ -864,7 +862,6 @@ WLED_GLOBAL JsonDocument *pDoc _INIT(nullptr);
 WLED_GLOBAL StaticJsonDocument<JSON_BUFFER_SIZE> gDoc;
 WLED_GLOBAL JsonDocument *pDoc _INIT(&gDoc);
 #endif
-WLED_GLOBAL volatile uint8_t jsonBufferLock _INIT(0);
 
 // enable additional debug output
 #if defined(WLED_DEBUG_HOST)

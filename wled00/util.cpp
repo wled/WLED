@@ -262,6 +262,13 @@ size_t utf8_strlen(const char *s)
   return len;
 }
 
+// Runtime state private to this file - previously WLED_GLOBAL, a leftover from
+// when all state lived in one big extern block regardless of who used it.
+#if defined(ARDUINO_ARCH_ESP32)
+static SemaphoreHandle_t jsonBufferLockMutex = xSemaphoreCreateRecursiveMutex();
+#endif
+static volatile uint8_t jsonBufferLock = 0;
+
 //threading/network callback details: https://github.com/wled-dev/WLED/pull/2336#discussion_r762276994
 bool requestJSONBufferLock(uint8_t moduleID)
 {
