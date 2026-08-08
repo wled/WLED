@@ -3150,8 +3150,8 @@ static const char _data_FX_MODE_ROLLINGBALLS[] PROGMEM = "Rolling Balls@!,# of b
 *   aux1 is the main counter for timing.
 */
 typedef struct PacManChars {
-  signed    pos;
-  signed    topPos;     // LED position of farthest PacMan has moved
+  int       pos;
+  int       topPos;     // LED position of farthest PacMan has moved
   uint32_t  color;
   bool      direction;  // true = moving away from first LED
   bool      blue;       // used for ghosts only
@@ -3159,16 +3159,16 @@ typedef struct PacManChars {
 } pacmancharacters_t;
 
 static void mode_pacman(void) {
-  constexpr unsigned ORANGEYELLOW = 0xFFCC00;
-  constexpr unsigned PURPLEISH    = 0xB000B0;
-  constexpr unsigned ORANGEISH    = 0xFF8800;
-  constexpr unsigned WHITEISH     = 0x999999;
-  constexpr unsigned PACMAN = 0;   // PacMan is character[0]
+  constexpr uint32_t ORANGEYELLOW = 0xFFCC00;
+  constexpr uint32_t PURPLEISH    = 0xB000B0;
+  constexpr uint32_t ORANGEISH    = 0xFF8800;
+  constexpr uint32_t WHITEISH     = 0x999999;
+  constexpr uint32_t PACMAN = 0;   // PacMan is character[0]
   constexpr uint32_t ghostColors[] = {RED, PURPLEISH, CYAN, ORANGEISH};
 
-  unsigned maxPowerDots = min(SEGLEN / 10U, 255U);  // cap the max so packed state fits in 8 bits
-  unsigned numPowerDots = map(SEGMENT.intensity, 0, 255, 1, maxPowerDots);
-  unsigned numGhosts = map(SEGMENT.custom3, 0, 31, 2, 8);
+  uint32_t maxPowerDots = min(SEGLEN / 10U, 255U);  // cap the max so packed state fits in 8 bits
+  uint32_t numPowerDots = map(SEGMENT.intensity, 0, 255, 1, maxPowerDots);
+  uint32_t numGhosts = map(SEGMENT.custom3, 0, 31, 2, 8);
   bool smearMode = SEGMENT.check2;
 
   // Pack two 8-bit values into one 16-bit field (stored in SEGENV.aux0)
@@ -3177,7 +3177,7 @@ static void mode_pacman(void) {
   SEGENV.aux0 = combined_value;
 
   // Allocate segment data
-  unsigned dataSize = sizeof(pacmancharacters_t) * (numGhosts + maxPowerDots + 1);    // +1 is the PacMan character
+  uint32_t dataSize = sizeof(pacmancharacters_t) * (numGhosts + maxPowerDots + 1);    // +1 is the PacMan character
   if (SEGLEN <= 16 + (2*numGhosts) || !SEGENV.allocateData(dataSize)) FX_FALLBACK_STATIC;
   pacmancharacters_t *character = reinterpret_cast<pacmancharacters_t *>(SEGENV.data);
 
@@ -3185,7 +3185,7 @@ static void mode_pacman(void) {
   // On first call (or after settings change), `topPos` is not known yet, so fall back to the full segment length in that case.
   int maxBlinkPos = (SEGENV.call == 0) ? (int)SEGLEN - 1 : character[PACMAN].topPos;
   if (maxBlinkPos < 20) maxBlinkPos = 20;
-  int startBlinkingGhostsLED = (SEGLEN < 64)
+  int startBlinkingGhostsLED = (SEGLEN < 64U)
     ? (int)SEGLEN / 3
     : map(SEGMENT.custom1, 0, 255, 20, maxBlinkPos);
 
@@ -3199,19 +3199,19 @@ static void mode_pacman(void) {
     character[PACMAN].blue = false;
 
     // Initialize ghosts with alternating colors
-    for (int i = 1; i <= numGhosts; i++) {
+    for (uint32_t i = 1; i <= numGhosts; i++) {
       character[i].color = ghostColors[(i-1) % 4];
-      character[i].pos = -2 * (i + 1);
+      character[i].pos = -2 * int32_t(i + 1);
       character[i].direction = true;
       character[i].blue = false;
     }
 
     // Initialize power dots
-    for (int i = 0; i < numPowerDots; i++) {
+    for (uint32_t i = 0; i < numPowerDots; i++) {
       character[i + numGhosts + 1].color = ORANGEYELLOW;
       character[i + numGhosts + 1].eaten = false;
     }
-    character[numGhosts + 1].pos = SEGLEN - 1;  // Last power dot at end
+    character[numGhosts + 1].pos = int32_t(SEGLEN - 1);  // Last power dot at end
   }
 
   if (strip.now > SEGENV.step) {
@@ -3225,50 +3225,50 @@ static void mode_pacman(void) {
   // Draw white dots in front of PacMan if option selected
   if (SEGMENT.check1) {
     int step = SEGMENT.check3 ? 1 : 2;  // Compact or spaced dots
-    for (int i = SEGLEN - 1; i > character[PACMAN].topPos; i -= step) {
+    for (int i = (int32_t)(SEGLEN - 1); i > character[PACMAN].topPos; i -= step) {
       SEGMENT.setPixelColor(i, WHITEISH);
     }
   }
 
   // Update power dot positions dynamically
   uint32_t everyXLeds = (((uint32_t)SEGLEN - 10U) << 8) / numPowerDots;    // Fixed-point spacing for power dots: use 32-bit math to avoid overflow on long segments.
-  for (int i = 1; i < numPowerDots; i++) {
-    character[i + numGhosts + 1].pos = 10 + ((i * everyXLeds) >> 8);
+  for (uint32_t i = 1; i < numPowerDots; i++) {
+    character[i + numGhosts + 1].pos = int32_t(10 + ((i * everyXLeds) >> 8));
   }
 
   // Blink power dots every 10 ticks
-  if (SEGENV.aux1 % 10 == 0) {
+  if (SEGENV.aux1 % 10U == 0) {
     uint32_t dotColor = (character[numGhosts + 1].color == ORANGEYELLOW) ? BLACK : ORANGEYELLOW;
-    for (int i = 0; i < numPowerDots; i++) {
+    for (uint32_t i = 0; i < numPowerDots; i++) {
       character[i + numGhosts + 1].color = dotColor;
     }
   }
 
   // Blink blue ghosts when nearing start
-  if (SEGENV.aux1 % 15 == 0 && character[1].blue && character[PACMAN].pos <= startBlinkingGhostsLED) {
+  if (SEGENV.aux1 % 15U == 0 && character[1].blue && character[PACMAN].pos <= startBlinkingGhostsLED) {
     uint32_t ghostColor = (character[1].color == BLUE) ? WHITEISH : BLUE;
-    for (int i = 1; i <= numGhosts; i++) {
+    for (uint32_t i = 1; i <= numGhosts; i++) {
       character[i].color = ghostColor;
     }
   }
 
   // Draw uneaten power dots
-  for (int i = 0; i < numPowerDots; i++) {
-    if (!character[i + numGhosts + 1].eaten && (unsigned)character[i + numGhosts + 1].pos < SEGLEN) {
+  for (uint32_t i = 0; i < numPowerDots; i++) {
+    if (!character[i + numGhosts + 1].eaten && (uint32_t)character[i + numGhosts + 1].pos < SEGLEN) {
       SEGMENT.setPixelColor(character[i + numGhosts + 1].pos, character[i + numGhosts + 1].color);
     }
   }
 
   // Check if PacMan ate a power dot
-  for (int j = 0; j < numPowerDots; j++) {
+  for (uint32_t j = 0; j < numPowerDots; j++) {
     auto &dot = character[j + numGhosts + 1];
     if (character[PACMAN].pos == dot.pos && !dot.eaten) {
       // Reverse all characters - PacMan now chases ghosts
-      for (int i = 0; i <= numGhosts; i++) {
+      for (uint32_t i = 0; i <= numGhosts; i++) {
         character[i].direction = false;
       }
       // Turn ghosts blue
-      for (int i = 1; i <= numGhosts; i++) {
+      for (uint32_t i = 1; i <= numGhosts; i++) {
         character[i].color = BLUE;
         character[i].blue = true;
       }
@@ -3280,17 +3280,17 @@ static void mode_pacman(void) {
   // Reset when PacMan reaches start with blue ghosts
   if (character[1].blue && character[PACMAN].pos <= 0) {
     // Reverse direction back
-    for (int i = 0; i <= numGhosts; i++) {
+    for (uint32_t i = 0; i <= numGhosts; i++) {
       character[i].direction = true;
     }
     // Reset ghost colors
-    for (int i = 1; i <= numGhosts; i++) {
+    for (uint32_t i = 1; i <= numGhosts; i++) {
       character[i].color = ghostColors[(i-1) % 4];
       character[i].blue = false;
     }
     // Reset power dots if last one was eaten
     if (character[numGhosts + 1].eaten) {
-      for (int i = 0; i < numPowerDots; i++) {
+      for (uint32_t i = 0; i < numPowerDots; i++) {
         character[i + numGhosts + 1].eaten = false;
       }
       character[PACMAN].topPos = 0;    // set the top position of PacMan to LED 0 (beginning of the segment)
@@ -3298,24 +3298,24 @@ static void mode_pacman(void) {
   }
 
   // Update and draw characters based on speed setting
-  bool updatePositions = (SEGENV.aux1 % map(SEGMENT.speed, 0, 255, 15, 1) == 0);
+  bool updatePositions = (SEGENV.aux1 % uint32_t(map(SEGMENT.speed, 0, 255, 15, 1)) == 0);
 
   // update positions of characters if it's time to do so
   if (updatePositions) {
     character[PACMAN].pos += character[PACMAN].direction ? 1 : -1;
-    for (int i = 1; i <= numGhosts; i++) {
+    for (uint32_t i = 1; i <= numGhosts; i++) {
       character[i].pos += character[i].direction ? 1 : -1;
     }
   }
 
   // Draw PacMan
-  if ((unsigned)character[PACMAN].pos < SEGLEN) {
+  if ((uint32_t)character[PACMAN].pos < SEGLEN) {
     SEGMENT.setPixelColor(character[PACMAN].pos, character[PACMAN].color);
   }
 
   // Draw ghosts
-  for (int i = 1; i <= numGhosts; i++) {
-    if ((unsigned)character[i].pos < SEGLEN) {
+  for (uint32_t i = 1; i <= numGhosts; i++) {
+    if ((uint32_t)character[i].pos < SEGLEN) {
       SEGMENT.setPixelColor(character[i].pos, character[i].color);
     }
   }
