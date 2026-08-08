@@ -1,5 +1,5 @@
 #include "wled.h"
-#include "sync.h"
+#include "sync/sync.h"
 
 /*
  * UDP sync dispatcher.
