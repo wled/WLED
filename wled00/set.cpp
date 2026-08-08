@@ -4,11 +4,6 @@
  * Receives client input
  */
 
-// Runtime state private to this file - previously WLED_GLOBAL, a leftover from
-// when all state lived in one big extern block regardless of who used it.
-static byte presetCycMin = 1;
-static byte presetCycMax = 5;
-
 //called upon POST settings form submit
 void handleSettingsSet(AsyncWebServerRequest *request, byte subPage)
 {
