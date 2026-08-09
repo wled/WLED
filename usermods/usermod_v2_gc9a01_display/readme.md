@@ -67,9 +67,14 @@ monitor_speed = 115200
 custom_usermods =
   usermod_v2_gc9a01_display
   usermod_v2_rotary_encoder_ui_ALT
-build_flags = ${common.build_flags} ${esp32_idf_V4.build_flags}
+build_flags = ${common.build_flags} ${esp32_idf_V5.build_flags}
   -D WLED_DEBUG
   -D WLED_DISABLE_BROWNOUT_DET
+  -D WLED_RELEASE_NAME="\"esp32_dev_board_16mb_gc9a01\""
+  -D SERVERNAME='"dev-board-gc9a01"'
+  -D WLED_BRAND="\"SerKo\""
+  -D WLED_PRODUCT_NAME="\"WLED dev board\""
+  -D WLED_REPO="\"srg74/WLED-wemos-shield\""
   -D USERMOD_GC9A01_DISPLAY
   -DUSER_SETUP_LOADED=1
   -DGC9A01_DRIVER=1
