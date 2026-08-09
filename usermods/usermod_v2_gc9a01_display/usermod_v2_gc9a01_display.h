@@ -6,10 +6,6 @@
 #include <TFT_eSPI.h>
 #include <SPI.h>
 
-#define TFT_LITTLEFS // Instructs TFT_eSPI to use LittleFS instead of SPIFFS
-#include <SPI.h>
-#include <TFT_eSPI.h>
-
 // Pin definitions - use TFT_eSPI definitions when available
 #ifndef TFT_CS
   #define TFT_CS 5  // Default fallback
