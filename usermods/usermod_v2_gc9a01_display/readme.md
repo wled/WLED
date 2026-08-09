@@ -42,16 +42,16 @@ A fully-featured WLED usermod providing comprehensive visual interface on GC9A01
 
 ### GC9A01 Display
 
-| GC9A01 Pin | ESP32 Pin | Function    | Description |
-|------------|-----------|-------------|-------------|
-| VCC        | 3.3V      | Power       | 3.3V power supply |
-| GND        | GND       | Ground      | Common ground |
-| SCL/SCLK   | GPIO18    | SPI Clock   | SPI clock signal |
-| SDA/MOSI   | GPIO23    | SPI MOSI    | SPI data out |
-| RES/RST    | GPIO17    | Reset       | Display reset |
+| GC9A01 Pin | ESP32 Pin | Function    | Description          |
+|------------|-----------|-------------|----------------------|
+| VCC        | 3.3V      | Power       | 3.3V power supply    |
+| GND        | GND       | Ground      | Common ground        |
+| SCL/SCLK   | GPIO18    | SPI Clock   | SPI clock signal     |
+| SDA/MOSI   | GPIO23    | SPI MOSI    | SPI data out         |
+| RES/RST    | GPIO17    | Reset       | Display reset        |
 | DC         | GPIO15    | Data/Command| Data/Command control |
-| CS         | GPIO5     | Chip Select | SPI chip select |
-| BL         | GPIO26    | Backlight   | Backlight control |
+| CS         | GPIO5     | Chip Select | SPI chip select      |
+| BL         | GPIO26    | Backlight   | Backlight control    |
 
 **Note**: Pin assignments can be customized via build flags (see Configuration section).
 
