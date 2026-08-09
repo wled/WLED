@@ -25,6 +25,13 @@
 #endif
 extern "C" void usePWMFixedNMI();
 
+// millis()-rollover counter (millis() wraps every ~50 days) - previously
+// WLED_GLOBAL. json.cpp and usermods only ever read it for uptime reporting,
+// so it gets a by-value getter rather than a mutable reference: an accidental
+// write from outside this file is now a build error instead of a silent bug.
+static uint16_t rolloverMillis = 0;
+uint16_t getRolloverMillis() { return rolloverMillis; }
+
 /*
  * Main WLED class implementation. Mostly initialization and connection logic
  */
