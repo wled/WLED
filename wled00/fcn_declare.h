@@ -3,6 +3,13 @@
 #define WLED_FCN_DECLARE_H
 #include <dynarray.h>
 
+// dummy macro for 8266
+#ifndef ARDUINO_ARCH_ESP32
+#ifndef ESP_IDF_VERSION_VAL
+#define ESP_IDF_VERSION_VAL(n1,n2,n3) 500
+#endif
+#endif
+
 #include "colors.h"
 
 /*
@@ -25,7 +32,9 @@ bool isButtonPressed(uint8_t b=0);
 void handleButton();
 void handleOnOff(bool forceOff = false);
 void handleIO();
+#ifdef SOC_TOUCH_VERSION_2 // ESP32 S2 and S3 have a function to check touch state but need to attach an interrupt to do so
 void IRAM_ATTR touchButtonISR();
+#endif
 
 //cfg.cpp
 bool backupConfig();
@@ -113,6 +122,8 @@ bool writeObjectToFile(const char* file, const char* key, const JsonDocument* co
 bool readObjectFromFileUsingId(const char* file, uint16_t id, JsonDocument* dest, const JsonDocument* filter = nullptr);
 bool readObjectFromFile(const char* file, const char* key, JsonDocument* dest, const JsonDocument* filter = nullptr);
 void updateFSInfo();
+size_t getFsBytesUsed();
+size_t getFsBytesTotal();
 void closeFile();
 inline bool writeObjectToFileUsingId(const String &file, uint16_t id, const JsonDocument* content) { return writeObjectToFileUsingId(file.c_str(), id, content); };
 inline bool writeObjectToFile(const String &file, const char* key, const JsonDocument* content) { return writeObjectToFile(file.c_str(), key, content); };
@@ -285,6 +296,9 @@ bool isAsterisksOnly(const char* str, byte maxLen);
 void handleSettingsSet(AsyncWebServerRequest *request, byte subPage);
 bool handleSet(AsyncWebServerRequest *request, const String& req, bool apply=true);
 
+//wled.cpp
+uint16_t getRolloverMillis();
+
 //udp.cpp
 void notify(byte callMode, bool followUp=false);
 uint8_t realtimeBroadcast(uint8_t type, IPAddress client, uint16_t length, const uint8_t* buffer, uint8_t bri=255, bool isRGBW=false);
@@ -451,8 +465,12 @@ uint8_t extractModeSlider(uint8_t mode, uint8_t slider, char *dest, uint8_t maxL
 int16_t extractModeDefaults(uint8_t mode, const char *segVar);
 void checkSettingsPIN(const char *pin);
 uint16_t crc16(const unsigned char* data_p, size_t length);
+
+#if !defined(ARDUINO_ARCH_ESP32) || (ESP_IDF_VERSION < ESP_IDF_VERSION_VAL(6, 0, 0)) // ToDO: verify that this works correctly in V5
 String computeSHA1(const String& input);
 String getDeviceId();
+#endif
+
 uint16_t beat88(uint16_t beats_per_minute_88, uint32_t timebase = 0);
 uint16_t beat16(uint16_t beats_per_minute, uint32_t timebase = 0);
 uint8_t beat8(uint16_t beats_per_minute, uint32_t timebase = 0);

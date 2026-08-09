@@ -351,26 +351,25 @@ void BusDigital::setColorOrder(uint8_t colorOrder) {
 // credit @willmmiles & @netmindz https://github.com/wled/WLED/pull/4056
 std::vector<LEDType> BusDigital::getLEDTypes() {
   return {
-    {TYPE_WS2812_RGB,    "D",  PSTR("WS281x")},
+    {TYPE_WS2812_RGB,    "D",  PSTR("WS281x RGB")},
+    {TYPE_WS2811_400KHZ, "D",  PSTR("400kHz RGB")},
+    {TYPE_TM1829,        "D",  PSTR("TM1829 RGB")},
+    {TYPE_UCS8903,       "D",  PSTR("UCS8903 RGB")},
+    {TYPE_APA106,        "D",  PSTR("APA106/PL9823 RGB")},
+    {TYPE_TM1914,        "D",  PSTR("TM1914 RGB")},
     {TYPE_SK6812_RGBW,   "D",  PSTR("SK6812/WS2814 RGBW")},
-    {TYPE_TM1814,        "D",  PSTR("TM1814")},
-    {TYPE_WS2811_400KHZ, "D",  PSTR("400kHz")},
-    {TYPE_TM1829,        "D",  PSTR("TM1829")},
-    {TYPE_UCS8903,       "D",  PSTR("UCS8903")},
-    {TYPE_APA106,        "D",  PSTR("APA106/PL9823")},
-    {TYPE_TM1914,        "D",  PSTR("TM1914")},
-    {TYPE_FW1906,        "D",  PSTR("FW1906 GRBCW")},
     {TYPE_UCS8904,       "D",  PSTR("UCS8904 RGBW")},
-    {TYPE_WS2805,        "D",  PSTR("WS2805 RGBCW")},
-    {TYPE_SM16825,       "D",  PSTR("SM16825 RGBCW")},
+    {TYPE_TM1814,        "D",  PSTR("TM1814 RGBW")},
+    {TYPE_FW1906,        "D",  PSTR("FW1906/WS2811 RGBCCT")},
+    {TYPE_WS2805,        "D",  PSTR("WS2805 RGBCCT")},
+    {TYPE_SM16825,       "D",  PSTR("SM16825 RGBCCT")},
     {TYPE_WS2812_1CH_X3, "D",  PSTR("WS2811 White")},
-    //{TYPE_WS2812_2CH_X3, "D",  PSTR("WS281x CCT")}, // not implemented
     {TYPE_WS2812_WWA,    "D",  PSTR("WS281x WWA")}, // amber ignored
-    {TYPE_WS2801,        "2P", PSTR("WS2801")},
-    {TYPE_APA102,        "2P", PSTR("APA102")},
-    {TYPE_LPD8806,       "2P", PSTR("LPD8806")},
-    {TYPE_LPD6803,       "2P", PSTR("LPD6803")},
-    {TYPE_P9813,         "2P", PSTR("PP9813")},
+    {TYPE_WS2801,        "2P", PSTR("WS2801 RGB")},
+    {TYPE_APA102,        "2P", PSTR("APA102 RGB")},
+    {TYPE_LPD8806,       "2P", PSTR("LPD8806 RGB")},
+    {TYPE_LPD6803,       "2P", PSTR("LPD6803 RGB")},
+    {TYPE_P9813,         "2P", PSTR("P9813 RGB")},
   };
 }
 
@@ -453,8 +452,13 @@ BusPwm::BusPwm(const BusConfig &bc)
       pinMode(_pins[i], OUTPUT);
       #else
       unsigned channel = _ledcStart + i;
+      #if ESP_IDF_VERSION < ESP_IDF_VERSION_VAL(5, 0, 0)
       ledcSetup(channel, _frequency, _depth - (dithering*4)); // with dithering _frequency doesn't really matter as resolution is 8 bit
       ledcAttachPin(_pins[i], channel);
+      #else
+      ledcAttachChannel(_pins[i], _frequency,  _depth - (dithering*4), channel);
+      // LEDC timer reset credit @dedehai
+      #endif
       // LEDC timer reset credit @dedehai
       uint8_t group = (channel / 8), timer = ((channel / 2) % 4); // same fromula as in ledcSetup()
       ledc_timer_rst((ledc_mode_t)group, (ledc_timer_t)timer); // reset timer so all timers are almost in sync (for phase shift)
@@ -586,10 +590,23 @@ void BusPwm::show() {
     unsigned ch = channel%8;  // group channel
     // directly write to LEDC struct as there is no HAL exposed function for dithering
     // duty has 20 bit resolution with 4 fractional bits (24 bits in total)
+    #if defined(CONFIG_IDF_TARGET_ESP32C5) || defined(CONFIG_IDF_TARGET_ESP32C6) || defined(CONFIG_IDF_TARGET_ESP32C61) || defined(CONFIG_IDF_TARGET_ESP32P4)
+    // TODO: we need a full rewrite of the "analog LEDs" driver!
+    //   see https://github.com/wled/WLED/pull/5048#discussion_r2794185845
+
+    // the .duty_init.duty member seems to only affect fade operations, and its necessary to also trigger an update with
+    // LEDC.channel_group[gr].channel[ch].conf0.para_up = 1;
+    // --> research latest (V5.5.x) esp-idf documentation on how to set the duty cycle registers (by API calls?).
+    //    https://docs.espressif.com/projects/esp-idf/en/v5.5.2/esp32c5/api-reference/peripherals/ledc.html#_CPPv424ledc_set_duty_and_update11ledc_mode_t14ledc_channel_t8uint32_t8uint32_t
+    //   LEDC.channel_group[gr].channel[ch].duty_init.duty = duty << ((!dithering)*4);  // C5 LEDC struct uses duty_init, but requires additional steps to activate
+    // TODO: find out if / how dithering support can be implemented on P4
+    ledc_set_duty_and_update((ledc_mode_t)gr, (ledc_channel_t)ch, duty >> bitShift, hPoint >> bitShift);
+    #else
     LEDC.channel_group[gr].channel[ch].duty.duty = duty << ((!dithering)*4);  // lowest 4 bits are used for dithering, shift by 4 bits if not using dithering
     LEDC.channel_group[gr].channel[ch].hpoint.hpoint = hPoint >> bitShift;    // hPoint is at _depth resolution (needs shifting if dithering)
     ledc_update_duty((ledc_mode_t)gr, (ledc_channel_t)ch);
-    #endif
+    #endif // ESP32C5
+    #endif // 8266
 
     if (!_reversed) hPoint += duty;
     hPoint += deadTime;        // offset to cascade the signals
@@ -611,7 +628,7 @@ std::vector<LEDType> BusPwm::getLEDTypes() {
     {TYPE_ANALOG_2CH, "AA",     PSTR("PWM CCT")},
     {TYPE_ANALOG_3CH, "AAA",    PSTR("PWM RGB")},
     {TYPE_ANALOG_4CH, "AAAA",   PSTR("PWM RGBW")},
-    {TYPE_ANALOG_5CH, "AAAAA",  PSTR("PWM RGB+CCT")},
+    {TYPE_ANALOG_5CH, "AAAAA",  PSTR("PWM RGBCCT")},
     //{TYPE_ANALOG_6CH, "AAAAAA", PSTR("PWM RGB+DCCT")}, // unimplementable ATM
   };
 }
@@ -624,7 +641,11 @@ void BusPwm::deallocatePins() {
     #ifdef ESP8266
     digitalWrite(_pins[i], LOW); //turn off PWM interrupt
     #else
+    #if ESP_IDF_VERSION < ESP_IDF_VERSION_VAL(5, 0, 0)
     if (_ledcStart < WLED_MAX_ANALOG_CHANNELS) ledcDetachPin(_pins[i]);
+    #else
+    if (_ledcStart < WLED_MAX_ANALOG_CHANNELS) ledcDetach(_pins[i]);
+    #endif
     #endif
   }
   #ifdef ARDUINO_ARCH_ESP32
@@ -745,7 +766,7 @@ size_t BusNetwork::getPins(uint8_t* pinArray) const {
 #ifdef ARDUINO_ARCH_ESP32
 void BusNetwork::resolveHostname() {
   static std::shared_ptr<AsyncDNS> DNSlookup; // TODO: make this dynamic? requires to handle the callback properly
-  if (Network.isConnected()) {
+  if (WLEDNetwork.isConnected()) {
     IPAddress clnt;
     if (strlen(cmDNS) > 0) {
       clnt = MDNS.queryHost(_hostname);
@@ -802,12 +823,16 @@ BusHub75Matrix::BusHub75Matrix(const BusConfig &bc) : Bus(bc.type, bc.start, bc.
   _hasRgb = true;
   _hasWhite = false;
   virtualDisp = nullptr; // todo: this should be solved properly, can cause memory leak (if omitted here, nothing seems to work)
+  _isVirtual = false;
+  _isQuadScan = false;
   // aliases for easier reading
-  uint8_t panelWidth  = bc.pins[0];
-  uint8_t panelHeight = bc.pins[1];
-  uint8_t chainLength = bc.pins[2];
+  unsigned panelWidth  = bc.pins[0];
+  unsigned panelHeight = bc.pins[1];
+  unsigned chainLength = bc.pins[2];
   _rows = bc.pins[3];
   _cols = bc.pins[4];
+  unsigned physicalPanelWidth =  max(16U, min(128U, panelWidth)); // keep a copy because QS panels require modified width/height
+  unsigned physicalPanelHeight = max(16U, min(64U, panelHeight));
 
   mxconfig.double_buff = false; // Use our own memory-optimised buffer rather than the driver's own double-buffer
 
@@ -822,9 +847,9 @@ BusHub75Matrix::BusHub75Matrix(const BusConfig &bc) : Bus(bc.type, bc.start, bc.
 
   mxconfig.clkphase = bc.reversed;
   // allow chain length up to 4, limit to prevent bad data from preventing boot due to low memory
-  mxconfig.chain_length = max((uint8_t) 1, min(chainLength, (uint8_t) 4));
+  mxconfig.chain_length = max(1U, min(chainLength, 4U));
 
-  if (mxconfig.mx_height >= 64 && (mxconfig.chain_length > 1)) {
+  if (panelHeight >= 64 && (mxconfig.chain_length > 1)) { // need to check panelHeight; mxconfig.mx_height not assigned yet
   #if defined(BOARD_HAS_PSRAM)                    // limitation to one panel only applies to boards without PSRAM
     if (!psramFound() || ESP.getPsramSize() == 0) // PSRAM sanity check
   #endif
@@ -835,17 +860,18 @@ BusHub75Matrix::BusHub75Matrix(const BusConfig &bc) : Bus(bc.type, bc.start, bc.
   }
 
   if (bc.type == TYPE_HUB75MATRIX_HS) {
-      mxconfig.mx_width = min((uint8_t) 64, panelWidth); // TODO: UI limit is 128, this limits to 64
-      mxconfig.mx_height = min((uint8_t) 64, panelHeight);
+      mxconfig.mx_width = min(128U, panelWidth); // UI limit is 128
+      mxconfig.mx_height = min(64U, panelHeight);
   } else if (bc.type == TYPE_HUB75MATRIX_QS) {
       _isVirtual = true;
-      mxconfig.mx_width = min((uint8_t) 64, panelWidth) * 2;
-      mxconfig.mx_height = min((uint8_t) 64, panelHeight) / 2;
+      mxconfig.mx_width = min(128U, panelWidth) * 2;
+      mxconfig.mx_height = min(64U, panelHeight) / 2;
       mxconfig.driver = HUB75_I2S_CFG::FM6124;  // use FM6124 for "outdoor" 4-scan panels - workaround until we can make the driver user-configurable
   } else {
     DEBUGBUS_PRINTLN("Unknown type");
     return;
   }
+  _isQuadScan = (bc.type == TYPE_HUB75MATRIX_QS);
 
 #if defined(CONFIG_IDF_TARGET_ESP32) || defined(CONFIG_IDF_TARGET_ESP32S2)// classic esp32, or esp32-s2: reduce bitdepth for large panels
   if (mxconfig.mx_height >= 64) {
@@ -856,49 +882,94 @@ BusHub75Matrix::BusHub75Matrix(const BusConfig &bc) : Bus(bc.type, bc.start, bc.
 #endif
 
 
-
 //  HUB75_I2S_CFG::i2s_pins _pins={R1_PIN, G1_PIN, B1_PIN, R2_PIN, G2_PIN, B2_PIN, A_PIN, B_PIN, C_PIN, D_PIN, E_PIN, LAT_PIN, OE_PIN, CLK_PIN};
 
-#if defined(ARDUINO_ADAFRUIT_MATRIXPORTAL_ESP32S3) // MatrixPortal ESP32-S3
-
+#if defined(ARDUINO_ADAFRUIT_MATRIXPORTAL_ESP32S3) || defined(MATRIXPORTAL_S3_PINOUT) // MatrixPortal ESP32-S3
   // https://www.adafruit.com/product/5778
   DEBUGBUS_PRINTLN("MatrixPanel_I2S_DMA - Matrix Portal S3 config");
   mxconfig.gpio = { 42, 41, 40, 38, 39, 37,  45, 36, 48, 35, 21, 47, 14, 2 };
 
-#elif defined(HD_WF2_PINOUT) // Huidu HD-WF2 ESP32-S3 (no PSRAM)
-
+#elif defined(HD_WF2_PINOUT) || defined(HD_WF2_S3_PINOUT) // Huidu HD-WF2 ESP32-S3 (no PSRAM)
   // https://www.aliexpress.com/item/1005002258734810.html
   // https://github.com/mrcodetastic/ESP32-HUB75-MatrixPanel-DMA/issues/433
   DEBUGBUS_PRINTLN("MatrixPanel_I2S_DMA - HD-WF2 S3 config");
   // HUB75_I2S_CFG::i2s_pins _pins={R1_PIN, G1_PIN, B1_PIN, R2_PIN, G2_PIN, B2_PIN, A_PIN, B_PIN, C_PIN, D_PIN, E_PIN, LAT_PIN, OE_PIN, CLK_PIN};
   mxconfig.gpio = { 2, 6, 10, 3, 7, 11, 39, 38, 37, 36, 21, 33, 35, 34 };
 
-#elif defined(CONFIG_IDF_TARGET_ESP32S3) && defined(BOARD_HAS_PSRAM)// ESP32-S3 with PSRAM
+#elif defined(HD_WF1_PINOUT) || defined(HD_WF1_S2_PINOUT) || defined(CONFIG_IDF_TARGET_ESP32S2)
+  #warning "using HUB75 on esp32-s2 in not recommended due to stability problems and low RAM"
+  // Huidu HD-WF1 ESP32-S2 - not recommended !
+  // https://github.com/mrcodetastic/ESP32-HUB75-MatrixPanel-DMA/issues/433
+  USER_PRINTLN("MatrixPanel_I2S_DMA - HD-WF1 S2 config");
+  mxconfig.gpio = {2, 6, 3, 4, 8, 5, 33, 35, 34, 39, 38, 37, 36, 12};
 
-#if defined(MOONHUB_S3_PINOUT)
-  DEBUGBUS_PRINTLN("MatrixPanel_I2S_DMA - T7 S3 with PSRAM, MOONHUB pinout");
+#elif defined(CONFIG_IDF_TARGET_ESP32S3) 
+  // specific ESP32-S3 pinouts
 
+  #if defined(MOONHUB_S3_PINOUT)
+  DEBUGBUS_PRINTLN("MatrixPanel_I2S_DMA - T7 S3, MOONHUB pinout");
   // HUB75_I2S_CFG::i2s_pins _pins={R1_PIN, G1_PIN, B1_PIN, R2_PIN, G2_PIN, B2_PIN, A_PIN, B_PIN, C_PIN, D_PIN, E_PIN, LAT_PIN, OE_PIN, CLK_PIN};
   mxconfig.gpio = { 1, 5, 6, 7, 13, 9, 16, 48, 47, 21, 38, 8, 4, 18 };
 
-#else
-  DEBUGBUS_PRINTLN("MatrixPanel_I2S_DMA - S3 with PSRAM");
+  #elif defined(WAVESHARE_S3_PINOUT)
+  DEBUGBUS_PRINTLN("MatrixPanel_I2S_DMA - Waveshare S3, Waveshare pinout");
+  // HUB75_I2S_CFG::i2s_pins _pins={R1_PIN, G1_PIN, B1_PIN, R2_PIN, G2_PIN, B2_PIN, A_PIN, B_PIN, C_PIN, D_PIN, E_PIN, LAT_PIN, OE_PIN, CLK_PIN};
+  mxconfig.gpio = {4, 5, 6, 7, 15, 16, 18, 8, 3, 42, 9, 40, 2, 41};
+  
+  #elif defined(SEENGREAT_V1_S3_PINOUT)
+  DEBUGBUS_PRINTLN("MatrixPanel_I2S_DMA - S3 devKit-C, SEENGREAT_V1 pinout");
+  // https://seengreat.com/wiki/186
+  mxconfig.gpio = { 37, 6, 36,         // R1_PIN, G1_PIN, B1_PIN,
+                    35, 5,  0,         // R2_PIN, G2_PIN, B2_PIN,
+                    45, 1, 48,  2, 4,  //  A_PIN,  B_PIN,  C_PIN,  D_PIN,  E_PIN,
+                    38, 21, 47 };      // LAT_PIN, OE_PIN,CLK_PIN
+
+  #elif defined(SEENGREAT_V2_S3_PINOUT)
+  DEBUGBUS_PRINTLN("MatrixPanel_I2S_DMA - S3 devKit-C, SEENGREAT_V2 pinout");
+  // https://seengreat.com/wiki/186
+  mxconfig.gpio = { 18, 8, 17,         // R1_PIN, G1_PIN, B1_PIN,
+                    16, 1, 15,         // R2_PIN, G2_PIN, B2_PIN,
+                    7, 48, 6, 47, 2,   //  A_PIN,  B_PIN,  C_PIN,  D_PIN,  E_PIN,
+                    21, 4, 5 };        // LAT_PIN, OE_PIN,CLK_PIN
+
+  #else
+  DEBUGBUS_PRINTLN("MatrixPanel_I2S_DMA - S3 generic pinout");
   // HUB75_I2S_CFG::i2s_pins _pins={R1_PIN, G1_PIN, B1_PIN, R2_PIN, G2_PIN, B2_PIN, A_PIN, B_PIN, C_PIN, D_PIN, E_PIN, LAT_PIN, OE_PIN, CLK_PIN};
   mxconfig.gpio = {1, 2, 42, 41, 40, 39, 45, 48, 47, 21, 38, 8, 3, 18};
-#endif
-#elif defined(ESP32_FORUM_PINOUT) // Common format for boards designed for SmartMatrix
+  #endif // CONFIG_IDF_TARGET_ESP32S3
 
+#elif defined(CONFIG_IDF_TARGET_ESP32)
+  // generic ESP32 pinouts
+  #if defined(BOARD_HAS_PSRAM) // all ESP32 pinouts require gpio 16 or 17, which are controling PSRAM
+    #warning "ESP32 HUB75 pinout is not compatible with PSRAM boards."
+  #endif
+  #if defined(ESP32_FORUM_PINOUT) || defined(FORUM_ESP32_PINOUT) // Common format for boards designed for SmartMatrix
   DEBUGBUS_PRINTLN("MatrixPanel_I2S_DMA - ESP32_FORUM_PINOUT");
 /*
     ESP32 with SmartMatrix's default pinout - ESP32_FORUM_PINOUT
     https://github.com/pixelmatix/SmartMatrix/blob/teensylc/src/MatrixHardware_ESP32_V0.h
     Can use a board like https://github.com/rorosaurus/esp32-hub75-driver
 */
-
  mxconfig.gpio = { 2, 15, 4, 16, 27, 17, 5, 18, 19, 21, 12, 26, 25, 22 };
 
-#else
-  DEBUGBUS_PRINTLN("MatrixPanel_I2S_DMA - Default pins");
+  #elif defined(SEENGREAT_V1_ESP32_PINOUT)
+  DEBUGBUS_PRINTLN("MatrixPanel_I2S_DMA - EP32-DevKitC V4, SEENGREAT_V1 pinout");
+  // https://seengreat.com/wiki/186
+  mxconfig.gpio = { 18, 25, 5,         // R1_PIN, G1_PIN, B1_PIN,
+                    17, 33, 16,        // R2_PIN, G2_PIN, B2_PIN,
+                     4,  3, 0, 21, 32, //  A_PIN,  B_PIN,  C_PIN,  D_PIN,  E_PIN,
+                    19, 15, 2};        // LAT_PIN, OE_PIN,CLK_PIN
+
+  #elif defined(SEENGREAT_V2_ESP32_PINOUT)
+  DEBUGBUS_PRINTLN("MatrixPanel_I2S_DMA - EP32-DevKitC V4, SEENGREAT_V2 pinout, Latch pin IO2");
+  // https://seengreat.com/wiki/186
+  mxconfig.gpio = { 18, 17, 19,        // R1_PIN, G1_PIN, B1_PIN,
+                    21, 23, 27,        // R2_PIN, G2_PIN, B2_PIN,
+                    26, 16, 25, 4, 22, //  A_PIN,  B_PIN,  C_PIN,  D_PIN,  E_PIN,
+                     2, 32, 33};       // LAT_PIN, OE_PIN,CLK_PIN
+
+  #else
+  DEBUGBUS_PRINTLN("MatrixPanel_I2S_DMA - ESP32 Default pins");
   /*
    https://github.com/mrfaptastic/ESP32-HUB75-MatrixPanel-DMA?tab=readme-ov-file
 
@@ -908,8 +979,11 @@ BusHub75Matrix::BusHub75Matrix(const BusConfig &bc) : Bus(bc.type, bc.start, bc.
    https://www.electrodragon.com/product/rgb-matrix-panel-drive-interface-board-for-esp32-dma/
 
   */
- mxconfig.gpio = { 25, 26, 27, 14, 12, 13, 23, 19, 5, 17, 18, 4, 15, 16 };
+  mxconfig.gpio = { 25, 26, 27, 14, 12, 13, 23, 19, 5, 17, 18, 4, 15, 16 };
+  #endif // CONFIG_IDF_TARGET_ESP32
 
+  #else
+    #error "unknown or unsupported HUB75 board."
 #endif
 
   int8_t pins[PIN_COUNT];
@@ -941,7 +1015,7 @@ BusHub75Matrix::BusHub75Matrix(const BusConfig &bc) : Bus(bc.type, bc.start, bc.
                 mxconfig.gpio.a, mxconfig.gpio.b, mxconfig.gpio.c, mxconfig.gpio.d, mxconfig.gpio.e, mxconfig.gpio.lat, mxconfig.gpio.oe, mxconfig.gpio.clk);
 
   // OK, now we can create our matrix object
-  display = new MatrixPanel_I2S_DMA(mxconfig);
+  display = new(std::nothrow) MatrixPanel_I2S_DMA(mxconfig);
   if (display == nullptr) {
       DEBUGBUS_PRINTLN("****** MatrixPanel_I2S_DMA !KABOOM! driver allocation failed ***********");
       DEBUGBUS_PRINT(F("heap usage: ")); DEBUGBUS_PRINTLN(lastHeap - ESP.getFreeHeap());
@@ -1002,21 +1076,25 @@ BusHub75Matrix::BusHub75Matrix(const BusConfig &bc) : Bus(bc.type, bc.start, bc.
   }
 
   PANEL_CHAIN_TYPE chainType = CHAIN_NONE; // default for quarter-scan panels that do not use chaining
+  if (mxconfig.chain_length > 1 && (_rows > 1 || _cols > 1)) chainType = CHAIN_TOP_RIGHT_DOWN; // we need to use a _DOWN chainType, otherwise the first panel is upside-down
   // chained panels with cols and rows define need the virtual display driver, so do quarter-scan panels
-  if (chainLength > 1 && (_rows > 1 || _cols > 1) || bc.type == TYPE_HUB75MATRIX_QS) {
+  if (chainType != CHAIN_NONE || bc.type == TYPE_HUB75MATRIX_QS) {
     _isVirtual = true;
-    chainType = CHAIN_BOTTOM_LEFT_UP; // TODO: is there any need to support other chaining types?
-    DEBUGBUS_PRINTF_P(PSTR("Using virtual matrix: %ux%u panels of %ux%u pixels\n"), _cols, _rows, mxconfig.mx_width, mxconfig.mx_height);
+    DEBUGBUS_PRINTF_P(PSTR("Using virtual matrix: %ux%u panels of %ux%u pixels\n"), _cols, _rows, physicalPanelWidth, physicalPanelHeight);
   }
   else {
     _isVirtual = false;
   }
 
   if (_isVirtual) {
-    virtualDisp = new VirtualMatrixPanel((*display), _rows, _cols, mxconfig.mx_width, mxconfig.mx_height, chainType);
-    virtualDisp->setRotation(0);
-    if (bc.type == TYPE_HUB75MATRIX_QS) {
-      switch(panelHeight) {
+    virtualDisp = new(std::nothrow) VirtualMatrixPanel((*display), _rows, _cols, physicalPanelWidth, physicalPanelHeight, chainType);
+    if (!virtualDisp) { // catch alloc error
+      _isVirtual = false;
+      DEBUGBUS_PRINTLN(F("HUB75 virtual matrix: alloc failed, falling back to non-virtual driver"));
+    } else {
+      virtualDisp->setRotation(0);
+      if (bc.type == TYPE_HUB75MATRIX_QS) {
+        switch(panelHeight) {
         case 16:
           virtualDisp->setPhysicalPanelScanRate(FOUR_SCAN_16PX_HIGH);
           break;
@@ -1030,6 +1108,7 @@ BusHub75Matrix::BusHub75Matrix(const BusConfig &bc) : Bus(bc.type, bc.start, bc.
           DEBUGBUS_PRINTLN("Unsupported height");
           cleanup();
           return;
+        }
       }
     }
   }
@@ -1084,7 +1163,7 @@ void IRAM_ATTR BusHub75Matrix::setPixelColor(unsigned pix, uint32_t c) {
 uint32_t BusHub75Matrix::getPixelColor(unsigned pix) const {
   if (!_valid) return IS_BLACK; // note: no need to check pix >= _len as that is checked in containsPixel()
   if (_ledBuffer)
-    return uint32_t(_ledBuffer[pix]);
+    return uint32_t(_ledBuffer[pix]);  // fastled-slim already returns RGB, no need to mask out the upper byte
   else
     return getBitFromArray(_ledsDirty, pix) ? IS_DARKGREY: IS_BLACK;   // just a hack - we only know if the pixel is black or not
 }
@@ -1129,6 +1208,8 @@ void BusHub75Matrix::cleanup() {
   if (display != nullptr) delete display;
   display = nullptr;
   virtualDisp = nullptr; // note: when not using "NO_GFX" this causes a memory leak
+  #else  // runtime reconfiguration is not working on -S3, request reboot from user instead
+    errorFlag = ERR_REBOOT_NEEDED;
   #endif
   if (_ledBuffer != nullptr) d_free(_ledBuffer); _ledBuffer = nullptr;
   if (_ledsDirty != nullptr) d_free(_ledsDirty); _ledsDirty = nullptr;
@@ -1149,8 +1230,8 @@ std::vector<LEDType> BusHub75Matrix::getLEDTypes() {
 
 size_t BusHub75Matrix::getPins(uint8_t* pinArray) const {
   if (pinArray) {
-    pinArray[0] = mxconfig.mx_width;
-    pinArray[1] = mxconfig.mx_height;
+    pinArray[0] = _isQuadScan ? mxconfig.mx_width  /2 : mxconfig.mx_width;
+    pinArray[1] = _isQuadScan ? mxconfig.mx_height *2 : mxconfig.mx_height;
     pinArray[2] = mxconfig.chain_length;
     pinArray[3] = _rows;
     pinArray[4] = _cols;
@@ -1280,6 +1361,10 @@ void BusManager::removeAll() {
 // since I2S outputs are known only during config of buses, lets just assume RMT is used for digital buses
 // unused RMT channels should have no effect
 void BusManager::esp32RMTInvertIdle() {
+#if defined(CONFIG_IDF_TARGET_ESP32C5) || defined(CONFIG_IDF_TARGET_ESP32C6) || defined(CONFIG_IDF_TARGET_ESP32C61) || defined(CONFIG_IDF_TARGET_ESP32P4)
+  // ESP32-C5/C6/P4 use shared RMT method - idle level inversion not supported
+  return;
+#else
   bool idle_out;
   unsigned rmt = 0;
   unsigned u = 0;
@@ -1297,6 +1382,7 @@ void BusManager::esp32RMTInvertIdle() {
     rmt_set_idle_level(ch, idle_out, lvl);
     u++;
   }
+#endif
 }
 #endif
 

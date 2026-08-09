@@ -42,7 +42,7 @@
 #define DEFAULT_MODE       (uint8_t)0
 #define DEFAULT_SPEED      (uint8_t)128
 #define DEFAULT_INTENSITY  (uint8_t)128
-#define DEFAULT_COLOR      (uint32_t)0xFFAA00
+#define DEFAULT_COLOR      (uint32_t)0xFFA000
 #define DEFAULT_C1         (uint8_t)128
 #define DEFAULT_C2         (uint8_t)128
 #define DEFAULT_C3         (uint8_t)16
@@ -61,10 +61,12 @@ extern byte realtimeMode;           // used in getMappedPixelIndex()
 #define WLED_FPS         42
 #define FRAMETIME_FIXED  (1000/WLED_FPS)
 #define FRAMETIME        strip.getFrameTime()
-#if defined(ARDUINO_ARCH_ESP32) && !defined(CONFIG_IDF_TARGET_ESP32C3) && !defined(CONFIG_IDF_TARGET_ESP32S2)
-  #define MIN_FRAME_DELAY  2                                              // minimum wait between repaints, to keep other functions like WiFi alive 
-#elif defined(CONFIG_IDF_TARGET_ESP32S2) || defined(CONFIG_IDF_TARGET_ESP32C3)
-  #define MIN_FRAME_DELAY  3                                              // S2/C3 are slower than normal esp32, and only have one core
+#if defined(ARDUINO_ARCH_ESP32)
+  #if (SOC_CPU_CORES_NUM < 2)
+    #define MIN_FRAME_DELAY  3                                            // S2/C3/C6/C5 are slower than normal esp32, and only have one core
+  #else
+    #define MIN_FRAME_DELAY  2                                            // classic esp32/S3/P4: minimum wait between repaints, to keep other functions like WiFi alive
+  #endif
 #else
   #define MIN_FRAME_DELAY  8                                              // 8266 legacy MIN_SHOW_DELAY
 #endif
@@ -502,9 +504,7 @@ class Segment {
       Segment      *_oldSegment;          // previous segment environment (may be nullptr if effect did not change)
       unsigned long _start;               // must accommodate millis()
       uint32_t      _colors[NUM_COLORS];  // current colors
-      #ifndef WLED_SAVE_RAM
       CRGBPalette16 _palT;                // temporary palette (slowly being morphed from old to new)
-      #endif
       uint16_t      _dur;                 // duration of transition in ms
       uint16_t      _progress;            // transition progress (0-65535); pre-calculated from _start & _dur in updateTransitionProgress()
       uint8_t       _prevPaletteBlends;   // number of previous palette blends (there are max 255 blends possible)
@@ -513,9 +513,7 @@ class Segment {
       : _oldSegment(nullptr)
       , _start(millis())
       , _colors{0,0,0}
-      #ifndef WLED_SAVE_RAM
       , _palT(CRGBPalette16())
-      #endif
       , _dur(dur)
       , _progress(0)
       , _prevPaletteBlends(0)
@@ -562,7 +560,7 @@ class Segment {
   public:
 
     Segment(uint16_t sStart=0, uint16_t sStop=30, uint16_t sStartY = 0, uint16_t sStopY = 1)
-    : colors{DEFAULT_COLOR,BLACK,BLACK}
+    : colors{BLACK,BLACK,BLACK} // set colors to black, will be updated to orange if segment is created as "auto segment" or from UI
     , start(sStart)
     , stop(sStop > sStart ? sStop : sStart+1) // minimum length is 1
     , startY(sStartY)
@@ -618,6 +616,7 @@ class Segment {
       DEBUGFX_PRINTLN();
       #endif
       clearName();
+      stopTransition();   // deallocate "_t" (transition) and with it "_segOld" note: _segOld has _t=null, see copy constructor
       #ifdef WLED_ENABLE_GIF
       endImagePlayback(this);
       #endif
@@ -879,6 +878,7 @@ class WS2812FX {
       printSize(),                                // prints memory usage for strip components
 #endif
       finalizeInit(),                             // initialises strip components
+      updatePixelBuffer(),                        // (re)allocate memory for _pixels[]
       service(),                                  // executes effect functions when due and calls strip.show()
       setCCT(uint16_t k),                         // sets global CCT (either in relative 0-255 value or in K)
       setBrightness(uint8_t b, bool direct = false),    // sets strip brightness
