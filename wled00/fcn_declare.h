@@ -152,6 +152,12 @@ int fileReadBlockCallback(void * buffer, int numberOfBytes);
 int fileSizeCallback(void);
 byte renderImageToSegment(Segment &seg);
 void endImagePlayback(Segment* seg);
+#ifdef WLED_ENABLE_JPEG
+#define LIVE_COVERART_MAX_BYTES 8192 // cap on a single decoded cover-art JPEG
+class Stream;
+bool setLiveCoverArtFromStream(Stream &stream, size_t len);
+byte renderLiveCoverArtToSegment(Segment &seg);
+#endif
 #endif
 
 //improv.cpp
