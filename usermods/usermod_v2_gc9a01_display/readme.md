@@ -68,6 +68,7 @@ custom_usermods =
   usermod_v2_gc9a01_display
   usermod_v2_rotary_encoder_ui_ALT
 build_flags = ${common.build_flags} ${esp32_idf_V5.build_flags}
+  -Iinclude
   -D WLED_DEBUG
   -D WLED_DISABLE_BROWNOUT_DET
   -D WLED_RELEASE_NAME="\"esp32_dev_board_16mb_gc9a01\""
@@ -96,7 +97,6 @@ build_flags = ${common.build_flags} ${esp32_idf_V5.build_flags}
   -DLOAD_GFXFF=1
   -DSMOOTH_FONT=1
   -DSPI_FREQUENCY=27000000
-# Rotary encoder settings
   -D ENCODER_DT_PIN=25
   -D ENCODER_CLK_PIN=32
   -D ENCODER_SW_PIN=27
