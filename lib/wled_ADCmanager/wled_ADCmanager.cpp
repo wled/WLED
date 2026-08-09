@@ -53,6 +53,12 @@ bool WLEDAdcManager::_pinToChannel(uint8_t pin, adc_channel_t* ch) {
   return true;
 }
 
+volatile bool _overflow = false;
+// buffer overflow callback, we need to watch this as prolonged overflow state causes stalls (probably an IDF bug related to DMA ownership)
+static bool IRAM_ATTR _onPoolOvf(adc_continuous_handle_t handle, const adc_continuous_evt_data_t* edata, void* user_data) {
+  _overflow = true;   // set the flag
+  return false;       // nothing to wake
+}
 
 WLEDAdcManager& WLEDAdcManager::instance() {
   static WLEDAdcManager inst;
@@ -143,16 +149,16 @@ bool WLEDAdcManager::_initContinuousADC() {
   if (_ctx->handle) return true; // already initialized
   size_t frameBytes = (size_t)_ctx->samplesPerFrame * sizeof(adc_digi_output_data_t);
   adc_continuous_handle_cfg_t hcfg = {
-    .max_store_buf_size = frameBytes, // hold single frame in buffer, caller needs to drain it fast enough to avoid data loss (can increase to avoid data loss but still need to drain fast enough at one point)
+    .max_store_buf_size = frameBytes + frameBytes/2, // hold one and a half frames in buffer, caller needs to drain it fast enough to avoid data loss (can increase to avoid data loss but still need to drain fast enough at one point)
     .conv_frame_size    = ADCMANAGER_DMA_BLOCKSIZE, // use fixed DMA buffer size of 256 bytes (ADC driver creates 5 DMA descriptors with one buffer each, at 20kHz this means an interrupt every 1.4ms
     .flags = { .flush_pool = false }, // do not flush the store buffer on overrun but discard new samples (true means discard oldest, is much slower and can cause issues, do not set true)
   };
   if (adc_continuous_new_handle(&hcfg, &_ctx->handle) != ESP_OK) return false;
 
-  // register callback, can be used to trigger a task. not implemented here. Callback can also be used to set a flag for polling
-  // for example implementation see https://github.com/espressif/esp-idf/blob/v5.5/examples/peripherals/adc/continuous_read/main/continuous_read_main.c
-  //adc_continuous_evt_cbs_t cbs = { .on_conv_done = nullptr, .on_pool_ovf = _onPoolOvf };
-  //adc_continuous_register_event_callbacks(_handle, &cbs, this);
+  // register the overflow callback to catch buffer overflows before they case a stall
+  adc_continuous_evt_cbs_t cbs = { .on_conv_done = nullptr, .on_pool_ovf = _onPoolOvf };
+  adc_continuous_register_event_callbacks(_ctx->handle, &cbs, this);
+
 
   adc_digi_pattern_config_t pat = {
     .atten     = ADC_ATTEN_DB_12,
@@ -255,7 +261,7 @@ uint16_t WLEDAdcManager::readSamples(int16_t* buffer, uint16_t numSamples, uint3
       }
     }
 
-    if (err == ESP_ERR_TIMEOUT) {
+    if (err == ESP_ERR_TIMEOUT && n > 0) {
       break; // not enough samples within timeout frame, return what we got
     }
     if (err != ESP_OK) {
@@ -267,7 +273,15 @@ uint16_t WLEDAdcManager::readSamples(int16_t* buffer, uint16_t numSamples, uint3
     else if (n == 0) break; // should not happen, just in case (if no samples are read, it should not be ESP_OK)
   }
 
-  //adc_continuous_flush_pool(_handle); // flush remaining data -> no need, just let the samples accumulate, uncomment if you need freshest samples only
+  if (_overflow) {
+    // stop-flush-restart: this is a dirty workaround for a bug in the IDF driver that can cause de-sync and permanent firing of interrupts,
+    // stalling everything. stop-start takes about 0.3ms and resets the DMA so everything keeps working.
+    DEBUG_PRINTF_P(PSTR("ADC buffer overflow"));
+    _overflow = false;
+    adc_continuous_stop(_ctx->handle);
+    adc_continuous_flush_pool(_ctx->handle); // flush remaining data and make sure pool does not overflow
+    adc_continuous_start(_ctx->handle);
+  }
 
   xSemaphoreGive(_mutex);
   return out;
