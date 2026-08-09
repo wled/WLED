@@ -1003,12 +1003,12 @@ class AdcContinuousSource : public AudioSource {
 
       if ((the_channel != _myADCchannel) && (_myADCchannel != 0x0F)) { // 0x0F means "don't know what my channel is"
         // fix bad sample
-        finalSample = _lastADCsample;                          // replace with last good ADC sample
+        finalSample = _lastADCsample;                              // replace with last good ADC sample
         _broken_samples_counter++;
         if (_broken_samples_counter > 256) _myADCchannel = 0x0F;   // too many bad samples in a row -> disable sample corrections
       } else _broken_samples_counter = 0;                          // good sample - reset counter
 
-      //finalSample = (3 * finalSample + _lastADCsample) >> 2;  // apply low-pass filter (2-tap FIR)  TODO: this was done in the original driver but my tests show this is probably unnecessary
+      finalSample = (3 * finalSample + _lastADCsample) >> 2;  // apply low-pass filter (2-tap FIR) gets rid of high freqency noise and aliasing
       //finalSample = (finalSample + _lastADCsample) >> 1;      // apply stronger low-pass filter (2-tap FIR)
       // TODO: IDF V5 ADC sampling supports doing on-the-fly IIR filtering while sampling, not sure how that works though i.e. if its done when reading samples or if it has to be called explicitly with the samples.
 
