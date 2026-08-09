@@ -99,12 +99,6 @@
   {
   #include <user_interface.h>
   }
-  #ifndef WLED_DISABLE_ESPNOW
-    #include <espnow.h>
-    #define WIFI_MODE_STA WIFI_STA
-    #define WIFI_MODE_AP WIFI_AP
-    #include <QuickEspNow.h>
-  #endif
 #else // ESP32
   #include <HardwareSerial.h>  // ensure we have the correct "Serial" on new MCUs (depends on ARDUINO_USB_MODE and ARDUINO_USB_CDC_ON_BOOT)
   #include <WiFi.h>
@@ -121,11 +115,6 @@
     #include <LittleFS.h>
   #endif
   #include "esp_task_wdt.h"
-
-  #ifndef WLED_DISABLE_ESPNOW
-    #include <esp_now.h>
-    #include <QuickEspNow.h>
-  #endif
 #endif
 #include <Wire.h>
 #include <SPI.h>
@@ -204,6 +193,9 @@ using PSRAMDynamicJsonDocument = BasicJsonDocument<PSRAM_Allocator>;
 #define USE_GET_MILLISECOND_TIMER
 
 #include "const.h"
+#ifndef WLED_DISABLE_ESPNOW
+  #include <wled_espnow.h>
+#endif
 #include "colors.h"
 #include "fcn_declare.h"
 #ifndef WLED_DISABLE_OTA
@@ -474,14 +466,12 @@ WLED_GLOBAL bool arlsForceMaxBri _INIT(false);                    // enable to f
 WLED_GLOBAL uint16_t e131Universe _INIT(1);                       // settings for E1.31 (sACN) protocol (only DMX_MODE_MULTIPLE_* can span over consequtive universes)
 WLED_GLOBAL uint16_t e131Port _INIT(5568);                        // DMX in port. E1.31 default is 5568, Art-Net is 6454
 WLED_GLOBAL byte e131Priority _INIT(0);                           // E1.31 port priority (if != 0 priority handling is active)
-WLED_GLOBAL E131Priority highPriority _INIT(3);                   // E1.31 highest priority tracking, init = timeout in seconds
+// highPriority/e131LastSequenceNumber/pollReplyCount are private to e131.cpp - see there.
 WLED_GLOBAL byte DMXMode _INIT(DMX_MODE_MULTIPLE_RGB);            // DMX mode (s.a.)
 WLED_GLOBAL uint16_t DMXAddress _INIT(1);                         // DMX start address of fixture, a.k.a. first Channel [for E1.31 (sACN) protocol]
 WLED_GLOBAL uint16_t DMXSegmentSpacing _INIT(0);                  // Number of void/unused channels between each segments DMX channels
-WLED_GLOBAL byte e131LastSequenceNumber[E131_MAX_UNIVERSE_COUNT]; // to detect packet loss
 WLED_GLOBAL bool e131Multicast _INIT(false);                      // multicast or unicast
 WLED_GLOBAL bool e131SkipOutOfSequence _INIT(false);              // freeze instead of flickering
-WLED_GLOBAL uint16_t pollReplyCount _INIT(0);                     // count number of replies for ArtPoll node report
 
 // mqtt
 WLED_GLOBAL unsigned long lastMqttReconnectAttempt _INIT(0);  // used for other periodic tasks too
@@ -593,7 +583,7 @@ WLED_GLOBAL bool interfacesInited _INIT(false);
 WLED_GLOBAL bool wasConnected _INIT(false);
 
 // color
-WLED_GLOBAL byte lastRandomIndex _INIT(0);        // used to save last random color so the new one is not the same
+// lastRandomIndex is private to colors.cpp - see there.
 WLED_GLOBAL std::vector<CRGBPalette16> customPalettes;  // custom palettes (file-based, IDs grow downwards starting at 200)
 WLED_GLOBAL std::vector<UsermodPalette> usermodPalettes; // usermod-registered palettes (IDs 255, 254, 253...)
 WLED_GLOBAL uint8_t paletteBlend _INIT(0);        // determines blending and wrapping of palette: 0: blend, wrap if moving (SEGMENT.speed>0); 1: blend, always wrap; 2: blend, never wrap; 3: don't blend or wrap
@@ -619,14 +609,14 @@ WLED_GLOBAL byte briNlT _INIT(0);                     // current nightlight brig
 WLED_GLOBAL byte colNlT[] _INIT_N(({ 0, 0, 0, 0 }));        // current nightlight color
 
 // brightness
-WLED_GLOBAL unsigned long lastOnTime _INIT(0);
+// lastOnTime is private to button.cpp - see there.
 WLED_GLOBAL bool offMode             _INIT(!turnOnAtBoot);
 WLED_GLOBAL byte briS                _INIT(128);           // default brightness
 WLED_GLOBAL byte bri                 _INIT(briS);          // global brightness (set)
 WLED_GLOBAL byte briOld              _INIT(0);             // global brightness while in transition loop (previous iteration)
 WLED_GLOBAL byte briT                _INIT(0);             // global brightness during transition
 WLED_GLOBAL byte briLast             _INIT(128);           // brightness before turned off. Used for toggle function
-WLED_GLOBAL byte whiteLast           _INIT(128);           // white channel before turned off. Used for toggle function in ir.cpp
+// whiteLast is private to ir.cpp - see there.
 
 // button
 struct Button {
@@ -714,7 +704,7 @@ WLED_GLOBAL bool hueStoreAllowed _INIT(false), hueNewKey _INIT(false);
 WLED_GLOBAL unsigned long countdownTime _INIT(1514764800L);
 WLED_GLOBAL bool countdownOverTriggered _INIT(true);
 
-WLED_GLOBAL byte lastTimerMinute  _INIT(0);
+// lastTimerMinute is private to ntp.cpp - see there.
 WLED_GLOBAL std::vector<Timer> timers;
 WLED_GLOBAL bool doAdvancePlaylist _INIT(false);
 
@@ -726,8 +716,7 @@ WLED_GLOBAL byte improvError _INIT(0);
 WLED_GLOBAL int16_t currentPlaylist _INIT(-1);
 //still used for "PL=~" HTTP API command
 WLED_GLOBAL byte presetCycCurr _INIT(0);
-WLED_GLOBAL byte presetCycMin _INIT(1);
-WLED_GLOBAL byte presetCycMax _INIT(5);
+// presetCycMin/presetCycMax are private to set.cpp - see there.
 
 // realtime
 WLED_GLOBAL byte realtimeMode _INIT(REALTIME_MODE_INACTIVE);
@@ -763,10 +752,9 @@ WLED_GLOBAL DNSServer dnsServer;
 WLED_GLOBAL bool ntpConnected _INIT(false);
 WLED_GLOBAL time_t localTime _INIT(0);
 WLED_GLOBAL unsigned long ntpLastSyncTime _INIT(NTP_NEVER);
-WLED_GLOBAL unsigned long ntpPacketSentTime _INIT(NTP_NEVER);
-WLED_GLOBAL IPAddress ntpServerIP;
+// ntpPacketSentTime/ntpServerIP are private to ntp.cpp - see there.
 WLED_GLOBAL uint16_t ntpLocalPort _INIT(2390);
-WLED_GLOBAL uint16_t rolloverMillis _INIT(0);
+// rolloverMillis is private to wled.cpp - use getRolloverMillis() instead.
 WLED_GLOBAL float longitude _INIT(WLED_LON);
 WLED_GLOBAL float latitude _INIT(WLED_LAT);
 WLED_GLOBAL time_t sunrise _INIT(0);
@@ -774,8 +762,7 @@ WLED_GLOBAL time_t sunset _INIT(0);
 WLED_GLOBAL Toki toki _INIT(Toki());
 
 // General filesystem
-WLED_GLOBAL size_t fsBytesUsed _INIT(0);
-WLED_GLOBAL size_t fsBytesTotal _INIT(0);
+// fsBytesUsed/fsBytesTotal are private to file.cpp - use getFsBytesUsed()/getFsBytesTotal() instead.
 WLED_GLOBAL unsigned long presetsModifiedTime _INIT(0L);
 WLED_GLOBAL bool doCloseFile _INIT(false);
 
@@ -784,8 +771,7 @@ WLED_GLOBAL byte currentPreset _INIT(0);
 
 WLED_GLOBAL byte errorFlag _INIT(0);
 
-WLED_GLOBAL String messageHead, messageSub;
-WLED_GLOBAL byte optionType;
+// messageHead/messageSub/optionType are private to wled_server.cpp - see there.
 
 WLED_GLOBAL bool configNeedsWrite  _INIT(false);        // flag to initiate saving of config
 WLED_GLOBAL bool doReboot          _INIT(false);        // flag to initiate reboot from async handlers
@@ -805,7 +791,7 @@ WLED_GLOBAL AsyncWebSocket ws _INIT_N((("/ws")));
 #ifndef WLED_DISABLE_HUESYNC
 WLED_GLOBAL AsyncClient     *hueClient _INIT(NULL);
 #endif
-WLED_GLOBAL AsyncWebHandler *editHandler _INIT(nullptr);
+// editHandler is private to wled_server.cpp - see there.
 
 // udp interface objects
 WLED_GLOBAL WiFiUDP notifierUdp, rgbUdp, notifier2Udp;
@@ -862,9 +848,7 @@ WLED_GLOBAL int8_t spi_sclk  _INIT(SPISCLKPIN);
 #endif
 
 // global ArduinoJson buffer
-#if defined(ARDUINO_ARCH_ESP32)
-WLED_GLOBAL SemaphoreHandle_t jsonBufferLockMutex _INIT(xSemaphoreCreateRecursiveMutex());
-#endif
+// jsonBufferLockMutex/jsonBufferLock are private to util.cpp - see there.
 #ifdef BOARD_HAS_PSRAM
 // if board has PSRAM, use it for JSON document (allocated in setup())
 WLED_GLOBAL JsonDocument *pDoc _INIT(nullptr);
@@ -872,7 +856,6 @@ WLED_GLOBAL JsonDocument *pDoc _INIT(nullptr);
 WLED_GLOBAL StaticJsonDocument<JSON_BUFFER_SIZE> gDoc;
 WLED_GLOBAL JsonDocument *pDoc _INIT(&gDoc);
 #endif
-WLED_GLOBAL volatile uint8_t jsonBufferLock _INIT(0);
 
 // enable additional debug output
 #if defined(WLED_DEBUG_HOST)
