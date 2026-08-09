@@ -2,6 +2,28 @@
 
 // for information how FX metadata strings work see https://kno.wled.ge/interfaces/json-api/#effect-metadata
 
+#if !(defined(WLED_DISABLE_PARTICLESYSTEM2D) && defined(WLED_DISABLE_PARTICLESYSTEM1D))
+  #include "FXparticleSystem.h" // include particle system code only if at least one system is enabled
+  #ifdef WLED_DISABLE_PARTICLESYSTEM2D
+    #define WLED_PS_DONT_REPLACE_2D_FX
+  #endif
+  #ifdef WLED_DISABLE_PARTICLESYSTEM1D
+    #define WLED_PS_DONT_REPLACE_1D_FX
+  #endif
+  #ifdef ESP8266
+    #if !defined(WLED_DISABLE_PARTICLESYSTEM2D) && !defined(WLED_DISABLE_PARTICLESYSTEM1D)
+      #error ESP8266 does not support 1D and 2D particle systems simultaneously. Please disable one of them.
+    #endif
+  #endif
+#else
+  #define WLED_PS_DONT_REPLACE_1D_FX
+  #define WLED_PS_DONT_REPLACE_2D_FX
+#endif
+#ifdef WLED_PS_DONT_REPLACE_FX
+  #define WLED_PS_DONT_REPLACE_1D_FX
+  #define WLED_PS_DONT_REPLACE_2D_FX
+#endif
+
 // paletteBlend: 0 - wrap when moving, 1 - always wrap, 2 - never wrap, 3 - none (undefined)
 #define PALETTE_SOLID_WRAP   (paletteBlend == 1 || paletteBlend == 3)
 
@@ -1258,6 +1280,156 @@ static void mode_morsecode(void) {
 static const char _data_FX_MODE_MORSECODE[] PROGMEM = "Morse Code@Speed,,,,Color mode,Color by Word,Punctuation,EndOfMessage;;!;1;sx=192,c3=8,o1=1,o2=1";
 
 
+/*
+/  PS Pendulum effect (uses the Particle System)
+*   by Bob Loeffler and claude.ai   Particle System by dedehai
+*   First slider (speed) is for the speed of the pendulum LED going back and forth. (0 = random speed)
+*   Second slider (intensity) is for the X offset.  In the middle means the center of the pendulum will be in the middle of the LED strip.
+*     Moving the slider left will move the pendulum to the left, etc. (0 = random X offset)
+*   Third slider (blur) is for how much of a trail the pendulum will leave.
+*   Fourth slider (pause/delay) is for how long the effect will pause before restarting the pendulum movement.
+*   Fifth slider (gravity/damping) is for how much the pendulum movement will be dampened due to gravity or friction. (0 = random damping)
+*   Checkbox1 will select the LED color based on it's position on the strip.
+*   aux0 stores the settings checksum to detect changes.
+*/
+#define PENDULUM_MIN_AMPLITUDE_SUBPX ((PS_P_RADIUS_1D * 2) / 5)
+
+// Custom pendulum state, stored in the extra bytes after the particle system's own data
+typedef struct {
+  int32_t  currentPos;     // sub-pixel position (scaled by PS_P_RADIUS_1D) — matches particle.x units directly
+  int32_t  fromPos;
+  int32_t  toPos;
+  int32_t  amplitude;      // sub-pixel
+  uint16_t damping256;     // Q8 fixed point: 0-256 represents 0.0-1.0
+  uint32_t swingStart;
+  uint32_t swingDuration;
+  uint32_t pauseStart;
+  uint16_t swing_time;
+  uint16_t offsetX;        // pixel units (kept as pixels since map() needs it that way)
+  uint8_t  phase;
+  uint8_t  goingLeft;
+} PendulumData;
+
+void mode_particlePendulum(void) {
+  ParticleSystem1D *PartSys = nullptr;
+  PendulumData *pd = nullptr;
+
+  if (SEGMENT.call == 0) {
+    if (!initParticleSystem1D(PartSys, 0, 1, sizeof(PendulumData)))
+      FX_FALLBACK_STATIC;
+  } else {
+    PartSys = reinterpret_cast<ParticleSystem1D *>(SEGENV.data);
+  }
+  if (PartSys == nullptr) FX_FALLBACK_STATIC;
+
+  PartSys->updateSystem();
+  pd = reinterpret_cast<PendulumData *>(PartSys->PSdataEnd);
+
+  uint16_t segLen      = SEGLEN;
+  uint16_t segCenter   = segLen / 2;
+  uint16_t pause_delay = map(SEGMENT.custom2, 0, 255, 500, 15000);
+  uint16_t cutoff      = segLen / 10;
+
+  constexpr uint8_t PHASE_STOPPED = 0U;
+  constexpr uint8_t PHASE_SWING   = 1U;
+  constexpr uint8_t PHASE_PAUSED  = 2U;
+
+  PartSys->setUsedParticles(0);
+  PartSys->setWrap(false);
+  PartSys->setBounce(false);
+  PartSys->setMotionBlur(SEGMENT.custom1); // amount of blurring
+  PartSys->setColorByPosition(SEGMENT.check1);
+
+  uint32_t settingssum = SEGMENT.speed + SEGMENT.intensity + SEGMENT.custom1 + SEGMENT.custom2 + SEGMENT.custom3;
+  bool settingsChanged = (SEGENV.aux0 != settingssum);
+
+  if (SEGENV.call == 0 || pd->phase == PHASE_STOPPED || settingsChanged) {
+    const uint8_t speed = SEGMENT.speed;
+    if (speed == 0) pd->swing_time = hw_random16(1000, 2400);
+    else pd->swing_time = map(speed, 1, 255, 2400, 400);
+
+    const uint8_t intensity = SEGMENT.intensity;
+    if (intensity == 0) pd->offsetX = hw_random16(cutoff, segLen - cutoff);
+    else pd->offsetX = map(intensity, 1, 255, cutoff, segLen - cutoff);
+
+    // Damping as Q8 fixed-point (0-256 = 0.0-1.0)
+    const uint8_t custom3 = SEGMENT.custom3;
+    uint8_t dampingPct;
+    if (custom3 == 0) dampingPct = hw_random8(75, 95);
+    else dampingPct = map(custom3, 1, 31, 95, 75);
+    pd->damping256 = ((uint16_t)dampingPct * 256) / 100;
+
+    // Amplitude in pixels first, then converted to sub-pixel units
+    uint16_t amplitude_px;
+    if (pd->offsetX < segCenter) amplitude_px = pd->offsetX;
+    else amplitude_px = MIN(pd->offsetX, (uint16_t)(segLen - 1 - pd->offsetX));
+    pd->amplitude = (int32_t)amplitude_px * PS_P_RADIUS_1D;
+
+    pd->fromPos       = (int32_t)pd->offsetX * PS_P_RADIUS_1D;
+    pd->toPos         = pd->fromPos - pd->amplitude;
+    pd->swingStart    = strip.now;
+    pd->swingDuration = pd->swing_time;
+    pd->phase         = PHASE_SWING;
+    pd->goingLeft     = 1;
+    pd->currentPos    = pd->fromPos;
+
+    PartSys->particles[0].ttl = 300;
+    PartSys->particleFlags[0].perpetual = true;
+    PartSys->particleFlags[0].fixed     = true;
+
+    SEGENV.aux0 = settingssum;
+  }
+
+  if (pd->phase == PHASE_SWING) {
+    uint32_t elapsed = strip.now - pd->swingStart;
+    if (elapsed > pd->swingDuration) elapsed = pd->swingDuration;
+
+    // angle: 0 -> 32768 represents 0 -> 180 degrees in cos16_t's 16-bit angle space
+    uint32_t angle = pd->swingDuration ? ((uint32_t)elapsed * 32768) / pd->swingDuration : 32768;
+
+    int32_t cosT16 = cos16_t((uint16_t)angle);       // inferred range: -32767..32767
+    int32_t frac16 = (32767 - cosT16) >> 1;          // 0..32767, represents ease fraction * 32767
+
+    int32_t delta = pd->toPos - pd->fromPos;         // sub-pixel
+    pd->currentPos = pd->fromPos + (int32_t)(((int64_t)delta * frac16) / 32767);
+
+    if (elapsed >= pd->swingDuration) {
+      pd->amplitude = (pd->amplitude * (int32_t)pd->damping256) >> 8;  // (Q8 fixed-point)
+
+      if (pd->amplitude < PENDULUM_MIN_AMPLITUDE_SUBPX) {
+        pd->currentPos = (int32_t)pd->offsetX * PS_P_RADIUS_1D;
+        pd->phase      = PHASE_PAUSED;
+        pd->pauseStart = strip.now;
+      } else {
+        int32_t offsetSubpx = (int32_t)pd->offsetX * PS_P_RADIUS_1D;
+        int32_t nextTo = offsetSubpx + (pd->goingLeft ? pd->amplitude : -pd->amplitude);
+        pd->fromPos    = pd->toPos;
+        pd->toPos      = nextTo;
+        pd->goingLeft  = !(pd->goingLeft);
+        pd->swingStart = strip.now;
+
+        // duration scales with amplitude/half-segment-length, in Q8 fixed-point
+        int32_t halfSegSubpx = ((int32_t)(segLen - 1) * PS_P_RADIUS_1D) / 2;
+        int32_t ratio256 = halfSegSubpx ? (pd->amplitude * 256) / halfSegSubpx : 256;
+        uint32_t dur = ((uint32_t)pd->swing_time * ratio256) >> 8;
+        pd->swingDuration = (dur < 200) ? 200 : dur;
+      }
+    }
+  } else if (pd->phase == PHASE_PAUSED) {
+    pd->currentPos = (int32_t)pd->offsetX * PS_P_RADIUS_1D;
+    if (strip.now - pd->pauseStart >= pause_delay) {
+      pd->phase = PHASE_STOPPED;
+    }
+  }
+
+  PartSys->particles[0].x  = pd->currentPos;
+  PartSys->particles[0].vx = 0;
+
+  PartSys->update();
+}
+static const char _data_FX_MODE_PS_PENDULUM[] PROGMEM = "PS Pendulum@Speed (0=random),X Offset (0=random),Blur,Pause/Delay,Damping/Gravity (0=random), Position Color;!,!;!;1;c2=32,c3=4,o1=1";
+
+
 /////////////////////
 //  UserMod Class  //
 /////////////////////
@@ -1272,7 +1444,8 @@ class UserFxUsermod : public Usermod {
     strip.addEffect(255, &mode_2D_magma, _data_FX_MODE_2D_MAGMA);
     strip.addEffect(255, &mode_ants, _data_FX_MODE_ANTS);
     strip.addEffect(255, &mode_morsecode, _data_FX_MODE_MORSECODE);
-
+    strip.addEffect(255, &mode_particlePendulum, _data_FX_MODE_PS_PENDULUM);
+    
     ////////////////////////////////////////
     //  add your effect function(s) here  //
     ////////////////////////////////////////
