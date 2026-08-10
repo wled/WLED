@@ -1,21 +1,33 @@
 # Usermods
 
-This folder serves as a repository for usermods (custom `usermod.cpp` files)!
+This folder contains usermods, optional WLED components maintained by the core WLED team and some legacy modules with separate maintainers.  Usermods are self-contained modules that add functionality without modifying core source files.
 
-If you have created a usermod you believe is useful (for example to support a particular sensor, display, feature...), feel free to contribute by opening a pull request!
+## Writing your own usermod
 
-In order for other people to be able to have fun with your usermod, please keep these points in mind:
+Start from the official example repository — click **Use this template** on GitHub to create your own copy:
 
-* Create a folder in this folder with a descriptive name (for example `usermod_ds18b20_temp_sensor_mqtt`)  
-* Include your custom files 
-* If your usermod requires changes to other WLED files, please write a `readme.md` outlining the steps one needs to take  
-* Create a pull request!  
-* If your feature is useful for the majority of WLED users, I will consider adding it to the base code!  
+**[github.com/wled/wled-usermod-example](https://github.com/wled/wled-usermod-example)**
 
-While I do my best to not break too much, keep in mind that as WLED is updated, usermods might break.  
-I am not actively maintaining any usermod in this directory, that is your responsibility as the creator of the usermod.
+It contains a fully annotated implementation and a `library.json` template. Keep your usermod in its own repository and reference it from your WLED build via `custom_usermods` — no changes to the WLED source tree needed.
 
-For new usermods, I would recommend trying out the new v2 usermod API, which allows installing multiple usermods at once and new functions!
-You can take a look at `EXAMPLE_v2` for some documentation and at `Temperature` for a completed v2 usermod!
+For the complete guide see **[kno.wled.ge/advanced/custom-features](https://kno.wled.ge/advanced/custom-features/)**, covering:
 
-Thank you for your help :)
+- Enabling usermods via `custom_usermods` in `platformio_override.ini`
+- Local development with `symlink://` references
+- Sharing via git URL
+- `library.json` structure and the required `"libArchive": false` setting
+- All lifecycle methods (`setup`, `loop`, `addToConfig`, `readFromConfig`, etc.)
+- Adding custom LED effects via usermod
+
+Once your usermod is ready, add it to the [Community Usermods index](https://kno.wled.ge/advanced/community-usermods/) and tag your repository with the [`wled-usermod`](https://github.com/topics/wled-usermod) GitHub topic so others can find it.
+
+## Contributing a usermod to this folder
+
+The preferred approach is an independent repository (see above).  If you strongly believe that your module adds a commonly missing feature that would be useful in most WLED installations, and maintenance can be managed by the core WLED team, you can suggest it for inclusion here:
+
+- Create a subfolder with a descriptive name
+- Include a `library.json` and your source files
+- Add a `README.md` describing what the mod does and any wiring or configuration required
+- Open a pull request on the WLED repo
+
+The bar for inclusion in the main WLED repository is quite high.  We encourage you to consider maintaining the module in your own repository for a period of time first.

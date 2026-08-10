@@ -216,6 +216,20 @@ void getSettingsJS(byte subPage, Print& settingsScript)
   #ifdef WLED_ENABLE_DMX // include only if DMX is enabled
     settingsScript.print(F("gId('dmxbtn').style.display='';"));
   #endif
+    // Emit per-mod buttons for named usermods.
+    size_t modCount = UsermodManager::getModCount();
+    for (size_t i = 0; i < modCount; ++i) {
+      Usermod* mod = UsermodManager::getModAt(i);
+      const char* name = mod ? mod->getName() : nullptr;
+      if (!name) continue;
+      settingsScript.print(F("addUMBtn(\""));
+      for (const char* p = name; *p; ++p) {
+        char c = *p;
+        if (c == '"' || c == '\\') settingsScript.print('\\');
+        settingsScript.print(c);
+      }
+      settingsScript.print(F("\");"));
+    }
   }
 
   if (subPage == SUBPAGE_WIFI)

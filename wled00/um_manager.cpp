@@ -18,7 +18,12 @@ static size_t getCount() {
 
 
 //Usermod Manager internals
-void UsermodManager::setup()             { for (auto mod = DYNARRAY_BEGIN(usermods); mod < DYNARRAY_END(usermods); ++mod) (*mod)->setup(); }
+void UsermodManager::setup() {
+  for (auto mod = DYNARRAY_BEGIN(usermods); mod < DYNARRAY_END(usermods); ++mod) {
+    if ((*mod)->getName() == nullptr) (*mod)->probeNameFromConfig();  // set _name from addToConfig() key if not provided by constructor
+    (*mod)->setup();
+  }
+}
 void UsermodManager::connected()         { for (auto mod = DYNARRAY_BEGIN(usermods); mod < DYNARRAY_END(usermods); ++mod) (*mod)->connected(); }
 void UsermodManager::loop()              { for (auto mod = DYNARRAY_BEGIN(usermods); mod < DYNARRAY_END(usermods); ++mod) (*mod)->loop();  }
 void UsermodManager::handleOverlayDraw() { for (auto mod = DYNARRAY_BEGIN(usermods); mod < DYNARRAY_END(usermods); ++mod) (*mod)->handleOverlayDraw(); }
@@ -46,9 +51,13 @@ void UsermodManager::addToJsonInfo(JsonObject& obj)     {
   }
 }
 void UsermodManager::readFromJsonState(JsonObject& obj) { for (auto mod = DYNARRAY_BEGIN(usermods); mod < DYNARRAY_END(usermods); ++mod) (*mod)->readFromJsonState(obj); }
-void UsermodManager::addToConfig(JsonObject& obj)       { for (auto mod = DYNARRAY_BEGIN(usermods); mod < DYNARRAY_END(usermods); ++mod) (*mod)->addToConfig(obj); }
+void UsermodManager::addToConfig(JsonObject& obj) {
+  for (auto mod = DYNARRAY_BEGIN(usermods); mod < DYNARRAY_END(usermods); ++mod) {
+    (*mod)->addToConfig(obj);
+  }
+}
 bool UsermodManager::readFromConfig(JsonObject& obj)    {
-  bool allComplete = true;  
+  bool allComplete = true;
   for (auto mod = DYNARRAY_BEGIN(usermods); mod < DYNARRAY_END(usermods); ++mod) {
     if (!(*mod)->readFromConfig(obj)) allComplete = false;
   }
@@ -86,7 +95,41 @@ Usermod* UsermodManager::lookup(uint16_t mod_id) {
   return nullptr;
 }
 
-size_t UsermodManager::getModCount() { return getCount(); };
+// mod_name is a RAM string; _name may be PROGMEM (from constructor) or heap RAM (from probe).
+// strcmp_P is safe for both on ESP32; on ESP8266 probe-set names are already RAM so strcmp_P works too.
+Usermod* UsermodManager::lookup(const char* mod_name) {
+  if (!mod_name) return nullptr;
+  for (auto mod = DYNARRAY_BEGIN(usermods); mod < DYNARRAY_END(usermods); ++mod) {
+    const char* name = (*mod)->getName();
+    if (name && strcmp_P(mod_name, name) == 0) return *mod;
+  }
+  return nullptr;
+}
+
+size_t UsermodManager::getModCount() { return getCount(); }
+
+Usermod* UsermodManager::getModAt(size_t index) {
+  auto begin = DYNARRAY_BEGIN(usermods);
+  if (begin + index >= DYNARRAY_END(usermods)) return nullptr;
+  return *(begin + index);
+}
+
+/* Usermod base class name probe */
+void Usermod::probeNameFromConfig() {
+  if (_name) return;  // already named by constructor  
+  pDoc->clear();  // NOTE: this is safe only because it's called from `setup()` alone
+  JsonObject root = pDoc->to<JsonObject>();
+  addToConfig(root);
+  auto it = root.begin();
+  if (it == root.end()) return;  // mod wrote nothing
+  const char* key = it->key().c_str();
+  if (!key || !key[0]) return;
+  char* buf = new char[strlen(key) + 1];
+  if (buf) {
+    strcpy(buf, key);
+    _name = buf;
+  } // otherwise we're in big trouble anyways this early in the boot...
+}
 
 /* Usermod v2 interface shim for oappend */
 Print* Usermod::oappend_shim = nullptr;

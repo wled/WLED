@@ -360,8 +360,9 @@ const unsigned int um_data_size = sizeof(um_data_t);  // 12 bytes
 class Usermod {
   protected:
     um_data_t *um_data; // um_data should be allocated using new in (derived) Usermod's setup() or constructor
+    const char *_name = nullptr;  // PROGMEM pointer (set by constructor) or heap string (set by probeNameFromConfig())
   public:
-    Usermod() : um_data(nullptr) {};
+    Usermod(const char* name = nullptr) : um_data(nullptr), _name(name) {}
     virtual ~Usermod() { if (um_data) delete um_data; }
     virtual void setup() = 0; // pure virtual, has to be overriden
     virtual void loop() = 0;  // pure virtual, has to be overriden
@@ -374,7 +375,7 @@ class Usermod {
     virtual void addToJsonInfo(JsonObject& obj) {}                           // add JSON objects for UI Info page
     virtual void readFromJsonState(JsonObject& obj) {}                       // process JSON messages received from web server
     virtual void addToConfig(JsonObject& obj) {}                             // add JSON entries that go to cfg.json
-    virtual bool readFromConfig(JsonObject& obj) { return true; } // Note as of 2021-06 readFromConfig() now needs to return a bool, see usermod_v2_example.h
+    virtual bool readFromConfig(JsonObject& obj) { return true; }            // apply config from JSON; return true if no changes were made
     virtual void onMqttConnect(bool sessionPresent) {}                       // fired when MQTT connection is established (so usermod can subscribe)
     virtual bool onMqttMessage(char* topic, char* payload) { return false; } // fired upon MQTT message received (wled topic)
     virtual bool onEspNowMessage(uint8_t* sender, uint8_t* payload, uint8_t len) { return false; } // fired upon ESP-NOW message received
@@ -382,6 +383,9 @@ class Usermod {
     virtual void onUpdateBegin(bool) {}                                      // fired prior to and after unsuccessful firmware update
     virtual void onStateChange(uint8_t mode) {}                              // fired upon WLED state change
     virtual uint16_t getId() {return USERMOD_ID_UNSPECIFIED;}
+
+    inline const char* getName() const { return _name; }
+    void probeNameFromConfig();  // set _name from first addToConfig() key if not already set; defined in um_manager.cpp
 
   // API shims
   private:
@@ -422,6 +426,8 @@ namespace UsermodManager {
   void onUpdateBegin(bool);
   void onStateChange(uint8_t);
   Usermod* lookup(uint16_t mod_id);
+  Usermod* lookup(const char* mod_name); // find usermod by name (case-sensitive), safe for PROGMEM strings
+  Usermod* getModAt(size_t index);       // ordered iteration for settings page enumeration
   size_t getModCount();
 };
 
@@ -613,6 +619,7 @@ void serveMessage(AsyncWebServerRequest* request, uint16_t code, const String& h
 void serveJsonError(AsyncWebServerRequest* request, uint16_t code, uint16_t error);
 void serveSettings(AsyncWebServerRequest* request, bool post = false);
 void serveSettingsJS(AsyncWebServerRequest* request);
+void handleStaticContent(AsyncWebServerRequest *request, const String &path, int code, const String &contentType, const uint8_t *content, size_t len, bool gzip = true, uint16_t eTagSuffix = 0);
 
 //ws.cpp
 void handleWs();

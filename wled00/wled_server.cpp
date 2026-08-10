@@ -137,7 +137,7 @@ static bool handleIfNoneMatchCacheHeader(AsyncWebServerRequest *request, int cod
  * @param gzip Optional. Defaults to true. If false, the gzip header will not be added.
  * @param eTagSuffix Optional. Defaults to 0. A suffix that will be added to the ETag header. This can be used to invalidate the cache for a specific page.
  */
-static void handleStaticContent(AsyncWebServerRequest *request, const String &path, int code, const String &contentType, const uint8_t *content, size_t len, bool gzip = true, uint16_t eTagSuffix = 0) {
+void handleStaticContent(AsyncWebServerRequest *request, const String &path, int code, const String &contentType, const uint8_t *content, size_t len, bool gzip, uint16_t eTagSuffix) {
   if (path != "" && handleFileRead(request, path)) return;
   if (handleIfNoneMatchCacheHeader(request, code, eTagSuffix)) return;
   AsyncWebServerResponse *response = request->beginResponse_P(code, contentType, content, len);
@@ -377,6 +377,40 @@ void initServer()
     handleStaticContent(request, FPSTR(_omggif_js), 200, FPSTR(CONTENT_TYPE_JAVASCRIPT), JS_omggif, JS_omggif_length);
   });
 #endif
+
+  // Per-mod settings pages: GET /settings/um/<name>
+  // Also catches the bare /settings/um index path (handled by delegating to serveSettings).
+  // Registered before /settings so the more-specific prefix takes precedence.
+  // Usermods can register their own /settings/um/<name> handler during setup();
+  // it will shadow this catch-all for their specific path (first registered wins).
+  server.on(F("/settings/um"), HTTP_GET, [](AsyncWebServerRequest *request) {
+    String url = request->url();
+    static const int prefixLen = 12; // strlen("/settings/um")
+    String modName = (url.length() > (unsigned)prefixLen + 1) ? url.substring(prefixLen + 1) : "";
+    if (modName.isEmpty()) {
+      serveSettings(request); // bare /settings/um — index page, PIN-gated inside serveSettings
+      return;
+    }
+    if (!correctPIN && strlen(settingsPIN) > 0) {
+      serveSettings(request); // redirects to PIN entry page
+      return;
+    }
+    modName = request->urlDecode(modName);
+    if (!UsermodManager::lookup(modName.c_str())) {
+      serveMessage(request, 404, F("Usermod not found"), "", 254);
+      return;
+    }
+    // Serve settings_um.htm; JS uses window.location.pathname to filter to this mod
+    handleStaticContent(request, "", 200, FPSTR(CONTENT_TYPE_HTML), PAGE_settings_um, PAGE_settings_um_length);
+  });
+
+  // Hardware interface settings page (I2C/SPI global pins).
+  // Reuses settings_um.htm (PAGE_settings_um); its JS detects the /settings/hw/if path
+  // and renders only the global I2C/SPI section, avoiding a duplicate HTML blob in flash.
+  server.on(F("/settings/hw/if"), HTTP_GET, [](AsyncWebServerRequest *request) {
+    if (!correctPIN && strlen(settingsPIN) > 0) { serveSettings(request); return; }
+    handleStaticContent(request, "", 200, FPSTR(CONTENT_TYPE_HTML), PAGE_settings_um, PAGE_settings_um_length);
+  });
 
   //settings page
   server.on(F("/settings"), HTTP_GET, [](AsyncWebServerRequest *request){

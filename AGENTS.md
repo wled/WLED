@@ -175,7 +175,9 @@ Background Info:
 
 ## Usermod Pattern
 
-Usermods live in `usermods/<name>/` with a `.cpp`, optional `.h`, `library.json`, and `readme.md`.
+The preferred approach for new usermods is **out-of-tree**: click **Use this template** on [github.com/wled/wled-usermod-example](https://github.com/wled/wled-usermod-example) to create your own copy, add your code, and reference it from a WLED build — no changes to the WLED source tree needed. The fully annotated reference implementation lives there. Full guide at [kno.wled.ge/advanced/custom-features](https://kno.wled.ge/advanced/custom-features/).
+
+In-tree usermods in `usermods/<name>/` (with a `.cpp`, optional `.h`, `library.json`, and `readme.md`) are for commonly-needed features the core team maintains; the bar for inclusion is high (see `usermods/readme.md`).
 
 ```cpp
 class MyUsermod : public Usermod {
@@ -183,23 +185,27 @@ class MyUsermod : public Usermod {
     bool enabled = false;
     static const char _name[];
   public:
-    void setup() override { /* ... */ }                          // runs once at start-up
-    void loop() override { /* ... */ }                           // runs once per main loop iteration
-    void addToConfig(JsonObject& root) override { /* ... */ }    // create/add persistent settings (usermod settings)
-    bool readFromConfig(JsonObject& root) override { /* ... */ } // read from persistent settings (usermod settings UI)
-    uint16_t getId() override { return USERMOD_ID_MYMOD; }
-    void addToJsonInfo(JsonObject& root) override { /* ... */ }  // Add custom items to the "info" page and to /json/info
-    void appendConfigData() override { /* ... */ }               // Customize the settings page: dropdowns, checkboxes, extra text, etc. Buffer size is limited!
+    MyUsermod() : Usermod(_name) {};
+    void setup() override { /* ... */ }                                    // runs once at start-up
+    void loop() override { /* ... */ }                                     // runs once per main loop iteration
+    void addToConfig(JsonObject& root) override { /* ... */ }              // persist settings to cfg.json
+    bool readFromConfig(JsonObject& root) override { /* ... */ }           // restore settings; return false if keys missing
+    void addToJsonInfo(JsonObject& root) override { /* ... */ }            // add entries to /json/info
+    void appendConfigData(Print& settingsScript) override { /* ... */ }    // customize the Usermod Settings page
+    // uint16_t getId() override { return USERMOD_ID_MYMOD; }              // only needed — see "Usermod IDs" below
 };
 const char MyUsermod::_name[] PROGMEM = "MyUsermod";
 static MyUsermod myUsermod;
 REGISTER_USERMOD(myUsermod);
 ```
 
-refer to detailed examples in `usermods/EXAMPLE/`, `usermods/user_fx/` and [in the user documentation for custom features](https://kno.wled.ge/advanced/custom-features/).
+For additional lifecycle hooks (`connected`, `handleOverlayDraw`, `handleButton`, MQTT callbacks, etc.) see the annotated example at [github.com/wled/wled-usermod-example](https://github.com/wled/wled-usermod-example) and `usermods/user_fx/`.
 
-- Activate via `custom_usermods = ` in platformio build config. The `usermod_v2_` prefix or `_v2` suffix can be omitted.
-- Base new usermods on `usermods/EXAMPLE/` (never edit the example directly)
+- **Out-of-tree** (preferred): reference via `custom_usermods` in `platformio_override.ini`:
+  - Local clone: `symlink:///absolute/path/to/your-usermod`
+  - Published: `https://github.com/you/your-usermod.git#main`
+- **In-tree**: activate via `custom_usermods = <name>` in the platformio build config. The `usermod_v2_` prefix or `_v2` suffix can be omitted.
+- Base new usermods on the out-of-tree template above; if contributing in-tree, use `usermods/user_fx/` as a reference (never edit in-tree examples directly)
 - Store repeated strings as `static const char[] PROGMEM`
 - Add usermod IDs to `wled00/const.h` **only when a unique ID is required** (see below)
 

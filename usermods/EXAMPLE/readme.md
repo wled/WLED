@@ -1,9 +1,13 @@
-# Usermods API v2 example usermod
+# Looking for the example usermod?
 
-In this usermod file you can find the documentation on how to take advantage of the new version 2 usermods!
+The annotated example has moved to its own repository:
 
-## Installation 
+**[github.com/wled/wled-usermod-example](https://github.com/wled/wled-usermod-example)**
 
-Add `EXAMPLE` to `custom_usermods` in your PlatformIO environment and compile!
-_(You shouldn't need to actually install this, it does nothing useful)_
+Click **Use this template** on GitHub to create your own copy and start your own usermod. It contains a fully annotated implementation and a `library.json` template covering everything you need.
 
+For the full guide — enabling usermods, the `custom_usermods` build system, persistent settings, effects, and more — see:
+
+**[kno.wled.ge/advanced/custom-features](https://kno.wled.ge/advanced/custom-features/)**
+
+Please use the example repo above as the starting point for your own work.

@@ -3,76 +3,21 @@
 const assert = require('node:assert');
 const { describe, it, before, after } = require('node:test');
 const fs = require('fs');
+const os = require('os');
 const path = require('path');
 const child_process = require('child_process');
 const util = require('util');
 const execPromise = util.promisify(child_process.exec);
 
-process.env.NODE_ENV = 'test'; // Set the environment to testing
-const cdata = require('./cdata.js');
+// Importing the build script must be side-effect free: with NODE_ENV=test it
+// defines its helpers but must not run a build.
+process.env.NODE_ENV = 'test';
+require('./cdata.js');
 
-describe('Function', () => {
-  const testFolderPath = path.join(__dirname, 'testFolder');
-  const oldFilePath = path.join(testFolderPath, 'oldFile.txt');
-  const newFilePath = path.join(testFolderPath, 'newFile.txt');
-
-  // Create a temporary file before the test
-  before(() => {
-    // Create test folder
-    if (!fs.existsSync(testFolderPath)) {
-      fs.mkdirSync(testFolderPath);
-    }
-
-    // Create an old file
-    fs.writeFileSync(oldFilePath, 'This is an old file.');
-    // Modify the 'mtime' to simulate an old file
-    const oldTime = new Date();
-    oldTime.setFullYear(oldTime.getFullYear() - 1);
-    fs.utimesSync(oldFilePath, oldTime, oldTime);
-
-    // Create a new file
-    fs.writeFileSync(newFilePath, 'This is a new file.');
-  });
-
-  // delete the temporary files after the test
-  after(() => {
-    fs.rmSync(testFolderPath, { recursive: true });
-  });
-
-  describe('isFileNewerThan', async () => {
-    it('should return true if the file is newer than the provided time', async () => {
-      const pastTime = Date.now() - 10000; // 10 seconds ago
-      assert.strictEqual(cdata.isFileNewerThan(newFilePath, pastTime), true);
-    });
-
-    it('should return false if the file is older than the provided time', async () => {
-      assert.strictEqual(cdata.isFileNewerThan(oldFilePath, Date.now()), false);
-    });
-
-    it('should throw an exception if the file does not exist', async () => {
-      assert.throws(() => {
-        cdata.isFileNewerThan('nonexistent.txt', Date.now());
-      });
-    });
-  });
-
-  describe('isAnyFileInFolderNewerThan', async () => {
-    it('should return true if a file in the folder is newer than the given time', async () => {
-      const time = fs.statSync(path.join(testFolderPath, 'oldFile.txt')).mtime;
-      assert.strictEqual(cdata.isAnyFileInFolderNewerThan(testFolderPath, time), true);
-    });
-
-    it('should return false if no files in the folder are newer than the given time', async () => {
-      assert.strictEqual(cdata.isAnyFileInFolderNewerThan(testFolderPath, new Date()), false);
-    });
-
-    it('should throw an exception if the folder does not exist', async () => {
-      assert.throws(() => {
-        cdata.isAnyFileInFolderNewerThan('nonexistent', new Date());
-      });
-    });
-  });
-});
+// The CLI decides whether to build from NODE_ENV, so child processes must not
+// inherit the test harness's NODE_ENV=test (which suppresses the build).
+const buildEnv = { ...process.env, NODE_ENV: 'production' };
+const runCdata = (args = '') => execPromise('node tools/cdata.js ' + args, { env: buildEnv });
 
 describe('Script', () => {
   const folderPath = 'wled00';
@@ -215,4 +160,197 @@ describe('Script', () => {
       assert(secondRunTime < firstRunTime / 2, 'html_*.h files were rebuilt');
     });
   });
+});
+
+describe('Dependency graph (--emit-deps / --depfile)', () => {
+  const depfile = path.join(os.tmpdir(), `cdata-deps-${process.pid}.d`);
+
+  after(() => {
+    try { fs.rmSync(depfile); } catch { /* ignore */ }
+  });
+
+  it('emits a depfile listing every generated header, without building', async () => {
+    const { stdout } = await runCdata(`--emit-deps --depfile "${depfile}"`);
+    assert.match(stdout, /Wrote dependency graph/);
+    assert.doesNotMatch(stdout, /Minified/); // nothing was actually built
+
+    const dep = fs.readFileSync(depfile, 'utf8');
+    for (const header of ['wled00/html_ui.h', 'wled00/html_settings.h', 'wled00/js_iro.h']) {
+      assert.match(dep, new RegExp('^' + header.replace(/\./g, '\\.') + ':', 'm'),
+        `depfile is missing a rule for ${header}`);
+    }
+  });
+
+  it('records cdata.js, package.json and package-lock.json as inputs of every header', async () => {
+    await runCdata(`--emit-deps --depfile "${depfile}"`);
+    const dep = fs.readFileSync(depfile, 'utf8');
+    for (const line of dep.split('\n')) {
+      if (!line || line.startsWith('#') || !line.includes(':')) continue;
+      assert.match(line, /tools\/cdata\.js/, 'every rule should depend on cdata.js');
+      assert.match(line, /(^|\s)package\.json(\s|$)/, 'every rule should depend on package.json');
+      // The lock file pins minifier versions, so an npm install that changes them
+      // (without touching package.json) must still invalidate every header.
+      assert.match(line, /package-lock\.json/, 'every rule should depend on package-lock.json');
+    }
+  });
+
+  it("records an html job's whole source folder, not a snapshot of its files", async () => {
+    // An html job inlines arbitrary resources from its source folder, so the
+    // folder itself is the dependency.  That is what lets a file added to or
+    // removed from wled00/data (e.g. wled00/data/icons-ui/Read Me.txt) count as a
+    // dependency change -- rather than listing today's files and missing the next
+    // one that appears.
+    await runCdata(`--emit-deps --depfile "${depfile}"`);
+    const dep = fs.readFileSync(depfile, 'utf8');
+    const uiRule = dep.split('\n').find(l => l.startsWith('wled00/html_ui.h:'));
+    assert(uiRule, 'no dependency rule for wled00/html_ui.h');
+    assert.match(uiRule, /(^|\s)wled00\/data(\s|$)/, 'html_ui.h should depend on its source folder');
+    // The folder is listed as one token, so individual files inside it -- and any
+    // spaces in their names -- are not enumerated here.
+    assert.doesNotMatch(uiRule, /Read/);
+  });
+});
+
+describe('Usermod manifests', () => {
+  let modDir;
+  const manifest = () => path.join(modDir, 'cdata.json');
+
+  before(() => {
+    modDir = fs.mkdtempSync(path.join(os.tmpdir(), 'cdata-mod-'));
+    fs.mkdirSync(path.join(modDir, 'data'));
+    fs.writeFileSync(path.join(modDir, 'data', 'page.htm'),
+      '<!doctype html><html><body><h1>Hi ##VERSION##</h1></body></html>');
+    fs.writeFileSync(manifest(), JSON.stringify({
+      header: [{
+        output: 'html_mod.h',
+        srcDir: 'data',
+        specs: [{ file: 'page.htm', name: 'PAGE_mod', method: 'gzip', filter: 'html-minify' }],
+      }],
+    }));
+  });
+
+  after(() => {
+    fs.rmSync(modDir, { recursive: true, force: true });
+  });
+
+  it('legacy single-manifest mode builds only that header', async () => {
+    const out = path.join(modDir, 'html_mod.h');
+    const { stdout } = await runCdata(`"${manifest()}"`);
+    assert(fs.existsSync(out), 'usermod header was not built');
+    assert.match(fs.readFileSync(out, 'utf8'), /PAGE_mod/);
+    assert.doesNotMatch(stdout, /index\.htm|html_ui\.h/); // main UI is not part of this run
+  });
+
+  it('--manifest adds the usermod header to the graph alongside the main UI', async () => {
+    const depfile = path.join(modDir, 'deps.d');
+    await runCdata(`--emit-deps --depfile "${depfile}" --manifest "${manifest()}"`);
+    const dep = fs.readFileSync(depfile, 'utf8');
+    assert.match(dep, /html_mod\.h:/);        // the usermod output
+    assert.match(dep, /wled00\/html_ui\.h:/); // together with the main UI
+  });
+
+  it('rejects a manifest with an unknown top-level key', async () => {
+    const bad = path.join(modDir, 'bad.json');
+    fs.writeFileSync(bad, JSON.stringify({
+      inject: {}, // reserved for the future, not accepted by current tooling
+      header: [{
+        output: 'html_bad.h',
+        specs: [{ file: 'page.htm', name: 'PAGE_bad', method: 'gzip', filter: 'html-minify' }],
+      }],
+    }));
+    await assert.rejects(runCdata(`"${bad}"`), /unknown top-level key/);
+    fs.rmSync(bad);
+  });
+
+  it('builds one header per header op in a multi-header manifest', async () => {
+    const multi = path.join(modDir, 'multi.json');
+    fs.writeFileSync(multi, JSON.stringify({
+      header: [
+        { output: 'html_a.h', srcDir: 'data',
+          specs: [{ file: 'page.htm', name: 'PAGE_a', method: 'gzip', filter: 'html-minify' }] },
+        { output: 'html_b.h', srcDir: 'data',
+          specs: [{ file: 'page.htm', name: 'PAGE_b', method: 'gzip', filter: 'html-minify' }] },
+      ],
+    }));
+    await runCdata(`"${multi}"`);
+    assert.match(fs.readFileSync(path.join(modDir, 'html_a.h'), 'utf8'), /PAGE_a/);
+    assert.match(fs.readFileSync(path.join(modDir, 'html_b.h'), 'utf8'), /PAGE_b/);
+    fs.rmSync(multi);
+  });
+
+  it('emits a valid raw string for a plaintext spec with no delimiters', async () => {
+    const pt = path.join(modDir, 'plain.json');
+    fs.writeFileSync(pt, JSON.stringify({
+      header: [{ output: 'html_plain.h', srcDir: 'data',
+        specs: [{ file: 'page.htm', name: 'PAGE_plain', method: 'plaintext' }] }],
+    }));
+    await runCdata(`"${pt}"`);
+    const out = fs.readFileSync(path.join(modDir, 'html_plain.h'), 'utf8');
+    // A safe matching delimiter pair is filled in, so the literal is R"=====(...)====="
+    // rather than an invalid bare R"...".
+    assert.match(out, /const char PAGE_plain\[\] PROGMEM = R"=====\(/);
+    assert.match(out, /\)=====";/);
+    assert.doesNotMatch(out, /R"[^=]/); // never a bare/undelimited raw string
+    fs.rmSync(pt);
+    fs.rmSync(path.join(modDir, 'html_plain.h'));
+  });
+
+  // The build hard-fails on any invalid manifest (cdata.js is the single
+  // validator; the Python layer only forwards paths).  Each case asserts the
+  // CLI exits non-zero with a message identifying the specific problem.
+  const spec = { file: 'page.htm', name: 'PAGE_x', method: 'gzip', filter: 'html-minify' };
+  const invalidManifests = {
+    'malformed JSON': { raw: '{ "header": [ }', error: /Could not read manifest/ },
+    'a header op missing output': {
+      json: { header: [{ specs: [spec] }] }, error: /missing a string 'output'/ },
+    'an empty header array': {
+      json: { header: [] }, error: /missing or empty 'header' array/ },
+    'no header key at all': {
+      json: { schemaVersion: 1 }, error: /missing or empty 'header' array/ },
+    'an unsupported schemaVersion': {
+      json: { schemaVersion: 2, header: [{ output: 'x.h', specs: [spec] }] },
+      error: /unsupported schemaVersion 2/ },
+    'two header ops writing the same output': {
+      json: { header: [
+        { output: 'dup.h', srcDir: 'data', specs: [{ ...spec, name: 'PAGE_a' }] },
+        { output: 'dup.h', srcDir: 'data', specs: [{ ...spec, name: 'PAGE_b' }] },
+      ] },
+      error: /collides with an earlier header op/ },
+    // Path traversal: no manifest-supplied path may escape the usermod folder.
+    'an output escaping the usermod folder': {
+      json: { header: [{ output: '../escape.h', specs: [spec] }] },
+      error: /output '\.\.\/escape\.h' resolves outside the usermod folder/ },
+    'an absolute output path': {
+      json: { header: [{ output: '/tmp/evil.h', specs: [spec] }] },
+      error: /resolves outside the usermod folder/ },
+    'a srcDir escaping the usermod folder': {
+      json: { header: [{ output: 'x.h', srcDir: '../../elsewhere', specs: [spec] }] },
+      error: /srcDir '\.\.\/\.\.\/elsewhere' resolves outside the usermod folder/ },
+    'a spec file escaping the usermod folder': {
+      json: { header: [{ output: 'x.h', srcDir: 'data', specs: [{ ...spec, file: '../../../../etc/hosts' }] }] },
+      error: /file '.*etc\/hosts' resolves outside the usermod folder/ },
+    // Spec value validation: bad values must fail loudly, not reach codegen.
+    'a spec name that is not a C identifier': {
+      json: { header: [{ output: 'x.h', srcDir: 'data', specs: [{ ...spec, name: 'not a name!' }] }] },
+      error: /needs a 'name' that is a valid C identifier/ },
+    'an unknown spec method': {
+      json: { header: [{ output: 'x.h', srcDir: 'data', specs: [{ ...spec, method: 'zip' }] }] },
+      error: /invalid 'method' "zip"/ },
+    'an unknown spec filter': {
+      json: { header: [{ output: 'x.h', srcDir: 'data', specs: [{ ...spec, filter: 'htlm-minify' }] }] },
+      error: /invalid 'filter' "htlm-minify"/ },
+    'a plaintext spec with only one delimiter': {
+      json: { header: [{ output: 'x.h', srcDir: 'data',
+        specs: [{ file: 'page.htm', name: 'PAGE_x', method: 'plaintext', prepend: '=====(' }] }] },
+      error: /must set both 'prepend' and 'append'/ },
+  };
+
+  for (const [desc, { raw, json, error }] of Object.entries(invalidManifests)) {
+    it(`rejects ${desc}`, async () => {
+      const bad = path.join(modDir, 'invalid.json');
+      fs.writeFileSync(bad, raw !== undefined ? raw : JSON.stringify(json));
+      await assert.rejects(runCdata(`"${bad}"`), error);
+      fs.rmSync(bad);
+    });
+  }
 });

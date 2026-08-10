@@ -17,6 +17,13 @@
 			l.onerror = () => setTimeout(loadFiles, 100);
 			document.head.appendChild(l);
 		})();
+		function addUMBtn(n) {
+			var b = document.createElement('button');
+			b.type = 'button';
+			b.onclick = function() { window.location = getURL('/settings/um/' + encodeURIComponent(n)); };
+			b.textContent = n;
+			gId('umlist').appendChild(b);
+		}
 	</script>
 	<style>
 		@import url("style.css");
@@ -43,13 +50,14 @@
 <button type=submit id="b" onclick="window.location=getURL('/')">Back</button>
 <button type="submit" onclick="window.location=getURL('/settings/wifi')">WiFi & Network</button>
 <button type="submit" onclick="window.location=getURL('/settings/leds')">LED & Hardware</button>
+<button type="submit" onclick="window.location=getURL('/settings/hw/if')">Hardware Interface</button>
 <button type="submit" onclick="window.location=getURL('/settings/pins')">Pin Info</button>
 <button id="2dbtn" type="submit" onclick="window.location=getURL('/settings/2D')">2D Configuration</button>
 <button type="submit" onclick="window.location=getURL('/settings/ui')">User Interface</button>
 <button id="dmxbtn" style="display:none;" type="submit" onclick="window.location=getURL('/settings/dmx')">DMX Output</button>
 <button type="submit" onclick="window.location=getURL('/settings/sync')">Sync Interfaces</button>
 <button type="submit" onclick="window.location=getURL('/settings/time')">Time & Macros</button>
-<button type="submit" onclick="window.location=getURL('/settings/um')">Usermods</button>
+<div id="umlist"></div>
 <button type="submit" onclick="window.location=getURL('/settings/sec')">Security & Updates</button>
 </body>
 </html>

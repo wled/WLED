@@ -201,6 +201,19 @@ def wrapped_ConfigureProjectLibBuilder(xenv):
       fg="red", err=True)
     Exit(1)
 
+  # Collect the HTML-asset manifests of the selected usermods and publish them
+  # for build_ui.py, which builds all UI assets (main WLED + usermods) in a
+  # single node invocation after this discovery step.  The generated header
+  # lives in each usermod's own source directory, so SCons's C/C++ scanner
+  # detects the #include and orders compilation correctly.
+  ui_manifests = []
+  for dep in wled_deps:
+    manifest_path = Path(dep.src_dir) / 'cdata.json'
+    if manifest_path.exists():
+      ui_manifests.append(str(manifest_path.resolve()))
+
+  xenv['WLED_UI_MANIFESTS'] = ui_manifests
+
   # Save the depbuilders list for later validation
   xenv.Replace(WLED_MODULES=wled_deps)
 

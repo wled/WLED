@@ -9,18 +9,32 @@
 	var umCfg = {};
 	var urows;
 	var numM = 0;
+	// Locate 'settings/um/<name>' anywhere in the path to support reverse-proxy prefixes.
+	// e.g. /settings/um/AudioReactive → settIdx=1, modFilter='AudioReactive', wledRoot=''
+	//      /myapp/wled/settings/um/Foo → settIdx=3, modFilter='Foo', wledRoot='/myapp/wled'
+	var pathParts = window.location.pathname.split('/');
+	var settIdx = pathParts.indexOf('settings');
+	var modFilter = (settIdx >= 0 && pathParts[settIdx+1]==='um' && pathParts[settIdx+2]) ? decodeURIComponent(pathParts[settIdx+2]) : null;
+	// /settings/hw/if reuses this page to render just the global I2C/SPI ("gbus") section,
+	// avoiding a duplicate copy of that markup in a separate flash blob.
+	var hwOnly = (settIdx >= 0 && pathParts[settIdx+1]==='hw' && pathParts[settIdx+2]==='if');
+	var wledRoot = pathParts.slice(0, settIdx).join('/'); // '' for direct, '/prefix' for proxy
 	// load common.js with retry on error
 	(function loadFiles() {
 		const l = document.createElement('script');
-		l.src = 'common.js';
-		l.onload = () => loadResources(['style.css'], S); // load style.css then call S()
+		l.src = wledRoot + '/common.js';
+		l.onload = () => loadResources([wledRoot + '/style.css'], S); // load style.css then call S()
 		l.onerror = () => setTimeout(loadFiles, 100);
 		document.head.appendChild(l);
 	})();
 
 
 	function S() {
-		getLoc();
+		// Use wledRoot instead of getLoc(): /settings/um/<name> has 3 path components which
+		// getLoc() would misidentify as a 2-component reverse-proxy prefix.
+		if (wledRoot) { loc = true; locproto = window.location.protocol; locip = window.location.host + wledRoot; }
+		if (modFilter) { document.title = modFilter + ' Settings'; gId('umtitle').textContent = modFilter + ' Settings'; gId('gbus').style.display='none'; }
+		if (hwOnly) { document.title = 'Hardware Interface'; gId('umtitle').textContent = 'Hardware Interface'; gId('um').style.display='none'; }
 		// load settings and insert values into DOM
 		fetch(getURL('/json/cfg'), {
 			method: 'get'
@@ -32,14 +46,17 @@
 		.then(json => {
 			umCfg = json.um;
 			urows="";
-			if (isO(umCfg)) {
+			if (!hwOnly && isO(umCfg)) {
 				for (const [k,o] of Object.entries(umCfg)) {
-					urows += `<div class="sec"><h3>${k}</h3>`;
+					if (modFilter && k !== modFilter) continue;
+					urows += `<div class="sec"><h3>${k}`;
+					if (!modFilter) urows += ` <a href="${wledRoot}/settings/um/${encodeURIComponent(k)}" title="Per-mod settings page" style="font-size:0.7em;text-decoration:none">&#9881;</a>`;
+					urows += `</h3>`;
 					addField(k,'unknown',o);
 					urows += `</div>`;
 				}
 			}
-			if (urows==="") urows = "Usermods configuration not found.<br>Press <i>Save</i> to initialize defaults.";
+			if (!hwOnly && urows==="") urows = modFilter ? `Usermod '${modFilter}' has no configurable settings.` : "Usermods configuration not found.<br>Press <i>Save</i> to initialize defaults.";
 			gId("um").innerHTML = urows;
 			loadJS(getURL('/settings/s.js?p=8'), false, ()=>{
 				d.max_gpio = 50;
@@ -258,9 +275,87 @@
 	function addHB(um) {
 		addI(um + ':help',0,`<button onclick="location.href='https://kno.wled.ge/usermods/${um}'" type="button">?</button>`);
 	}
+	// Reconstruct a mod's config object from its generated form inputs.
+	// Handles flat fields, nested objects (colon-delimited in name), and arrays ([]).
+	function getModConfig(modName) {
+		var result = {};
+		var prefix = modName + ':';
+		// Collect type hints from hidden fields (value="int" or "number" for non-array numeric fields)
+		var hints = {};
+		for (var el of d.Sf.elements) {
+			if (el.type === 'hidden' && el.name.startsWith(prefix) && el.value !== 'false') hints[el.name] = el.value;
+		}
+		for (var el of d.Sf.elements) {
+			if (!el.name.startsWith(prefix)) continue;
+			if (el.type === 'hidden') continue;
+			var isArr = el.name.endsWith('[]');
+			var baseName = isArr ? el.name.slice(0, -2) : el.name;
+			var keyPath = baseName.substring(prefix.length).split(':');
+			var val;
+			if (el.type === 'checkbox') {
+				val = el.checked;
+			} else if (el.tagName === 'SELECT' || el.type === 'number') {
+				val = (hints[baseName] === 'int') ? parseInt(el.value) : parseFloat(el.value);
+			} else {
+				val = el.value;
+			}
+			var obj = result;
+			for (var i = 0; i < keyPath.length - 1; i++) {
+				if (!obj[keyPath[i]]) obj[keyPath[i]] = {};
+				obj = obj[keyPath[i]];
+			}
+			var lastKey = keyPath[keyPath.length - 1];
+			if (isArr) {
+				if (!obj[lastKey]) obj[lastKey] = [];
+				obj[lastKey].push(val);
+			} else {
+				obj[lastKey] = val;
+			}
+		}
+		return result;
+	}
 	function svS(e) {
 		e.preventDefault();
-		if (d.Sf.checkValidity()) d.Sf.submit(); //https://stackoverflow.com/q/37323914
+		if (!d.Sf.checkValidity()) return;
+		if (modFilter) {
+			// Per-mod page
+			fetch(getURL('/json/cfg'), {
+				method: 'post',
+				headers: { 'Content-Type': 'application/json' },
+				body: JSON.stringify({"um":{[modFilter]: getModConfig(modFilter)}})
+			})
+			.then(res => {
+				if (res.ok) {
+					gId('lssuc').style.display = 'inline';
+					setTimeout(() => { gId('lssuc').style.display = 'none'; }, 3000);
+				} else {
+					gId('lserr').style.display = 'inline';
+				}
+			})
+			.catch(() => { gId('lserr').style.display = 'inline'; });
+		} else if (hwOnly) {
+			// Hardware Interface page: POST just the I2C/SPI pins as JSON to /json/cfg
+			fetch(getURL('/json/cfg'), {
+				method: 'post',
+				headers: { 'Content-Type': 'application/json' },
+				body: JSON.stringify({"hw":{"if":{
+					'i2c-pin': [parseInt(d.Sf.SDA.value), parseInt(d.Sf.SCL.value)],
+					'spi-pin': [parseInt(d.Sf.MOSI.value), parseInt(d.Sf.SCLK.value), parseInt(d.Sf.MISO.value)]
+				}}})
+			})
+			.then(res => {
+				if (res.ok) {
+					gId('lssuc').style.display = 'inline';
+					setTimeout(() => { gId('lssuc').style.display = 'none'; }, 3000);
+					if (d.Sf.RBT.checked) setTimeout(() => { fetch(getURL('/reset')); }, 100);
+				} else {
+					gId('lserr').style.display = 'inline';
+				}
+			})
+			.catch(() => { gId('lserr').style.display = 'inline'; });
+		} else {
+			d.Sf.submit(); //https://stackoverflow.com/q/37323914
+		}
 	}
 
 	// TODO: rename this function, needs to be in sync with the now out of tree mod
@@ -365,8 +460,8 @@
 		<span id="lssuc" style="color:green; display:none">&#10004; Configuration saved!</span>
 		<span id="lserr" style="color:red; display:none">&#9888; Could not load configuration.</span><hr>
 		</div>
-		<h2>Usermod Setup</h2>
-		<div class="sec">
+		<h2 id="umtitle">Usermod Setup</h2>
+		<div class="sec" id="gbus" style="">
 			<h3>Global I<sup>2</sup>C & SPI</h3>
 			
 			<b>I<sup>2</sup>C GPIOs (HW)</b><br>

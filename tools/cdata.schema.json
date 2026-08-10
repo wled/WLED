@@ -1,0 +1,83 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://raw.githubusercontent.com/wled-dev/WLED/main/tools/cdata.schema.json",
+  "title": "WLED usermod cdata.json manifest",
+  "description": "Describes how a usermod's web UI source files are compiled into generated C headers at build time. Consumed by tools/cdata.js. Keep in sync with the validation in tools/cdata.js.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["header"],
+  "properties": {
+    "$schema": {
+      "type": "string",
+      "description": "Optional JSON Schema reference for editor validation. Ignored by the build."
+    },
+    "schemaVersion": {
+      "type": "integer",
+      "enum": [1],
+      "description": "Manifest schema version. Omit to use the baseline schema (implicit v1); only 1 is currently supported. A future breaking change would introduce version 2."
+    },
+    "header": {
+      "type": "array",
+      "minItems": 1,
+      "description": "Header-generation operations. Each produces one generated .h file in the usermod's own directory.",
+      "items": { "$ref": "#/definitions/headerOp" }
+    }
+  },
+  "definitions": {
+    "headerOp": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["output", "specs"],
+      "properties": {
+        "srcDir": {
+          "type": "string",
+          "default": "data",
+          "description": "Folder, relative to the manifest, holding the source files. Defaults to \"data\"."
+        },
+        "output": {
+          "type": "string",
+          "minLength": 1,
+          "description": "Filename of the generated header, written into the usermod's own directory (e.g. \"example_ui.h\")."
+        },
+        "specs": {
+          "type": "array",
+          "minItems": 1,
+          "description": "One entry per source file / C symbol to embed in this header.",
+          "items": { "$ref": "#/definitions/spec" }
+        }
+      }
+    },
+    "spec": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["file", "name", "method"],
+      "properties": {
+        "file": {
+          "type": "string",
+          "description": "Source filename under srcDir."
+        },
+        "name": {
+          "type": "string",
+          "description": "C symbol to generate; e.g. \"PAGE_example\" yields a PAGE_example[] PROGMEM array plus PAGE_example_length."
+        },
+        "method": {
+          "enum": ["gzip", "plaintext", "binary"],
+          "description": "How the embedded data is encoded: gzip-compressed, verbatim text, or a raw byte array."
+        },
+        "filter": {
+          "enum": ["html-minify", "css-minify", "js-minify", "plain"],
+          "default": "plain",
+          "description": "Pre-processing applied to the source before embedding. Defaults to plain (no minification)."
+        },
+        "prepend": {
+          "type": "string",
+          "description": "Raw-string delimiter prefix; only meaningful with the plaintext method."
+        },
+        "append": {
+          "type": "string",
+          "description": "Raw-string delimiter suffix; only meaningful with the plaintext method."
+        }
+      }
+    }
+  }
+}
