@@ -174,14 +174,14 @@ diff --git a/docs/features/effects.md b/docs/features/effects.md
 index ecb76a1..f6ad92d 100644
 --- a/docs/features/effects.md
 +++ b/docs/features/effects.md
-@@ -305,8 +305,5 @@ Some effects get retired when they can be recreated with newer, more general eff
+@@ -305,8 +305,8 @@ Some effects get retired when they can be recreated with newer, more general eff
  | Dissolve Rnd    | Dissolve                              | 0.14.0        |
  | Dynamic Smooth  | Dynamic                               | 0.14.0        |
  | Halloween       | Chase 2                               | 0.14.0        |
--| Merry Christmas | Chase 2 - red/green                   | 0.12.0        |    
+ | Merry Christmas | Chase 2 - red/green                   | 0.12.0        |
  | Police          | Two Dot                               | 0.14.0        |
--| Police All      | Two Dots - red/blue w/ full intensity | 0.13.0        |
--| Two Areas       | Two Dots - full intensity             | 0.13.0        |
+ | Police All      | Two Dots - red/blue w/ full intensity | 0.13.0        |
+ | Two Areas       | Two Dots - full intensity             | 0.13.0        |
  
 diff --git a/docs/features/macros.md b/docs/features/macros.md
 index 940f655..8f91777 100644
