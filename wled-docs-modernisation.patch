@@ -1,0 +1,1036 @@
+diff --git a/docs/about/historical-features.md b/docs/about/historical-features.md
+new file mode 100644
+index 0000000..32117aa
+--- /dev/null
++++ b/docs/about/historical-features.md
+@@ -0,0 +1,65 @@
++---
++title: Historical Features
++hide:
++  # - navigation
++  # - toc
++---
++
++This page documents features from WLED versions prior to 0.14 that are no longer present in current builds. It is preserved here for historical reference only.
++
++---
++
++## Preset system prior to 0.11
++
++There are 16 preset slots in total.
++In 0.9.0, the last preset (16) is capable of saving the entire segment configuration. All other presets only save a single segment (main segment, the first one by default) and restore that preset to all selected segments.
++
++In the Favorites tab, the number buttons from 1-16 are the different save slots. Find a config you like, then toggle _Saving mode_ on and click on a number to save the preset to that slot. If _Saving mode_ is toggled off, you can restore presets with a single click.
++
++---
++
++## Preset Cycle (up to 0.12.1)
++
++With this feature, you can create an animation by automatically swapping between presets within a specified range.
++Keep in mind that any changes you make to effects/colors will be overridden once the system applies the next preset.
++
++If you want to start the preset cycle on boot, go to LED settings and tick "Save current preset cycle configuration as boot default".
++
++To modify the duration of the preset cycle, ensure the preset cycle box is unchecked before entering a new time value. Once updated, the preset cycle can be enabled again.
++
++Playlists superseded Preset Cycle in 0.13.
++
++---
++
++## WLED version names (0.10–0.13)
++
++WLED version names are Japanese. Here are the pre-0.14 names:
++
++| Version | Name | Kanji | Meaning |
++|---|---|---|---|
++0.10 | Namigai | 浪貝 | Geoduck
++0.11.0 | Mirai | 未来 | Future
++0.11.1 | Fumikiri | 踏切 | Railroad crossing
++0.12 | Hikari | 光 | Light
++0.13 | Toki | 時 | Time
++
++See [FAQ](/basics/faq#what-do-the-wled-version-names-mean) for current version names.
++
++---
++
++## ARLS (audio-reactive-led-strip v1) setup
++
++!!! warning
++    This integration is based on the unmaintained [audio-reactive-led-strip](https://github.com/scottlawsonbc/audio-reactive-led-strip) library and the v1 UDP Realtime protocol. Current WLED audio-reactive capabilities use the dedicated [Audio Reactive usermod (wled-audioreactive)](https://github.com/atuline/WLED) and SR-WLED instead.
++
++1. Download [audio-reactive-led-strip](https://github.com/scottlawsonbc/audio-reactive-led-strip) and follow its installation instructions. You can also use [this fork](https://github.com/Aircoookie/audio-reactive-led-strip) (in that case, skip step 2).
++2. Insert the following code in `led.py` after line 66:
++
++        m.append(1);
++        m.append(2);
++
++   These are the first two bytes of the protocol.
++
++3. In `config.py` set your LED amount, ESP IP and WLED UDP notifier port. For FPS, a setting between 15–30 is recommended.
++4. Run `visualization.py`. If you have a low number of LEDs (e.g. 10) try lowering the sigma values in lines 129–131.
++5. If you have multiple WLED devices, you can sync them all with music. Use the LED count of your largest device and set the IP to `X.X.X.255` (UDP broadcast). You can adjust the position of the amplitude with the WARLS offset setting.
+diff --git a/docs/advanced/home-automation.md b/docs/advanced/home-automation.md
+index 9fa3f50..bb47554 100644
+--- a/docs/advanced/home-automation.md
++++ b/docs/advanced/home-automation.md
+@@ -33,7 +33,7 @@ integration will be available.
+ ### Using MQTT
+ 
+ Alternatively, MQTT can be used (not recommended).
+-Auto discovery is no longer supported since version 0.9 of WLED.
++MQTT autodiscovery is not supported.
+ In case you want to configure the device manually:
+ 
+ ??? info "Expand to show MQTT configuration"
+diff --git a/docs/basics/faq.md b/docs/basics/faq.md
+index f298668..1930d26 100644
+--- a/docs/basics/faq.md
++++ b/docs/basics/faq.md
+@@ -255,17 +255,14 @@ WLED version names are Japanese! Here is a nice list of their meanings:
+ 
+ | Version | Name | Kanji | Meaning |
+ |---|---|---|---|
+-0.10 | Namigai | 浪貝 | Geoduck (don't google it!)
+-0.11.0 | Mirai | 未来 | Future
+-0.11.1 | Fumikiri | 踏切 | Railroad crossing
+-0.12 | Hikari | 光 | Light
+-0.13 | Toki | 時 | Time
+ 0.14 | Hoshi | 星 | Star
+ 0.15 | Kōsen | 光線 | Ray of light
+ 16.0 | Niji | 虹 | Rainbow
+ 17.0 | Kagayaki | 輝き | Brilliance
+ N/A | Kuuhaku | 空白 | Blank
+ 
++For version names prior to 0.14 (Namigai through Toki), see the [Historical Features](/about/historical-features) page.
++
+ ### What is the difference between the brightness sliders in the web UI?
+ 
+ There are three brightness slider types in the web UI. The white one in the **top bar** is the **master brightness** - it scales down every single color and all effects, palettes and segments by the same factor.  
+diff --git a/docs/basics/getting-started.md b/docs/basics/getting-started.md
+index 6ece1b6..1e3aa55 100644
+--- a/docs/basics/getting-started.md
++++ b/docs/basics/getting-started.md
+@@ -101,4 +101,4 @@ If you try to access the update page now, you should see the message "OTA lock a
+ Method 3: ArduinoOTA is also supported.
+ 
+ !!! info "If you own multiple devices and want to update them"
+-    Since v0.13 of WLED source code includes shell/command prompt scripts which is allow you to update multiple devices with a single command. Please check `tools` subfolder for `multi-update` scripts (.cmd or .sh). You will need to modify them to include IP addresses of your WLED devices and assign firmware binary file for each device. If you are using Windows, make sure you install `curl` utility somewhere in your `PATH` (curl is included with Windows 10 since build 17063). This will only work if "OTA Lock" is disabled.
++    WLED source code includes shell/command prompt scripts to update multiple devices with a single command. Please check `tools` subfolder for `multi-update` scripts (.cmd or .sh). You will need to modify them to include IP addresses of your WLED devices and assign firmware binary file for each device. If you are using Windows, make sure you install `curl` utility somewhere in your `PATH` (curl is included with Windows 10 since build 17063). This will only work if "OTA Lock" is disabled.
+diff --git a/docs/basics/install-binary.md b/docs/basics/install-binary.md
+index 91587aa..95da1a8 100644
+--- a/docs/basics/install-binary.md
++++ b/docs/basics/install-binary.md
+@@ -84,7 +84,7 @@ If your device is already running a firmware with built-in OTA capability, you c
+ 
+ ### What binary should I use?
+ 
+-I always recommend to use the latest release. Starting from WLED 0.12.0, pins can be configured in LED settings and specific binaries for different LED pins or types are no longer needed. Please use the following binary for these boards respectively:
++Use the latest release. Pins can be configured in LED settings — no custom binaries for different LED pins are needed. Use the following binary for your board:
+ 
+ | Binary Name | For devices |
+ | --- | --- |
+@@ -96,15 +96,3 @@ I always recommend to use the latest release. Starting from WLED 0.12.0, pins ca
+ | WLED_0.x.x_ESP02.bin | All ESP8266 with 2MB flash, Athom bulbs.  This binary has the full feature set, but wireless updates will not work (for more detail see [this](https://github.com/wled/WLED/issues/3257). For wireless updates use WLED_0.x.x_ESP02.bin.gz firmware instead. |
+ | WLED_0.x.x_ESP02.bin.gz | All ESP8266 with 2MB flash, Athom bulbs, wireless update are possible with this firmware. |
+ | esp32_bootloader.bin | Not a WLED release. To be flashed to a brand new ESP32 before flashing the WLED binary itself. |
+-
+-Legacy binary format (up to 0.11.1)
+-
+-| Binary Name | For devices |
+-| --- | --- |
+-| WLED_0.x.x_ESP8266_1M_ota.bin | ESP-01 (black PCB), most Sonoff devices, ESP8265, all ESP8266 with 1MB flash. This binary has some interfaces disabled (Alexa, Blynk, Hue sync, Infrared) in order for wireless updates to continue working. |
+-| WLED_0.x.x_ESP8266_1M_full.bin | ESP-01 (black PCB), most Sonoff devices, ESP8265, all ESP8266 with 1MB flash. This binary has the full feature set, but wireless updates will not work. |
+-| WLED_0.x.x_ESP8266_512k.bin | ESP-01 (blue PCB), older Sonoff devices, all ESP8266 with 512kB flash. Interfaces (Alexa, Blynk, Hue sync, Infrared) disabled, no OTA. Support will not be possible in future versions. |
+-| WLED_0.x.x_ESP8266_ledpinY.bin | Custom build for 4MB flash ESP8266 and WS2812B. LED pin is changed (default is GPIO2). (This is GPIOY and not DY for the D to GPIO mapping, check your boards spec!) |
+-| WLED_0.x.x_ESP8266_apa102.bin | Custom build for 4MB flash ESP8266 and APA102 LEDs (clock pin GPIO0, data GPIO2).
+-| WLED_0.x.x_ESP8266_ws2801.bin | Custom build for 4MB flash ESP8266 and WS2801 LEDs (clock pin GPIO0, data GPIO2).
+-| WLED_0.x.x_ESP32_ledpinY.bin | Custom build for ESP32 and WS2812b. LED pin is changed (default is GPIO2). LED pin 16 is useful for the QuinLed-Dig-Uno board with ESP32. |
+diff --git a/docs/features/cct.md b/docs/features/cct.md
+index 7db97aa..e9c67ae 100644
+--- a/docs/features/cct.md
++++ b/docs/features/cct.md
+@@ -7,7 +7,7 @@ hide:
+ 
+ ### White channel(s) handling
+ 
+-Besides addressable RGB and RGBW bus types, WLED 0.13.0 also supports PWM CCT (correlated color temperature) lights.
++Besides addressable RGB and RGBW bus types, WLED also supports PWM CCT (correlated color temperature) lights.
+ 
+ #### Auto white handling
+ 
+@@ -33,9 +33,9 @@ This is applied to the RGB color only, after the auto white channel calculation.
+ 
+ #### CCT handling
+ 
+-WLED starting with version 0.13.0 also supports bus types with two white channels, one with a warm color temperature (e.g. 2700 Kelvin, reddish white) and one with a cold white color temperature (e.g. 8000 Kelvin, bluish white).
++WLED also supports bus types with two white channels, one with a warm color temperature (e.g. 2700 Kelvin, reddish white) and one with a cold white color temperature (e.g. 8000 Kelvin, bluish white).
+ 
+-Since as of the release of version 0.13.0 no adjustable CCT addressable LEDs are supported*, this only applies to PWM analog LED outputs.
++No adjustable CCT addressable LEDs are currently supported*, this only applies to PWM analog LED outputs.
+ 
+ !!! info "WWA (warm white + cold white + amber white)"
+     _*SK6812 WWA (with 3 channels, warm white, cold white and amber) are supported, but treated as if RGB using the `WS281x` bus type. White spectrum support for this LED type will be added at a later point._
+diff --git a/docs/features/effects.md b/docs/features/effects.md
+index ecb76a1..f6ad92d 100644
+--- a/docs/features/effects.md
++++ b/docs/features/effects.md
+@@ -305,8 +305,5 @@ Some effects get retired when they can be recreated with newer, more general eff
+ | Dissolve Rnd    | Dissolve                              | 0.14.0        |
+ | Dynamic Smooth  | Dynamic                               | 0.14.0        |
+ | Halloween       | Chase 2                               | 0.14.0        |
+-| Merry Christmas | Chase 2 - red/green                   | 0.12.0        |    
+ | Police          | Two Dot                               | 0.14.0        |
+-| Police All      | Two Dots - red/blue w/ full intensity | 0.13.0        |
+-| Two Areas       | Two Dots - full intensity             | 0.13.0        |
+ 
+diff --git a/docs/features/macros.md b/docs/features/macros.md
+index 940f655..8f91777 100644
+--- a/docs/features/macros.md
++++ b/docs/features/macros.md
+@@ -5,7 +5,7 @@ hide:
+   # - toc
+ ---
+ !!! info
+-    Also see [Presets](/features/presets) for 0.11.0+.
++    Also see [Presets](/features/presets).
+ 
+ You are able to set custom actions ("Macros") in Time & Macro settings for the following events:
+ 
+@@ -15,13 +15,13 @@ You are able to set custom actions ("Macros") in Time & Macro settings for the f
+ - Alexa On/Off
+ - Countdown over
+ - Timed light duration over
+-- Device (re)boot (up to 0.10.2, use LED settings `Boot preset` in 0.11)
++- Device (re)boot (use LED settings 'Boot preset')
+ 
+ Note: If you have multiple presets that run at the same time, the lowest down the list takes precedence.
+ 
+ Each macro has the format of a standard [HTTP API call](/interfaces/http-api) without the IP. Optionally, the "win&" may be omitted.
+ For example, the macro "A=255" sets the brightness to maximum. "R=255&G=160&B=0" sets the color to orange.
+-You can specify up to 16 macros. (up to 250 in WLED 0.11 since the Macro functionality has been merged into the Presets feature)
++You can specify up to 16 macros.
+ 
+ Examples of how to use API-calls and define macros can be found in [this issue](https://github.com/wled/WLED/issues/801#issuecomment-635600255) and [in this one](https://github.com/wled/WLED/issues/199#issuecomment-520143239).
+ 
+@@ -41,7 +41,7 @@ For further buttons, the default action for short press is cycling effects, long
+ 
+ ## Buttons
+ 
+-Multiple buttons are implemented since 0.13. Starting in v16.0, up to **32 buttons** can be configured without any custom compilation — use the LED Settings page to add as many as you need.
++Multiple buttons are supported. Starting in v16.0, up to **32 buttons** can be configured without any custom compilation — use the LED Settings page to add as many as you need.
+ 
+ The following button types are supported:
+ 
+@@ -55,7 +55,7 @@ The following button types are supported:
+ Button GPIO pin and type can be selected in the _LED Settings_ page.
+ 
+ Each momentary button can have 3 different [Presets](/features/presets) assigned, for short press, long press or double press.
+-Momentary push-buttons by default trigger shortly after the _release_ of a button, to be able to detect if it has been pressed short, long or twice. When configuring the same preset number for short, long and double press, it will trigger directly when being pressed as of WLED 0.14.0-b2-2306020.
++Momentary push-buttons by default trigger shortly after the _release_ of a button, to be able to detect if it has been pressed short, long or twice. When configuring the same preset number for short, long and double press, it will trigger directly when being pressed as of WLED 0.14.
+ 
+ For switch type buttons you can assign only 2 presets, one for transition of switch from LOW to HIGH and second for the opposite transition from HIGH to LOW.
+ 
+@@ -67,7 +67,7 @@ Note: Button 0 has two, built-in functions. 1. Hold it down for >6 seconds and t
+ 
+ ### Analog Button
+ 
+-Starting in WLED 0.13, analog "buttons" (e.g. a potentiometer) are supported.
++Analog "buttons" (e.g. a potentiometer) are supported.
+ With the Short and Long columns set to 0, set the Double column in Button Actions to one of these values to configure:
+ 
+ | Property | Value |
+diff --git a/docs/features/multi-strip.md b/docs/features/multi-strip.md
+index 5dc2de2..26cf7cb 100644
+--- a/docs/features/multi-strip.md
++++ b/docs/features/multi-strip.md
+@@ -7,8 +7,8 @@ hide:
+ 
+ ## Multi strip support
+ 
+-Starting in WLED 0.12.0, you are able to use multiple LED outputs from one ESP board!
+-Pins and LED numbers can be easily configured in LED settings, you don't need to re-compile code for your specific setup. Custom binaries for multiple pins are now also a thing of the past!
++WLED supports multiple LED outputs from one ESP board.
++Pins and LED numbers can be configured in LED settings without recompiling.
+ 
+ There are a few tips and recomendations to keep in mind when designing your setup:
+ 
+diff --git a/docs/features/presets.md b/docs/features/presets.md
+index 7c5e3ee..04af086 100644
+--- a/docs/features/presets.md
++++ b/docs/features/presets.md
+@@ -8,17 +8,14 @@ hide:
+ Presets can be used to save your favorite light configurations to apply later!
+ You can compare them to the "scenes" feature present in some other smart devices.
+ 
+-### New version (0.11+)
++### Overview
+ 
+-#### Overview
++Presets are stored in a `/presets.json` file in an internal filesystem, with support for up to 250 presets.
++Each preset can save all segments that are set up.
++The maximum number of segments is 16 on ESP8266 and 32 on ESP32 (up to 64 with PSRAM).
++Presets can contain both HTTP and JSON API commands (replacing the previous Macro feature), and each can be given a name for easy access.
+ 
+-WLED 0.11.0 contains a major overhaul of presets, storing them in a `/presets.json` file in an internal filesystem.  
+-This enables many new features, you can now have up to 250 presets and each of them can save all segments which are set up!  
+-Speaking of segments, the maximum number has been increased to 12 on ESP8266 and 16 on ESP32!  
+-Presets can now also contain both HTTP and JSON API commands, replacing the previous Macro functionality.  
+-Each preset can be named, so you'll be able to access it more easily!  
+-
+-#### How to use
++### How to use
+ 
+ The new preset system is quite a bit more advanced than the previous one, thus it is likely not as self-explanatory to use.  
+ Here you can find what each setting does and how to make best use of it!
+@@ -82,7 +79,7 @@ Now these are self-explanatory, but I said I'd cover each point :)
+ *ID*  
+ This is the number you'll want to use to apply this preset from a timed macro or automation!  
+ 
+-#### A note on performance
++### A note on performance
+ 
+ This new preset system is quite fast where it matters, reading the presets.  
+ Applying a preset will typically take less than a tenth of a second.  
+@@ -93,26 +90,21 @@ Adding new presets is usually very fast, those performance issues will occur onc
+ 
+ I'm looking into ways to mitigate this situation as soon as possible! Meanwhile, to keep things snappy, I would recommend not having more than 50-ish single segment or a dozen of multi-segment presets.
+ 
+-#### What about my cool presets from earlier versions?
+-
+-Don't worry, they (as well as your settings) will be automatically imported to the new system!  
+-And if you ever need to downgrade to v0.10 for some reason, they will still be there (although any changes made in v0.11 won't be applied)
+-
+-#### Obtaining preset list
++### Obtaining preset list
+ 
+ Obtaining the preset list is possible with the /presets.json file
+ Seeing the name of the current preset with the API only is not possible, you can only obtain its ID. Then you'd need some code to match it with the entries from presets.json (this is also what the UI does).  See section "Backing up/restoring presets".
+ 
+-#### Saving named presets
++### Saving named presets
+ 
+ Save a named preset with `{"psave":<preset number here>;"n":"Preset name","ib":true,"sb":true}`
+ 
+-#### Backing up/restoring presets
++### Backing up/restoring presets
+ 
+ To backup all presets, go to `[WLED-IP]/edit` (OTA lock must be off), right click the `presets.json` file and download!  
+ To restore, use the `Choose file` and `Upload` buttons.  
+ 
+-#### Applying presets at a certain time of day
++### Applying presets at a certain time of day
+ 
+ !!! tip
+     If you want to create a preset that turns on the light to the last effect displayed, uncheck `Use current state` and enter `T=1` into the API Command field.
+@@ -134,7 +126,7 @@ If applicable, daylight saving time is handled automatically.
+     This only applies the preset at the _start_ of the specified minute. If you set up two presets, one to turn on the light at 7 and another to turn it off at 8,
+     if WLED is booted at 7:30, the light will not turn on. This should not be an issue in most applications.
+     
+-#### Applying presets at sunrise and sunset
++### Applying presets at sunrise and sunset
+     
+ Applying a preset at sunrise and/or sunset is also supported, the last two timed preset slots are used for this.  
+ To calculate the times, WLED needs your location. This is possible with the "Get Location" button in Time & Macro settings if accessed via a browser. If you are using the WLED app, you will need to open [locate.wled.me](https://locate.wled.me/) in your browser and copy the coordinates over to the settings page manually.  
+@@ -142,21 +134,3 @@ With the Minutes input field, you may specify an offset of up to 59 minutes befo
+ 
+ !!! warning "Location"
+     Sunrise and sunset calculation do not work if you live in the polar circles (latitude >66.6N or >66.6S).
+-
+-### Earlier versions (up to 0.10)
+-
+-There are 16 preset slots in total.
+-In 0.9.0, the last preset (16) is capable of saving the entire segment configuration. All other presets only save a single segment (main segment, the first one by default) and restore that preset to all selected segments.
+-
+-In the Favorites tab, the number buttons from 1-16 are the different save slots. Find a config you like, then toggle _Saving mode_ on and click on a number to save the preset to that slot. If _Saving mode_ is toggled off, you can restore presets with a single click.
+-
+-### Preset cycle (up to 0.12.1)
+-
+-With this feature, you can create an animation by automatically swapping between presets within a specified range.
+-Keep in mind that any changes you make to effects/colors will be overridden once the system applies the next preset.
+-
+-If you want to start the preset cycle on boot, go to LED settings and tick "Save current preset cycle configuration as boot default
+-
+-To modify the duration of the preset cycle, ensure the preset cycle box is unchecked before entering a new time value. Once updated, the preset cycle can be enabled again"
+-
+-Playlists supersede Preset cycle in 0.13.
+diff --git a/docs/features/segments.md b/docs/features/segments.md
+index 187ba6a..cb6d50e 100644
+--- a/docs/features/segments.md
++++ b/docs/features/segments.md
+@@ -5,9 +5,6 @@ hide:
+   # - toc
+ ---
+ 
+-!!! info
+-    Starting in WLED 0.9.0, Segments are supported.
+-
+ This feature allows you to set different zones on the LED strip, each running a different effect or color.
+ 
+ A segment is selected if the checkmark next to the segment number is checked. Changes you make to color or effects will apply to all selected segments. The color/effect that is shown in the web UI is that of the first selected segment.
+@@ -19,7 +16,7 @@ There is one _main segment_, Segment 0 by default. This segment has a few import
+ 
+ Tip: If you divide your strip into two segments, reverse the second one and select both, you can achieve very nice symmetrical effects!
+ 
+-Segment 0 has a Start LED of 0 and a Stop LED equal to the LED Count you defined in Configuration, LED Preferences. _The Stop LED is **not** included in the Segment._ Currently you can create a maximum of 10 segments in WLED 0.15 and earlier. Starting in v16.0, the segment limit was significantly increased.  Presets 1-15 use only Segment 0 by default.  Preset 16 is the only Preset that saves settings for Segments 1-10.
++Segment 0 has a Start LED of 0 and a Stop LED equal to the LED Count you defined in Configuration, LED Preferences. _The Stop LED is **not** included in the Segment._ The number of supported segments depends on the hardware: 16 on ESP8266, and 32 on ESP32 (up to 64 with PSRAM).  Presets use only Segment 0 by default unless "Save segment bounds" is enabled when saving.
+ 
+ To display segment information select the down arrow in the Segment box.  To add a Segment select “+ Add Segment”.  Enter the Start and Stop LED as appropriate.  Grouping and Spacing control the organization of the LEDs within the selected effect.  To reverse the direction of an effect select Reverse Direction.  To delete a Segment select the trash can.  To save your Segment settings select the checkmark to the right of the Start and Stop LED numbers.
+ 
+diff --git a/docs/features/settings.md b/docs/features/settings.md
+index 93222c5..20bd20d 100644
+--- a/docs/features/settings.md
++++ b/docs/features/settings.md
+@@ -9,7 +9,7 @@ Web-configurable settings are split in multiple sub-pages. This page is meant to
+ 
+ ## WiFi Settings
+ 
+-This sub-page offers options to connect the ESP to different WiFi/WLAN devices. (This section applies to WLED 0.8.5.)
++This sub-page offers options to connect the ESP to different WiFi/WLAN devices.
+ 
+ | Setting name | Value Range | Description |
+ |---|---|---|
+@@ -30,7 +30,7 @@ WiFi sleep | Y/N | Disabling WiFi sleep can increase reliability, but increases
+ 
+ ## LED Preferences
+ 
+-This sub-page configures your LED & Hardware setup. (This section applies to WLED 0.14.1.)
++This sub-page configures your LED & Hardware setup.
+ 
+ | Setting name | Value Range | Default | Description |
+ |---|---|---|---|
+@@ -79,109 +79,3 @@ Additionally, one or more Color Order Overrides can be defined by clicking the p
+ Start | integer | 0 | Define which address this color override should start it
+ Length | integer | 1 | Define how many pixels in a row should have their color setting overridden
+ Color order | muliple options | "GRB" | Same as "Color order" above
+-
+-### Other settings
+-
+-(This section applies to WLED 0.8.5; some of these settings no longer appear in 0.14.1.)
+-
+-| Setting name | Value Range | Description |
+-|---|---|---|
+-Turn on after power up | Y/N | Whether the lights should turn on after a reset
+-Apply preset | 0..16 | Preset to load at boot (0 = none)
+-Use Gamma for brightness | Y/N | Will correct brightness changes to make it appear more linear. Advised to leave off
+-Use Gamma for color | Y/N | Will correct colors to match those on a monitor. Strongly advised to keep on
+-Brightness factor | 1..255 | Factor to change master brightness if it is too dim/bright for a certain configuration
+-Crossfade | Y/N | Whether to have a smooth fading transitional effect when changing colors/brightness
+-Transition time | 0..65535 | How many milliseconds the transition lasts
+-Enable transition for secondary color | Y/N |
+-Enable Palette transitions | Y/N | Enable transitions for palettes (not affected by transition time)
+-Timed light duration | 1..255 | How long the nightlight should stay on
+-Target brightness | 0..255 | What brightness the light should have after time is over. 0=off.
+-Fade down | Y/N | Gradually fades down the light over the duration instead of turning it off at the end
+-Palette blending | select | Choose how the palette wraps at the end (seam)
+-
+-## User Interface settings
+-
+-This sub-page changes the look of the web interface. (This section applies to WLED 0.8.5.)
+-
+-| Setting name | Value Range | Description |
+-|---|---|---|
+-Server description | String 1..32 | The name of the device as shown on the top of the UI. Differs from Alexa device name
+-Sync button toggles... | Y/N | If enabled, both send and receive are toggled by the button in UI. If disabled, only sending is toggled and receiving is kept as configured in Sync settings.
+-
+-## Sync settings
+-
+-This sub-page configures external software synchronization interfaces. (This section applies to WLED 0.8.5.)
+-
+-| Setting name | Value Range | Description |
+-|---|---|---|
+-On/Off button enabled | Y/N | Check if there is a physical pushbutton connected to GPIO0
+-Infrared receiver type | select | Type of infrared receiver
+-Broadcast UDP port | 1..65535 | All WLED lights you want to group together must have the same port
+-Receive Brightness | Y/N | If there is a sync notification, whether its brightness should be applied
+-Color | Y/N | Whether the color of the synced device should be applied
+-Effects | Y/N | Whether the effect settings should be applied
+-Send on direct change | Y/N | Whether to send a sync notification when state changed via web UI or API
+-Send on button press | Y/N | Whether to send sync when toggled by button or IR
+-Send Alexa notifications | Y/N | Whether to send sync after changed by Alexa (you may use Alexa groups instead)
+-Send Hue notifications | Y/N | Whether to send sync after a connected Philips light changed
+-Send Macro notifications | Y/N | Whether to send sync after a macro was triggered
+-Send notifications twice | Y/N | Sends notifications twice (if you have issues with UDP packet loss)
+-Receive UDP realtime | Y/N | Receive live UDP stream data (DRGB, WARLS, ...)
+-Use E1.31 multicast | Y/N | Listen on multicast IP instead of unicast
+-E1.31 start universe | 1..63000 | Only applies for multicast. If you want to set different content, set ESPs at least 8 universes apart
+-Timeout | 100..65000 | Time after which to resume normal mode once stream has stopped. 65000 will keep the data indefinitely
+-Force max brightness | Y/N | Realtime stream with max. brightness (unless limited by power brightness limiter)
+-Disable realtime gamma correction | Y/N | Check if your host software does gamma correction already
+-Realtime LED offset | -255..255 | Shift the realtime input by how many LEDs
+-Emulate Alexa device | Y/N | Allows you to control the light via the Amazon Echo voice assistant. Requires reboot
+-Alexa Invocation name | String 1..32 | The name you want the device to have for control via Alexa. Choose something easy she can understand
+-MQTT Broker | IP or String 0..32 | Connect to this host MQTT broker
+-Device topic | String 0..32 | MQTT topic unique to this light
+-Group topic | String 0..32 | MQTT topic for all lights in a group (room, floor, ...)
+-Hue Bridge IP | 4x 0..255 | Your Hue bridge IPv4 address. Should be static to avoid reassigning
+-Poll Hue light | 0..99 | The ID of the hue lamp you want to sync WLED to
+-every x ms | 100..65000 | How often to poll. Smaller numbers decrease lag but might hurt bridge responsiveness
+-... | Y/N | Turn polling on/off
+-Receive On/Off | Y/N | Turn on/off like the hue light
+-Brightness | Y/N | Set brightness to that of the hue light
+-Color | Y/N | Set color to that of the hue light
+-Hue status | - | Shows the current connection status to a hue bridge
+-Baud rate | Various | Set the default Serial connection Baud Rate
+-
+-## Time settings
+-
+-This sub-page configures automation tasks. (This section applies to WLED 0.8.5.)
+-
+-| Setting name | Value Range | Description |
+-|---|---|---|
+-Get time from NTP | Y/N | Whether to get the current time from the internet
+-Use 24h format | Y/N | Use 24h clock format instead of AM/PM
+-Time zone | - | Your time zone. Open an issue if yours is unsupported. DST is applied automatically
+-UTC offset | -65000..65000 | Seconds to offset. If you want e.g. 1h offset, use 3600
+-Current local time | - | The local time the ESP has acquired. If set up correctly, should equal actual time
+-Clock overlay | - | The special overlay to use. Allows to display a clock on the strip
+-Countdown mode | Y/N | Allows to have a visual countdown towards a specific date
+-API macro fields | 16x String 0..64 | Allows you to define custom API calls which can be triggered by events
+-Boot Macro | 0..16 | Which macro to trigger after WiFi connected (0 is default action)
+-Alexa On/Off Macros | 2x 0..16 | Which macros to trigger when turning on/off via Alexa
+-Button Macro | 0..16 | Macro to trigger if button is short pressed. Default action is on/off toggle.
+-Long Press | 0..16 | Macro to trigger if button is long pressed (>0.7s).  Default action is random color.
+-Double press | 0..16 | Macro for double click on button.
+-Countdown-Over Macro | 0..16 | Macro to trigger when the countdown is over
+-Timed-Light-Over Macro | 0..16 | Macro to trigger when timed light is done
+-
+-## Security settings
+-
+-This sub-page manages permissions and updates. (This section applies to WLED 0.8.5.)
+-
+-| Setting name | Value Range | Description |
+-|---|---|---|
+-Enable OTA lock | Y/N | If enabled, no firmware updates may be done via WiFi and some settings can't be changed.
+-Passphrase | String 0..32 | To disable OTA lock, you need a password. The default is "wledota". Change it!
+-Deny access to WiFi settings | Y/N | Disables changes to WiFi settings while locked
+-Disable recovery AP | Y/N | If enabled, the module will not open an Access Point if connection to home WiFi failed.
+-Factory reset | Y/N | Deletes all custom settings data (passwords, configuration, macros, presets)
+-Manual OTA | - | If OTA is enabled, you can upload new binary firmware
+-Enable ArduinoOTA | Y/N | Useful for developers. Be careful, can even be left on when OTA locked!
+-
+diff --git a/docs/interfaces/e1.31-dmx.md b/docs/interfaces/e1.31-dmx.md
+index 5e1d4a7..49a3e4d 100644
+--- a/docs/interfaces/e1.31-dmx.md
++++ b/docs/interfaces/e1.31-dmx.md
+@@ -10,11 +10,11 @@ hide:
+ WLED supports the E1.31 (sACN) realtime light protocol.
+ 
+ !!! info "Version Info"
+-    **As of WLED v0.10.0, Art-Net is alternatively supported.** All information on this page applies for Art-Net as well.
++    **Art-Net is also supported.** All information on this page applies for Art-Net as well.
+     You will need to switch to Art-Net mode in Sync settings and reboot once.  
+ 
+ !!! info "Version Info"
+-    **As of WLED v0.11.0, DDP is alternatively supported.** Using DDP, the Multi RGB DMX mode is always used regardless of the DMX mode setting (as it is no DMX)
++    **DDP is also supported.** Using DDP, the Multi RGB DMX mode is always used regardless of the DMX mode setting (as it is no DMX)
+     You will need to switch to DDP mode in Sync settings and reboot once.  
+ 
+ !!! info "Version Info"
+@@ -253,7 +253,7 @@ Same as `Effect Segment` including whites, so it uses 18 DMX channels per segmen
+ #### Multiple RGB
+ 
+ 3 Channels per LED in sequence. LED 0 Red, LED 0 Green, LED 0 Blue, LED 1 Red, ...
+-Default mode, equivalent to pre-0.9.1 E1.31. This is the mode you want to use for xLights and LedFx.
++Default mode. This is the mode you want to use for xLights and LedFx.
+ 
+ !!! tip "Pixel Grouping"
+     You can use the segment's **Grouping** setting to treat multiple consecutive physical pixels as a single DMX channel. For example, setting Grouping to `3` means every 3 pixels share the same color and together count as one LED in the DMX channel sequence. This is useful when each DMX channel should drive a cluster of LEDs rather than a single pixel.
+diff --git a/docs/interfaces/http-api.md b/docs/interfaces/http-api.md
+index b7e2240..2cbcedf 100644
+--- a/docs/interfaces/http-api.md
++++ b/docs/interfaces/http-api.md
+@@ -26,39 +26,39 @@ Add one or multiple of the following parameters after the base URL/IP to change
+ 
+ ## LED control
+ 
+-| Parameter | Value Range | Description | Since Version |
+-| --- | --- | --- | --- |
+-&A= | 0 to 255 | Master brightness | 0.2
+-&T= | 0, 1, or 2 | Master Off/On/Toggle | 0.3
+-&R= | 0 to 255 | Primary Red value | 0.2
+-&G= | 0 to 255 | Primary Green value | 0.2
+-&B= | 0 to 255 | Primary Blue value | 0.2
+-&W= | 0 to 255 | Primary White value | 0.4
+-&FX= | 0 to 101 | LED Effect Index | 0.3
+-&SX= | 0 to 255 | Effect Speed | 0.3
+-&IX= | 0 to 255 | Effect Intensity | 0.5.0
+-&FP= | 0 to 46 | FastLED Palette | 0.8.0
+-&NL= | 0 to 255 | Nightlight active and duration in minutes | 0.3
+-&ND | none | Toggles nightlight on but uses default duration | 0.6.3
+-&NT= | 0 to 255 | Nightlight target brightness | 0.5.0
+-&NF= | 0 to 2 | Fade Nightlight, 1 = fade brightness only, 2 = additionaly fade color from primary to secondary color | 0.5.0
++| Parameter | Value Range | Description |
++| --- | --- | --- |
++&A= | 0 to 255 | Master brightness
++&T= | 0, 1, or 2 | Master Off/On/Toggle
++&R= | 0 to 255 | Primary Red value
++&G= | 0 to 255 | Primary Green value
++&B= | 0 to 255 | Primary Blue value
++&W= | 0 to 255 | Primary White value
++&FX= | 0 to 101 | LED Effect Index
++&SX= | 0 to 255 | Effect Speed
++&IX= | 0 to 255 | Effect Intensity
++&FP= | 0 to 46 | FastLED Palette
++&NL= | 0 to 255 | Nightlight active and duration in minutes
++&ND | none | Toggles nightlight on but uses default duration
++&NT= | 0 to 255 | Nightlight target brightness
++&NF= | 0 to 2 | Fade Nightlight, 1 = fade brightness only, 2 = additionaly fade color from primary to secondary color
+ 
+ ## Advanced
+ 
+-| Parameter | Value Range | Description | Since Version |
+-| --- | --- | --- | --- |
+-&CL= | HEX/DEC | Primary color | 0.8.0
+-&C2= | HEX/DEC | Secondary color | 0.8.0
+-&C3= | HEX/DEC | Third color | 0.8.0
+-&R2= | 0 to 255 | Secondary Red value | 0.4
+-&G2= | 0 to 255 | Secondary Green value | 0.4
+-&B2= | 0 to 255 | Secondary Blue value | 0.4
+-&W2= | 0 to 255 | Secondary White value | 0.4
+-&HU= | 0 to 65535 | Hue | 0.5.1
+-&SA= | 0 to 255 | Saturation (only in conjunction with Hue) | 0.5.1
+-&H2 | none | Hue + Saturation will set secondary color | 0.5.1
+-&SR= | 0 or 1 | Set Primary/Secondary color to random hue | 0.4
+-&SC | none | Swap primary and secondary color | 0.4
++| Parameter | Value Range | Description |
++| --- | --- | --- |
++&CL= | HEX/DEC | Primary color
++&C2= | HEX/DEC | Secondary color
++&C3= | HEX/DEC | Third color
++&R2= | 0 to 255 | Secondary Red value
++&G2= | 0 to 255 | Secondary Green value
++&B2= | 0 to 255 | Secondary Blue value
++&W2= | 0 to 255 | Secondary White value
++&HU= | 0 to 65535 | Hue
++&SA= | 0 to 255 | Saturation (only in conjunction with Hue)
++&H2 | none | Hue + Saturation will set secondary color
++&SR= | 0 or 1 | Set Primary/Secondary color to random hue
++&SC | none | Swap primary and secondary color
+ 
+ ### Use of hex values
+ 
+@@ -68,75 +68,74 @@ Hex values need to be prefaced with the character h or H. The normal format is `
+ 
+ Loxone offers two commands. One for RGB values and one for brightness and color temperature.
+ 
+-| Parameter | Syntax | Range | Description | Since Version |
+-|---|---|---|---|---|
+-&LX= | BBBGGGRRR | 0 - 100100100 | Loxone RGB value for primary color. Each color (`RRR`,`GGG`,`BBB`) is specified in the range from 0 to 100%. | 0.11
+-&LX= | 20bbbtttt | 200002700 - 201006500 | Loxone brightness and color temperature values for primary color. Brightness `bbb` is specified in the range 0 to 100%. `tttt` defines the color temperature in the range from 2700 to 6500 Kelvin. | 0.11
+-&LY= | BBBGGGRRR | 0 - 100100100 | Loxone RGB value for secondary color. Each color (`RRR`,`GGG`,`BBB`) is specified in the range from 0 to 100%. | 0.11
+-&LY= | 20bbbtttt | 200002700 - 201006500 | Loxone brightness and color temperature values for secondary color. Brightness `bbb` is specified in the range 0 to 100%. `tttt` defines the color temperature in the range from 2700 to 6500 Kelvin. | 0.11
+-
++| Parameter | Syntax | Range | Description |
++|---|---|---|---|
++&LX= | BBBGGGRRR | 0 - 100100100 | Loxone RGB value for primary color. Each color (`RRR`,`GGG`,`BBB`) is specified in the range from 0 to 100%.
++&LX= | 20bbbtttt | 200002700 - 201006500 | Loxone brightness and color temperature values for primary color. Brightness `bbb` is specified in the range 0 to 100%. `tttt` defines the color temperature in the range from 2700 to 6500 Kelvin.
++&LY= | BBBGGGRRR | 0 - 100100100 | Loxone RGB value for secondary color. Each color (`RRR`,`GGG`,`BBB`) is specified in the range from 0 to 100%.
++&LY= | 20bbbtttt | 200002700 - 201006500 | Loxone brightness and color temperature values for secondary color. Brightness `bbb` is specified in the range 0 to 100%. `tttt` defines the color temperature in the range from 2700 to 6500 Kelvin.
+ ## Notifications
+ 
+-| Parameter | Value Range | Description | Since Version |
+-| --- | --- | --- | --- |
+-&RN= | 0 or 1 | Receive UDP Notifications | 0.3
+-&SN= | 0 or 1 | Send UDP Notifications | 0.3
+-&NN | none | No notification for this request | 0.3
+-&HP= | 0 to 99 | Sets Hue polling light ID (0 is off) | 0.5.1
++| Parameter | Value Range | Description |
++| --- | --- | --- |
++&RN= | 0 or 1 | Receive UDP Notifications
++&SN= | 0 or 1 | Send UDP Notifications
++&NN | none | No notification for this request
++&HP= | 0 to 99 | Sets Hue polling light ID (0 is off)
+ 
+ ## Presets
+ 
+-| Parameter | Value Range | Description | Since Version |
+-| --- | --- | --- | --- |
+-&PS= | 1 to 16 | Saves current setup to preset. Preset 255 can be used and is temporary/not persistent. | 0.4
+-&PL= | 1 to 250 | Applies entire preset | 0.4
+-&P1= | 1 to 249 | First cycle preset | 0.6.3
+-&P2= | 2 to 250 | Last cycle preset | 0.6.3
+-&TT= | 0 to 65000 | Set transition time (ms) | 0.6.3
++| Parameter | Value Range | Description |
++| --- | --- | --- |
++&PS= | 1 to 16 | Saves current setup to preset. Preset 255 can be used and is temporary/not persistent.
++&PL= | 1 to 250 | Applies entire preset
++&P1= | 1 to 249 | First cycle preset
++&P2= | 2 to 250 | Last cycle preset
++&TT= | 0 to 65000 | Set transition time (ms)
+ 
+ ## Macros
+ 
+-| Parameter | Value Range | Description | Since Version |
+-| --- | --- | --- | --- |
+-&M= | 1 to 16 | Apply macro (deprecated, added for compatibility with pre-0.11 automations) | 0.5.0
++| Parameter | Value Range | Description |
++| --- | --- | --- |
++&M= | 1 to 16 | Apply macro (deprecated)
+ 
+ ## Segments
+ 
+ It is highly recommended to use the [JSON API](/interfaces/json-api) when dealing with Segments.
+ 
+-| Parameter | Value Range | Description | Since Version |
+-| --- | --- | --- | --- |
+-&SM= | 0 to 9 | Set the main segment (values are reported to XML) | 0.9.0
+-&SS= | 0 to 9 | Select segment to apply THIS api call to | 0.9.0
+-&SV= | 0, 1, or 2 | Set segment selected (2 unselects others) | 0.9.0
+-&S= | 0 to ledcount-1 | Set segment start | 0.9.0
+-&S2= | 0 to ledcount | Set segment stop | 0.9.0
+-&GP= | 1 to 255 | Set segment grouping | 0.9.1
+-&SP= | 0 to 255 | Set segment spacing | 0.9.1
+-&RV= | 0 or 1 | Reverse/Flip Segment direction | 0.9.1
+-&SB= | 0 to 255 | Segment brightness | 0.10.0
++| Parameter | Value Range | Description |
++| --- | --- | --- |
++&SM= | 0 to 9 | Set the main segment (values are reported to XML)
++&SS= | 0 to 9 | Select segment to apply THIS api call to
++&SV= | 0, 1, or 2 | Set segment selected (2 unselects others)
++&S= | 0 to ledcount-1 | Set segment start
++&S2= | 0 to ledcount | Set segment stop
++&GP= | 1 to 255 | Set segment grouping
++&SP= | 0 to 255 | Set segment spacing
++&RV= | 0 or 1 | Reverse/Flip Segment direction
++&SB= | 0 to 255 | Segment brightness
+ 
+ ## General and Experimental
+ 
+-| Parameter | Value Range | Description | Since Version |
+-| --- | --- | --- | --- |
+-&RB | none | Reboot WLED | 0.10.0 (?)
+-&ST= | 32bit | Current UTC time in Unix epoch | 0.4
+-&CT= | 32bit | UTC time for countdown end | 0.4
+-&MD= | 0 or 1 | Set slider mode to RGB/HSB | 0.3
+-&AX= | 0 to 255 | Debug feature, can be configured for general IO | 0.3
+-&IN | none | Server will not respond to this request (internal) | 0.3
+-&OL= | 0 to 255 | Experimental overlays | 0.3
+-&L= | 0 to 255 | Lock pixel | 0.4
+-&L2= | 0 to 255 | Lock pixel range L to L2 | 0.4
+-&UL | none | Unlock instead (used in conjunction with L and L2) | 0.4
+-&NX= | String 1..6 | Cronixie clockface | 0.4
+-&NM= | 0 or 1 | Cronixie Time or Countdown mode | 0.4
+-&NB= | 0 or 1 | Cronixie Backlight | 0.4
+-&IT | none | Include UI color theme in API response | 0.8.2
+-&RD= | 0 or 1 | Toggle realtime UDP | 0.8.4
+-&LO= | 0-2 | Live data override. 0 is off, 1 is override until live data ends, 2 is override until ESP reboot | 0.10.2
+-&NP | none | Advance to the next preset in a playlist | 0.15
++| Parameter | Value Range | Description |
++| --- | --- | --- |
++&RB | none | Reboot WLED
++&ST= | 32bit | Current UTC time in Unix epoch
++&CT= | 32bit | UTC time for countdown end
++&MD= | 0 or 1 | Set slider mode to RGB/HSB
++&AX= | 0 to 255 | Debug feature, can be configured for general IO
++&IN | none | Server will not respond to this request (internal)
++&OL= | 0 to 255 | Experimental overlays
++&L= | 0 to 255 | Lock pixel
++&L2= | 0 to 255 | Lock pixel range L to L2
++&UL | none | Unlock instead (used in conjunction with L and L2)
++&NX= | String 1..6 | Cronixie clockface
++&NM= | 0 or 1 | Cronixie Time or Countdown mode
++&NB= | 0 or 1 | Cronixie Backlight
++&IT | none | Include UI color theme in API response
++&RD= | 0 or 1 | Toggle realtime UDP
++&LO= | 0-2 | Live data override. 0 is off, 1 is override until live data ends, 2 is override until ESP reboot
++&NP | none | Advance to the next preset in a playlist (since 0.15)
+ 
+ ## XML response
+ 
+diff --git a/docs/interfaces/json-api.md b/docs/interfaces/json-api.md
+index 1f99af4..e776b27 100644
+--- a/docs/interfaces/json-api.md
++++ b/docs/interfaces/json-api.md
+@@ -5,7 +5,7 @@ hide:
+   # - toc
+ ---
+ 
+-WLED versions since 0.8.4 implement a powerful JSON API over HTTP.  
++WLED implements a powerful JSON API over HTTP.  
+ It is accessible using the `/json` subpage.
+ 
+ ### Obtaining light information
+@@ -40,10 +40,10 @@ Example: `{"on":true,"bri":255}` sets the brightness to maximum. `{"seg":[{"col"
+ `{"seg":[{"id":X,"on":"t"}]}` and replacing X with the desired segment ID will toggle on or off that segment.
+ 
+ !!! tldr "CURL example"
+-    This will toggle on and off and return the new state (v0.13+):
++    This will toggle on and off and return the new state:
+     `curl -X POST "http://[WLED-IP]/json/state" -d '{"on":"t","v":true}' -H "Content-Type: application/json"`
+ 
+-Sample JSON API response (v0.8.4):
++Sample JSON API response:
+ 
+ ```json
+ {
+@@ -82,7 +82,7 @@ Sample JSON API response (v0.8.4):
+     }]
+   },
+   "info": {
+-    "ver": "0.8.4",
++    "ver": "0.15.0",
+     "vid": 1903252,
+     "leds": {
+       "count": 20,
+@@ -104,7 +104,6 @@ Sample JSON API response (v0.8.4):
+     "opt": 127,
+     "brand": "WLED",
+     "product": "DIY light",
+-    "btype": "src",
+     "mac": "60019423b441"
+   },
+   "effects": [
+@@ -138,8 +137,7 @@ on | bool | On/Off state of the light. You can also use `"t"` instead of `true`
+ transition | 0 to 65535 | Duration of the crossfade between different colors/brightness levels. One unit is 100ms, so a value of `4` results in a transition of 400ms. Max transition time is 65 seconds = 65535 milliseconds.
+ tt | 0 to 65535 | Similar to transition, but applies to just the current API call. Not included in state response. Max transition time is 65 seconds.
+ ps | -1 to 250 | ID of currently set preset. `1~17~` can be used to iterate through presets 1-17, or `4~10r` to select random preset between presets 4 and 10 (inclusive).
+-~~pss~~ | ~~0 to 65535~~ | ~~Bitwise indication of preset slots (0 - vacant, 1 - written). Always 0 in 0.11. Not changable.~~ _Removed as of v0.11.1_
+-psave | 1 to 250 (16 prior to 0.11) | Save current light config (state) to specified preset slot. Not included in state response.
++psave | 1 to 250 | Save current light config (state) to specified preset slot. Not included in state response.
+ sb | bool | Used with `psave`. Save segment bounds (`start` & `stop`).
+ ib | bool | Used with `psave`. Save [brightness](#bri).
+ sc | bool | Used with `psave`. Save [selected segments](#seg-sel).
+@@ -147,8 +145,7 @@ pl | -1 to 250 | ID of currently set playlist. _(read-olny)_
+ pdel | 1 to 250 | Preset ID to delete. Not included in state response.
+ nl.on | bool | Nightlight currently active
+ nl.dur | 1 to 255 | Duration of nightlight in minutes
+-~~nl.fade~~ | ~~bool~~ | ~~If `true`, the light will gradually dim over the course of the nightlight duration. If `false`, it will instantly turn to the target brightness once the duration has elapsed.~~ _Removed in 0.13.0_ (use mode instead)
+-nl.mode | 0 to 3 | Nightlight mode (0: instant, 1: fade, 2: color fade, 3: sunrise) (available since 0.10.2)
++nl.mode | 0 to 3 | Nightlight mode (0: instant, 1: fade, 2: color fade, 3: sunrise)
+ nl.tbri | 0 to 255 | Target brightness of nightlight feature
+ nl.rem | -1 to 15300 | Remaining nightlight duration in seconds, -1 if not active. Only in state response, can not be set.
+ udpn.send | bool | Send WLED broadcast (UDP sync) packet on state change
+@@ -159,11 +156,11 @@ udpn.nn | bool | Don't send a broadcast packet (applies to just the current API
+ v | bool | If set to _true_ in a JSON POST command, the response will contain the full JSON state object. Not included in state response
+ rb | bool | If set to _true_, device will reboot immediately. Not included in state response.
+ live | bool | If set to _true_, enters realtime mode and blanks the LEDs. The realtime timeout option does not have an effect when this command is used, WLED will stay in realtime mode until the state (color/effect/segments, excluding brightness) is changed. It is expected that `{"live":false}` is sent once live data sending is terminated. Not included in state response.
+-lor | 0, 1, or 2 | Live data override. 0 is off, 1 is override until live data ends, 2 is override until ESP reboot (available since 0.10.0)
++lor | 0, 1, or 2 | Live data override. 0 is off, 1 is override until live data ends, 2 is override until ESP reboot
+ time | uint32 | Set module time to unix timestamp. Not included in state response.
+ mainseg | 0 to info.leds.maxseg-1 | Main Segment | Sets which segment ID is the main segment. The main segment's values are the ones sent by UDP sync, and in case no segment is selected, all changes done via the `"seg":{}` syntax without a segment `id` specified are applied to the main segment. If the main segment is deleted, the first active segment becomes the new main segment.
+ seg | Object or Array of objects | _(see below)_ Segments are individual parts of the LED strip. Since 0.9.0 this enables running different effects on differentparts of the strip.
+-playlist | object | [Custom preset playlists](#playlists). Not included in state response. _(available since 0.11.0)_
++playlist | object | [Custom preset playlists](#playlists). Not included in state response.
+ tb | uint32 | Sets timebase for effects. Not reported.
+ ledmap | 0 to 9 | Load specified ledmap (0 for `ledmap.json`, 1-9 for `ledmap1.json` to `ledmap9.json`). [See mapping](/advanced/mapping/). Not included in state response. _(available since 0.14.0)_
+ rmcpal | bool | Remove last custom palette if set to `true`. Not included in state response. _(available since 0.14.0)_
+@@ -171,10 +168,6 @@ np | bool | Advance to the next preset in a playlist if set to `true`. Not inclu
+ 
+ #### Contents of the segment object
+ 
+-!!! info "Legacy limitation (v0.8.4)"
+-    _start_, _stop_, and _len_ are not changeable in v0.8.4. Any segment with _id_ > 0 is ignored.  
+-    Unless stated otherwise, every value may be changed via an HTTP POST request.  
+-    The tertiary color is not gamma-corrected in 0.8.4, but is in subsequent releases.
+ 
+ | JSON key | Value range | Description
+ | --- | --- | --- |
+@@ -186,7 +179,7 @@ stopY | 1 to matrix height | Stop row from top-left corner of matrix. _(availab
+ len | 0 to info.leds.count | Length of the segment (_stop_ - _start_). _stop_ has preference, so if it is included, _len_ is ignored.
+ grp | 0 to 255 | Grouping (how many consecutive LEDs of the same segment will be grouped to the same color)
+ spc | 0 to 255 | Spacing (how many LEDs are turned off and skipped between each group)
+-of | -len+1 to len | Offset (how many LEDs to rotate the virtual start of the segments, available since 0.13.0)
++of | -len+1 to len | Offset (how many LEDs to rotate the virtual start of the segments
+ col | array of colors | Array that has up to 3 color arrays as elements, the primary, secondary (background) and tertiary colors of the segment. Each color is an array of 3 or 4 bytes, which represents an RGB(W) color, i.e. `[[255,170,0],[0,0,0],[64,64,64]]`. It can also be represented as an array of strings of _hex_ values, i.e. `["FFAA00","000000","404040"]` for orange, black and grey. One or more colors can be set randomly with `"r"`, i.e. `["r",[0,0,0],"r"]`. _(random available since 16.0.0)_
+ fx | 0 to info.fxcount -1 | ID of the effect or `~` to increment, `~-` to decrement, or `"r"` for random.
+ sx | 0 to 255 | Relative effect speed. `~` to increment, `~-` to decrement. `~10` to increment by 10, `~-10` to decrement by 10.
+@@ -201,23 +194,23 @@ pal | 0 to info.palcount -1 | ID of the color palette or ~ to increment, ~- to d
+ <a id="seg-sel"></a>sel | bool | `true` if the segment is selected. Selected segments will have their state (color/FX) updated by APIs that don't support segments (e.g. UDP sync, HTTP API). If no segment is selected, the first segment (_id_:`0`) will behave as if selected. WLED will report the state of the first (lowest _id_) segment that is selected to APIs (HTTP, MQTT...), or `mainseg` in case no segment is selected and for the UDP API. Live data is always applied to all LEDs regardless of segment configuration.
+ rev | bool | Flips the segment (in horizontal dimension for 2D set-up), causing animations to change direction.
+ rY | bool | Flips the 2D segment in vertical dimension. _(available since 0.14.0)_
+-on | bool | Turns on and off the individual segment. _(available since 0.10.0)_
+-bri | 0 to 255 | Sets the individual segment brightness _(available since 0.10.0)_
+-mi | bool | Mirrors the segment (in horizontal dimension for 2D set-up) _(available since 0.10.2)_
++on | bool | Turns on and off the individual segment.
++bri | 0 to 255 | Sets the individual segment brightness
++mi | bool | Mirrors the segment (in horizontal dimension for 2D set-up)
+ mY | bool | Mirrors the 2D segment in vertical dimension. _(available since 0.14.0)_
+ tp | bool | Transposes a segment (swaps X and Y dimensions). _(available since 0.14.0)_
+-cct | 0 to 255 _or_ 1900 to 10091 | White spectrum [color temperature](#cct-control) _(available since 0.13.0)_
++cct | 0 to 255 _or_ 1900 to 10091 | White spectrum [color temperature](#cct-control)
+ lx | `BBBGGGRRR`: 0 - 100100100 | Loxone RGB value for primary color. Each color (`RRR`,`GGG`,`BBB`) is specified in the range from 0 to 100%. _Only available if Loxone is compiled in._
+-lx | `20bbbtttt`: 200002700 - 201006500 | Loxone brightness and color temperature values for primary color. Brightness `bbb` is specified in the range 0 to 100%. `tttt` defines the color temperature in the range from 2700 to 6500 Kelvin. (available since 0.11.0, not included in state response) _Only available if Loxone is compiled in._
++lx | `20bbbtttt`: 200002700 - 201006500 | Loxone brightness and color temperature values for primary color. Brightness `bbb` is specified in the range 0 to 100%. `tttt` defines the color temperature in the range from 2700 to 6500 Kelvin. _(not included in state response)_ _Only available if Loxone is compiled in._ (available since 0.11.0
+ ly | `BBBGGGRRR`: 0 - 100100100 | Loxone RGB value for secondary color. Each color (`RRR`,`GGG`,`BBB`) is specified in the range from 0 to 100%. _Only available if Loxone is compiled in._
+-ly | `20bbbtttt`: 200002700 - 201006500 | Loxone brightness and color temperature values for secondary color. Brightness `bbb` is specified in the range 0 to 100%. `tttt` defines the color temperature in the range from 2700 to 6500 Kelvin. _(available since 0.11.0, not included in state response)_ _Only available if Loxone is compiled in._
+-i | array | [Individual LED control](#per-segment-individual-led-control). Not included in state response _(available since 0.10.2)_
++ly | `20bbbtttt`: 200002700 - 201006500 | Loxone brightness and color temperature values for secondary color. Brightness `bbb` is specified in the range 0 to 100%. `tttt` defines the color temperature in the range from 2700 to 6500 Kelvin. _(not included in state response)_ _Only available if Loxone is compiled in._ 
++i | array | [Individual LED control](#per-segment-individual-led-control). Not included in state response
+ frz | bool | freezes/unfreezes the current effect
+ m12 | 0 to 4 [map1D2D.count] | Setting of segment field 'Expand 1D FX'. (0: Pixels, 1: Bar, 2: Arc, 3: Corner)
+ si | 0 to 3 | Setting of the sound simulation type for audio enhanced effects. (0: 'BeatSin', 1: 'WeWillRockYou', 2: '10_3', 3: '14_3') (_as of 0.14.0-b1, there are these 4 types defined_)
+ fxdef | bool | Forces loading of effect defaults (speed, intensity, etc) from effect [metadata](#effect-metadata). _(available since 0.14.0)_
+ set | 0 to 3 | Assigns group or set ID  to segment (not to be confused with *grouping*). Visual aid only (helps in UI). _(available since 0.14.0)_
+-rpt | bool | Flag to repeat current segment settings by creating segments until all available LEDs are included in automatically created segments or maximum segments reached. Will also toggle *reverse* on every *even* segment. _(available since 0.13.0)_
++rpt | bool | Flag to repeat current segment settings by creating segments until all available LEDs are included in automatically created segments or maximum segments reached. Will also toggle *reverse* on every *even* segment.
+ 
+ #### Info object
+ 
+@@ -228,12 +221,11 @@ No value may be changed by means of this API.
+ ver | string | Version name.
+ vid | uint32 | Build ID (YYMMDDB, B = daily build index).
+ _leds_ | object | Contains info about the LED setup.
+-leds.cct | bool | `true` if the light supports [color temperature control](#cct-control) _(available since 0.13.0, deprecated, use info.leds.lc)_
++leds.cct | bool | `true` if the light supports [color temperature control](#cct-control) _(deprecated, use info.leds.lc)_
+ leds.count | 1 to 1200 | Total LED count.
+-leds.fps | 0 to 255 | Current frames per second. _(available since 0.12.0)_
++leds.fps | 0 to 255 | Current frames per second.
+ leds.rgbw | bool | `true` if LEDs are 4-channel (RGB + White). _(deprecated, use info.leds.lc)_
+-leds.wv | bool | `true` if a white channel slider should be displayed. _(available since 0.10.0, deprecated, use info.leds.lc)_
+-~~leds.pin~~ | byte array | LED strip pin(s). Always one element. _Removed as of v0.13_
++leds.wv | bool | `true` if a white channel slider should be displayed. _(deprecated, use info.leds.lc)_
+ leds.pwr | 0 to 65000 | Current LED power usage in milliamps as determined by the ABL. `0` if ABL is disabled.
+ leds.maxpwr | 0 to 65000 | Maximum power budget in milliamps for the ABL. `0` if ABL is disabled.
+ leds.maxseg | byte | Maximum number of segments supported by this version.
+@@ -252,11 +244,11 @@ _wifi_ | object | Info about current signal strength
+ wifi.bssid | string | The BSSID of the currently connected network.
+ wifi.signal | 0 to 100 | Relative signal quality of the current connection.
+ wifi.channel | 1 to 14 | The current WiFi channel.
+-_fs_ | object | Info about the embedded LittleFS filesystem (since 0.11.0)
++_fs_ | object | Info about the embedded LittleFS filesystem
+ fs.u | uint32 | Estimate of used filesystem space in kilobytes
+ fs.t | uint32 | Total filesystem size in kilobytes
+ fs.pmt | uint32 | Unix timestamp for the last modification to the `presets.json` file. Not accurate after boot or after using `/edit`
+-ndc | -1 to 255 | Number of other WLED devices discovered on the network. -1 if Node discovery disabled. (since 0.12.0)
++ndc | -1 to 255 | Number of other WLED devices discovered on the network. -1 if Node discovery disabled.
+ arch | string | Name of the platform.
+ core | string | Version of the underlying (Arduino core) SDK.
+ lwip | 0, 1, or 2 | Version of LwIP. 1 or 2 on ESP8266, 0 (does not apply) on ESP32. _Deprecated, removal in 0.14.0_
+@@ -265,9 +257,8 @@ uptime | uint32 | Time since the last boot/reset in seconds.
+ opt | uint16 | Used for debugging purposes only.
+ brand | string | The producer/vendor of the light. Always `WLED` for standard installations.
+ product | string | The product name. Always `FOSS` for standard installations.
+-~~btype~~ | string | The origin of the build. `src` if a release version is compiled from source, `bin` for an official release image, `dev` for a development build (regardless of src/bin origin) and `exp` for experimental versions. `ogn` if the image is flashed to hardware by the vendor. _Removed as of v0.10_
+ mac | string | The hexadecimal hardware MAC address of the light, lowercase and without colons.
+-ip | string | The IP address of this instance. Empty string if not connected. (since 0.13.0)
++ip | string | The IP address of this instance. Empty string if not connected.
+ device_id | string | A unique identifier for the device, derived from the hardware MAC address. _(available since 16.0.0)_
+ psram | uint32 | Total PSRAM size in bytes. `0` if no PSRAM is present or detected. _(available since 16.0.0)_
+ psram_free | uint32 | Estimate of currently free PSRAM in bytes. _(available since 16.0.0)_
+@@ -323,7 +314,6 @@ Matrices are handled as a non-serpentine layout.
+ 
+ #### Playlists
+ 
+-(Available since 0.11.0)
+ 
+ Sample playlist API call:
+ 
+diff --git a/docs/interfaces/mqtt.md b/docs/interfaces/mqtt.md
+index b9b22ff..7c740e4 100644
+--- a/docs/interfaces/mqtt.md
++++ b/docs/interfaces/mqtt.md
+@@ -8,14 +8,13 @@ hide:
+ !!! important
+     **Notice:** The MQTT implementation is currently being **restructured** to provide a better experience for users of Home Assistant and other automation software. **This will be a breaking change**. For details regarding the rework, please see [#207](https://github.com/wled/WLED/issues/207)!
+ 
+-WLED versions from 0.8.0 up are able to connect to an MQTT broker for smart home control.
++WLED can connect to an MQTT broker for smart home control.
+ Connection to both domains and IP servers is supported on port 1883.
+ 
+ Starting in v16.0.0, WLED also supports **mDNS broker discovery**: if you enter an `.local` hostname as the MQTT server address, WLED will resolve it via mDNS. This lets you use a local broker without knowing its static IP address.
+ 
+ !!! warning "MQTT Connections Are Not Secure"
+     Secure connections are not currently supported. I recommend only connecting to local MQTT brokers.
+-    In v0.8.4-0.8.6 only, WLED supports MQTT autodiscovery by the HomeAssistant software. This has been removed because of bootloop issues and in favor of the native HomeAssistant integration.
+ 
+ WLED will subscribe to up to six topics to change the state of the lights.
+ 
+@@ -24,7 +23,7 @@ WLED will subscribe to up to six topics to change the state of the lights.
+ - **[mqttDeviceTopic]/col**  
+   -> Send color as HEX (#WWRRGGBB or #RRGGBB) or 32bit DEC. Hex has '#','h' or 'H' as prefix.
+ - **[mqttDeviceTopic]/api**  
+-  -> Send an API call (using the [HTTP API](/interfaces/http-api) or, since 0.11, [JSON API](https://kno.wled.ge/interfaces/json-api) syntax). You may omit the "win" and just send e.g. "FX=73"
++  -> Send an API call (using the [HTTP API](/interfaces/http-api) or [JSON API](/interfaces/json-api) syntax). You may omit the "win" and just send e.g. "FX=73"
+ 
+ - **[mqttGroupTopic]**
+ - **[mqttGroupTopic]/col**
+diff --git a/docs/interfaces/serial.md b/docs/interfaces/serial.md
+index c2edd3e..e255a75 100644
+--- a/docs/interfaces/serial.md
++++ b/docs/interfaces/serial.md
+@@ -5,7 +5,7 @@ hide:
+   # - toc
+ ---
+ 
+-WLED 0.13.0 supports multiple protocols over Serial.
++WLED supports multiple protocols over Serial.
+ Serial is available via USB, and on most boards, GPIO1 for TX and GPIO3 for RX.
+ 
+ !!! info "Pin usage limitation"
+@@ -16,7 +16,7 @@ Serial is available via USB, and on most boards, GPIO1 for TX and GPIO3 for RX.
+ 
+ Both these protocols are supported and can be used to stream realtime LED data to WLED for direct display, e.g. from an bias lighting program. For tpm2, only data packets are supported and data in 24-bit RGB format is expected.  
+ If you want to drive a large amount of LEDs, you may need to increase the Baud rate in WLED Sync settings, as the default baud rate of `115200` is only sufficient for about 50-100 LEDs depending on the refresh rate.  
+-Adalight is supported since WLED 0.6.3, tpm2 since version 0.10.2.
++Both Adalight and tpm2 are supported.
+ 
+ ### JSON over Serial
+ 
+diff --git a/docs/interfaces/udp-notifier.md b/docs/interfaces/udp-notifier.md
+index 6f0ac6e..7bb0ef9 100644
+--- a/docs/interfaces/udp-notifier.md
++++ b/docs/interfaces/udp-notifier.md
+@@ -44,11 +44,10 @@ You can easily group WLED devices (for example all in one room) by changing the
+ 
+ #### Sync groups
+ 
+-From v0.13.0, 8 Sync groups are available. This allows syncing select instances only without changing the UDP port.  
++8 Sync groups are available. This allows syncing select instances only without changing the UDP port.  
+ For example, you might use one sync group per room you use WLED devices in.  
+ Make sure the sender and receiver you want to sync both have the same sync group ticked (a sender can send to multiple groups and a receiver can listen to multiple groups).  
+ 
+-Sync packets received from pre-0.13.0 instances are treated as if sent in sync group 1 only.
+ 
+ ### Protocol description
+ 
+diff --git a/docs/interfaces/udp-realtime.md b/docs/interfaces/udp-realtime.md
+index 0b51893..6282dde 100644
+--- a/docs/interfaces/udp-realtime.md
++++ b/docs/interfaces/udp-realtime.md
+@@ -9,7 +9,7 @@ hide:
+ 
+ You can now use WLED with the popular Ambilight software Hyperion.
+ Just configure Hyperion to use an UDP device with protocol 0 on port 19446!
+-The maximum number of LEDs supported in this mode is 490. (WLED 0.8.0 and lower: 341)
++The maximum number of LEDs supported in this mode is 490.
+ 
+ ### Prismatik
+ 
+@@ -18,7 +18,7 @@ Select one of the UDP options in the device configuration wizard.
+ 
+ ### TPM2.NET
+ 
+-Supported in latest master and will be available in WLED 0.10.1.
++TPM2.NET is supported.
+ Please set the WLED broadcast UDP port to 65506 in Sync settings to enable receiving TPM2.NET data.
+ 
+ ### UDP Sound Sync (v2, v2+)
+@@ -97,19 +97,3 @@ Byte | Description
+ 
+ When realtime mode starts, all LEDs will be black. However, you don't have to change all LEDs using one packet.
+ Changing a single LED therefore only requires a packet of 2+4 bytes. All LEDs maintain their color until it is changed or the module exits WARLS mode because of a timeout.
+-
+-### Setup with ARLS
+-
+-The software now supports audio-reactive-led-strip!
+-
+-1. Download [audio-reactive-led-strip](https://github.com/scottlawsonbc/audio-reactive-led-strip) and follow its installation instruction. You can also use my (untested) [fork](https://github.com/Aircoookie/audio-reactive-led-strip). In that case, you can skip step 2.
+-2. Insert the following code in led.py after line 66:
+-    m.append(1);
+-    m.append(2);
+-   These are the first two bytes of the protocol.
+-3. In config.py set your led amount, ESP IP and WLED UDP notifier port. For FPS, a setting between 15-30 is recommended.
+-4. Run visualization.py! If you have a low amount of LEDS (e.g. 10) try lowering the sigma values in line 129-131.
+-5. If you have multiple WLED devices, you can sync them all with music.
+-Use the led count of your largest device and set the IP to X.X.X.255 (UDP broadcast).
+-You can adjust the position of the amplitude with the WARLS offset setting.
+-Note that web control currently does not work while it is active.
+diff --git a/mkdocs.yml b/mkdocs.yml
+index 8e53649..b6bc785 100644
+--- a/mkdocs.yml
++++ b/mkdocs.yml
+@@ -164,3 +164,4 @@ nav:
+     - Contributors & Credits: about/contributors.md
+     - Privacy Policy: about/privacy-policy.md
+     - Upcoming Features: about/roadmap.md
++    - Historical Features: about/historical-features.md
