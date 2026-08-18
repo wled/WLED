@@ -25,6 +25,13 @@
 #endif
 extern "C" void usePWMFixedNMI();
 
+// millis()-rollover counter (millis() wraps every ~50 days) - previously
+// WLED_GLOBAL. json.cpp and usermods only ever read it for uptime reporting,
+// so it gets a by-value getter rather than a mutable reference: an accidental
+// write from outside this file is now a build error instead of a silent bug.
+static uint16_t rolloverMillis = 0;
+uint16_t getRolloverMillis() { return rolloverMillis; }
+
 /*
  * Main WLED class implementation. Mostly initialization and connection logic
  */
@@ -413,7 +420,12 @@ void WLED::setup()
   #else
     DEBUG_PRINTLN(F("arduino-esp32 v1.0.x\n"));  // we can't say in more detail.
   #endif
-  DEBUG_PRINTF_P(PSTR("\nCPU:   %s rev.%d, %d core(s), %d MHz.\n"), ESP.getChipModel(), (int)ESP.getChipRevision(), ESP.getChipCores(), ESP.getCpuFreqMHz());
+  #if ESP_IDF_VERSION_MAJOR > 4
+    // chip revision uses a new format in V5
+    DEBUG_PRINTF_P(PSTR("\nCPU:   %s v%d.%d, %d core(s), %d MHz.\n"), ESP.getChipModel(), (int)ESP.getChipRevision() / 100, (int)ESP.getChipRevision()% 100 , ESP.getChipCores(), ESP.getCpuFreqMHz());
+  #else
+    DEBUG_PRINTF_P(PSTR("\nCPU:   %s rev.%d, %d core(s), %d MHz.\n"), ESP.getChipModel(), (int)ESP.getChipRevision(), ESP.getChipCores(), ESP.getCpuFreqMHz());
+  #endif
   DEBUG_PRINTF_P(PSTR("FLASH: %d MB, Mode %d "), (ESP.getFlashChipSize()/1024)/1024, (int)ESP.getFlashChipMode());
   #ifdef WLED_DEBUG
   switch (ESP.getFlashChipMode()) {
