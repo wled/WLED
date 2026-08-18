@@ -1287,38 +1287,108 @@ static size_t writeJSONStringElement(uint8_t* dest, size_t maxLen, const char* s
   return 1 + n;
 }
 
-// Generate a streamed JSON response for the mode data
-// This uses sendChunked to send the reply in blocks based on how much fit in the outbound
-// packet buffer, minimizing the required state (ie. just the next index to send).  This
-// allows us to send an arbitrarily large response without using any significant amount of
-// memory (so no worries about buffer limits).
+// Measure bytes that writeJSONStringElement would produce, without writing.
+// Used for Content-Length pre-computation to avoid chunked transfer truncation
+// on slow links (PPP/serial) where Connection:close races with final chunk.
+static size_t measureJSONStringElement(const char* src) {
+  size_t len = 1; // leading comma
+  len += 1; // opening quote
+  for (const char* p = src; *p; ++p) {
+    char esc = ARDUINOJSON_NAMESPACE::EscapeSequence::escapeChar(*p);
+    len += esc ? 2 : 1;
+  }
+  len += 1; // closing quote
+  return len;
+}
+
+// Two-pass streamed JSON response for mode data: first measures total payload
+// size, then sends with Content-Length via request->send().  The content callback
+// fills each TCP buffer in turn, using writeJSONStringElement for each entry.
 void respondModeData(AsyncWebServerRequest* request) {
+  // Pass 1: measure total payload size so we can send with Content-Length.
+  // Pass 2: the content callback fills each TCP send buffer on demand.
+  char lineBuffer[256];
+  size_t totalLen = 1; // ']' only — first element's comma becomes '['
+  for (size_t i = 0; i < strip.getModeCount(); i++) {
+    strncpy_P(lineBuffer, strip.getModeData(i), sizeof(lineBuffer)-1);
+    lineBuffer[sizeof(lineBuffer)-1] = '\0';
+    if (lineBuffer[0] != 0) {
+      const char* dp = strchr(lineBuffer, '@');
+      totalLen += measureJSONStringElement(dp ? dp + 1 : "");
+    }
+  }
   size_t fx_index = 0;
-  request->sendChunked(FPSTR(CONTENT_TYPE_JSON),
-    [fx_index](uint8_t* data, size_t len, size_t) mutable {
+  bool firstEmitted = false;
+  request->send(FPSTR(CONTENT_TYPE_JSON), totalLen,
+    [fx_index, firstEmitted](uint8_t* data, size_t len, size_t) mutable -> size_t {
       size_t bytes_written = 0;
       char lineBuffer[256];
       while (fx_index < strip.getModeCount()) {
-        strncpy_P(lineBuffer, strip.getModeData(fx_index), sizeof(lineBuffer)-1); // Copy to stack buffer for strchr
+        strncpy_P(lineBuffer, strip.getModeData(fx_index), sizeof(lineBuffer)-1);
         if (lineBuffer[0] != 0) {
-          lineBuffer[sizeof(lineBuffer)-1] = '\0'; // terminate string (only needed if strncpy filled the buffer)
-          const char* dataPtr = strchr(lineBuffer,'@'); // Find '@', if there is one
-          size_t mode_bytes = writeJSONStringElement(data, len, dataPtr ? dataPtr + 1 : "");
-          if (mode_bytes == 0) break;  // didn't fit; break loop and try again next packet
-          if (fx_index == 0) *data = '[';
+          lineBuffer[sizeof(lineBuffer)-1] = '\0';
+          const char* dp = strchr(lineBuffer, '@');
+          size_t mode_bytes = writeJSONStringElement(data, len, dp ? dp + 1 : "");
+          if (mode_bytes == 0) break;
+          if (!firstEmitted) { *data = '['; firstEmitted = true; }
           data += mode_bytes;
           len -= mode_bytes;
           bytes_written += mode_bytes;
         }
-        ++fx_index;        
+        ++fx_index;
       }
-
-      if ((fx_index == strip.getModeCount()) && (len >= 1)) {
+      if (fx_index >= strip.getModeCount() && len >= 1) {
         *data = ']';
         ++bytes_written;
-        ++fx_index; // we're really done
+        ++fx_index;
       }
+      return bytes_written;
+  });
+}
 
+// Stream effect names as JSON array without holding the JSON buffer lock.
+// Eliminates the deadlock between /json/effects HTTP response (LockedJsonResponse
+// holds lock during async TCP send) and WebSocket state push (sendDataWs needs lock).
+// Pattern mirrors respondModeData() — zero heap allocation for response body.
+void respondModeNames(AsyncWebServerRequest* request) {
+  // Two-pass: measure then send with Content-Length (same as respondModeData).
+  char lineBuffer[256];
+  size_t totalLen = 1; // ']' only — first element's comma becomes '['
+  for (size_t i = 0; i < strip.getModeCount(); i++) {
+    strncpy_P(lineBuffer, strip.getModeData(i), sizeof(lineBuffer)-1);
+    lineBuffer[sizeof(lineBuffer)-1] = '\0';
+    if (lineBuffer[0] != 0) {
+      char* dp = strchr(lineBuffer, '@');
+      if (dp) *dp = 0;
+      totalLen += measureJSONStringElement(lineBuffer);
+    }
+  }
+  size_t fx_index = 0;
+  bool firstEmitted = false;
+  request->send(FPSTR(CONTENT_TYPE_JSON), totalLen,
+    [fx_index, firstEmitted](uint8_t* data, size_t len, size_t) mutable -> size_t {
+      size_t bytes_written = 0;
+      char lineBuffer[256];
+      while (fx_index < strip.getModeCount()) {
+        strncpy_P(lineBuffer, strip.getModeData(fx_index), sizeof(lineBuffer)-1);
+        lineBuffer[sizeof(lineBuffer)-1] = '\0';
+        if (lineBuffer[0] != 0) {
+          char* dp = strchr(lineBuffer, '@');
+          if (dp) *dp = 0;
+          size_t mode_bytes = writeJSONStringElement(data, len, lineBuffer);
+          if (mode_bytes == 0) break;
+          if (!firstEmitted) { *data = '['; firstEmitted = true; }
+          data += mode_bytes;
+          len -= mode_bytes;
+          bytes_written += mode_bytes;
+        }
+        ++fx_index;
+      }
+      if (fx_index >= strip.getModeCount() && len >= 1) {
+        *data = ']';
+        ++bytes_written;
+        ++fx_index;
+      }
       return bytes_written;
   });
 }
@@ -1359,7 +1429,7 @@ void serveJson(AsyncWebServerRequest* request)
   else if (url.indexOf("info")     > 0) subJson = json_target::info;
   else if (url.indexOf("si")       > 0) subJson = json_target::state_info;
   else if (url.indexOf(F("nodes")) > 0) subJson = json_target::nodes;
-  else if (url.indexOf(F("eff"))   > 0) subJson = json_target::effects;
+  else if (url.indexOf(F("eff"))   > 0) { respondModeNames(request); return; }
   else if (url.indexOf(F("palx"))  > 0) subJson = json_target::palettes;
   else if (url.indexOf(F("fxda"))  > 0) { respondModeData(request); return; }
   else if (url.indexOf(F("net"))   > 0) subJson = json_target::networks;
