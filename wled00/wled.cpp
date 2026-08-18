@@ -361,7 +361,21 @@ void WLED::loop()
 #if WLED_WATCHDOG_TIMEOUT > 0
 void WLED::enableWatchdog() {
   #ifdef ARDUINO_ARCH_ESP32
+  #if ESP_IDF_VERSION >= ESP_IDF_VERSION_VAL(5, 0, 0)
+  // IDF v5: esp_task_wdt_init() takes a config struct, not (timeout, panic)
+  esp_task_wdt_config_t wdt_cfg = {
+    .timeout_ms = WLED_WATCHDOG_TIMEOUT * 1000,
+    .idle_core_mask = 0,       // don't subscribe idle tasks — only our loop task
+    .trigger_panic = true,
+  };
+  esp_err_t watchdog = esp_task_wdt_init(&wdt_cfg);
+  if (watchdog == ESP_ERR_INVALID_STATE) {
+    // TWDT already initialized (by IDF startup), reconfigure it
+    watchdog = esp_task_wdt_reconfigure(&wdt_cfg);
+  }
+  #else
   esp_err_t watchdog = esp_task_wdt_init(WLED_WATCHDOG_TIMEOUT, true);
+  #endif
   DEBUG_PRINT(F("Watchdog enabled: "));
   if (watchdog == ESP_OK) {
     DEBUG_PRINTLN(F("OK"));
