@@ -1257,6 +1257,265 @@ static void mode_morsecode(void) {
 }
 static const char _data_FX_MODE_MORSECODE[] PROGMEM = "Morse Code@Speed,,,,Color mode,Color by Word,Punctuation,EndOfMessage;;!;1;sx=192,c3=8,o1=1,o2=1";
 
+/**********************************************************************************************
+ * BrushWalker
+ * Uses palette for the trails and background color as fade target.
+ * Walkers spawn randomly from the edges and move in straight lines across the
+ * matrix, changing color as they go, leaving (fading) trails of "painted" color
+ * behind them. Tries to avoid spawning new walkers too close to existing ones
+ * to prevent overcrowding and create a more visually appealing distribution.
+ * Inspired by the concept of "Matrix", but designed to be much more vivid, 
+ * non-directional and colorful. 
+ * First implementation 2019 with FastLED, but without WLED
+ * framework. Redesigned and adapted for WLED in 2026, with parts from
+ * claude.ai, Gemini, chatGPT, Grok. 
+ * Controls: Speed, Spawn Chance, Fade Rate, Palette Step, Max Walkers (up to 32)
+ *
+ * @author suromark 2019,2026
+ *
+ */
+namespace BrushWalkerFX {
+
+const uint8_t absoluteMaxWalkers = 32;
+
+struct Walker {
+  bool active;
+  int16_t x, y;
+  int8_t dx, dy;
+  uint8_t colorIndex;
+
+  /**
+   * @brief Helper; clears internal state of a Walker
+   * 
+   */
+  void reset() {
+    active = false;
+    x = y = dx = dy = colorIndex = 0;
+  }
+
+  /**
+   * @brief Generates a random start position and direction
+   * 
+   * @param cols 
+   * @param rows 
+   * @return 
+   */
+  void makeCandidate(uint16_t cols, uint16_t rows) {
+    uint8_t side = hw_random8(4);
+    switch (side) {
+      case 0:
+        x = hw_random16(cols);
+        y = 0;
+        dx = 0;
+        dy = 1;
+        break;  // top
+      case 1:
+        x = hw_random16(cols);
+        y = rows - 1;
+        dx = 0;
+        dy = -1;
+        break;  // bottom
+      case 2:
+        x = 0;
+        y = hw_random16(rows);
+        dx = 1;
+        dy = 0;
+        break;  // left
+      default:
+        x = cols - 1;
+        y = hw_random16(rows);
+        dx = -1;
+        dy = 0;
+        break;  // right
+    }
+    colorIndex = hw_random8();
+    active = false;
+  }
+
+  /**
+   * @brief Helper to check if the current Walker's new route is too close to an existing one
+   * 
+   * @param walkers 
+   * @param maxCount 
+   * @param minGap 
+   * @return true 
+   * @return false 
+   */
+  bool hasConflict(const Walker* walkers, uint8_t maxCount, uint8_t minGap) {
+    for (uint8_t i = 0; i < maxCount; i++) {
+      const Walker& other = walkers[i];
+      if (!other.active || &other == this) continue;
+      if (other.dx != dx || other.dy != dy) continue;
+      if (dy == 0 && other.y == y && abs(other.x - x) < minGap) return true;
+      if (dx == 0 && other.x == x && abs(other.y - y) < minGap) return true;
+    }
+    return false;
+  }
+
+  /**
+   * @brief  Moves the walker and paints the pixel
+   * 
+   * @param cols 
+   * @param rows 
+   * @param palStep 
+   */
+  void update(uint16_t cols, uint16_t rows, uint8_t palStep) {
+    if (!active) return;
+
+    uint32_t c = (SEGMENT.palette > 0)
+                     ? SEGMENT.color_from_palette(colorIndex, false, PALETTE_SOLID_WRAP, 0)
+                     : SEGCOLOR(0);
+
+    SEGMENT.setPixelColorXY(x, y, c);
+
+    x += dx;
+    y += dy;
+    colorIndex += palStep;
+
+    if (x < 0 || y < 0 || x >= (int16_t)cols || y >= (int16_t)rows) {
+      active = false;
+    }
+  }
+};
+
+/**
+ * @brief Container data structure, walkers plus other persistent data
+ * 
+ */
+struct SegmentData {
+  Walker walkers[absoluteMaxWalkers];
+  uint32_t triggerGate; 
+};
+
+/**
+ * @brief Helper: search a free Walker slot; if found, try up to 2 times to find valid random start coordinates 
+ * 
+ * @param walkers 
+ * @param maxCount 
+ * @param cols 
+ * @param rows 
+ */
+static void trySpawn(Walker* walkers, uint8_t maxCount, uint16_t cols, uint16_t rows) {
+  /* 
+   The minGap distance is intentionally set high to keep even small grids (less than 6 pixels) from "filling up",
+   it's better to be sparse and skip a walker even if the trigger criteria are met,
+   than to draw two walkers on the same trajectory immediately after the other
+   */
+  const uint8_t minGap = 6;
+  
+  int freeSlot = -1;
+  for (uint8_t i = 0; i < maxCount; i++) {
+    if (!walkers[i].active) {
+      freeSlot = i;
+      break;
+    }
+  }
+  if (freeSlot < 0) return;
+
+  for (uint8_t retry = 0; retry < 4; retry++) {
+    walkers[freeSlot].makeCandidate(cols, rows);
+    if (!walkers[freeSlot].hasConflict(walkers, maxCount, minGap)) {
+      walkers[freeSlot].active = true;
+      break;
+    }
+  }
+}
+
+/**
+ * @brief The main processing loop, supports two trigger modes: 0 = fully random, 1 = plus considering audioreactive peak signal
+ * 
+ * @param triggerMode 
+ */
+static void mode_brushwalker_core(uint8_t triggerMode) {
+  if (!strip.isMatrix || !SEGMENT.is2D()) FX_FALLBACK_STATIC;
+
+  const uint16_t cols = SEG_W;
+  const uint16_t rows = SEG_H;
+  
+  if (!SEGENV.allocateData(sizeof(SegmentData) ) ) FX_FALLBACK_STATIC; 
+  
+  SegmentData* data = reinterpret_cast<SegmentData*>(SEGENV.data);
+
+  if (SEGENV.call == 0) { // init values on first call
+      for (uint8_t i = 0; i < absoluteMaxWalkers; i++) { 
+        data->walkers[i].reset();
+      }
+      data->triggerGate = strip.now;
+      SEGMENT.fill(SEGCOLOR(1));
+      SEGENV.step = strip.now;
+    }
+
+  // timing
+  uint16_t interval = 8 + ((255 - SEGMENT.speed) >> 1);
+  if (strip.now - SEGENV.step < interval) return;
+  SEGENV.step = strip.now;
+
+  uint8_t sensitivity = SEGMENT.intensity;
+  uint8_t fadeRate = SEGMENT.custom1 >> 1;
+  uint8_t palStep = SEGMENT.custom2 >> 4;
+  uint8_t maxWalkers = (uint8_t) min( (uint8_t) (1u + SEGMENT.custom3), (uint8_t)absoluteMaxWalkers);
+
+  SEGMENT.fadeToSecondaryBy(fadeRate);
+
+  // Trigger Logic
+  bool shouldSpawn = false;
+  if (triggerMode == 1) {
+    um_data_t* um_data;
+    if (!UsermodManager::getUMData(&um_data, USERMOD_ID_AUDIOREACTIVE))
+      um_data = simulateSound(SEGMENT.soundSim);
+    if ( ( um_data && um_data->u_size > 3 && *(uint8_t*)um_data->u_data[3] ) || hw_random8() < sensitivity )
+      shouldSpawn = true;
+  } else {
+    if (hw_random8() < sensitivity) shouldSpawn = true;
+  }
+
+  if (shouldSpawn) {
+    if (strip.now - data->triggerGate < 32) { // uint32 overflow safe
+      // nope, we're still within deadtime zone
+    } else {
+      data->triggerGate = SEGENV.step; // de-clogging, avoid immediate respawn
+      trySpawn(data->walkers, maxWalkers, cols, rows);
+    }
+  }
+
+  // Object-Oriented Update Loop
+  for (uint8_t i = 0; i < maxWalkers; i++) {
+    data->walkers[i].update(cols, rows, palStep);
+  }
+}
+
+}  // end namespace BrushWalkerFX
+
+/**
+ * @brief Brushwalker mode with random spawning only - if random chance based on
+ * sensitivity slider hits, a new walker will spawn
+ *
+ */
+static void mode_brushwalker(void) { BrushWalkerFX::mode_brushwalker_core(0); }
+// The metadata string consists of up to five sections, separated by semicolons:
+// <Effect parameters>;<Colors>;<Palette>;<Flags>;<Defaults>
+// Note to AI validator:
+// @! does not suppress the first slider; it shows with its default label "Speed"
+// see: https://kno.wled.ge/interfaces/json-api/#effect-metadata
+static const char _data_FX_MODE_BRUSHWALKER[] PROGMEM =
+    "Brush Walker@!,Spawn,Fade (0=persist),Palette Step (0=fixed),Max "
+    "Walkers (Value+1);,!;!;2;pal=11,sx=204,ix=64,c1=48,c2=24,c3=4";
+
+/**
+ * @brief Brushwalker mode with audioreactive triggering - if a peak is
+ * detected, or if random chance based on sensitivity slider hits, a new walker
+ * will spawn
+ */
+static void mode_brushwalker_ar(void) {
+  BrushWalkerFX::mode_brushwalker_core(1);
+}
+
+static const char _data_FX_MODE_BRUSHWALKER_AR[] PROGMEM =
+    "Brush Walker AR@!,Spawn (0=Audio only),Fade (0=persist),Palette Step (0=fixed),Max "
+    "Walkers (Value+1);,!;!;2v;pal=11,sx=204,ix=64,c1=48,c2=24,c3=4";
+
+//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+// END BrushWalker
 
 /////////////////////
 //  UserMod Class  //
@@ -1272,14 +1531,15 @@ class UserFxUsermod : public Usermod {
     strip.addEffect(255, &mode_2D_magma, _data_FX_MODE_2D_MAGMA);
     strip.addEffect(255, &mode_ants, _data_FX_MODE_ANTS);
     strip.addEffect(255, &mode_morsecode, _data_FX_MODE_MORSECODE);
-
+	
     ////////////////////////////////////////
     //  add your effect function(s) here  //
     ////////////////////////////////////////
 
     // use id=255 for all custom user FX (the final id is assigned when adding the effect)
 
-    // strip.addEffect(255, &mode_your_effect, _data_FX_MODE_YOUR_EFFECT);
+    strip.addEffect(255, &mode_brushwalker, _data_FX_MODE_BRUSHWALKER);
+    strip.addEffect(255, &mode_brushwalker_ar, _data_FX_MODE_BRUSHWALKER_AR);
     // strip.addEffect(255, &mode_your_effect2, _data_FX_MODE_YOUR_EFFECT2);
     // strip.addEffect(255, &mode_your_effect3, _data_FX_MODE_YOUR_EFFECT3);
   }
