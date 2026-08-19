@@ -383,7 +383,7 @@ void handleOnOff(bool forceOff)
       if (rlyPin>=0) {
         // note: pinMode is set in first call to handleOnOff(true) in beginStrip()
         digitalWrite(rlyPin, rlyMde); // set to on state
-        delay(RELAY_DELAY); // let power stabilize before sending LED data (#346 #812 #3581 #3955)
+        delay(relayDelay); // let power stabilize before sending LED data (#346 #812 #3581 #3955)
       }
       offMode = false;
     }
