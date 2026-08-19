@@ -300,14 +300,31 @@ bool handleSet(AsyncWebServerRequest *request, const String& req, bool apply=tru
 uint16_t getRolloverMillis();
 
 //udp.cpp
-void notify(byte callMode, bool followUp=false);
-uint8_t realtimeBroadcast(uint8_t type, IPAddress client, uint16_t length, const uint8_t* buffer, uint8_t bri=255, bool isRGBW=false);
-void realtimeLock(uint32_t timeoutMs, byte md = REALTIME_MODE_GENERIC);
-void exitRealtime();
 void handleNotifications();
-void setRealtimePixel(uint16_t i, byte r, byte g, byte b, byte w);
+
+//sync_notifier.cpp
+void notify(byte callMode, bool followUp=false);
+void notifyRetryIfNeeded();
+void parseNotifyPacket(const uint8_t *udpIn);
+
+//sync_nodes.cpp
+bool parseNodeInfoPacket(const uint8_t *udpIn, unsigned len, bool isSupp, const IPAddress &localIP);
 void refreshNodeList();
 void sendSysInfoUDP();
+
+//realtime.cpp
+void realtimeLock(uint32_t timeoutMs, byte md = REALTIME_MODE_GENERIC);
+void exitRealtime();
+void setRealtimePixel(uint16_t i, byte r, byte g, byte b, byte w);
+
+//realtime_udp.cpp
+bool handleHyperionPacket();
+bool handleDirectRealtimePacket(uint8_t *udpIn, size_t packetSize, bool isSupp);
+
+//realtime_broadcast.cpp
+uint8_t realtimeBroadcast(uint8_t type, IPAddress client, uint16_t length, const uint8_t* buffer, uint8_t bri=255, bool isRGBW=false);
+
+//espnow_sync.cpp
 #ifndef WLED_DISABLE_ESPNOW
 void espNowSentCB(uint8_t* address, uint8_t status);
 void espNowReceiveCB(uint8_t* address, uint8_t* data, uint8_t len, signed int rssi, bool broadcast);
