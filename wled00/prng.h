@@ -20,4 +20,17 @@ public:
   uint8_t random8() { return random16(); }
   uint8_t random8(uint8_t lim) { return (uint8_t)(((uint16_t)random8() * lim) >> 8); }
   uint8_t random8(uint8_t min, uint8_t lim) { uint8_t delta = lim - min; return random8(delta) + min; }
+
+  uint16_t random16Backwards() {
+    uint16_t x = seed;
+    seed ^= seed >> 7;
+    seed ^= seed >> 14;
+    seed = (seed - 31683) * 35465;
+    return x;
+  }
+  uint16_t random16Backwards(uint16_t lim) { return ((uint32_t)random16Backwards() * lim) >> 16; }
+  uint16_t random16Backwards(uint16_t min, uint16_t lim) { uint16_t delta = lim - min; return random16Backwards(delta) + min; }
+  uint8_t random8Backwards() { return random16Backwards(); }
+  uint8_t random8Backwards(uint8_t lim) { return (uint8_t)(((uint16_t)random8Backwards() * lim) >> 8); }
+  uint8_t random8Backwards(uint8_t min, uint8_t lim) { uint8_t delta = lim - min; return random8Backwards(delta) + min; }
 };
