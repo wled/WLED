@@ -1,0 +1,110 @@
+Warning! `src_filter` configuration option in section [env:esp32dev] is deprecated and will be removed in the next release! Please use `build_src_filter` instead
+Processing esp32dev (board: esp32dev; platform: https://github.com/tasmota/platform-espressif32/releases/download/2023.06.02/platform-espressif32.zip; framework: arduino)
+--------------------------------------------------------------------------------
+Library Manager: Installing SPI
+Verbose mode can be enabled via `-v, --verbose` option
+*** use existing my_config.h ***
+Installing node packages
+npm ci
+
+added 68 packages, and audited 69 packages in 633ms
+
+13 packages are looking for funding
+  run `npm fund` for details
+
+found 0 vulnerabilities
+npm run build
+
+> wled@0.16.0-alpha build
+> node tools/cdata.js
+
+
+	  ##  ##      ##        ######    ######
+	##      ##    ##      ##        ##  ##  ##
+	##  ##  ##  ##        ######        ##  ##
+	##  ##  ##  ##        ##            ##  ##
+	  ##  ##      ######    ######    ######
+		 build script for web UI
+
+Web UI is already built
+CONFIGURATION: https://docs.platformio.org/page/boards/espressif32/esp32dev.html
+PLATFORM: Espressif 32 (2023.6.2) > Espressif ESP32 Dev Module
+HARDWARE: ESP32 240MHz, 320KB RAM, 4MB Flash
+DEBUG: Current (cmsis-dap) External (cmsis-dap, esp-bridge, esp-prog, iot-bus-jtag, jlink, minimodule, olimex-arm-usb-ocd, olimex-arm-usb-ocd-h, olimex-arm-usb-tiny-h, olimex-jtag-tiny, tumpa)
+PACKAGES: 
+ - framework-arduinoespressif32 @ 2.0.9 
+ - tool-esptoolpy @ 1.40602.0 (4.6.2) 
+ - tool-mklittlefs @ 1.203.210628 (2.3) 
+ - tool-mkspiffs @ 2.230.0 (2.30) 
+ - toolchain-xtensa-esp32 @ 8.4.0+2021r2-patch5
+LDF: Library Dependency Finder -> https://bit.ly/configure-pio-ldf
+LDF Modes: Finder ~ chain, Compatibility ~ strict
+Found 46 compatible libraries
+Scanning dependencies...
+Dependency Graph
+|-- AsyncTCP @ 3.4.7
+|-- AnimatedGIF @ 1.4.7
+|-- GifDecoder @ 1.1.0+sha.bc3af18
+|-- esp_dmx @ 3.1.1+sha.47db25d8
+|-- FastLED @ 3.6.0
+|-- IRremoteESP8266 @ 2.8.2
+|-- NeoPixelBus @ 2.8.4+sha.a0919d1
+|-- ESPAsyncWebServerWLED @ 2.4.2+sha.39b830c
+|-- AsyncMqttClient @ 0.9.0
+|-- QuickEspNow @ 0.8.1+sha.193e991
+|-- audioreactive
+|-- SD_MMC @ 2.0.0
+|-- SD @ 2.0.0
+|-- SPI @ 2.0.0
+|-- ESPmDNS @ 2.0.0
+|-- Wire @ 2.0.0
+|-- Update @ 2.0.0
+|-- ArduinoOTA @ 2.0.0
+|-- EEPROM @ 2.0.0
+|-- DNSServer @ 2.0.0
+|-- Ethernet @ 2.0.0
+|-- LittleFS @ 2.0.0
+|-- WiFi @ 2.0.0
+|-- NeoESP32RmtHI
+|-- ESP32 Async UDP @ 2.0.0
+|-- WebServer @ 2.0.0
+Building in release mode
+Compiling .pio/build/esp32dev/usermods/FSEQ/register_usermod.cpp.o
+Compiling .pio/build/esp32dev/src/bus_manager.cpp.o
+Compiling .pio/build/esp32dev/src/button.cpp.o
+Compiling .pio/build/esp32dev/src/cfg.cpp.o
+Compiling .pio/build/esp32dev/src/colors.cpp.o
+Compiling .pio/build/esp32dev/src/dmx_input.cpp.o
+Compiling .pio/build/esp32dev/src/dmx_output.cpp.o
+Compiling .pio/build/esp32dev/src/e131.cpp.o
+Compiling .pio/build/esp32dev/src/file.cpp.o
+Compiling .pio/build/esp32dev/src/hue.cpp.o
+In file included from usermods/FSEQ/usermod_fpp.h:3,
+                 from usermods/FSEQ/register_usermod.cpp:1:
+usermods/FSEQ/usermod_fseq.h:38:12: error: 'SPIClass' does not name a type; did you mean 'class'?
+     inline SPIClass spiPort = SPIClass(VSPI);
+            ^~~~~~~~
+            class
+In file included from .pio/libdeps/esp32dev/FastLED/src/FastLED.h:75,
+                 from wled00/colors.h:9,
+                 from wled00/bus_manager.cpp:25:
+.pio/libdeps/esp32dev/FastLED/src/fastspi.h:157:23: note: #pragma message: No hardware SPI pins defined.  All SPI access will default to bitbanged output
+ #      pragma message "No hardware SPI pins defined.  All SPI access will default to bitbanged output"
+                       ^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+In file included from usermods/FSEQ/usermod_fpp.h:3,
+                 from usermods/FSEQ/register_usermod.cpp:1:
+usermods/FSEQ/usermod_fseq.h: In member function 'void UsermodFseq::reinit_SD_SPI()':
+usermods/FSEQ/usermod_fseq.h:147:5: error: 'spiPort' was not declared in this scope
+     spiPort.begin(configPinSourceClock, configPinPoci, configPinPico, configPinSourceSelect);
+     ^~~~~~~
+usermods/FSEQ/usermod_fseq.h:147:5: note: suggested alternative: 'udpPort'
+     spiPort.begin(configPinSourceClock, configPinPoci, configPinPico, configPinSourceSelect);
+     ^~~~~~~
+     udpPort
+*** [.pio/build/esp32dev/usermods/FSEQ/register_usermod.cpp.o] Error 1
+========================== [FAILED] Took 6.31 seconds ==========================
+
+Environment    Status    Duration
+-------------  --------  ------------
+esp32dev       FAILED    00:00:06.313
+==================== 1 failed, 0 succeeded in 00:00:06.313 ====================
