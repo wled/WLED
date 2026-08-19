@@ -31,6 +31,10 @@
 #include "usermod_v2_four_line_display.h"
 #endif
 
+#ifdef USERMOD_GC9A01_DISPLAY
+#include "../usermod_v2_gc9a01_display/usermod_v2_gc9a01_display.h"
+#endif
+
 #ifdef USERMOD_MODE_SORT
   #error "Usermod Mode Sort is no longer required. Remove -D USERMOD_MODE_SORT from platformio.ini"
 #endif
@@ -178,6 +182,12 @@ class RotaryEncoderUIUsermod : public Usermod {
     void* display;
   #endif
 
+  #ifdef USERMOD_GC9A01_DISPLAY
+    UsermodGC9A01Display *gc9a01Display;
+  #else
+    void* gc9a01Display;
+  #endif
+
     // Pointers the start of the mode names within JSON_mode_names
     const char **modes_qstrings;
 
@@ -251,6 +261,16 @@ class RotaryEncoderUIUsermod : public Usermod {
 
   public:
 
+    /**
+     * @brief Construct a RotaryEncoderUIUsermod with default runtime configuration.
+     *
+     * Initializes internal state and safe defaults for pins, UI state, color values,
+     * effect/palette indices, display pointers, preset ranges, and feature flags.
+     *
+     * The constructor does not allocate hardware resources or register interrupts;
+     * it only sets member variables to their default values so setup() can perform
+     * initialization later.
+     */
     RotaryEncoderUIUsermod()
       : fadeAmount(5)
       , buttonPressedTime(0)
@@ -265,6 +285,7 @@ class RotaryEncoderUIUsermod : public Usermod {
       , currentSat1(255)
       , currentCCT(128)
       , display(nullptr)
+      , gc9a01Display(nullptr)
       , modes_qstrings(nullptr)
       , modes_alpha_indexes(nullptr)
       , palettes_qstrings(nullptr)
@@ -401,19 +422,19 @@ void RotaryEncoderUIUsermod::sortModesAndPalettes() {
   re_sortModes(modes_qstrings, modes_alpha_indexes, strip.getModeCount(), MODE_SORT_SKIP_COUNT);
 
   DEBUG_PRINT(F("Sorting palettes: ")); DEBUG_PRINT(getPaletteCount()); DEBUG_PRINT('/'); DEBUG_PRINTLN(customPalettes.size());
-  palettes_qstrings = re_findModeStrings(JSON_palette_names, getPaletteCount()); // allocates memory for all palette names
-  palettes_alpha_indexes = re_initIndexArray(getPaletteCount()); // allocates memory for all palette indexes
+  palettes_qstrings = re_findModeStrings(JSON_palette_names, getPaletteCount());
+  palettes_alpha_indexes = re_initIndexArray(getPaletteCount());
   if (customPalettes.size()) {
     for (int i=0; i<customPalettes.size(); i++) {
-      palettes_alpha_indexes[FIXED_PALETTE_COUNT+i] = 255-i;
-      palettes_qstrings[FIXED_PALETTE_COUNT+i] = PSTR("~Custom~");
+      palettes_alpha_indexes[getPaletteCount()-customPalettes.size()+i] = 255-i;
+      palettes_qstrings[getPaletteCount()-customPalettes.size()+i] = PSTR("~Custom~");
     }
   }
   // How many palette names start with '*' and should not be sorted?
   // (Also skipping the first one, 'Default').
-  int skipPaletteCount = 1; // could use DYNAMIC_PALETTE_COUNT instead
-  while (pgm_read_byte_near(palettes_qstrings[skipPaletteCount]) == '*') skipPaletteCount++; // legacy code
-  re_sortModes(palettes_qstrings, palettes_alpha_indexes, FIXED_PALETTE_COUNT, skipPaletteCount); // only sort fixed palettes (skip dynamic)
+  int skipPaletteCount = 1;
+  while (pgm_read_byte_near(palettes_qstrings[skipPaletteCount]) == '*') skipPaletteCount++;
+  re_sortModes(palettes_qstrings, palettes_alpha_indexes, getPaletteCount()-customPalettes.size(), skipPaletteCount);
 }
 
 byte *RotaryEncoderUIUsermod::re_initIndexArray(int numModes) {
@@ -477,10 +498,19 @@ void RotaryEncoderUIUsermod::re_sortModes(const char **modeNames, byte *indexes,
 // public methods
 
 
-/*
-  * setup() is called once at boot. WiFi is not yet connected at this point.
-  * You can use it to initialize variables, sensors or similar.
-  */
+/**
+ * @brief Initialize rotary-encoder UI: configure pins, optional PCF8574/I2C interrupt,
+ *        integrate available displays, and cache initial encoder state.
+ *
+ * Performs all startup setup required by the usermod: allocates and configures GPIO
+ * pins or a PCF8574 I/O expander (including attaching an IRQ handler if requested),
+ * sets pin modes, sorts mode/palette lists if needed, discovers and initializes
+ * optional display usermods (FourLineDisplay or GC9A01), computes initial CCT, and
+ * reads the encoder A/B inputs to prime internal state.
+ *
+ * If required pins, the IRQ, or I2C resources cannot be allocated, the usermod
+ * disables itself. This runs once at boot before WiFi is connected.
+ */
 void RotaryEncoderUIUsermod::setup()
 {
   DEBUG_PRINTLN(F("Usermod Rotary Encoder init."));
@@ -533,22 +563,34 @@ void RotaryEncoderUIUsermod::setup()
   }
 #endif
 
+#ifdef USERMOD_GC9A01_DISPLAY
+  // This Usermod also works with GC9A01DisplayUsermod for round TFT displays.
+  gc9a01Display = (UsermodGC9A01Display*) UsermodManager::lookup(USERMOD_ID_GC9A01_DISPLAY);
+  if (gc9a01Display != nullptr) {
+    DEBUG_PRINTLN(F("[RotaryEncoder] GC9A01 display integration enabled"));
+  } else {
+    DEBUG_PRINTLN(F("[RotaryEncoder] GC9A01 display NOT FOUND"));
+  }
+#endif
+
   initDone = true;
   Enc_A = readPin(pinA); // Read encoder pins
   Enc_B = readPin(pinB);
   Enc_A_prev = Enc_A;
 }
 
-/*
-  * loop() is called continuously. Here you can check for events, read sensors, etc.
-  * 
-  * Tips:
-  * 1. You can use "if (WLED_CONNECTED)" to check for a successful network connection.
-  *    Additionally, "if (WLED_MQTT_CONNECTED)" is available to check for a connection to an MQTT broker.
-  * 
-  * 2. Try to avoid using the delay() function. NEVER use delays longer than 10 milliseconds.
-  *    Instead, use a timer check as shown here.
-  */
+/**
+ * @brief Polls the rotary encoder and button, updates the current UI state, and applies the selected adjustments (brightness, effect, speed, intensity, palette, hue, saturation, CCT, presets, and custom parameters).
+ *
+ * @details
+ * - Debounces and rate-limits encoder/button processing; uses ENCODER_MAX_DELAY_MS to avoid excessive polling.
+ * - Detects short press (cycles UI state), double-press (toggles output state), and long-press (shows network information).
+ * - When the active UI state changes, requests or updates an overlay on any attached display(s); handles GC9A01-specific overlay expiration and display sleep by reverting to the brightness state when needed.
+ * - Validates that sliders (speed, intensity, custom) are supported by the current effect and resets to brightness if not supported.
+ * - Translates encoder rotations into the appropriate change action for the current UI state and applies those changes to the LED segments and displays.
+ *
+ * Side effects: updates internal select_state, modifies strip/segment state, may wake/redraw displays, and triggers lamp/LED updates.
+ */
 void RotaryEncoderUIUsermod::loop()
 {
   if (!enabled) return;
@@ -618,23 +660,57 @@ void RotaryEncoderUIUsermod::loop()
         }
         if (newState > LAST_UI_STATE) newState = 0;
       } while (!changedState);
-      if (display != nullptr) {
-        switch (newState) {
-          case  0: changedState = changeState(lineBuffer,   1,   0,  1); break; //1  = sun
-          case  1: changedState = changeState(lineBuffer,   1,   4,  2); break; //2  = skip forward
-          case  2: changedState = changeState(lineBuffer,   1,   8,  3); break; //3  = fire
-          case  3: changedState = changeState(lineBuffer,   2,   0,  4); break; //4  = custom palette
-          case  4: changedState = changeState(lineBuffer,   3,   0,  5); break; //5  = puzzle piece
-          case  5: changedState = changeState(lineBuffer, 255, 255,  7); break; //7  = brush
-          case  6: changedState = changeState(lineBuffer, 255, 255,  8); break; //8  = contrast
-          case  7: changedState = changeState(lineBuffer, 255, 255, 10); break; //10 = star
-          case  8: changedState = changeState(lineBuffer, 255, 255, 11); break; //11 = heart
-          case  9: changedState = changeState(lineBuffer, 255, 255, 10); break; //10 = star
-          case 10: changedState = changeState(lineBuffer, 255, 255, 10); break; //10 = star
-          case 11: changedState = changeState(lineBuffer, 255, 255, 10); break; //10 = star
+      // Support both Four Line Display and GC9A01 display
+      if (display != nullptr || gc9a01Display != nullptr) {
+        // Special handling for state 0 (Brightness) with GC9A01 - no overlay needed
+        if (newState == 0 && gc9a01Display != nullptr && display == nullptr) {
+          // For GC9A01 only (no four line display), just update main screen for brightness
+          if (gc9a01Display->wakeDisplay()) {
+            gc9a01Display->redraw(true);
+            changedState = false; // Throw away wake up input
+          } else {
+            gc9a01Display->redraw(false); // Update main screen directly
+            changedState = true;
+          }
+        } else {
+          // Normal overlay handling for all other states and for Four Line Display
+          switch (newState) {
+            case  0: changedState = changeState(lineBuffer,   1,   0,  1); break; //1  = sun
+            case  1: changedState = changeState(lineBuffer,   1,   4,  2); break; //2  = skip forward
+            case  2: changedState = changeState(lineBuffer,   1,   8,  3); break; //3  = fire
+            case  3: changedState = changeState(lineBuffer,   2,   0,  4); break; //4  = custom palette
+            case  4: changedState = changeState(lineBuffer,   3,   0,  5); break; //5  = puzzle piece
+            case  5: changedState = changeState(lineBuffer, 255, 255,  7); break; //7  = brush
+            case  6: changedState = changeState(lineBuffer, 255, 255,  8); break; //8  = contrast
+            case  7: changedState = changeState(lineBuffer, 255, 255, 10); break; //10 = star
+            case  8: changedState = changeState(lineBuffer, 255, 255, 11); break; //11 = heart
+            case  9: changedState = changeState(lineBuffer, 255, 255, 10); break; //10 = star
+            case 10: changedState = changeState(lineBuffer, 255, 255, 10); break; //10 = star
+            case 11: changedState = changeState(lineBuffer, 255, 255, 10); break; //10 = star
+          }
         }
       }
       if (changedState) select_state = newState;
+    }
+
+    // Check if GC9A01 overlay has expired or display is asleep and reset to brightness mode (state 0)
+    #ifdef USERMOD_GC9A01_DISPLAY
+    if (gc9a01Display != nullptr && select_state > 0) {
+      if (!gc9a01Display->isOverlayActive() || gc9a01Display->isDisplayAsleep()) {
+        // Overlay has expired or display is asleep, return to brightness mode
+        select_state = 0;
+      }
+    }
+    #endif
+
+    // Check if current state is valid for current effect (for states 1=speed, 2=intensity, 9-11=custom)
+    if (select_state == 1 || select_state == 2 || (select_state >= 9 && select_state <= 11)) {
+      char tempBuffer[64];
+      int sliderIndex = (select_state <= 2) ? (select_state - 1) : (select_state - 7);
+      if (!extractModeSlider(effectCurrent, sliderIndex, tempBuffer, 63)) {
+        // Current effect doesn't have this slider, reset to brightness
+        select_state = 0;
+      }
     }
 
     Enc_A = readPin(pinA); // Read encoder pins
@@ -681,12 +757,32 @@ void RotaryEncoderUIUsermod::loop()
   }
 }
 
+/**
+ * @brief Show a temporary "NETWORK INFO" overlay on any attached display.
+ *
+ * Displays a "NETWORK INFO" overlay for 10 seconds on supported displays.
+ * When a GC9A01 display is present, the overlay uses the network glyph.
+ */
 void RotaryEncoderUIUsermod::displayNetworkInfo() {
   #ifdef USERMOD_FOUR_LINE_DISPLAY
   display->networkOverlay(PSTR("NETWORK INFO"), 10000);
   #endif
+
+  #ifdef USERMOD_GC9A01_DISPLAY
+  if (gc9a01Display != nullptr) {
+    gc9a01Display->overlay(PSTR("NETWORK INFO"), 10000, 12); // Use network glyph
+  }
+  #endif
 }
 
+/**
+ * @brief Resolve and cache the indices of the currently active effect and palette for UI navigation.
+ *
+ * Searches available modes and palettes to determine the display indices corresponding to
+ * the current effect and palette identifiers, stores the resolved indices in
+ * `effectCurrentIndex` and `effectPaletteIndex`, and marks `currentEffectAndPaletteInitialized`.
+ * If no match is found for either, the corresponding index is set to 0.
+ */
 void RotaryEncoderUIUsermod::findCurrentEffectAndPalette() {
   DEBUG_PRINTLN(F("Finding current mode and palette."));
   currentEffectAndPaletteInitialized = true;
@@ -702,7 +798,7 @@ void RotaryEncoderUIUsermod::findCurrentEffectAndPalette() {
 
   effectPaletteIndex = 0;
   DEBUG_PRINTLN(effectPalette);
-  for (unsigned i = 0; i < getPaletteCount()+customPalettes.size(); i++) {
+  for (unsigned i = 0; i < getPaletteCount(); i++) {
     if (palettes_alpha_indexes[i] == effectPalette) {
       effectPaletteIndex = i;
       DEBUG_PRINTLN(F("Found palette."));
@@ -711,6 +807,18 @@ void RotaryEncoderUIUsermod::findCurrentEffectAndPalette() {
   }
 }
 
+/**
+ * @brief Show a short-term UI overlay on any attached display and optionally mark a line/column.
+ *
+ * Displays the given text with an optional glyph on the integrated FourLineDisplay and/or GC9A01 display.
+ * If a display was sleeping and is awakened by this call, the wake is consumed (a redraw is performed) and the overlay is not shown.
+ *
+ * @param stateName Text to show in the overlay.
+ * @param markedLine Line index to mark on the FourLineDisplay (ignored if not applicable).
+ * @param markedCol Column index to mark on the FourLineDisplay (ignored if not applicable).
+ * @param glyph Glyph index to display alongside the text (display-dependent).
+ * @return true if the overlay was actually shown, false if a display wake-up was consumed instead. 
+ */
 bool RotaryEncoderUIUsermod::changeState(const char *stateName, byte markedLine, byte markedCol, byte glyph) {
 #ifdef USERMOD_FOUR_LINE_DISPLAY
   if (display != nullptr) {
@@ -721,6 +829,20 @@ bool RotaryEncoderUIUsermod::changeState(const char *stateName, byte markedLine,
     }
     display->overlay(stateName, 750, glyph);
     display->setMarkLine(markedLine, markedCol);
+  }
+#endif
+
+#ifdef USERMOD_GC9A01_DISPLAY
+  if (gc9a01Display != nullptr) {
+    DEBUG_PRINTF("[RotaryEncoder] Calling GC9A01 overlay: '%s' glyph=%d\n", stateName, glyph);
+    if (gc9a01Display->wakeDisplay()) {
+      // Throw away wake up input
+      gc9a01Display->redraw(true);
+      return false;
+    }
+    gc9a01Display->overlay(stateName, 750, glyph);
+  } else {
+    DEBUG_PRINTLN(F("[RotaryEncoder] gc9a01Display is NULL!"));
   }
 #endif
   return true;
@@ -734,6 +856,17 @@ void RotaryEncoderUIUsermod::lampUdated() {
   updateInterfaces(CALL_MODE_BUTTON);
 }
 
+/**
+ * @brief Adjusts the global brightness up or down and updates attached displays.
+ *
+ * Changes the global brightness by a configured step, using smaller steps when the
+ * current brightness is below 40 to provide finer control at low levels. After
+ * changing brightness the method notifies the system of the update and refreshes
+ * any attached displays; display behavior will present an overlay or update the
+ * main screen depending on the active UI state and the specific display type.
+ *
+ * @param increase True to increase brightness, false to decrease it.
+ */
 void RotaryEncoderUIUsermod::changeBrightness(bool increase) {
 #ifdef USERMOD_FOUR_LINE_DISPLAY
   if (display && display->wakeDisplay()) {
@@ -743,6 +876,16 @@ void RotaryEncoderUIUsermod::changeBrightness(bool increase) {
   }
   display->updateRedrawTime();
 #endif
+
+#ifdef USERMOD_GC9A01_DISPLAY
+  if (gc9a01Display && gc9a01Display->wakeDisplay()) {
+    gc9a01Display->redraw(true);
+    // Throw away wake up input
+    return;
+  }
+  if (gc9a01Display) gc9a01Display->updateRedrawTime();
+#endif
+
   //bri = max(min((increase ? bri+fadeAmount : bri-fadeAmount), 255), 0);
   if (bri < 40) bri = max(min((increase ? bri+fadeAmount/2 : bri-fadeAmount/2), 255), 0); // slower steps when brightness < 16%
   else bri = max(min((increase ? bri+fadeAmount : bri-fadeAmount), 255), 0);
@@ -750,9 +893,34 @@ void RotaryEncoderUIUsermod::changeBrightness(bool increase) {
 #ifdef USERMOD_FOUR_LINE_DISPLAY
   display->updateBrightness();
 #endif
+
+#ifdef USERMOD_GC9A01_DISPLAY
+  if (gc9a01Display) {
+    // Only show overlay if we're NOT in default state (state 0)
+    // In state 0, brightness changes should update the main screen directly
+    if (select_state == 0) {
+      gc9a01Display->redraw(false); // Update main interface directly (no overlay)
+    } else {
+      // Show brightness overlay like other modes (when in overlay mode)
+      char brightnessStr[16];
+      sprintf(brightnessStr, "Brightness %d%%", (bri * 100) / 255);
+      gc9a01Display->overlay(brightnessStr, 500, 10);
+    }
+  }
+#endif
 }
 
 
+/**
+ * @brief Change the currently selected effect and apply it to segments.
+ *
+ * Updates the internal effect index (clamped to the available mode range), sets the selected
+ * effect on either all active segments or just the main segment depending on `applyToAll`,
+ * marks the usermod state as changed, triggers a lamp update, and refreshes any attached
+ * displays (FourLineDisplay or GC9A01) including wake/overlay handling.
+ *
+ * @param increase `true` to advance to the next effect, `false` to go to the previous effect.
+ */
 void RotaryEncoderUIUsermod::changeEffect(bool increase) {
 #ifdef USERMOD_FOUR_LINE_DISPLAY
   if (display && display->wakeDisplay()) {
@@ -761,6 +929,15 @@ void RotaryEncoderUIUsermod::changeEffect(bool increase) {
     return;
   }
   display->updateRedrawTime();
+#endif
+
+#ifdef USERMOD_GC9A01_DISPLAY
+  if (gc9a01Display && gc9a01Display->wakeDisplay()) {
+    gc9a01Display->redraw(true);
+    // Throw away wake up input
+    return;
+  }
+  if (gc9a01Display) gc9a01Display->updateRedrawTime();
 #endif
   effectCurrentIndex = max(min((increase ? effectCurrentIndex+1 : effectCurrentIndex-1), strip.getModeCount()-1), 0);
   effectCurrent = modes_alpha_indexes[effectCurrentIndex];
@@ -782,6 +959,15 @@ void RotaryEncoderUIUsermod::changeEffect(bool increase) {
 }
 
 
+/**
+ * @brief Adjusts the global effect speed and applies the change to segments and displays.
+ *
+ * Updates the stored effect speed by adding or subtracting the configured step (clamped to 0–255),
+ * marks the state as changed, applies the new speed to either all active segments or the main segment
+ * depending on the `applyToAll` flag, notifies the system of the update, and refreshes any attached displays.
+ *
+ * @param increase If `true`, increases the effect speed; if `false`, decreases it.
+ */
 void RotaryEncoderUIUsermod::changeEffectSpeed(bool increase) {
 #ifdef USERMOD_FOUR_LINE_DISPLAY
   if (display && display->wakeDisplay()) {
@@ -791,6 +977,16 @@ void RotaryEncoderUIUsermod::changeEffectSpeed(bool increase) {
   }
   display->updateRedrawTime();
 #endif
+
+#ifdef USERMOD_GC9A01_DISPLAY
+  if (gc9a01Display && gc9a01Display->wakeDisplay()) {
+    gc9a01Display->redraw(true);
+    // Throw away wake up input
+    return;
+  }
+  if (gc9a01Display) gc9a01Display->updateRedrawTime();
+#endif
+
   effectSpeed = max(min((increase ? effectSpeed+fadeAmount : effectSpeed-fadeAmount), 255), 0);
   stateChanged = true;
   if (applyToAll) {
@@ -807,9 +1003,24 @@ void RotaryEncoderUIUsermod::changeEffectSpeed(bool increase) {
 #ifdef USERMOD_FOUR_LINE_DISPLAY
   display->updateSpeed();
 #endif
+
+#ifdef USERMOD_GC9A01_DISPLAY
+  if (gc9a01Display) {
+    gc9a01Display->redraw(false); // Update speed display
+  }
+#endif
 }
 
 
+/**
+ * @brief Adjusts the current effect intensity up or down and applies the change to segments and UI.
+ *
+ * Updates the stored effect intensity by one step (bounded to 0–255), marks state as changed,
+ * applies the new intensity to either all active segments or the main segment depending on configuration,
+ * notifies the system of the update, and refreshes any attached display overlays.
+ *
+ * @param increase If `true`, increase intensity; if `false`, decrease intensity.
+ */
 void RotaryEncoderUIUsermod::changeEffectIntensity(bool increase) {
 #ifdef USERMOD_FOUR_LINE_DISPLAY
   if (display && display->wakeDisplay()) {
@@ -819,6 +1030,16 @@ void RotaryEncoderUIUsermod::changeEffectIntensity(bool increase) {
   }
   display->updateRedrawTime();
 #endif
+
+#ifdef USERMOD_GC9A01_DISPLAY
+  if (gc9a01Display && gc9a01Display->wakeDisplay()) {
+    gc9a01Display->redraw(true);
+    // Throw away wake up input
+    return;
+  }
+  if (gc9a01Display) gc9a01Display->updateRedrawTime();
+#endif
+
   effectIntensity = max(min((increase ? effectIntensity+fadeAmount : effectIntensity-fadeAmount), 255), 0);
   stateChanged = true;
   if (applyToAll) {
@@ -835,9 +1056,29 @@ void RotaryEncoderUIUsermod::changeEffectIntensity(bool increase) {
 #ifdef USERMOD_FOUR_LINE_DISPLAY
   display->updateIntensity();
 #endif
+
+#ifdef USERMOD_GC9A01_DISPLAY
+  if (gc9a01Display) {
+    gc9a01Display->redraw(false); // Update intensity display
+  }
+#endif
 }
 
 
+/**
+ * @brief Adjusts a segment custom parameter (custom1–custom3), updates segments and UI.
+ *
+ * Increases or decreases the selected custom parameter, clamps the resulting value to 0–255,
+ * marks the usermod state as changed, notifies the system via lampUdated(), and shows an
+ * overlay with the new value on any attached display.
+ *
+ * @param par Index of the custom parameter to change: 1, 2, or 3. Values other than 2 or 3
+ *            are treated as 1.
+ * @param increase `true` to increase the parameter, `false` to decrease it.
+ *
+ * @note If `applyToAll` is true, the change is copied to all other active segments; otherwise
+ *       only the main segment is modified.
+ */
 void RotaryEncoderUIUsermod::changeCustom(uint8_t par, bool increase) {
   uint8_t val = 0;
 #ifdef USERMOD_FOUR_LINE_DISPLAY
@@ -848,6 +1089,16 @@ void RotaryEncoderUIUsermod::changeCustom(uint8_t par, bool increase) {
   }
   display->updateRedrawTime();
 #endif
+
+#ifdef USERMOD_GC9A01_DISPLAY
+  if (gc9a01Display && gc9a01Display->wakeDisplay()) {
+    gc9a01Display->redraw(true);
+    // Throw away wake up input
+    return;
+  }
+  if (gc9a01Display) gc9a01Display->updateRedrawTime();
+#endif
+
   stateChanged = true;
   if (applyToAll) {
     uint8_t id = strip.getFirstSelectedSegId();
@@ -880,9 +1131,27 @@ void RotaryEncoderUIUsermod::changeCustom(uint8_t par, bool increase) {
   sprintf(lineBuffer, "%d", val);
   display->overlay(lineBuffer, 500, 10); // use star
 #endif
+
+#ifdef USERMOD_GC9A01_DISPLAY
+  if (gc9a01Display) {
+    char lineBuffer[64];
+    sprintf(lineBuffer, "Custom%d: %d", par, val);
+    gc9a01Display->overlay(lineBuffer, 500, 10); // use star glyph
+  }
+#endif
 }
 
 
+/**
+ * @brief Change the selected color palette by one step and apply it to segments and displays.
+ *
+ * Updates the current palette index (advances if `increase` is true, otherwise moves backward),
+ * constrains it to the valid palette range, sets the active palette, marks the usermod state as changed,
+ * applies the new palette to either all active segments or only the main segment depending on configuration,
+ * signals a lamp update to commit the change, and refreshes any attached displays (including wake handling).
+ *
+ * @param increase `true` to move to the next palette, `false` to move to the previous palette.
+ */
 void RotaryEncoderUIUsermod::changePalette(bool increase) {
 #ifdef USERMOD_FOUR_LINE_DISPLAY
   if (display && display->wakeDisplay()) {
@@ -892,7 +1161,17 @@ void RotaryEncoderUIUsermod::changePalette(bool increase) {
   }
   display->updateRedrawTime();
 #endif
-  effectPaletteIndex = max(min((unsigned)(increase ? effectPaletteIndex+1 : effectPaletteIndex-1), getPaletteCount()+customPalettes.size()-1), 0U);
+
+#ifdef USERMOD_GC9A01_DISPLAY
+  if (gc9a01Display && gc9a01Display->wakeDisplay()) {
+    gc9a01Display->redraw(true);
+    // Throw away wake up input
+    return;
+  }
+  if (gc9a01Display) gc9a01Display->updateRedrawTime();
+#endif
+
+  effectPaletteIndex = max(min((int)(increase ? effectPaletteIndex+1 : effectPaletteIndex-1), (int)(getPaletteCount()-1)), 0);
   effectPalette = palettes_alpha_indexes[effectPaletteIndex];
   stateChanged = true;
   if (applyToAll) {
@@ -909,9 +1188,26 @@ void RotaryEncoderUIUsermod::changePalette(bool increase) {
 #ifdef USERMOD_FOUR_LINE_DISPLAY
   display->showCurrentEffectOrPalette(effectPalette, JSON_palette_names, 2);
 #endif
+
+#ifdef USERMOD_GC9A01_DISPLAY
+  if (gc9a01Display) {
+    gc9a01Display->redraw(false); // Update palette display
+  }
+#endif
 }
 
 
+/**
+ * Adjusts the primary hue value and applies the computed color to the active segment(s), then updates displays.
+ *
+ * This clamps the hue to the 0–255 range, converts the hue and current saturation to RGB(W), sets the internal
+ * changed-state flag, applies the new color to either all active segments or the main segment depending on
+ * configuration, and notifies the system of the update. If a connected display is sleeping, a wake event will
+ * trigger a redraw and consume the input without changing the hue; otherwise an overlay showing the hue value
+ * is displayed.
+ *
+ * @param increase If `true`, increases the hue by the configured step; if `false`, decreases the hue.
+ */
 void RotaryEncoderUIUsermod::changeHue(bool increase){
 #ifdef USERMOD_FOUR_LINE_DISPLAY
   if (display && display->wakeDisplay()) {
@@ -921,6 +1217,16 @@ void RotaryEncoderUIUsermod::changeHue(bool increase){
   }
   display->updateRedrawTime();
 #endif
+
+#ifdef USERMOD_GC9A01_DISPLAY
+  if (gc9a01Display && gc9a01Display->wakeDisplay()) {
+    gc9a01Display->redraw(true);
+    // Throw away wake up input
+    return;
+  }
+  if (gc9a01Display) gc9a01Display->updateRedrawTime();
+#endif
+
   currentHue1 = max(min((increase ? currentHue1+fadeAmount : currentHue1-fadeAmount), 255), 0);
   colorHStoRGB(currentHue1*256, currentSat1, colPri);
   stateChanged = true; 
@@ -940,8 +1246,23 @@ void RotaryEncoderUIUsermod::changeHue(bool increase){
   sprintf(lineBuffer, "%d", currentHue1);
   display->overlay(lineBuffer, 500, 7); // use brush
 #endif
+
+#ifdef USERMOD_GC9A01_DISPLAY
+  if (gc9a01Display) {
+    char lineBuffer[64];
+    sprintf(lineBuffer, "Hue: %d", currentHue1);
+    gc9a01Display->overlay(lineBuffer, 500, 7); // use brush glyph
+  }
+#endif
 }
 
+/**
+ * @brief Adjusts the current saturation and applies the change to LEDs and displays.
+ *
+ * Increments or decrements the main saturation value by the configured step, clamps it to the range 0–255, updates the primary RGBW color, applies the new color to either all active segments or the main segment (depending on `applyToAll`), triggers a lamp update, and shows the updated saturation on attached display overlays.
+ *
+ * @param increase If true, increase saturation; if false, decrease saturation.
+ */
 void RotaryEncoderUIUsermod::changeSat(bool increase){
 #ifdef USERMOD_FOUR_LINE_DISPLAY
   if (display && display->wakeDisplay()) {
@@ -951,6 +1272,16 @@ void RotaryEncoderUIUsermod::changeSat(bool increase){
   }
   display->updateRedrawTime();
 #endif
+
+#ifdef USERMOD_GC9A01_DISPLAY
+  if (gc9a01Display && gc9a01Display->wakeDisplay()) {
+    gc9a01Display->redraw(true);
+    // Throw away wake up input
+    return;
+  }
+  if (gc9a01Display) gc9a01Display->updateRedrawTime();
+#endif
+
   currentSat1 = max(min((increase ? currentSat1+fadeAmount : currentSat1-fadeAmount), 255), 0);
   colorHStoRGB(currentHue1*256, currentSat1, colPri);
   if (applyToAll) {
@@ -969,8 +1300,28 @@ void RotaryEncoderUIUsermod::changeSat(bool increase){
   sprintf(lineBuffer, "%d", currentSat1);
   display->overlay(lineBuffer, 500, 8); // use contrast
 #endif
+
+#ifdef USERMOD_GC9A01_DISPLAY
+  if (gc9a01Display) {
+    char lineBuffer[64];
+    sprintf(lineBuffer, "Sat: %d", currentSat1);
+    gc9a01Display->overlay(lineBuffer, 500, 8); // use contrast glyph
+  }
+#endif
 }
 
+/**
+ * @brief Apply or clear a saved preset range and show a brief overlay.
+ *
+ * Constructs a preset state from the configured presetLow/presetHigh range and
+ * applies it when `increase` is true or clears it when `increase` is false.
+ * If no valid preset range is configured (presetHigh <= presetLow or either is 0),
+ * the function does nothing. After applying/clearing the preset it notifies the
+ * system of the change and, when a supported display is attached, shows a
+ * short overlay indicating the current preset.
+ *
+ * @param increase `true` to apply the preset range, `false` to remove/clear it.
+ */
 void RotaryEncoderUIUsermod::changePreset(bool increase) {
 #ifdef USERMOD_FOUR_LINE_DISPLAY
   if (display && display->wakeDisplay()) {
@@ -980,6 +1331,16 @@ void RotaryEncoderUIUsermod::changePreset(bool increase) {
   }
   display->updateRedrawTime();
 #endif
+
+#ifdef USERMOD_GC9A01_DISPLAY
+  if (gc9a01Display && gc9a01Display->wakeDisplay()) {
+    gc9a01Display->redraw(true);
+    // Throw away wake up input
+    return;
+  }
+  if (gc9a01Display) gc9a01Display->updateRedrawTime();
+#endif
+
   if (presetHigh && presetLow && presetHigh > presetLow) {
     StaticJsonDocument<64> root;
     char str[64];
@@ -1000,9 +1361,26 @@ void RotaryEncoderUIUsermod::changePreset(bool increase) {
     sprintf(str, "%d", currentPreset);
     display->overlay(str, 500, 11); // use heart
   #endif
+
+  #ifdef USERMOD_GC9A01_DISPLAY
+    if (gc9a01Display) {
+      char lineBuffer[64];
+      sprintf(lineBuffer, "Preset: %d", currentPreset);
+      gc9a01Display->overlay(lineBuffer, 500, 11); // use heart glyph
+    }
+  #endif
   }
 }
 
+/**
+ * @brief Adjusts the correlated color temperature (CCT) and applies it to active segments.
+ *
+ * Increments or decrements the stored CCT by the configured step, clamps the result to 0–255,
+ * assigns the value to every active segment, triggers a lamp update, and shows a brief overlay
+ * on any attached display.
+ *
+ * @param increase True to increase CCT, false to decrease.
+ */
 void RotaryEncoderUIUsermod::changeCCT(bool increase){
 #ifdef USERMOD_FOUR_LINE_DISPLAY
   if (display && display->wakeDisplay()) {
@@ -1012,6 +1390,16 @@ void RotaryEncoderUIUsermod::changeCCT(bool increase){
   }
   display->updateRedrawTime();
 #endif
+
+#ifdef USERMOD_GC9A01_DISPLAY
+  if (gc9a01Display && gc9a01Display->wakeDisplay()) {
+    gc9a01Display->redraw(true);
+    // Throw away wake up input
+    return;
+  }
+  if (gc9a01Display) gc9a01Display->updateRedrawTime();
+#endif
+
   currentCCT = max(min((increase ? currentCCT+fadeAmount : currentCCT-fadeAmount), 255), 0);
 //    if (applyToAll) {
     for (unsigned i=0; i<strip.getSegmentsNum(); i++) {
@@ -1028,6 +1416,14 @@ void RotaryEncoderUIUsermod::changeCCT(bool increase){
   char lineBuffer[64];
   sprintf(lineBuffer, "%d", currentCCT);
   display->overlay(lineBuffer, 500, 10); // use star
+#endif
+
+#ifdef USERMOD_GC9A01_DISPLAY
+  if (gc9a01Display) {
+    char lineBuffer[64];
+    sprintf(lineBuffer, "CCT: %d", currentCCT);
+    gc9a01Display->overlay(lineBuffer, 500, 10); // use star glyph
+  }
 #endif
 }
 
