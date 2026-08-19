@@ -1,0 +1,8 @@
+{
+  "name": "OLED_72x40",
+  "build": { "libArchive": false },
+  "dependencies": {
+    "U8g2": "~2.34.4",
+    "Wire": ""
+  }
+}
