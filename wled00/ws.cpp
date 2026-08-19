@@ -146,8 +146,10 @@ void sendDataWs(AsyncWebSocketClient * client)
 
   JsonObject state = pDoc->createNestedObject("state");
   serializeState(state);
-  JsonObject info  = pDoc->createNestedObject("info");
-  serializeInfo(info);
+  if (client) { // broadcasts omit info block (~4KB mostly-static data)
+    JsonObject info  = pDoc->createNestedObject("info");
+    serializeInfo(info);
+  }
 
   size_t len = measureJson(*pDoc);
   DEBUG_PRINTF_P(PSTR("JSON buffer size: %u for WS request (%u).\n"), pDoc->memoryUsage(), len);
