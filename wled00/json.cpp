@@ -1287,9 +1287,7 @@ static size_t writeJSONStringElement(uint8_t* dest, size_t maxLen, const char* s
   return 1 + n;
 }
 
-// Measure bytes that writeJSONStringElement would produce, without writing.
-// Used for Content-Length pre-computation to avoid chunked transfer truncation
-// on slow links (PPP/serial) where Connection:close races with final chunk.
+// Dry-run counterpart to writeJSONStringElement -- counts bytes without writing.
 static size_t measureJSONStringElement(const char* src) {
   size_t len = 1; // leading comma
   len += 1; // opening quote
@@ -1301,94 +1299,90 @@ static size_t measureJSONStringElement(const char* src) {
   return len;
 }
 
-// Two-pass streamed JSON response for mode data: first measures total payload
-// size, then sends with Content-Length via request->send().  The content callback
-// fills each TCP buffer in turn, using writeJSONStringElement for each entry.
+// Streamed JSON response for mode data. Two-pass: measure then send with Content-Length.
 void respondModeData(AsyncWebServerRequest* request) {
-  // Pass 1: measure total payload size so we can send with Content-Length.
-  // Pass 2: the content callback fills each TCP send buffer on demand.
   char lineBuffer[256];
-  size_t totalLen = 1; // ']' only — first element's comma becomes '['
+  size_t totalLen = 1; // ']' only -- first element's comma becomes '['
   for (size_t i = 0; i < strip.getModeCount(); i++) {
     strncpy_P(lineBuffer, strip.getModeData(i), sizeof(lineBuffer)-1);
     lineBuffer[sizeof(lineBuffer)-1] = '\0';
     if (lineBuffer[0] != 0) {
-      const char* dp = strchr(lineBuffer, '@');
-      totalLen += measureJSONStringElement(dp ? dp + 1 : "");
+      const char* dataPtr = strchr(lineBuffer, '@'); // Find '@', if there is one
+      totalLen += measureJSONStringElement(dataPtr ? dataPtr + 1 : "");
     }
   }
+
   size_t fx_index = 0;
-  bool firstEmitted = false;
   request->send(FPSTR(CONTENT_TYPE_JSON), totalLen,
-    [fx_index, firstEmitted](uint8_t* data, size_t len, size_t) mutable -> size_t {
+    [fx_index](uint8_t* data, size_t len, size_t) mutable -> size_t {
       size_t bytes_written = 0;
       char lineBuffer[256];
       while (fx_index < strip.getModeCount()) {
-        strncpy_P(lineBuffer, strip.getModeData(fx_index), sizeof(lineBuffer)-1);
+        strncpy_P(lineBuffer, strip.getModeData(fx_index), sizeof(lineBuffer)-1); // Copy to stack buffer for strchr
         if (lineBuffer[0] != 0) {
-          lineBuffer[sizeof(lineBuffer)-1] = '\0';
-          const char* dp = strchr(lineBuffer, '@');
-          size_t mode_bytes = writeJSONStringElement(data, len, dp ? dp + 1 : "");
-          if (mode_bytes == 0) break;
-          if (!firstEmitted) { *data = '['; firstEmitted = true; }
+          lineBuffer[sizeof(lineBuffer)-1] = '\0'; // terminate string (only needed if strncpy filled the buffer)
+          const char* dataPtr = strchr(lineBuffer,'@'); // Find '@', if there is one
+          size_t mode_bytes = writeJSONStringElement(data, len, dataPtr ? dataPtr + 1 : "");
+          if (mode_bytes == 0) break;  // didn't fit; break loop and try again next packet
+          if (fx_index == 0) *data = '[';
           data += mode_bytes;
           len -= mode_bytes;
           bytes_written += mode_bytes;
         }
         ++fx_index;
       }
-      if (fx_index >= strip.getModeCount() && len >= 1) {
+
+      if ((fx_index == strip.getModeCount()) && (len >= 1)) {
         *data = ']';
         ++bytes_written;
-        ++fx_index;
+        ++fx_index; // we're really done
       }
+
       return bytes_written;
   });
 }
 
-// Stream effect names as JSON array without holding the JSON buffer lock.
-// Eliminates the deadlock between /json/effects HTTP response (LockedJsonResponse
-// holds lock during async TCP send) and WebSocket state push (sendDataWs needs lock).
-// Pattern mirrors respondModeData() — zero heap allocation for response body.
+// Effect names only (no @-suffix data), without holding JSON buffer lock.
 void respondModeNames(AsyncWebServerRequest* request) {
-  // Two-pass: measure then send with Content-Length (same as respondModeData).
   char lineBuffer[256];
-  size_t totalLen = 1; // ']' only — first element's comma becomes '['
+  size_t totalLen = 1; // ']' only -- first element's comma becomes '['
   for (size_t i = 0; i < strip.getModeCount(); i++) {
     strncpy_P(lineBuffer, strip.getModeData(i), sizeof(lineBuffer)-1);
     lineBuffer[sizeof(lineBuffer)-1] = '\0';
     if (lineBuffer[0] != 0) {
-      char* dp = strchr(lineBuffer, '@');
-      if (dp) *dp = 0;
+      char* dataPtr = strchr(lineBuffer, '@'); // Find '@', if there is one
+      if (dataPtr) *dataPtr = 0;
       totalLen += measureJSONStringElement(lineBuffer);
     }
   }
+
   size_t fx_index = 0;
-  bool firstEmitted = false;
   request->send(FPSTR(CONTENT_TYPE_JSON), totalLen,
-    [fx_index, firstEmitted](uint8_t* data, size_t len, size_t) mutable -> size_t {
+    [fx_index](uint8_t* data, size_t len, size_t) mutable -> size_t {
       size_t bytes_written = 0;
       char lineBuffer[256];
       while (fx_index < strip.getModeCount()) {
-        strncpy_P(lineBuffer, strip.getModeData(fx_index), sizeof(lineBuffer)-1);
-        lineBuffer[sizeof(lineBuffer)-1] = '\0';
+        strncpy_P(lineBuffer, strip.getModeData(fx_index), sizeof(lineBuffer)-1); // Copy to stack buffer for strchr
         if (lineBuffer[0] != 0) {
-          char* dp = strchr(lineBuffer, '@');
-          if (dp) *dp = 0;
+          lineBuffer[sizeof(lineBuffer)-1] = '\0'; // terminate string (only needed if strncpy filled the buffer)
+          char* dataPtr = strchr(lineBuffer,'@'); // Find '@', if there is one
+          if (dataPtr) *dataPtr = 0;
           size_t mode_bytes = writeJSONStringElement(data, len, lineBuffer);
-          if (mode_bytes == 0) break;
-          if (!firstEmitted) { *data = '['; firstEmitted = true; }
+          if (mode_bytes == 0) break;  // didn't fit; break loop and try again next packet
+          if (fx_index == 0) *data = '[';
           data += mode_bytes;
           len -= mode_bytes;
           bytes_written += mode_bytes;
         }
         ++fx_index;
       }
-      if (fx_index >= strip.getModeCount() && len >= 1) {
+
+      if ((fx_index == strip.getModeCount()) && (len >= 1)) {
         *data = ']';
         ++bytes_written;
-        ++fx_index;
+        ++fx_index; // we're really done
       }
+
       return bytes_written;
   });
 }
