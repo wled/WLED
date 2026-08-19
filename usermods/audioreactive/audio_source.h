@@ -296,20 +296,13 @@ class I2SSource : public AudioSource {
       }
 
 #if ESP_IDF_VERSION >= ESP_IDF_VERSION_VAL(4, 2, 0)
-      // i2s_set_clk() recalculates clock dividers after driver install.
-      // On IDF 5.x, this KILLS PDM mode — produces all-zero samples.
-      // Confirmed: legacy-with-set_clk=silence, legacy-without=data.
-      // See: ESP-IDF #8850, #9635; WLED #4583.
-      // PDM clocks are fully configured by i2s_driver_install() — skip.
       if (!(_config.mode & I2S_MODE_PDM)) {
-        err = i2s_set_clk(I2S_NUM_0, _sampleRate, I2S_SAMPLE_RESOLUTION, I2S_CHANNEL_MONO);
+        err = i2s_set_clk(I2S_NUM_0, _sampleRate, I2S_SAMPLE_RESOLUTION, I2S_CHANNEL_MONO);  // set bit clocks. Also takes care of MCLK routing if needed.
         if (err != ESP_OK) {
           DEBUGSR_PRINTF("AR: Failed to configure i2s clocks: %d\n", err);
-          i2s_driver_uninstall(I2S_NUM_0);
+          i2s_driver_uninstall(I2S_NUM_0);  // uninstall already-installed driver
           return;
         }
-      } else {
-        DEBUGSR_PRINTLN(F("AR: PDM mode — skipping i2s_set_clk (IDF 5.x compat)."));
       }
 #endif
       _initialized = true;
