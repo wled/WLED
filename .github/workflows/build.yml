@@ -76,9 +76,13 @@ jobs:
       run: pip install -r requirements.txt
 
     - name: Build firmware
-      run: pio run -e ${{ matrix.environment }}
+      env:
+        BUILD_ENV: ${{ matrix.environment }}
+      run: pio run -e "$BUILD_ENV"
     - name: Get artifact name from bin filename
       id: artifact_name
+      env:
+        BUILD_ENV: ${{ matrix.environment }}
       run: |
         bin=$(ls build_output/release/*.bin 2>/dev/null | head -1)
         if [ -n "$bin" ]; then
@@ -87,7 +91,7 @@ jobs:
           release_name=$(echo "$base" | sed 's/^[^_]*_[^_]*_//')
           echo "name=firmware-$release_name" >> $GITHUB_OUTPUT
         else
-          echo "name=firmware-${{ matrix.environment }}" >> $GITHUB_OUTPUT
+          echo "name=firmware-${BUILD_ENV}" >> $GITHUB_OUTPUT
         fi
     - uses: actions/upload-artifact@v4
       with:
