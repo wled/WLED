@@ -1,0 +1,5 @@
+{
+  "name": "genPresets",
+  "build": { "libArchive": false },
+  "dependencies": {}
+}
