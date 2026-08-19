@@ -478,13 +478,13 @@ void Segment::drawCircle(uint16_t cx, uint16_t cy, uint8_t radius, uint32_t col,
         setPixelColorXY(cx + dx, cy + dy, col);
         setPixelColorXY(cx + dy, cy + dx, col);
     }
-      x++;
       if (d > 0) {
-        y--;
         d += 4 * (x - y) + 10;
+        y--;
       } else {
         d += 4 * x + 6;
       }
+      x++;
     }
   }
 }
