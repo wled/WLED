@@ -226,8 +226,15 @@ byte renderImageToSegment(Segment &seg) {
   return IMAGE_ERROR_NONE;
 }
 
+#ifdef WLED_ENABLE_JPEG
+static void resetLiveCoverArt(Segment *seg); // defined below; also torn down from endImagePlayback()
+#endif
+
 void endImagePlayback(Segment *seg) {
   DEBUG_PRINTLN(F("Image playback end called"));
+  #ifdef WLED_ENABLE_JPEG
+  resetLiveCoverArt(seg);
+  #endif
   if (!activeSeg || activeSeg != seg) return;
   if (file) file.close();
   decoder.dealloc();
@@ -237,5 +244,100 @@ void endImagePlayback(Segment *seg) {
   gifWidth = gifHeight = 0;   // reset dimensions
   DEBUG_PRINTLN(F("Image playback ended"));
 }
+
+#ifdef WLED_ENABLE_JPEG
+/*
+ * Live JPEG rendering: decodes a JPEG handed to us in RAM (e.g. cover art fetched
+ * over HTTP by a usermod) straight into a segment, without touching the filesystem.
+ * Used by the "Image" effect's "Live" checkbox as an alternative to the .gif-from-FS
+ * path above.
+ */
+
+#include "JPEGDEC.h"
+
+static JPEGDEC liveJpegDecoder;
+static uint8_t liveCoverArtBuf[LIVE_COVERART_MAX_BYTES];
+static size_t liveCoverArtLen = 0;
+static bool liveCoverArtNew = false;        // a fresh buffer is waiting to be decoded
+static bool liveCoverArtDecodeFailed = false;
+static Segment* liveActiveSeg = nullptr;
+static uint16_t liveImgWidth = 0, liveImgHeight = 0;
+
+// called by the usermod whenever the currently-playing track's cover art changes;
+// reads directly off the caller's Stream (e.g. an open WiFiClient body) into the
+// decoder's own buffer so the caller doesn't need a second copy of the JPEG.
+bool setLiveCoverArtFromStream(Stream &stream, size_t len) {
+  if (len == 0 || len > LIVE_COVERART_MAX_BYTES) return false;
+  size_t got = stream.readBytes(liveCoverArtBuf, len);
+  if (got != len) { liveCoverArtLen = 0; return false; } // don't leave a torn buffer paired with a stale length
+  liveCoverArtLen = len;
+  liveCoverArtNew = true;
+  liveCoverArtDecodeFailed = false;
+  return true;
+}
+
+static void resetLiveCoverArt(Segment *seg) {
+  if (liveActiveSeg == seg) liveActiveSeg = nullptr;
+}
+
+// JPEGDEC calls this once per decoded MCU block (up to 16x16 pixels, RGB565).
+// MCU blocks are padded to 8/16px at the right/bottom edge of the image, so
+// pDraw->iWidth/iHeight can extend past liveImgWidth/liveImgHeight - skip padding.
+static int liveJpegDrawCallback(JPEGDRAW *pDraw) {
+  if (!liveActiveSeg || liveImgWidth == 0 || liveImgHeight == 0) return 0;
+  uint16_t *pixels = (uint16_t*)pDraw->pPixels;
+  for (int j = 0; j < pDraw->iHeight; j++) {
+    int srcY = pDraw->y + j;
+    if (srcY >= liveImgHeight) break; // padding rows past the bottom edge
+    int outY = srcY * liveActiveSeg->vHeight() / liveImgHeight;
+    for (int i = 0; i < pDraw->iWidth; i++) {
+      int srcX = pDraw->x + i;
+      if (srcX >= liveImgWidth) continue; // padding columns past the right edge
+      int outX = srcX * liveActiveSeg->vWidth() / liveImgWidth;
+      uint16_t rgb565 = pixels[j * pDraw->iWidth + i];
+      byte r = ((rgb565 >> 11) & 0x1F) * 255 / 31;
+      byte g = ((rgb565 >> 5)  & 0x3F) * 255 / 63;
+      byte b = ( rgb565        & 0x1F) * 255 / 31;
+      liveActiveSeg->setPixelColorXY(outX, outY, r, g, b);
+    }
+  }
+  return 1;
+}
+
+byte renderLiveCoverArtToSegment(Segment &seg) {
+  if (!seg.is2D()) return IMAGE_ERROR_UNSUPPORTED_FORMAT;
+  if (liveActiveSeg && liveActiveSeg != &seg) {   // only one segment at a time, same convention as GIF playback
+    if (!seg.isActive()) return IMAGE_ERROR_SEG_LIMIT;
+    if (!liveActiveSeg->isActive()) liveActiveSeg = nullptr; // previous segment became inactive, allow takeover
+    else return IMAGE_ERROR_SEG_LIMIT;
+  }
+  liveActiveSeg = &seg;
+
+  if (!liveCoverArtNew) return liveCoverArtDecodeFailed ? IMAGE_ERROR_PREV : IMAGE_ERROR_WAITING; // nothing new: leave last frame showing
+  if (liveCoverArtLen == 0) return IMAGE_ERROR_FILE_MISSING;
+
+  if (!liveJpegDecoder.openRAM(liveCoverArtBuf, liveCoverArtLen, liveJpegDrawCallback)) {
+    liveCoverArtDecodeFailed = true;
+    liveCoverArtNew = false;
+    return IMAGE_ERROR_GIF_DECODE;
+  }
+  liveJpegDecoder.setPixelType(RGB565_LITTLE_ENDIAN);
+  liveImgWidth  = liveJpegDecoder.getWidth();
+  liveImgHeight = liveJpegDecoder.getHeight();
+
+  // clear first: source aspect ratio rarely divides the segment's dimensions evenly,
+  // so nearest-neighbor mapping can leave edge rows/columns unwritten
+  seg.fill(0);
+  bool ok = liveImgWidth > 0 && liveImgHeight > 0 && liveJpegDecoder.decode(0, 0, 0);
+  liveJpegDecoder.close();
+  liveCoverArtNew = false; // consumed; wait for the next setLiveCoverArt() call before decoding again
+  if (!ok) {
+    liveCoverArtDecodeFailed = true;
+    return IMAGE_ERROR_FRAME_DECODE;
+  }
+
+  return IMAGE_ERROR_NONE;
+}
+#endif // WLED_ENABLE_JPEG
 
 #endif
