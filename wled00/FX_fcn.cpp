@@ -632,25 +632,12 @@ Segment &Segment::setName(const char *newName) {
   if (newName) {
     const int newLen = min(strlen(newName), (size_t)WLED_MAX_SEGNAME_LEN);
     if (newLen) {
-      // allocate and fill new name BEFORE freeing old to avoid race condition:
-      // the effect service loop (Core 1) may read SEGMENT.name while this runs (Core 0).
-      // Old code freed name first, leaving a window where name pointed to heap garbage.
       char *newBuf = static_cast<char*>(allocate_buffer(newLen+1, BFRALLOC_PREFER_PSRAM));
       if (newBuf) {
         strlcpy(newBuf, newName, newLen+1);
-        // start transition BEFORE swapping — the copy constructor deep-copies the current
-        // (still valid) name, so the old segment gets the correct previous text for blending.
-        if (mode == FX_MODE_2DSCROLLTEXT) startTransition(strip.getTransition(), true);
+        if (mode == FX_MODE_2DSCROLLTEXT) startTransition(strip.getTransition(), true); // if the name changes in scrolling text mode, we need to copy the segment for blending
         char *oldName = name;
-        name = newBuf;  // atomic pointer store — no torn reads on Xtensa
-        // Note: callers hold strip.suspend()+waitForIt() (see deserializeState),
-        // but waitForIt() has a timeout (see #4779).  If it expires while the
-        // effect loop is mid-read (e.g. mode_2Dscrolltext iterating name[]),
-        // freeing oldName here is a use-after-free.  This is a pre-existing
-        // upstream issue; alloc-before-swap narrows the window vs the old code
-        // (which freed first, leaving a dangling `name` pointer for the entire
-        // allocation+copy duration).  A proper fix requires waitForIt() to
-        // guarantee quiescence — tracked upstream as #4779.
+        name = newBuf;
         if (oldName) p_free(oldName);
       }
       return *this;
