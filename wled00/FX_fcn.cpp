@@ -1758,8 +1758,6 @@ void WS2812FX::show() {
   int oldCCT = Bus::getCCT(); // store original CCT value (since it is global)
   // when cctFromRgb is true we implicitly calculate WW and CW from RGB values (cct==-1)
   if (cctFromRgb) BusManager::setSegmentCCT(-1);
-  // use color gamma correction if enabled, not in realtime mode with gamma disabled or currently overriding RT mode
-  bool useGammaCorrection = gammaCorrectCol && !(realtimeMode && arlsDisableGammaCorrection && !realtimeOverride);
 
   for (size_t i = 0; i < totalLen; i++) {
     // when correctWB is true setSegmentCCT() will convert CCT into K with which we can then
@@ -1767,10 +1765,7 @@ void WS2812FX::show() {
     if (_pixelCCT) { // cctFromRgb already exluded at allocation
       if (i == 0 || _pixelCCT[i-1] != _pixelCCT[i]) BusManager::setSegmentCCT(_pixelCCT[i], correctWB);
     }
-
     uint32_t c = _pixels[i]; // need a copy, do not modify _pixels directly (no byte access allowed on ESP32)
-    if (c > 0 && useGammaCorrection)
-      c = gamma32(c); // apply gamma correction if enabled note: applying gamma after brightness has too much color loss
     BusManager::setPixelColor(getMappedPixelIndex(i), c);
   }
   Bus::setCCT(oldCCT);  // restore old CCT for ABL adjustments
@@ -1846,7 +1841,8 @@ void WS2812FX::setCCT(uint16_t k) {
 // direct=true either expects the caller to call show() themselves (realtime modes) or be ok waiting for the next frame for the change to apply
 // direct=false immediately triggers an effect redraw
 void WS2812FX::setBrightness(uint8_t b, bool direct) {
-  if (gammaCorrectBri) b = gamma8(b);
+  if (b > 0 && gammaCorrectBri)
+    b = gamma8(map(b, 1, 255, gamma8inv(1), 255)); // map from 1 to 255 in gamma space or strip will turn off at low brightness as gamma(b) goes to 0
   if (_brightness == b) return;
   _brightness = b;
   if (_brightness == 0) { //unfreeze all segments on power off

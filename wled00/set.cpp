@@ -403,6 +403,7 @@ void handleSettingsSet(AsyncWebServerRequest *request, byte subPage)
       gammaCorrectBri = false;
       gammaCorrectCol = false;
     }
+    applyGamma = gammaCorrectCol && !(realtimeMode && arlsDisableGammaCorrection && !realtimeOverride); // update gamma use (disable if needed)
     NeoGammaWLEDMethod::calcGammaTable(gammaCorrectVal); // fill look-up tables
 
     t = request->arg(F("TD")).toInt();
