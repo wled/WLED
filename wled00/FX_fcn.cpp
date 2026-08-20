@@ -324,9 +324,10 @@ void Segment::startTransition(uint16_t dur, bool segmentCopy) {
       for (unsigned i = 0; i < NUM_COLORS; i++) _t->_colors[i] = color_blend16(_t->_colors[i], colors[i], _t->_progress);
       _t->_bri = currentBri(); // update "original" brightness note: _t->_progress is updated in updateTransitionProgress() so still valid here
       _t->_cct = currentCCT(); // update "original" CCT (reduces jump)
-      // restart transition timer only if a pure FADE transition, otherwise let the FX change or non-FADE transition finish
+      // restart transition timer only if a pure FADE transition or a transition without segment copy (opacity/CCT change),
+      // otherwise let the FX change or non-FADE transition finish
       // this avoids a re-start of the transition if color or brightness is changed during an ongoing FX or non-FADE transition
-      if (blendingStyle == TRANSITION_FADE) {
+      if (blendingStyle == TRANSITION_FADE || _t->_oldSegment == nullptr) {
         if (_t->_oldSegment != nullptr) {
           if (_t->_oldSegment->mode != mode)
             return; // do not reset transition if this is an FX change, note: the disadvantage is that colors still jump in that case
@@ -378,7 +379,8 @@ void Segment::updateTransitionProgress() const {
 uint8_t Segment::currentCCT() const {
   unsigned prog = progress();
   if (prog < 0xFFFFU) {
-    if (blendingStyle == TRANSITION_FADE) return (cct * prog + (_t->_cct * (0xFFFFU - prog))) / 0xFFFFU;
+    // fade if style is FADE or if the transition has no old segment (opacity or CCT transition)
+    if (blendingStyle == TRANSITION_FADE || _t->_oldSegment == nullptr) return (cct * prog + (_t->_cct * (0xFFFFU - prog))) / 0xFFFFU;
     //else                                   return Segment::isPreviousMode() ? _t->_cct : cct;
   }
   return cct;
@@ -390,8 +392,9 @@ uint8_t Segment::currentBri() const {
   unsigned curBri = on ? opacity : 0;
   if (prog < 0xFFFFU) {
     // this will blend opacity in new mode if style is FADE (single effect call)
-    if (blendingStyle == TRANSITION_FADE) curBri = (prog * curBri + _t->_bri * (0xFFFFU - prog)) / 0xFFFFU;
-    else                                  curBri = Segment::isPreviousMode() ? _t->_bri : curBri;
+    // or if the transition has no old segment (opacity or CCT transition)
+    if (blendingStyle == TRANSITION_FADE || _t->_oldSegment == nullptr) curBri = (prog * curBri + _t->_bri * (0xFFFFU - prog)) / 0xFFFFU;
+    else                                                                curBri = Segment::isPreviousMode() ? _t->_bri : curBri;
   }
   return curBri;
 }
@@ -557,7 +560,7 @@ Segment &Segment::setCCT(uint16_t k) {
 Segment &Segment::setOpacity(uint8_t o) {
   if (opacity != o) {
     //DEBUG_PRINTF_P(PSTR("- Starting opacity transition: %d\n"), o);
-    startTransition(strip.getTransition(), blendingStyle != TRANSITION_FADE); // start transition prior to change
+    startTransition(strip.getTransition(), false); // opacity change always fades (no segment copy needed)
     opacity = o;
     stateChanged = true; // send UDP/WS broadcast
   }
@@ -1439,10 +1442,14 @@ void WS2812FX::blendSegment(const Segment &topSegment) const {
   const size_t  startIndx  = XY(topSegment.start, topSegment.startY);
   const size_t  stopIndx   = startIndx + length;
   uint8_t       opacity    = topSegment.currentBri(); // returns transitioned opacity for style FADE
+  uint8_t       opacityOld = opacity;                 // we set this to opacity of old segment in non-FADE transitions below
   uint8_t       cct        = topSegment.currentCCT();
-  if (gammaCorrectCol) opacity = gamma8inv(opacity); // use inverse gamma on brightness for correct color scaling after gamma correction (see #5343 for details)
-
   const Segment *segO = topSegment.getOldSegment();
+  if (segO && blendingStyle != TRANSITION_FADE) opacityOld = segO->currentBri();  // get old segment opacity note: can not use segO->opacity as that breaks off->on transition
+  if (gammaCorrectCol) {
+    opacity = gamma8inv(opacity); // use inverse gamma on brightness for correct color scaling after gamma correction (see #5343 for details)
+    opacityOld = gamma8inv(opacityOld);
+  }
   const bool hasGrouping = topSegment.groupLength() != 1;
 
   // fast path: handle the default case - no transitions, no grouping/spacing, no mirroring, no CCT
@@ -1506,7 +1513,7 @@ void WS2812FX::blendSegment(const Segment &topSegment) const {
   const unsigned dw = (blendingStyle==TRANSITION_OUTSIDE_IN ? progInv : progress) * width / 0xFFFFU + 1;
   const unsigned dh = (blendingStyle==TRANSITION_OUTSIDE_IN ? progInv : progress) * height / 0xFFFFU + 1;
   const unsigned orgBS = blendingStyle;
-  if (width*height == 1) blendingStyle = TRANSITION_FADE; // disable style for single pixel segments (use fade instead)
+  if (width*height == 1 || !segO) blendingStyle = TRANSITION_FADE; // single pixel segments or opacity/CCT transition: use fade
   switch (blendingStyle) {
     case TRANSITION_CIRCULAR_IN: // (must set entire segment, see isPixelXYClipped())
     case TRANSITION_CIRCULAR_OUT:// (must set entire segment, see isPixelXYClipped())
@@ -1610,6 +1617,7 @@ void WS2812FX::blendSegment(const Segment &topSegment) const {
     // we only traverse new segment, not old one
     for (int r = 0; r < nRows; r++) for (int c = 0; c < nCols; c++) {
       const bool clipped = topSegment.isPixelXYClipped(c, r);
+      uint8_t pixelOpacity = clipped ? opacityOld : opacity;
       // if segment is in transition and pixel is clipped take old segment's pixel and opacity
       const Segment *seg = clipped && segO ? segO : &topSegment;  // pixel is never clipped for FADE
       int vCols = seg == segO ? oCols : nCols;         // old segment may have different dimensions
@@ -1627,12 +1635,14 @@ void WS2812FX::blendSegment(const Segment &topSegment) const {
         c_a = color_blend16(c_a, segO->getPixelColorRaw(x + y*oCols), progInv);
       } else if (blendingStyle != TRANSITION_FADE) {
         // if we have global brightness change (not On/Off change) we will ignore transition style and just fade brightness (see led.cpp)
-        // workaround for On/Off transition
-        // (bri != briT) && !bri => from On to Off
-        // (bri != briT) &&  bri => from Off to On
+        // workaround for On/Off transition (applies while a global on/off transition is active)
+        // transitionActive && !bri => from On to Off
+        // transitionActive &&  bri => from Off to On
+        if ((briOld == 0 || bri == 0) && ((!clipped && transitionActive && !bri) || (clipped && transitionActive && bri))) c_a = BLACK;
         // note: only blank pixels once the segment transition has actually started; bri changes before
         // startTransition() is called (stateUpdated()) and a frame rendered in that window would blank the whole segment
-        if (topSegment.isInTransition() && (briOld == 0 || bri == 0) && ((!clipped && (bri != briT) && !bri) || (clipped && (bri != briT) && bri))) c_a = BLACK;
+        //if (topSegment.isInTransition() && (briOld == 0 || bri == 0) && ((!clipped && (bri != briT) && !bri) || (clipped && (bri != briT) && bri))) c_a = BLACK;
+        //if (topSegment.isInTransition() && (briOld == 0 || bri == 0) && ((!clipped && transitionActive && !bri) || (clipped && transitionActive && bri))) c_a = BLACK;
       }
       // map it into frame buffer
       x = c;  // restore coordiates if we were PUSHing
@@ -1644,7 +1654,7 @@ void WS2812FX::blendSegment(const Segment &topSegment) const {
       }
       // expand pixel
       if (groupLen == 1) {
-        setMirroredPixel(x, y, c_a, opacity);
+        setMirroredPixel(x, y, c_a, pixelOpacity);
       } else {
         // handle grouping and spacing
         x *= groupLen; // expand to physical pixels
@@ -1653,7 +1663,7 @@ void WS2812FX::blendSegment(const Segment &topSegment) const {
         const int maxY = std::min(y + topSegment.grouping, height);
         while (y < maxY) {
           int _x = x;
-          while (_x < maxX) setMirroredPixel(_x++, y, c_a, opacity);
+          while (_x < maxX) setMirroredPixel(_x++, y, c_a, pixelOpacity);
           y++;
         }
       }
@@ -1685,6 +1695,7 @@ void WS2812FX::blendSegment(const Segment &topSegment) const {
 
     for (int k = 0; k < nLen; k++) {
       const bool clipped = topSegment.isPixelClipped(k);
+      uint8_t pixelOpacity = clipped ? opacityOld : opacity;
       // if segment is in transition and pixel is clipped take old segment's pixel and opacity
       const Segment *seg = clipped && segO ? segO : &topSegment;  // pixel is never clipped for FADE
       const int vLen = seg == segO ? oLen : nLen;
@@ -1704,9 +1715,11 @@ void WS2812FX::blendSegment(const Segment &topSegment) const {
         // workaround for On/Off transition
         // (bri != briT) && !bri => from On to Off
         // (bri != briT) &&  bri => from Off to On
+        if ((briOld == 0 || bri == 0) && ((!clipped && transitionActive && !bri) || (clipped && transitionActive && bri))) c_a = BLACK;
         // note: only blank pixels once the segment transition has actually started; bri changes before
         // startTransition() is called (stateUpdated()) and a frame rendered in that window would blank the whole segment
-        if (topSegment.isInTransition() && (briOld == 0 || bri == 0) && ((!clipped && (bri != briT) && !bri) || (clipped && (bri != briT) && bri))) c_a = BLACK;
+        //if (topSegment.isInTransition() && (briOld == 0 || bri == 0) && ((!clipped && (bri != briT) && !bri) || (clipped && (bri != briT) && bri))) c_a = BLACK;
+        //if (topSegment.isInTransition() && (briOld == 0 || bri == 0) && ((!clipped && transitionActive && !bri) || (clipped && transitionActive && bri))) c_a = BLACK;
       }
       // map into frame buffer
       i = k; // restore index if we were PUSHing
@@ -1715,7 +1728,7 @@ void WS2812FX::blendSegment(const Segment &topSegment) const {
       i *= topSegment.groupLength();
       // set all the pixels in the group
       const int maxI = std::min(i + topSegment.grouping, length); // make sure to not go beyond physical length
-      while (i < maxI) setMirroredPixel(i++, c_a, opacity);
+      while (i < maxI) setMirroredPixel(i++, c_a, pixelOpacity);
     }
   }
 
@@ -1811,7 +1824,11 @@ void WS2812FX::restartRuntime() {
 void WS2812FX::setTransitionMode(bool t) {
   suspend();
   waitForIt();
-  for (Segment &seg : _segments) seg.startTransition(t ? _transitionDur : 0);
+  for (Segment &seg : _segments) {
+    // do not interrupt transitions without segment copy i.e. opacity/CCT change or FADE
+    if (t && seg.isInTransition() && !seg.getOldSegment()) continue;
+    seg.startTransition(t ? _transitionDur : 0);
+  }
   resume();
 }
 
