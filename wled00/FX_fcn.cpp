@@ -326,9 +326,10 @@ void Segment::startTransition(uint16_t dur, bool segmentCopy) {
       for (unsigned i = 0; i < NUM_COLORS; i++) _t->_colors[i] = color_blend16(_t->_colors[i], colors[i], _t->_progress);
       _t->_bri = currentBri(); // update "original" brightness note: _t->_progress is updated in updateTransitionProgress() so still valid here
       _t->_cct = currentCCT(); // update "original" CCT (reduces jump)
-      // restart transition timer only if a pure FADE transition, otherwise let the FX change or non-FADE transition finish
+      // restart transition timer only if a pure FADE transition or a transition without segment copy (opacity/CCT change),
+      // otherwise let the FX change or non-FADE transition finish
       // this avoids a re-start of the transition if color or brightness is changed during an ongoing FX or non-FADE transition
-      if (blendingStyle == TRANSITION_FADE) {
+      if (blendingStyle == TRANSITION_FADE || _t->_oldSegment == nullptr) {
         if (_t->_oldSegment != nullptr) {
           if (_t->_oldSegment->mode != mode)
             return; // do not reset transition if this is an FX change, note: the disadvantage is that colors still jump in that case
@@ -382,7 +383,8 @@ void Segment::updateTransitionProgress() const {
 uint8_t Segment::currentCCT() const {
   unsigned prog = progress();
   if (prog < 0xFFFFU) {
-    if (blendingStyle == TRANSITION_FADE) return (cct * prog + (_t->_cct * (0xFFFFU - prog))) / 0xFFFFU;
+    // fade if style is FADE or if the transition has no old segment (opacity or CCT transition)
+    if (blendingStyle == TRANSITION_FADE || _t->_oldSegment == nullptr) return (cct * prog + (_t->_cct * (0xFFFFU - prog))) / 0xFFFFU;
     //else                                   return Segment::isPreviousMode() ? _t->_cct : cct;
   }
   return cct;
@@ -394,8 +396,9 @@ uint8_t Segment::currentBri() const {
   unsigned curBri = on ? opacity : 0;
   if (prog < 0xFFFFU) {
     // this will blend opacity in new mode if style is FADE (single effect call)
-    if (blendingStyle == TRANSITION_FADE) curBri = (prog * curBri + _t->_bri * (0xFFFFU - prog)) / 0xFFFFU;
-    else                                  curBri = Segment::isPreviousMode() ? _t->_bri : curBri;
+    // or if the transition has no old segment (opacity or CCT transition)
+    if (blendingStyle == TRANSITION_FADE || _t->_oldSegment == nullptr) curBri = (prog * curBri + _t->_bri * (0xFFFFU - prog)) / 0xFFFFU;
+    else                                                                curBri = Segment::isPreviousMode() ? _t->_bri : curBri;
   }
   return curBri;
 }
@@ -569,7 +572,7 @@ Segment &Segment::setCCT(uint16_t k) {
 Segment &Segment::setOpacity(uint8_t o) {
   if (opacity != o) {
     //DEBUG_PRINTF_P(PSTR("- Starting opacity transition: %d\n"), o);
-    startTransition(strip.getTransition(), blendingStyle != TRANSITION_FADE); // start transition prior to change
+    startTransition(strip.getTransition(), false); // opacity change always fades (no segment copy needed)
     opacity = o;
     stateChanged = true; // send UDP/WS broadcast
   }
@@ -1522,7 +1525,7 @@ void WS2812FX::blendSegment(const Segment &topSegment) const {
   const unsigned dw = (blendingStyle==TRANSITION_OUTSIDE_IN ? progInv : progress) * width / 0xFFFFU + 1;
   const unsigned dh = (blendingStyle==TRANSITION_OUTSIDE_IN ? progInv : progress) * height / 0xFFFFU + 1;
   const unsigned orgBS = blendingStyle;
-  if (width*height == 1) blendingStyle = TRANSITION_FADE; // disable style for single pixel segments (use fade instead)
+  if (width*height == 1 || !segO) blendingStyle = TRANSITION_FADE; // single pixel segments or opacity/CCT transition: use fade
   switch (blendingStyle) {
     case TRANSITION_CIRCULAR_IN: // (must set entire segment, see isPixelXYClipped())
     case TRANSITION_CIRCULAR_OUT:// (must set entire segment, see isPixelXYClipped())
@@ -1644,10 +1647,10 @@ void WS2812FX::blendSegment(const Segment &topSegment) const {
         c_a = color_blend16(c_a, segO->getPixelColorRaw(x + y*oCols), progInv);
       } else if (blendingStyle != TRANSITION_FADE) {
         // if we have global brightness change (not On/Off change) we will ignore transition style and just fade brightness (see led.cpp)
-        // workaround for On/Off transition
-        // (bri != briT) && !bri => from On to Off
-        // (bri != briT) &&  bri => from Off to On
-        if ((briOld == 0 || bri == 0) && ((!clipped && (bri != briT) && !bri) || (clipped && (bri != briT) && bri))) c_a = BLACK;
+        // workaround for On/Off transition (applies while a global on/off transition is active)
+        // transitionActive && !bri => from On to Off
+        // transitionActive &&  bri => from Off to On
+        if ((briOld == 0 || bri == 0) && ((!clipped && transitionActive && !bri) || (clipped && transitionActive && bri))) c_a = BLACK;
       }
       // map it into frame buffer
       x = c;  // restore coordiates if we were PUSHing
@@ -1717,10 +1720,10 @@ void WS2812FX::blendSegment(const Segment &topSegment) const {
         c_a = color_blend16(c_a, segO->getPixelColorRaw(i), progInv);
       } else if (blendingStyle != TRANSITION_FADE) {
         // if we have global brightness change (not On/Off change) we will ignore transition style and just fade brightness (see led.cpp)
-        // workaround for On/Off transition
-        // (bri != briT) && !bri => from On to Off
-        // (bri != briT) &&  bri => from Off to On
-        if ((briOld == 0 || bri == 0) && ((!clipped && (bri != briT) && !bri) || (clipped && (bri != briT) && bri))) c_a = BLACK;
+        // workaround for On/Off transition (applies while a global on/off transition is active)
+        // transitionActive && !bri => from On to Off
+        // transitionActive &&  bri => from Off to On
+        if ((briOld == 0 || bri == 0) && ((!clipped && transitionActive && !bri) || (clipped && transitionActive && bri))) c_a = BLACK;
       }
       // map into frame buffer
       i = k; // restore index if we were PUSHing
@@ -1825,7 +1828,11 @@ void WS2812FX::restartRuntime() {
 void WS2812FX::setTransitionMode(bool t) {
   suspend();
   waitForIt();
-  for (Segment &seg : _segments) seg.startTransition(t ? _transitionDur : 0);
+  for (Segment &seg : _segments) {
+    // do not interrupt transitions without segment copy i.e. opacity/CCT change or FADE
+    if (t && seg.isInTransition() && !seg.getOldSegment()) continue;
+    seg.startTransition(t ? _transitionDur : 0);
+  }
   resume();
 }
 
