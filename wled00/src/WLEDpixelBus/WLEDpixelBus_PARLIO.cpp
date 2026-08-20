@@ -265,6 +265,19 @@ bool ParlioBusContext::_initDmaRing() {
   // borrow the unit's GDMA channel (see WledpbParlioTxUnitHead): already connected to the
   // PARLIO trigger, with owner-check + auto-write-back strategy applied by the driver
   _dmaChan = WLEDPB_PARLIO_TX_DMA_CHAN(_txUnit);
+
+  #if ESP_IDF_VERSION >= ESP_IDF_VERSION_VAL(5, 5, 0)
+  // 5.5 configures the channel with owner_check=false / auto_update_desc=false, we need that changed for our seamless ring refill
+  gdma_strategy_config_t strategy = {
+    .owner_check = true,
+    .auto_update_desc = true,
+    .eof_till_data_popped = false,
+  };
+  if (gdma_apply_strategy(_dmaChan, &strategy) != ESP_OK) {
+    _dmaChan = nullptr;
+    return false;
+  }
+  #endif
   if (!_dmaChan) return false;
 
   // Hardware channel index for direct LL register access from the ISR. On AHB GDMA

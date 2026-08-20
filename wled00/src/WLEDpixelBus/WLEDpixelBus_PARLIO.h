@@ -116,17 +116,24 @@ If a future target names it differently, adjust the PARLIO_HW macro below.
   #include "hal/dma_types.h"     // dma_descriptor_t, DMA_DESCRIPTOR_BUFFER_*
   #include "esp_private/gdma.h"  // gdma_start/stop/append, gdma_register_tx_event_callbacks
 
-// Mirror of the head of the IDF driver's private struct parlio_tx_unit_t (parlio_tx.c,
-// parlio_priv.h since v5.5). Lets us reach the TX unit's GDMA channel: that channel is
-// already connected to the PARLIO trigger by the driver and has the owner-check +
-// auto-write-back strategy applied - and the driver never registers GDMA callbacks on
-// it (v5.3-v5.5), so we can use it for our descriptor ring instead of allocating a
-// second channel. Note: GDMA allows only ONE channel connected to a peripheral trigger;
-// a second gdma_connect() to PARLIO fails with ESP_ERR_INVALID_STATE (and the driver's
-// own connect failing instead would break parlio_del_tx_unit's cleanup path).
-// Layout verified identical for IDF v5.3, v5.4, v5.5. Only fields up to dma_chan must
-// match; if a future IDF changes this, the handle reads wrong and GDMA calls fail
-// safely (no output) - update the mirror then.
+// Mirror of the beginning of the IDF driver's private struct parlio_tx_unit_t (parlio_tx.c, parlio_priv.h since v5.5)
+// up to the dma_chan field which we need to reconfigure the DMA. In V6 it changed again but not before
+// dma_chan, so the mirror is still valid.
+#if ESP_IDF_VERSION >= ESP_IDF_VERSION_VAL(5, 5, 0)
+typedef struct {
+  int unit_id;
+  int dir;
+  void* group;
+  size_t data_width;
+  gpio_num_t data_gpio_nums[SOC_PARLIO_TX_UNIT_MAX_DATA_WIDTH];
+  gpio_num_t valid_gpio_num;
+  gpio_num_t clk_out_gpio_num;
+  gpio_num_t clk_in_gpio_num;
+  void* intr;
+  void* pm_lock;
+  gdma_channel_handle_t dma_chan;
+} WledpbParlioTxUnitHead;
+#else // IDF V5.3, 5.4
 typedef struct {
   int unit_id;                  // parlio_unit_t.unit_id
   int dir;                      // parlio_unit_t.dir (parlio_dir_t)
@@ -136,6 +143,8 @@ typedef struct {
   void* pm_lock;                // esp_pm_lock_handle_t
   gdma_channel_handle_t dma_chan;
 } WledpbParlioTxUnitHead;
+#endif
+
 #define WLEDPB_PARLIO_TX_DMA_CHAN(unit) (((const WledpbParlioTxUnitHead*)(unit))->dma_chan)
 #endif
 
