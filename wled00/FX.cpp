@@ -2379,13 +2379,19 @@ void mode_meteor() {
   if (SEGLEN <= 1) FX_FALLBACK_STATIC;
   if (!SEGENV.allocateData(SEGLEN)) FX_FALLBACK_STATIC; //allocation failed
   const bool meteorSmooth = SEGMENT.check3;
+  const bool slow = SEGMENT.check2;
   byte* trail = SEGENV.data;
 
   const unsigned meteorSize = 1 + SEGLEN / 20; // 5%
+  if (SEGMENT.custom3 != 1) {
+    SEGMENT.custom1 = 0;
+    SEGMENT.custom3 = 1;
+  }
+  const unsigned numMeteors = 1 + (SEGMENT.custom1 >> 5); // 1..8 meteors
   uint16_t meteorstart;
   if(meteorSmooth) meteorstart = map((SEGENV.step >> 6 & 0xFF), 0, 255, 0, SEGLEN -1);
   else {
-    unsigned counter = strip.now * ((SEGMENT.speed >> 2) + 8);
+    unsigned counter = strip.now * (slow ? (SEGMENT.speed >> 4) + 1 : (SEGMENT.speed >> 2) + 8);
     meteorstart = (counter * SEGLEN) >> 16;
   }
 
@@ -2417,29 +2423,31 @@ void mode_meteor() {
     }
   }
 
-  // draw meteor
-  for (unsigned j = 0; j < meteorSize; j++) {
-    unsigned index = (meteorstart + j) % SEGLEN;
-    if(meteorSmooth) {
+  // draw meteor(s), evenly spaced along the strip
+  for (unsigned m = 0; m < numMeteors; m++) {
+    unsigned start = (meteorstart + m * SEGLEN / numMeteors) % SEGLEN;
+    for (unsigned j = 0; j < meteorSize; j++) {
+      unsigned index = (start + j) % SEGLEN;
+      if (meteorSmooth) {
         trail[index] = max;
         uint32_t col = SEGMENT.check1 ? SEGMENT.color_from_palette(index, true, false, 0, trail[index]) : SEGMENT.color_from_palette(trail[index], false, true, 255);
         SEGMENT.setPixelColor(index, col);
-    }
-    else{
-      int idx = 255;
-      int i = trail[index] = max;
-      if (!SEGMENT.check1) {
-        i = map(index,0,SEGLEN,0,max);
-        idx = 0;
+      } else {
+        int idx = 255;
+        int i = trail[index] = max;
+        if (!SEGMENT.check1) {
+          i = map(index,0,SEGLEN,0,max);
+          idx = 0;
+        }
+        uint32_t col = SEGMENT.color_from_palette(i, false, false, idx, 255); // full brightness
+        SEGMENT.setPixelColor(index, col);
       }
-      uint32_t col = SEGMENT.color_from_palette(i, false, false, idx, 255); // full brightness
-      SEGMENT.setPixelColor(index, col);
     }
   }
 
-  SEGENV.step += SEGMENT.speed +1;
+  SEGENV.step += (slow ? SEGMENT.speed >> 3 : SEGMENT.speed) + 1;
 }
-static const char _data_FX_MODE_METEOR[] PROGMEM = "Meteor@!,Trail,,,,Gradient,,Smooth;;!;1";
+static const char _data_FX_MODE_METEOR[] PROGMEM = "Meteor@!,Trail,# of Meteors,,,Gradient,Slow,Smooth;;!;1;c1=0,c3=1";
 
 
 //Railway Crossing / Christmas Fairy lights
