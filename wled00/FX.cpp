@@ -2383,6 +2383,10 @@ void mode_meteor() {
   byte* trail = SEGENV.data;
 
   const unsigned meteorSize = 1 + SEGLEN / 20; // 5%
+  if (SEGMENT.custom3 != 1) {
+    SEGMENT.custom1 = 0;
+    SEGMENT.custom3 = 1;
+  }
   const unsigned numMeteors = 1 + (SEGMENT.custom1 >> 5); // 1..8 meteors
   uint16_t meteorstart;
   if(meteorSmooth) meteorstart = map((SEGENV.step >> 6 & 0xFF), 0, 255, 0, SEGLEN -1);
@@ -2443,7 +2447,7 @@ void mode_meteor() {
 
   SEGENV.step += (slow ? SEGMENT.speed >> 3 : SEGMENT.speed) + 1;
 }
-static const char _data_FX_MODE_METEOR[] PROGMEM = "Meteor@!,Trail,# of Meteors,,,Gradient,Slow,Smooth;;!;1;c1=0";
+static const char _data_FX_MODE_METEOR[] PROGMEM = "Meteor@!,Trail,# of Meteors,,,Gradient,Slow,Smooth;;!;1;c1=0,c3=1";
 
 
 //Railway Crossing / Christmas Fairy lights
