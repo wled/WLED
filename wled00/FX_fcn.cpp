@@ -1513,7 +1513,8 @@ void WS2812FX::blendSegment(const Segment &topSegment) const {
   const unsigned dw = (blendingStyle==TRANSITION_OUTSIDE_IN ? progInv : progress) * width / 0xFFFFU + 1;
   const unsigned dh = (blendingStyle==TRANSITION_OUTSIDE_IN ? progInv : progress) * height / 0xFFFFU + 1;
   const unsigned orgBS = blendingStyle;
-  if (width*height == 1 || !segO) blendingStyle = TRANSITION_FADE; // single pixel segments or opacity/CCT transition: use fade
+  // single pixel segments or opacity/CCT transition and not on/off transition: use fade
+  if (width*height == 1 || (!segO && !(topSegment.isInTransition() && (briOld == 0 || bri == 0)))) blendingStyle = TRANSITION_FADE;
   switch (blendingStyle) {
     case TRANSITION_CIRCULAR_IN: // (must set entire segment, see isPixelXYClipped())
     case TRANSITION_CIRCULAR_OUT:// (must set entire segment, see isPixelXYClipped())
@@ -1636,13 +1637,11 @@ void WS2812FX::blendSegment(const Segment &topSegment) const {
       } else if (blendingStyle != TRANSITION_FADE) {
         // if we have global brightness change (not On/Off change) we will ignore transition style and just fade brightness (see led.cpp)
         // workaround for On/Off transition (applies while a global on/off transition is active)
-        // transitionActive && !bri => from On to Off
-        // transitionActive &&  bri => from Off to On
-        if ((briOld == 0 || bri == 0) && ((!clipped && transitionActive && !bri) || (clipped && transitionActive && bri))) c_a = BLACK;
+        // (bri != briT) && !bri => from On to Off
+        // (bri != briT) &&  bri => from Off to On
         // note: only blank pixels once the segment transition has actually started; bri changes before
         // startTransition() is called (stateUpdated()) and a frame rendered in that window would blank the whole segment
-        //if (topSegment.isInTransition() && (briOld == 0 || bri == 0) && ((!clipped && (bri != briT) && !bri) || (clipped && (bri != briT) && bri))) c_a = BLACK;
-        //if (topSegment.isInTransition() && (briOld == 0 || bri == 0) && ((!clipped && transitionActive && !bri) || (clipped && transitionActive && bri))) c_a = BLACK;
+        if ((briOld == 0 || bri == 0) && ((!clipped && topSegment.isInTransition() && !bri) || (clipped && topSegment.isInTransition() && bri))) c_a = BLACK;
       }
       // map it into frame buffer
       x = c;  // restore coordiates if we were PUSHing
@@ -1715,11 +1714,9 @@ void WS2812FX::blendSegment(const Segment &topSegment) const {
         // workaround for On/Off transition
         // (bri != briT) && !bri => from On to Off
         // (bri != briT) &&  bri => from Off to On
-        if ((briOld == 0 || bri == 0) && ((!clipped && transitionActive && !bri) || (clipped && transitionActive && bri))) c_a = BLACK;
         // note: only blank pixels once the segment transition has actually started; bri changes before
         // startTransition() is called (stateUpdated()) and a frame rendered in that window would blank the whole segment
-        //if (topSegment.isInTransition() && (briOld == 0 || bri == 0) && ((!clipped && (bri != briT) && !bri) || (clipped && (bri != briT) && bri))) c_a = BLACK;
-        //if (topSegment.isInTransition() && (briOld == 0 || bri == 0) && ((!clipped && transitionActive && !bri) || (clipped && transitionActive && bri))) c_a = BLACK;
+        if ((briOld == 0 || bri == 0) && ((!clipped && topSegment.isInTransition() && !bri) || (clipped && topSegment.isInTransition() && bri))) c_a = BLACK;
       }
       // map into frame buffer
       i = k; // restore index if we were PUSHing
