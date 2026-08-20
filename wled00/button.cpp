@@ -13,6 +13,10 @@
 #define WLED_LONG_BRI_STEPS          16 // how much to increase/decrease the brightness with each long press repetition
 
 static const char _mqtt_topic_button[] PROGMEM = "%s/button/%d";  // optimize flash usage
+
+// Runtime state private to this file - previously WLED_GLOBAL, a leftover from
+// when all state lived in one big extern block regardless of who used it.
+static unsigned long lastOnTime = 0;
 static bool buttonBriDirection = false; // true: increase brightness, false: decrease brightness
 
 void shortPressAction(uint8_t b)
@@ -109,7 +113,7 @@ bool isButtonPressed(uint8_t b)
       break;
     case BTN_TYPE_TOUCH:
     case BTN_TYPE_TOUCH_SWITCH:
-      #if defined(ARDUINO_ARCH_ESP32) && !defined(CONFIG_IDF_TARGET_ESP32C3)
+      #if defined(ARDUINO_ARCH_ESP32) && !defined(CONFIG_IDF_TARGET_ESP32C3) && !defined(CONFIG_IDF_TARGET_ESP32C5) && !defined(CONFIG_IDF_TARGET_ESP32C6) && !defined(CONFIG_IDF_TARGET_ESP32C61) && !defined(CONFIG_IDF_TARGET_ESP32P4)
         #ifdef SOC_TOUCH_VERSION_2 //ESP32 S2 and S3 provide a function to check touch state (state is updated in interrupt)
         if (touchInterruptGetLastStatus(pin)) return true;
         #else
@@ -396,7 +400,9 @@ void handleOnOff(bool forceOff)
   }
 }
 
+#ifdef SOC_TOUCH_VERSION_2 //ESP32 S2 and S3 provide a function to check touch state (state is updated in interrupt)
 void IRAM_ATTR touchButtonISR()
 {
   // used for ESP32 S2 and S3: nothing to do, ISR is just used to update registers of HAL driver
 }
+#endif
