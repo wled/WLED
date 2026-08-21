@@ -114,9 +114,23 @@ class Animated_Staircase : public Usermod {
 #endif
     }
 
+    void getSentinelSegmentIds(byte &firstSegId, byte &lastSegId) const {
+      firstSegId = 0;
+      lastSegId = 0;
+      bool foundFirst = false;
+      for (unsigned i = 0; i < strip.getSegmentsNum(); i++) {
+        if (!strip.getSegment(i).isActive()) continue;
+        if (!foundFirst) {
+          firstSegId = i;
+          foundFirst = true;
+        }
+        lastSegId = i;
+      }
+    }
+
     void updateSegments() {
-      byte firstSegId = minSegmentId;
-      byte lastSegId = (maxSegmentId > minSegmentId) ? maxSegmentId - 1 : minSegmentId;
+      byte firstSegId, lastSegId;
+      getSentinelSegmentIds(firstSegId, lastSegId);
       for (int i = minSegmentId; i < maxSegmentId; i++) {
         Segment &seg = strip.getSegment(i);
         if (!seg.isActive()) continue; // skip gaps
@@ -128,7 +142,7 @@ class Animated_Staircase : public Usermod {
         if (inSwipe) {
           seg.setOption(SEG_OPTION_ON, true);
           if (isSentinel) seg.setOpacity(255);
-        } else if (enabledSentinel && isSentinel && sentinelDimOpacity > 0) {
+        } else if (enabledSentinel && isSentinel) {
           seg.setOption(SEG_OPTION_ON, true);
           seg.setOpacity(sentinelDimOpacity);
         } else {
@@ -176,7 +190,7 @@ class Animated_Staircase : public Usermod {
 
     bool readPIRPin(int8_t pin, bool invert) {
       if (pin < 0) return false;
-        bool v = digitalRead(pin);
+      bool v = digitalRead(pin);
       return invert ? !v : v;
     }
 
@@ -335,8 +349,8 @@ class Animated_Staircase : public Usermod {
           seg.setOption(SEG_OPTION_ON, true);
         }
         if (strip.getSegmentsNum() > 0) {
-          byte firstSegId = strip.getMainSegmentId();
-          byte lastSegId = strip.getLastActiveSegmentId();
+          byte firstSegId, lastSegId;
+          getSentinelSegmentIds(firstSegId, lastSegId);
           Segment &firstSeg = strip.getSegment(firstSegId);
           if (firstSeg.isActive()) firstSeg.setOpacity(255);
           if (lastSegId != firstSegId) {
@@ -507,8 +521,6 @@ class Animated_Staircase : public Usermod {
     bool readFromConfig(JsonObject& root) {
       bool oldUseUSSensorTop = useUSSensorTop;
       bool oldUseUSSensorBottom = useUSSensorBottom;
-      bool oldTopAPinInvert = topAPinInvert;
-      bool oldBottomAPinInvert = bottomAPinInvert;
       int8_t oldTopAPin = topPIRorTriggerPin;
       int8_t oldTopBPin = topEchoPin;
       int8_t oldBottomAPin = bottomPIRorTriggerPin;
@@ -575,7 +587,7 @@ class Animated_Staircase : public Usermod {
           PinManager::deallocatePin(oldBottomBPin, PinOwner::UM_AnimatedStaircase);
         }
         if (changed) setup();
-        if (changedSentinel) updateSegments();
+        if (changedSentinel && enabled) updateSegments();
       }
       // use "return !top["newestParameter"].isNull();" when updating Usermod with new features
       return !top[FPSTR(_sentinelDimOpacity)].isNull();
