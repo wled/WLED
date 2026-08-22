@@ -264,8 +264,9 @@ class BusDigital : public Bus {
     uint16_t getLEDCurrent() const override  { return _milliAmpsPerLed; }
     uint16_t getUsedCurrent() const override { return _milliAmpsTotal; }
     uint16_t getMaxCurrent() const override  { return _milliAmpsMax; }
+    static constexpr uint16_t physicalLengthForType(uint8_t type, uint16_t len) { return (type == TYPE_WS2812_RGBW_PAIR) ? len * 2 : len; }
     // ABL counts physical LED chips; existing digital buses remain 1:1 with logical length.
-    uint16_t getPhysicalLength() const        { return (_type == TYPE_WS2812_RGBW_PAIR) ? _len * 2 : _len; }
+    uint16_t getPhysicalLength() const        { return physicalLengthForType(_type, _len); }
     uint8_t  getDriverType() const override  { return _driverType; }
     void     setCurrentLimit(uint16_t milliAmps) { _milliAmpsLimit = milliAmps; }
     void     estimateCurrent(); // estimate used current from summed colors
@@ -304,6 +305,9 @@ class BusDigital : public Bus {
     }
 };
 
+static_assert(BusDigital::physicalLengthForType(TYPE_WS2812_RGBW_PAIR, 30) == 60, "paired RGBW buses count two physical pixels per logical LED");
+static_assert(BusDigital::physicalLengthForType(TYPE_WS2812_RGB, 30) == 30, "standard RGB buses keep logical and physical lengths equal");
+static_assert(BusDigital::physicalLengthForType(TYPE_FW1906, 30) == 30, "existing RGBCCT buses keep logical and physical lengths equal");
 
 class BusPwm : public Bus {
   public:
