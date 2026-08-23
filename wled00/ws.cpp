@@ -146,7 +146,7 @@ void sendDataWs(AsyncWebSocketClient * client)
 
   JsonObject state = pDoc->createNestedObject("state");
   serializeState(state);
-  if (client) { // broadcasts omit info block (~4KB mostly-static data)
+  if (client || !wsBroadcastStateOnly) {
     JsonObject info  = pDoc->createNestedObject("info");
     serializeInfo(info);
   }

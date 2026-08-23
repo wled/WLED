@@ -727,6 +727,11 @@ WLED_GLOBAL uint8_t tpmPacketCount _INIT(0);
 WLED_GLOBAL uint16_t tpmPayloadFrameSize _INIT(0);
 WLED_GLOBAL bool useMainSegmentOnly _INIT(false);
 WLED_GLOBAL bool realtimeRespectLedMaps _INIT(true);                     // Respect LED maps when receiving realtime data
+#ifndef WLED_WS_BROADCAST_STATE_ONLY
+WLED_GLOBAL bool wsBroadcastStateOnly _INIT(false);  // if true, omit info block from WS broadcast -- saves 4-6KB heap per push
+#else
+WLED_GLOBAL bool wsBroadcastStateOnly _INIT(WLED_WS_BROADCAST_STATE_ONLY);
+#endif
 
 WLED_GLOBAL unsigned long lastInterfaceUpdate _INIT(0);
 WLED_GLOBAL byte interfaceUpdateCallMode _INIT(CALL_MODE_INIT);

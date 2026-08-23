@@ -625,6 +625,7 @@ bool deserializeConfig(JsonObject doc, bool fromFS) {
   #endif
 
   CJSON(arlsForceMaxBri, if_live[F("maxbri")]);
+  CJSON(wsBroadcastStateOnly, if_live[F("wsbso")]);
   CJSON(arlsDisableGammaCorrection, if_live[F("no-gc")]); // false
   CJSON(arlsOffset, if_live[F("offset")]); // 0
 
@@ -1156,6 +1157,7 @@ void serializeConfig(JsonObject root) {
 
   if_live[F("timeout")] = realtimeTimeoutMs / 100;
   if_live[F("maxbri")] = arlsForceMaxBri;
+  if_live[F("wsbso")] = wsBroadcastStateOnly;
   if_live[F("no-gc")] = arlsDisableGammaCorrection;
   if_live[F("offset")] = arlsOffset;
 
