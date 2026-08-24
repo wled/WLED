@@ -35,6 +35,8 @@ class Animated_Staircase : public Usermod {
 
     // Time between checking of the sensors
     const unsigned int scanDelay = 100;
+    // Minimum loop interval while strip.isUpdating() stays true (long/busy strips)
+    const unsigned int activeUpdateIntervalMs = 200;
 
     // Lights on or off.
     // Flipping this will start a transition.
@@ -210,7 +212,11 @@ class Animated_Staircase : public Usermod {
             (topPIRorTriggerPin<0 ? false : readPIRPin(topPIRorTriggerPin, topAPinInvert)) :
             ultrasoundRead(topPIRorTriggerPin, topEchoPin, topMaxDist*59)   // cm to us
           );
-     
+
+        // Detect false-to-true edges before updating latched state
+        bool bottomRise = bottomSensorRead && !bottomSensorState;
+        bool topRise = topSensorRead && !topSensorState;
+
         if (bottomSensorRead != bottomSensorState) {
           bottomSensorState = bottomSensorRead; // change previous state
           sensorChanged = true;
@@ -229,18 +235,17 @@ class Animated_Staircase : public Usermod {
         topSensorWrite = false;
         bottomSensorWrite = false;
 
-        if (topSensorRead != bottomSensorRead) {
+        if (bottomRise || topRise) {
           lastSwitchTime = millis();
 
-          // Record which sensor triggered last. Use bottomSensorRead so that
-          // lastSensor == true means the bottom sensor (swipe up) triggered,
-          // lastSensor == false means the top sensor (swipe down) triggered.
-          lastSensor = bottomSensorRead;
+          // lastSensor true = bottom (swipe up), false = top (swipe down).
+          // Tie: both rose in the same scan -> prefer bottom / swipe up.
+          if (bottomRise) lastSensor = true;
+          else            lastSensor = false;
 
           if (!on) {
             if (togglePower && onIndex == offIndex && offMode) toggleOnOff(); // toggle power on if off
-            // If the bottom sensor triggered, we need to swipe up, ON
-            swipe = bottomSensorRead;
+            swipe = lastSensor;
 
             DEBUG_PRINT(F("ON -> Swipe "));
             DEBUG_PRINTLN(swipe ? F("up.") : F("down."));
@@ -394,8 +399,8 @@ class Animated_Staircase : public Usermod {
     }
 
     void loop() {
-      // on long/active strips isUpdating() may stay true; still run at least every 200ms
-      if (!enabled || (strip.isUpdating() && (millis() - lastLoopRun < 200))) return;
+      // on long/active strips isUpdating() may stay true; still run at least every activeUpdateIntervalMs
+      if (!enabled || (strip.isUpdating() && (millis() - lastLoopRun < activeUpdateIntervalMs))) return;
       lastLoopRun = millis();
       minSegmentId = strip.getMainSegmentId();  // it may not be the best idea to start with main segment as it may not be the first one
       maxSegmentId = strip.getLastActiveSegmentId() + 1;
