@@ -117,16 +117,28 @@ class Animated_Staircase : public Usermod {
     }
 
     void getSentinelSegmentIds(byte &firstSegId, byte &lastSegId) const {
-      firstSegId = 0;
-      lastSegId = 0;
+      firstSegId = minSegmentId;
+      lastSegId = minSegmentId;
       bool foundFirst = false;
-      for (unsigned i = 0; i < strip.getSegmentsNum(); i++) {
+      for (int i = minSegmentId; i < maxSegmentId; i++) {
         if (!strip.getSegment(i).isActive()) continue;
         if (!foundFirst) {
           firstSegId = i;
           foundFirst = true;
         }
         lastSegId = i;
+      }
+    }
+
+    // Restore full opacity on sentinel ends after sentinel control stops.
+    void restoreSentinelOpacity() {
+      byte firstSegId, lastSegId;
+      getSentinelSegmentIds(firstSegId, lastSegId);
+      Segment &firstSeg = strip.getSegment(firstSegId);
+      if (firstSeg.isActive()) firstSeg.setOpacity(255);
+      if (lastSegId != firstSegId) {
+        Segment &lastSeg = strip.getSegment(lastSegId);
+        if (lastSeg.isActive()) lastSeg.setOpacity(255);
       }
     }
 
@@ -143,7 +155,7 @@ class Animated_Staircase : public Usermod {
 
         if (inSwipe) {
           seg.setOption(SEG_OPTION_ON, true);
-          if (isSentinel) seg.setOpacity(255);
+          if (enabledSentinel && isSentinel) seg.setOpacity(255);
         } else if (enabledSentinel && isSentinel) {
           seg.setOption(SEG_OPTION_ON, true);
           seg.setOpacity(sentinelDimOpacity);
@@ -345,7 +357,7 @@ class Animated_Staircase : public Usermod {
         transitionDelay = segment_delay_ms;
         strip.setTransition(segment_delay_ms);
         strip.trigger();
-      } else {
+      } else if (enabled) {
         if (togglePower && !on && offMode) toggleOnOff(); // toggle power on if off
         // Restore segment options
         for (int i = 0; i <= strip.getLastActiveSegmentId(); i++) {
@@ -353,16 +365,7 @@ class Animated_Staircase : public Usermod {
           if (!seg.isActive()) continue; // skip vector gaps
           seg.setOption(SEG_OPTION_ON, true);
         }
-        if (strip.getSegmentsNum() > 0) {
-          byte firstSegId, lastSegId;
-          getSentinelSegmentIds(firstSegId, lastSegId);
-          Segment &firstSeg = strip.getSegment(firstSegId);
-          if (firstSeg.isActive()) firstSeg.setOpacity(255);
-          if (lastSegId != firstSegId) {
-            Segment &lastSeg = strip.getSegment(lastSegId);
-            if (lastSeg.isActive()) lastSeg.setOpacity(255);
-          }
-        }
+        if (enabledSentinel) restoreSentinelOpacity();
         strip.trigger();     // force strip update
         stateChanged = true; // inform external devices/UI of change
         colorUpdated(CALL_MODE_DIRECT_CHANGE);
@@ -392,9 +395,10 @@ class Animated_Staircase : public Usermod {
         topEchoPin = -1;
         bottomPIRorTriggerPin = -1;
         bottomEchoPin = -1;
-        enabled = false;
+        enable(false);
+      } else {
+        enable(enabled);
       }
-      enable(enabled);
       initDone = true;
     }
 
@@ -592,6 +596,7 @@ class Animated_Staircase : public Usermod {
           PinManager::deallocatePin(oldBottomBPin, PinOwner::UM_AnimatedStaircase);
         }
         if (changed) setup();
+        if (oldEnabledSentinel && !enabledSentinel && enabled) restoreSentinelOpacity();
         if (changedSentinel && enabled) updateSegments();
       }
       // use "return !top["newestParameter"].isNull();" when updating Usermod with new features
