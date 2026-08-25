@@ -1821,19 +1821,28 @@ void WS2812FX::showFrozenSegs() {
   const bool is2D = (Segment::maxHeight > 1);
   const uint16_t mw = Segment::maxWidth;
 
+  // row-stride aware paint: flat segPixStart+i is wrong when seg.width() < maxWidth
+  const auto paintSeg = [&](const Segment &seg, unsigned maxLen) {
+    const unsigned w = seg.stop  - seg.start;
+    const unsigned h = seg.stopY - seg.startY;
+    unsigned i = 0;
+    for (unsigned r = 0; r < h && i < maxLen; r++) {
+      const unsigned rowStart = is2D ? (unsigned)(seg.startY + r) * mw + seg.start : seg.start;
+      for (unsigned x = 0; x < w && i < maxLen; x++, i++) {
+        uint32_t c = seg.pixels[i];
+        if (c && useGamma) c = gamma32(c);
+        BusManager::setPixelColor(getMappedPixelIndex(rowStart + x), c);
+      }
+    }
+  };
+
   if (__builtin_popcount(rtFrozenSegs) == 1) {
     // Case B: single frozen segment -- walk seg.pixels[] directly
     unsigned segIdx = __builtin_ctz(rtFrozenSegs);
     if (segIdx < _segments.size()) {
       const Segment &seg = _segments[segIdx];
       if (seg.isActive() && seg.pixels) {
-        uint16_t segPixStart = is2D ? (uint16_t)seg.startY * mw + seg.start : seg.start;
-        unsigned segLen = seg.length();
-        for (unsigned i = 0; i < segLen; i++) {
-          uint32_t c = seg.pixels[i];
-          if (c && useGamma) c = gamma32(c);
-          BusManager::setPixelColor(getMappedPixelIndex(segPixStart + i), c);
-        }
+        paintSeg(seg, seg.length());
       }
     }
   } else {
@@ -1844,13 +1853,7 @@ void WS2812FX::showFrozenSegs() {
       if (slot.segId >= _segments.size()) continue;
       const Segment &seg = _segments[slot.segId];
       if (!seg.isActive() || !seg.pixels) continue;
-      uint16_t segPixStart = is2D ? (uint16_t)seg.startY * mw + seg.start : seg.start;
-      unsigned len = min((unsigned)slot.length, (unsigned)seg.length());
-      for (unsigned i = 0; i < len; i++) {
-        uint32_t c = seg.pixels[i];
-        if (c && useGamma) c = gamma32(c);
-        BusManager::setPixelColor(getMappedPixelIndex(segPixStart + i), c);
-      }
+      paintSeg(seg, min((unsigned)slot.length, (unsigned)seg.length()));
     }
   }
 
