@@ -81,22 +81,15 @@ static void handleDDPPacket(e131_packet_t* p, size_t packetLen) {
   }
 
   if (realtimeMode != REALTIME_MODE_DDP) ddpSeenPush = false; // just starting, no push yet
-  // Freeze eligible segments BEFORE realtimeLock() so rtFrozenSegs is set
+  // Hoist routing decision before freeze+lock so rtFrozenSegs is set
   // when realtimeLock() checks whether to do legacy strip.fill(BLACK)
-  {
-    uint8_t dest = p->destination;
-    if (ddpSlotCount > 0 && dest == 0) {
-      freezeEligibleSegs();
-    }
-  }
+  const bool useSlotRouting = (ddpSlotCount > 0 && p->destination == 0);
+  if (useSlotRouting) freezeEligibleSegs();
   realtimeLock(realtimeTimeoutMs, REALTIME_MODE_DDP);
 
   if (!realtimeOverride) {
-    uint8_t dest = p->destination;
-
-    if (ddpSlotCount > 0 && dest == 0) {
+    if (useSlotRouting) {
       // Mode B: distribute flat stream across eligible segments via slot table
-      freezeEligibleSegs();
       for (uint8_t s = 0; s < ddpSlotCount; s++) {
         DdpSegSlot &slot = ddpSlots[s];
         if (start >= slot.globalStart + slot.length) continue;
