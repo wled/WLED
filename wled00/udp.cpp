@@ -462,7 +462,7 @@ void realtimeLock(uint32_t timeoutMs, byte md)
   realtimeMode = md;
 
   if (realtimeOverride) return;
-  if (arlsForceMaxBri) strip.setBrightness(255, true);
+  if (arlsForceMaxBri) strip.setBrightness(255, true); // global -- affects non-frozen effect segments in Mode B
   if (briT > 0 && md == REALTIME_MODE_GENERIC) strip.show();
 }
 
