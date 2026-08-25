@@ -1270,9 +1270,11 @@ bool handleSet(AsyncWebServerRequest *request, const String& req, bool apply)
   if (pos > 0) {
     realtimeOverride = getNumVal(req, pos);
     if (realtimeOverride > 2) realtimeOverride = REALTIME_OVERRIDE_ALWAYS;
-    if (realtimeMode && ddpEligibleMask) {
-      strip.getMainSegment().freeze = !realtimeOverride;
-      realtimeOverride = REALTIME_OVERRIDE_NONE;  // ignore request for override if eligible segments are frozen
+    if (realtimeMode && rtFrozenSegs) {
+      for (unsigned i = 0; i < strip.getSegmentsNum() && i < 32; i++) {
+        if (rtFrozenSegs & (1UL << i)) strip.getSegment(i).freeze = !realtimeOverride;
+      }
+      realtimeOverride = REALTIME_OVERRIDE_NONE;  // ignore request for override if frozen segments active
     }
   }
 
