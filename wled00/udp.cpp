@@ -408,11 +408,15 @@ static void parseNotifyPacket(const uint8_t *udpIn) {
 void realtimeLock(uint32_t timeoutMs, byte md)
 {
   if (!realtimeMode && !realtimeOverride) {
-    if (useMainSegmentOnly) {
-      Segment& mainseg = strip.getMainSegment();
-      mainseg.clear(); // clear entire segment (in case sender transmits less pixels)
-      mainseg.freeze = true;
-      // if WLED was off and using main segment only, freeze non-main segments so they stay off
+    if (strip.getLiveSegs()) {
+      for (size_t s = 0; s < strip.getSegmentsNum(); s++) {
+        if (!strip.isLiveSeg(s)) continue;
+        Segment &seg = strip.getSegment(s);
+        if (!seg.isActive()) continue;
+        seg.clear(); // clear pixel buffer (sender may transmit fewer pixels)
+        seg.freeze = true; // freeze: skip effect, retain realtime-written pixels
+      }
+      // if WLED was off, freeze non-live segments so they stay off
       if (bri == 0) {
         for (size_t s = 0; s < strip.getSegmentsNum(); s++) strip.getSegment(s).freeze = true;
       }
@@ -443,8 +447,11 @@ void exitRealtime() {
   realtimeTimeout = 0; // cancel realtime mode immediately
   realtimeMode = REALTIME_MODE_INACTIVE; // inform UI immediately
   realtimeIP[0] = 0;
-  if (useMainSegmentOnly) { // unfreeze live segment again
-    strip.getMainSegment().freeze = false;
+  if (strip.getLiveSegs()) { // unfreeze live segment again
+    for (size_t s = 0; s < strip.getSegmentsNum(); s++) {
+      if (strip.isLiveSeg(s) && strip.getSegment(s).freeze)
+        strip.getSegment(s).freeze = false;
+    }
     strip.trigger();
   } else {
     strip.show(); // possible fix for #3589
@@ -475,8 +482,8 @@ void handleNotifications()
   if (e131NewData && millis() - strip.getLastShow() > 15)
   {
     e131NewData = false;
-    if (useMainSegmentOnly) strip.trigger();
-    else                    strip.show();
+    if (strip.getLiveSegs()) strip.trigger();
+    else                     strip.show();
   }
 
   //unlock strip when realtime UDP times out
@@ -508,8 +515,8 @@ void handleNotifications()
       for (size_t i = 0, id = 0; i < packetSize -2 && id < totalLen; i += 3, id++) {
         setRealtimePixel(id, lbuf[i], lbuf[i+1], lbuf[i+2], 0);
       }
-      if (useMainSegmentOnly) strip.trigger();
-      else                    strip.show();
+      if (strip.getLiveSegs()) strip.trigger();
+      else                     strip.show();
       return;
     }
   }
@@ -592,8 +599,8 @@ void handleNotifications()
       }
       if (tpmPacketCount == numPackets) { //reset packet count and show if all packets were received
         tpmPacketCount = 0;
-        if (useMainSegmentOnly) strip.trigger();
-        else                    strip.show();
+        if (strip.getLiveSegs()) strip.trigger();
+        else                     strip.show();
       }
       return;
     }
@@ -637,8 +644,8 @@ void handleNotifications()
           setRealtimePixel(id, udpIn[i], udpIn[i+1], udpIn[i+2], udpIn[i+3]);
         }
       }
-      if (useMainSegmentOnly) strip.trigger();
-      else                    strip.show();
+      if (strip.getLiveSegs()) strip.trigger();
+      else                     strip.show();
       return;
     }
   }
@@ -665,7 +672,7 @@ void handleNotifications()
 
 void setRealtimePixel(uint16_t i, byte r, byte g, byte b, byte w)
 {
-  unsigned pix = i + arlsOffset;
+  unsigned pix = (realtimeMode == REALTIME_MODE_DDP && strip.getLiveSegs()) ? i : i + arlsOffset;
   strip.setRealtimePixelColor(pix, RGBW32(r,g,b,w));
 }
 

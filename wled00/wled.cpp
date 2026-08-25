@@ -128,7 +128,7 @@ void WLED::loop()
   #ifdef WLED_DEBUG
   stripMillis = millis();
   #endif
-  if (!realtimeMode || realtimeOverride || (realtimeMode && useMainSegmentOnly))  // block stuff if WARLS/Adalight is enabled
+  if (!realtimeMode || realtimeOverride || (realtimeMode && strip.getLiveSegs()))  // block stuff if WARLS/Adalight is enabled
   {
     if (apActive) dnsServer.processNextRequest();
     #ifdef WLED_ENABLE_AOTA

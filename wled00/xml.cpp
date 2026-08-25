@@ -503,7 +503,7 @@ void getSettingsJS(byte subPage, Print& settingsScript)
     printSetFormCheckbox(settingsScript,PSTR("NB"),nodeBroadcastEnabled);
 
     printSetFormCheckbox(settingsScript,PSTR("RD"),receiveDirect);
-    printSetFormCheckbox(settingsScript,PSTR("MO"),useMainSegmentOnly);
+    printSetFormCheckbox(settingsScript,PSTR("MO"),strip.useMainSegmentOnly());
     printSetFormCheckbox(settingsScript,PSTR("RLM"),realtimeRespectLedMaps);
     printSetFormValue(settingsScript,PSTR("EP"),e131Port);
     printSetFormCheckbox(settingsScript,PSTR("ES"),e131SkipOutOfSequence);

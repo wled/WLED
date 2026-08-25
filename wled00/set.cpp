@@ -472,7 +472,8 @@ void handleSettingsSet(AsyncWebServerRequest *request, byte subPage)
     nodeBroadcastEnabled = request->hasArg(F("NB"));
 
     receiveDirect = request->hasArg(F("RD")); // UDP realtime
-    useMainSegmentOnly = request->hasArg(F("MO"));
+    unsigned id = strip.getMainSegmentId();
+    strip.setLiveSegs(request->hasArg(F("MO")) && id < 32 ? (1U << id) : 0);
     realtimeRespectLedMaps = request->hasArg(F("RLM"));
     e131SkipOutOfSequence = request->hasArg(F("ES"));
     e131Multicast = request->hasArg(F("EM"));
@@ -1265,9 +1266,12 @@ bool handleSet(AsyncWebServerRequest *request, const String& req, bool apply)
   if (pos > 0) {
     realtimeOverride = getNumVal(req, pos);
     if (realtimeOverride > 2) realtimeOverride = REALTIME_OVERRIDE_ALWAYS;
-    if (realtimeMode && useMainSegmentOnly) {
-      strip.getMainSegment().freeze = !realtimeOverride;
-      realtimeOverride = REALTIME_OVERRIDE_NONE;  // ignore request for override if using main segment only
+    if (realtimeMode && strip.getLiveSegs()) {
+      for (size_t s = 0; s < strip.getSegmentsNum(); s++) {
+        if (strip.isLiveSeg(s))
+          strip.getSegment(s).freeze = !realtimeOverride;
+      }
+      realtimeOverride = REALTIME_OVERRIDE_NONE;  // ignore request for override if using live segments
     }
   }
 

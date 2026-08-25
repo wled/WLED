@@ -597,7 +597,13 @@ bool deserializeConfig(JsonObject doc, bool fromFS) {
 
   JsonObject if_live = interfaces["live"];
   CJSON(receiveDirect, if_live["en"]);  // UDP/Hyperion realtime
-  CJSON(useMainSegmentOnly, if_live[F("mso")]);
+  // migrate mso (bool) -> seg (bitmask): new key takes precedence
+  if (!if_live[F("seg")].isNull()) {
+    strip.setLiveSegs(if_live[F("seg")].as<uint32_t>());
+  } else if (!if_live[F("mso")].isNull()) {
+    unsigned id = strip.getMainSegmentId();
+    strip.setLiveSegs((if_live[F("mso")] | false) && id < 32 ? (1U << id) : 0);
+  }
   CJSON(realtimeRespectLedMaps, if_live[F("rlm")]);
   CJSON(e131Port, if_live["port"]); // 5568
   if (e131Port == DDP_DEFAULT_PORT) e131Port = E131_DEFAULT_PORT; // prevent double DDP port allocation
@@ -1135,7 +1141,8 @@ void serializeConfig(JsonObject root) {
 
   JsonObject if_live = interfaces.createNestedObject("live");
   if_live["en"] = receiveDirect; // UDP/Hyperion realtime
-  if_live[F("mso")] = useMainSegmentOnly;
+  if_live[F("mso")] = strip.useMainSegmentOnly(); // downgrade compat: older firmware ignores "seg", reads "mso"
+  if_live[F("seg")] = strip.getLiveSegs();
   if_live[F("rlm")] = realtimeRespectLedMaps;
   if_live["port"] = e131Port;
   if_live[F("mc")] = e131Multicast;

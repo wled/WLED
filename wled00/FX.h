@@ -846,6 +846,7 @@ class WS2812FX {
       _isOffRefreshRequired(false),
       _hasWhiteChannel(false),
       _triggered(false),
+      _liveSegs(0),
       _segment_index(0),
       _mainSegment(0),
       _modeCount(MODE_COUNT),
@@ -923,6 +924,12 @@ class WS2812FX {
     inline bool isOffRefreshRequired() const { return _isOffRefreshRequired; }  // returns true if strip requires regular updates (i.e. TM1814 chipset)
     inline bool isSuspended() const          { return _suspend; }               // returns true if strip.service() execution is suspended
     inline bool needsUpdate() const          { return _triggered; }             // returns true if strip received a trigger() request
+
+    // live segment routing (replaces useMainSegmentOnly global)
+    inline uint32_t getLiveSegs() const                    { return _liveSegs; }
+    inline void     setLiveSegs(uint32_t mask)             { _liveSegs = mask; }
+    inline bool     isLiveSeg(unsigned idx) const          { return idx < 32 && (_liveSegs & (1U << idx)); }
+    inline bool     useMainSegmentOnly() const             { return _liveSegs != 0; }  // backwards compat for usermods
 
     // uint8_t paletteBlend;  // obsolete - use global paletteBlend instead of strip.paletteBlend
     uint8_t getActiveSegmentsNum() const;
@@ -1033,6 +1040,8 @@ class WS2812FX {
       bool _hasWhiteChannel      : 1;
       bool _triggered            : 1;
     };
+
+    uint32_t _liveSegs;             // bitmask of segments receiving live/realtime data; replaces useMainSegmentOnly
 
     uint8_t _segment_index;
     uint8_t _mainSegment;

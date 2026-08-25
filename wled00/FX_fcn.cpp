@@ -1745,7 +1745,7 @@ void WS2812FX::show() {
     _pixelCCT = static_cast<uint8_t*>(allocate_buffer(totalLen * sizeof(uint8_t), BFRALLOC_PREFER_PSRAM)); // allocate CCT buffer if necessary, prefer PSRAM
   if (_pixelCCT) memset(_pixelCCT, 127, totalLen); // set neutral (50:50) CCT
 
-  if (realtimeMode == REALTIME_MODE_INACTIVE || useMainSegmentOnly || realtimeOverride > REALTIME_OVERRIDE_NONE) {
+  if (realtimeMode == REALTIME_MODE_INACTIVE || getLiveSegs() || realtimeOverride > REALTIME_OVERRIDE_NONE) {
     // clear frame buffer
     memset(_pixels, 0, sizeof(uint32_t) * totalLen);
     // blend all segments into (cleared) buffer
@@ -1795,12 +1795,22 @@ void WS2812FX::show() {
 }
 
 void WS2812FX::setRealtimePixelColor(unsigned i, uint32_t c) {
-  if (useMainSegmentOnly) {
-    const Segment &seg = getMainSegment();
-    if (seg.isActive() && i < seg.length()) seg.setPixelColorRaw(i, c);
-  } else {
-    setPixelColor(i, c);
+  if (realtimeMode == REALTIME_MODE_DDP && _liveSegs) { // DDP: route into live segments; other protocols use strip-absolute index
+    unsigned offset = 0;
+    for (unsigned s = 0; s < _segments.size(); s++) {
+      if (!isLiveSeg(s)) continue; // skip non-live segments
+      const Segment &seg = _segments[s];
+      unsigned len = seg.length();
+      if (i < offset + len) {
+        seg.setPixelColorRaw(i - offset, c);
+        return;
+      }
+      offset += len;
+    }
+    return; // i beyond total live pixels -- ignore
   }
+  // legacy path: WARLS, E1.31, Art-Net, Adalight -- strip-absolute index
+  setPixelColor(i, c);
 }
 
 // reset all segments
