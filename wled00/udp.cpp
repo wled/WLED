@@ -443,8 +443,8 @@ void realtimeLock(uint32_t timeoutMs, byte md)
       freezeEligibleSegs();
       // if WLED is off, freeze non-eligible segments too so they stay dark
       if (bri == 0) {
-        for (size_t s = 0; s < strip.getSegmentsNum(); s++) {
-          if (!(rtFrozenSegs & (1UL << s))) { strip.getSegment(s).freeze = true; if (s < 32) rtFrozenSegs |= (1UL << s); }
+        for (size_t s = 0; s < strip.getSegmentsNum() && s < 32; s++) {
+          if (!(rtFrozenSegs & (1UL << s))) freezeSegForRealtime(s); // clear + freeze + track
         }
       }
     } else {
