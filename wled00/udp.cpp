@@ -475,7 +475,7 @@ void exitRealtime() {
   realtimeIP[0] = 0;
   if (rtFrozenSegs) { // unfreeze live segment(s) again
     for (size_t s = 0; s < strip.getSegmentsNum(); s++) {
-      strip.getSegment(s).freeze = false;
+      if (rtFrozenSegs & (1UL << s)) strip.getSegment(s).freeze = false;
     }
     rtFrozenSegs = 0;
     strip.trigger();
