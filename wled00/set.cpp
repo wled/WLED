@@ -472,7 +472,12 @@ void handleSettingsSet(AsyncWebServerRequest *request, byte subPage)
     nodeBroadcastEnabled = request->hasArg(F("NB"));
 
     receiveDirect = request->hasArg(F("RD")); // UDP realtime
-    ddpEligibleMask = request->hasArg(F("MO")) ? (1UL << strip.getMainSegmentId()) : 0; rebuildDdpSlots();
+    if (request->hasArg(F("MO"))) {
+      if (!ddpEligibleMask) ddpEligibleMask = (1UL << strip.getMainSegmentId());
+    } else {
+      ddpEligibleMask &= ~(1UL << strip.getMainSegmentId());
+    }
+    rebuildDdpSlots();
     realtimeRespectLedMaps = request->hasArg(F("RLM"));
     e131SkipOutOfSequence = request->hasArg(F("ES"));
     e131Multicast = request->hasArg(F("EM"));
