@@ -130,6 +130,32 @@ class Animated_Staircase : public Usermod {
       }
     }
 
+    // First active segment .. last active+1 — not main segment (may be mid-strip).
+    void refreshManagedSegmentRange() {
+      minSegmentId = 0;
+      maxSegmentId = 0;
+      bool foundFirst = false;
+      for (unsigned i = 0; i < strip.getSegmentsNum(); i++) {
+        if (!strip.getSegment(i).isActive()) continue;
+        if (!foundFirst) {
+          minSegmentId = i;
+          foundFirst = true;
+        }
+        maxSegmentId = i + 1;
+      }
+      if (!foundFirst) {
+        minSegmentId = 0;
+        maxSegmentId = 1;
+      }
+    }
+
+    // Collapsed swipe cursor (stairs logically off), ready for next ON swipe.
+    void resetSwipeIndices() {
+      onIndex = minSegmentId;
+      offIndex = minSegmentId;
+      on = false;
+    }
+
     // Restore full opacity on sentinel ends after sentinel control stops.
     void restoreSentinelOpacity() {
       byte firstSegId, lastSegId;
@@ -140,6 +166,18 @@ class Animated_Staircase : public Usermod {
         Segment &lastSeg = strip.getSegment(lastSegId);
         if (lastSeg.isActive()) lastSeg.setOpacity(255);
       }
+    }
+
+    void restoreManagedSegmentState() {
+      for (int i = 0; i <= strip.getLastActiveSegmentId(); i++) {
+        Segment &seg = strip.getSegment(i);
+        if (!seg.isActive()) continue; // skip vector gaps
+        seg.setOption(SEG_OPTION_ON, true);
+      }
+      if (enabledSentinel) restoreSentinelOpacity();
+      strip.trigger();
+      stateChanged = true;
+      colorUpdated(CALL_MODE_DIRECT_CHANGE);
     }
 
     void updateSegments() {
@@ -262,17 +300,19 @@ class Animated_Staircase : public Usermod {
             DEBUG_PRINT(F("ON -> Swipe "));
             DEBUG_PRINTLN(swipe ? F("up.") : F("down."));
 
-            if (onIndex == offIndex) {
-              // Position the indices for a correct on-swipe
-              if (swipe == SWIPE_UP) {
-                onIndex = minSegmentId;
-              } else {
-                onIndex = maxSegmentId;
-              }
-              offIndex = onIndex;
+            // Always seed start positions so a prior full-range enable/init
+            // cannot turn every step on in one update.
+            if (swipe == SWIPE_UP) {
+              onIndex = minSegmentId;
+            } else {
+              onIndex = maxSegmentId;
             }
+            offIndex = onIndex;
             on = true;
           }
+        } else if (bottomSensorState || topSensorState) {
+          // Keep on-time anchored to last activity while a sensor stays high
+          lastSwitchTime = millis();
         }
       }
       return sensorChanged;
@@ -350,25 +390,16 @@ class Animated_Staircase : public Usermod {
           pinMode(topPIRorTriggerPin, OUTPUT);
           pinMode(topEchoPin, INPUT);
         }
-        onIndex  = minSegmentId = strip.getMainSegmentId(); // it may not be the best idea to start with main segment as it may not be the first one
-        offIndex = maxSegmentId = strip.getLastActiveSegmentId() + 1;
+        refreshManagedSegmentRange();
+        resetSwipeIndices();
 
         // shorten the strip transition time to be equal or shorter than segment delay
         transitionDelay = segment_delay_ms;
         strip.setTransition(segment_delay_ms);
-        strip.trigger();
+        updateSegments(); // apply off + optional sentinel state immediately
       } else if (enabled) {
         if (togglePower && !on && offMode) toggleOnOff(); // toggle power on if off
-        // Restore segment options
-        for (int i = 0; i <= strip.getLastActiveSegmentId(); i++) {
-          Segment &seg = strip.getSegment(i);
-          if (!seg.isActive()) continue; // skip vector gaps
-          seg.setOption(SEG_OPTION_ON, true);
-        }
-        if (enabledSentinel) restoreSentinelOpacity();
-        strip.trigger();     // force strip update
-        stateChanged = true; // inform external devices/UI of change
-        colorUpdated(CALL_MODE_DIRECT_CHANGE);
+        restoreManagedSegmentState();
         DEBUG_PRINTLN(F("Animated Staircase disabled."));
       }
       enabled = enable;
@@ -395,7 +426,8 @@ class Animated_Staircase : public Usermod {
         topEchoPin = -1;
         bottomPIRorTriggerPin = -1;
         bottomEchoPin = -1;
-        enable(false);
+        if (enabled) restoreManagedSegmentState();
+        enabled = false;
       } else {
         enable(enabled);
       }
@@ -406,8 +438,7 @@ class Animated_Staircase : public Usermod {
       // on long/active strips isUpdating() may stay true; still run at least every activeUpdateIntervalMs
       if (!enabled || (strip.isUpdating() && (millis() - lastLoopRun < activeUpdateIntervalMs))) return;
       lastLoopRun = millis();
-      minSegmentId = strip.getMainSegmentId();  // it may not be the best idea to start with main segment as it may not be the first one
-      maxSegmentId = strip.getLastActiveSegmentId() + 1;
+      refreshManagedSegmentRange();
       checkSensors();
       if (on) autoPowerOff();
       updateSwipe();
@@ -572,7 +603,7 @@ class Animated_Staircase : public Usermod {
 
       enabledSentinel = top[FPSTR(_enabledSentinel)] | enabledSentinel;
       sentinelDimOpacity = top[FPSTR(_sentinelDimOpacity)] | sentinelDimOpacity;
-      sentinelDimOpacity = min(255, max(0, (int)sentinelDimOpacity));
+      sentinelDimOpacity = min(255u, sentinelDimOpacity);
       changedSentinel = (oldEnabledSentinel != enabledSentinel) || (oldSentinelDimOpacity != sentinelDimOpacity);
 
       DEBUG_PRINT(FPSTR(_name));
@@ -596,7 +627,7 @@ class Animated_Staircase : public Usermod {
           PinManager::deallocatePin(oldBottomBPin, PinOwner::UM_AnimatedStaircase);
         }
         if (changed) setup();
-        if (oldEnabledSentinel && !enabledSentinel && enabled) restoreSentinelOpacity();
+        if (oldEnabledSentinel && !enabledSentinel) restoreSentinelOpacity();
         if (changedSentinel && enabled) updateSegments();
       }
       // use "return !top["newestParameter"].isNull();" when updating Usermod with new features
