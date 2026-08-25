@@ -597,7 +597,13 @@ bool deserializeConfig(JsonObject doc, bool fromFS) {
 
   JsonObject if_live = interfaces["live"];
   CJSON(receiveDirect, if_live["en"]);  // UDP/Hyperion realtime
-  CJSON(useMainSegmentOnly, if_live[F("mso")]);
+  {
+    bool mso = false;
+    CJSON(mso, if_live[F("mso")]);
+    if (mso) ddpEligibleMask = (1UL << strip.getMainSegmentId()); // backwards compat
+  }
+  CJSON(ddpEligibleMask, if_live[F("ddpelig")]);
+  rebuildDdpSlots();
   CJSON(realtimeRespectLedMaps, if_live[F("rlm")]);
   CJSON(e131Port, if_live["port"]); // 5568
   if (e131Port == DDP_DEFAULT_PORT) e131Port = E131_DEFAULT_PORT; // prevent double DDP port allocation
@@ -1135,7 +1141,8 @@ void serializeConfig(JsonObject root) {
 
   JsonObject if_live = interfaces.createNestedObject("live");
   if_live["en"] = receiveDirect; // UDP/Hyperion realtime
-  if_live[F("mso")] = useMainSegmentOnly;
+  if_live[F("mso")] = (ddpEligibleMask != 0); // backwards compat
+  if_live[F("ddpelig")] = ddpEligibleMask;
   if_live[F("rlm")] = realtimeRespectLedMaps;
   if_live["port"] = e131Port;
   if_live[F("mc")] = e131Multicast;

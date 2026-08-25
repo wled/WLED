@@ -632,10 +632,14 @@ Segment &Segment::setName(const char *newName) {
   if (newName) {
     const int newLen = min(strlen(newName), (size_t)WLED_MAX_SEGNAME_LEN);
     if (newLen) {
-      if (name) p_free(name); // free old name
-      name = static_cast<char*>(allocate_buffer(newLen+1, BFRALLOC_PREFER_PSRAM));
-      if (mode == FX_MODE_2DSCROLLTEXT) startTransition(strip.getTransition(), true); // if the name changes in scrolling text mode, we need to copy the segment for blending
-      if (name) strlcpy(name, newName, newLen+1);
+      char *newBuf = static_cast<char*>(allocate_buffer(newLen+1, BFRALLOC_PREFER_PSRAM));
+      if (newBuf) {
+        strlcpy(newBuf, newName, newLen+1);
+        if (mode == FX_MODE_2DSCROLLTEXT) startTransition(strip.getTransition(), true); // if the name changes in scrolling text mode, we need to copy the segment for blending
+        char *oldName = name;
+        name = newBuf;
+        if (oldName) p_free(oldName);
+      }
       return *this;
     }
   }
@@ -1359,7 +1363,7 @@ void WS2812FX::service() {
   #ifdef WLED_DEBUG
   if ((_targetFps != FPS_UNLIMITED) && (millis() - nowUp > _frametime)) DEBUG_PRINTF_P(PSTR("Slow effects %u/%d.\n"), (unsigned)(millis()-nowUp), (int)_frametime);
   #endif
-  if (doShow && !_suspend) {
+  if (doShow && !_suspend && !rtFrozenSegs) {
     yield();
     Segment::handleRandomPalette(); // slowly transition random palette; move it into for loop when each segment has individual random palette
     _lastServiceShow = nowUp; // update timestamp, for precise FPS control
@@ -1741,7 +1745,7 @@ void WS2812FX::show() {
     _pixelCCT = static_cast<uint8_t*>(allocate_buffer(totalLen * sizeof(uint8_t), BFRALLOC_PREFER_PSRAM)); // allocate CCT buffer if necessary, prefer PSRAM
   if (_pixelCCT) memset(_pixelCCT, 127, totalLen); // set neutral (50:50) CCT
 
-  if (realtimeMode == REALTIME_MODE_INACTIVE || useMainSegmentOnly || realtimeOverride > REALTIME_OVERRIDE_NONE) {
+  if (realtimeMode == REALTIME_MODE_INACTIVE || rtFrozenSegs || realtimeOverride > REALTIME_OVERRIDE_NONE) {
     // clear frame buffer
     memset(_pixels, 0, sizeof(uint32_t) * totalLen);
     // blend all segments into (cleared) buffer
@@ -1790,8 +1794,80 @@ void WS2812FX::show() {
   }
 }
 
+// Fast-path show for DDP realtime: walks frozen segment pixel buffers directly into
+// BusManager::setPixelColor(), bypassing the full _pixels[] pipeline.
+// Cases: B=single frozen seg, C=multi-slot sparse paint via ddpSlots[], D=effects running.
+void WS2812FX::showFrozenSegs() {
+  if (!_pixels || !rtFrozenSegs) { show(); return; }
+
+  uint32_t allActiveMask = 0;
+  for (unsigned i = 0; i < _segments.size(); i++)
+    if (_segments[i].isActive()) allActiveMask |= (1u << i);
+
+  // Case D: effect segments running -- service() calls show(); calling it here too
+  // would double-show per iteration, hanging TFT SPI DMA.
+  for (unsigned i = 0; i < _segments.size(); i++) {
+    if (!(allActiveMask & (1u << i))) continue;
+    if (rtFrozenSegs & (1u << i)) continue;
+    if (_segments[i].on && !_segments[i].freeze) { show(); return; }
+  }
+
+  // Cases B and C: only frozen segments are active -- fast path
+  unsigned long showNow = millis();
+  size_t diff = showNow - _lastShow;
+
+  bool useGamma = gammaCorrectCol && !(realtimeMode && arlsDisableGammaCorrection && !realtimeOverride);
+
+  const bool is2D = (Segment::maxHeight > 1);
+  const uint16_t mw = Segment::maxWidth;
+
+  if (__builtin_popcount(rtFrozenSegs) == 1) {
+    // Case B: single frozen segment -- walk seg.pixels[] directly
+    unsigned segIdx = __builtin_ctz(rtFrozenSegs);
+    if (segIdx < _segments.size()) {
+      const Segment &seg = _segments[segIdx];
+      if (seg.isActive() && seg.pixels) {
+        uint16_t segPixStart = is2D ? (uint16_t)seg.startY * mw + seg.start : seg.start;
+        unsigned segLen = seg.length();
+        for (unsigned i = 0; i < segLen; i++) {
+          uint32_t c = seg.pixels[i];
+          if (c && useGamma) c = gamma32(c);
+          BusManager::setPixelColor(getMappedPixelIndex(segPixStart + i), c);
+        }
+      }
+    }
+  } else {
+    // Case C: multiple frozen segments -- sparse paint via ddpSlots[]
+    for (uint8_t s = 0; s < ddpSlotCount; s++) {
+      const DdpSegSlot &slot = ddpSlots[s];
+      if (!(rtFrozenSegs & (1u << slot.segId))) continue;
+      if (slot.segId >= _segments.size()) continue;
+      const Segment &seg = _segments[slot.segId];
+      if (!seg.isActive() || !seg.pixels) continue;
+      uint16_t segPixStart = is2D ? (uint16_t)seg.startY * mw + seg.start : seg.start;
+      unsigned len = min((unsigned)slot.length, (unsigned)seg.length());
+      for (unsigned i = 0; i < len; i++) {
+        uint32_t c = seg.pixels[i];
+        if (c && useGamma) c = gamma32(c);
+        BusManager::setPixelColor(getMappedPixelIndex(segPixStart + i), c);
+      }
+    }
+  }
+
+  // _pixels[] zeroed -- fast path writes bus buffers directly, not _pixels[].
+  if (_pixels) memset(_pixels, 0, sizeof(uint32_t) * getLengthTotal());
+
+  BusManager::show();
+
+  if (diff > 0) {
+    size_t fpsCurr = (1000 << FPS_CALC_SHIFT) / diff;
+    _cumulativeFps = (FPS_CALC_AVG * _cumulativeFps + fpsCurr + FPS_CALC_AVG / 2) / (FPS_CALC_AVG + 1);
+    _lastShow = showNow;
+  }
+}
+
 void WS2812FX::setRealtimePixelColor(unsigned i, uint32_t c) {
-  if (useMainSegmentOnly) {
+  if (rtFrozenSegs) {
     const Segment &seg = getMainSegment();
     if (seg.isActive() && i < seg.length()) seg.setPixelColorRaw(i, c);
   } else {

@@ -81,11 +81,41 @@ static void handleDDPPacket(e131_packet_t* p, size_t packetLen) {
   }
 
   if (realtimeMode != REALTIME_MODE_DDP) ddpSeenPush = false; // just starting, no push yet
+  // Freeze eligible segments BEFORE realtimeLock() so rtFrozenSegs is set
+  // when realtimeLock() checks whether to do legacy strip.fill(BLACK)
+  {
+    uint8_t dest = p->destination;
+    if (ddpSlotCount > 0 && dest == 0) {
+      freezeEligibleSegs();
+    }
+  }
   realtimeLock(realtimeTimeoutMs, REALTIME_MODE_DDP);
 
   if (!realtimeOverride) {
-    for (unsigned i = start; i < stop; i++, c += ddpChannelsPerLed) {
-      setRealtimePixel(i, data[c], data[c+1], data[c+2], ddpChannelsPerLed >3 ? data[c+3] : 0);
+    uint8_t dest = p->destination;
+
+    if (ddpSlotCount > 0 && dest == 0) {
+      // Mode B: distribute flat stream across eligible segments via slot table
+      freezeEligibleSegs();
+      for (uint8_t s = 0; s < ddpSlotCount; s++) {
+        DdpSegSlot &slot = ddpSlots[s];
+        if (start >= slot.globalStart + slot.length) continue;
+        if (stop <= slot.globalStart) break;
+        unsigned oStart = (start > slot.globalStart) ? start : slot.globalStart;
+        unsigned oEnd = (stop < (unsigned)(slot.globalStart + slot.length)) ? stop : (slot.globalStart + slot.length);
+        Segment &seg = strip.getSegment(slot.segId);
+        unsigned di = c + (oStart - start) * ddpChannelsPerLed;
+        for (unsigned g = oStart; g < oEnd; g++, di += ddpChannelsPerLed) {
+          unsigned local = g - slot.globalStart;
+          uint32_t col = RGBW32(data[di], data[di+1], data[di+2], ddpChannelsPerLed > 3 ? data[di+3] : 0);
+          seg.setRawPixelColor(local, col);
+        }
+      }
+    } else {
+      // Legacy: full-strip absolute pixel indexing (backwards compatible)
+      for (unsigned i = start; i < stop; i++, c += ddpChannelsPerLed) {
+        setRealtimePixel(i, data[c], data[c+1], data[c+2], ddpChannelsPerLed > 3 ? data[c+3] : 0);
+      }
     }
   }
 

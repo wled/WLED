@@ -1579,8 +1579,8 @@ class AudioReactive : public Usermod {
       if (strip.isUpdating() && (millis() - lastUMRun < 2)) return;   // be nice, but not too nice
 
       // suspend local sound processing when "real time mode" is active (E131, UDP, ADALIGHT, ARTNET, DDP, DMX)
-      //  exception: sound input is still needed when useMainSegmentOnly - other segments are still running with local input.
-      if (realtimeMode && !realtimeOverride && !useMainSegmentOnly) {
+      //  exception: sound input is still needed when only some segments are frozen - other segments are still running with local input.
+      if (realtimeMode && !realtimeOverride && !rtFrozenSegs) {
         #if defined(ARDUINO_ARCH_ESP32) && defined(WLED_DEBUG)
         if ((disableSoundProcessing == false) && (audioSyncEnabled == 0)) {  // we just switched to "disabled"
           DEBUG_PRINTLN(F("[AR userLoop]  realtime mode active - audio processing suspended."));

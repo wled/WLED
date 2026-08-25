@@ -128,7 +128,7 @@ void WLED::loop()
   #ifdef WLED_DEBUG
   stripMillis = millis();
   #endif
-  if (!realtimeMode || realtimeOverride || (realtimeMode && useMainSegmentOnly))  // block stuff if WARLS/Adalight is enabled
+  if (!realtimeMode || realtimeOverride || (realtimeMode && rtFrozenSegs))  // block stuff if WARLS/Adalight is enabled
   {
     if (apActive) dnsServer.processNextRequest();
     #ifdef WLED_ENABLE_AOTA
@@ -149,13 +149,27 @@ void WLED::loop()
     handlePresets();
     yield();
 
-    if (!offMode || strip.isOffRefreshRequired() || strip.needsUpdate())
+    // Skip strip.service() when all active segments are DDP-frozen:
+    // showFrozenSegs() in handleNotifications() drives the show at full speed.
+    bool allSegsFrozenByDDP = false;
+    if (realtimeMode && rtFrozenSegs) {
+      uint32_t activeMask = 0;
+      for (unsigned _i = 0; _i < strip.getSegmentsNum(); _i++) {
+        const Segment &_seg = strip.getSegment(_i);
+      if (_seg.isActive() && _seg.on) activeMask |= (1u << _i);
+      }
+      allSegsFrozenByDDP = activeMask && ((rtFrozenSegs & activeMask) == activeMask);
+    }
+    if (!allSegsFrozenByDDP && (!offMode || strip.isOffRefreshRequired() || strip.needsUpdate()))
       strip.service();
     #ifdef ESP8266
-    else if (!noWifiSleep)
+    else if (!noWifiSleep && !allSegsFrozenByDDP)
       delay(1); //required to make sure ESP enters modem sleep (see #1184)
     #endif
   }
+  // Safety net: exit realtime if timeout expired (backup for handleNotifications check)
+  if (realtimeMode && millis() > realtimeTimeout) exitRealtime();
+
   #ifdef WLED_DEBUG
   stripMillis = millis() - stripMillis;
   avgStripMillis += stripMillis;
@@ -539,6 +553,7 @@ void WLED::setup()
 
   DEBUG_PRINTLN(F("Initializing strip"));
   beginStrip();
+  rebuildDdpSlots(); // refresh after strip init in case segment count changed
   DEBUG_PRINTF_P(PSTR("heap %u\n"), getFreeHeapSize());
 
   DEBUG_PRINTLN(F("Usermods setup"));

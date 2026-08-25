@@ -725,7 +725,23 @@ WLED_GLOBAL IPAddress realtimeIP _INIT_N(((0, 0, 0, 0)));
 WLED_GLOBAL unsigned long realtimeTimeout _INIT(0);
 WLED_GLOBAL uint8_t tpmPacketCount _INIT(0);
 WLED_GLOBAL uint16_t tpmPayloadFrameSize _INIT(0);
-WLED_GLOBAL bool useMainSegmentOnly _INIT(false);
+// DDP per-segment targeting (replaces useMainSegmentOnly)
+WLED_GLOBAL uint32_t ddpEligibleMask _INIT(0);                           // bitmask of segments accepting concatenated DDP
+WLED_GLOBAL uint32_t rtFrozenSegs    _INIT(0);                           // which segments are currently frozen by realtime
+
+struct DdpSegSlot {
+  uint8_t  segId;        // segment index
+  uint16_t globalStart;  // cumulative pixel offset in flat DDP stream
+  uint16_t length;       // seg.length() at build time
+};
+WLED_GLOBAL DdpSegSlot ddpSlots[32];                                     // pre-computed offset table
+WLED_GLOBAL uint8_t    ddpSlotCount _INIT(0);                            // valid entries in ddpSlots[]
+WLED_GLOBAL uint16_t   ddpTotalEligible _INIT(0);                        // sum of eligible segment lengths
+
+void rebuildDdpSlots();                                                  // rebuild offset table from ddpEligibleMask
+void freezeSegForRealtime(uint8_t segId);                                // freeze one segment for realtime
+void freezeEligibleSegs();                                               // freeze all eligible segments
+
 WLED_GLOBAL bool realtimeRespectLedMaps _INIT(true);                     // Respect LED maps when receiving realtime data
 
 WLED_GLOBAL unsigned long lastInterfaceUpdate _INIT(0);

@@ -404,21 +404,51 @@ static void parseNotifyPacket(const uint8_t *udpIn) {
   stateUpdated(CALL_MODE_NOTIFICATION);
 }
 
+void rebuildDdpSlots() {
+  ddpSlotCount = 0;
+  ddpTotalEligible = 0;
+  for (uint8_t i = 0; i < strip.getSegmentsNum() && i < 32; i++) {
+    if (!(ddpEligibleMask & (1UL << i))) continue;
+    Segment &seg = strip.getSegment(i);
+    if (seg.stop <= seg.start) continue; // skip degenerate/unset segments
+    DdpSegSlot &slot = ddpSlots[ddpSlotCount++];
+    slot.segId = i;
+    slot.globalStart = ddpTotalEligible;
+    slot.length = seg.length();
+    ddpTotalEligible += slot.length;
+  }
+}
+
+void freezeSegForRealtime(uint8_t segId) {
+  if (segId >= strip.getSegmentsNum()) return;
+  if (rtFrozenSegs & (1UL << segId)) return; // already frozen
+  Segment &seg = strip.getSegment(segId);
+  if (!seg.isActive()) return;
+  seg.clear();
+  seg.freeze = true;
+  rtFrozenSegs |= (1UL << segId);
+}
+
+void freezeEligibleSegs() {
+  for (uint8_t s = 0; s < ddpSlotCount; s++)
+    freezeSegForRealtime(ddpSlots[s].segId);
+}
+
 // realtimeLock() is called from UDP notifications, JSON API or serial Ada
 void realtimeLock(uint32_t timeoutMs, byte md)
 {
   if (!realtimeMode && !realtimeOverride) {
-    if (useMainSegmentOnly) {
-      Segment& mainseg = strip.getMainSegment();
-      mainseg.clear(); // clear entire segment (in case sender transmits less pixels)
-      mainseg.freeze = true;
-      // if WLED was off and using main segment only, freeze non-main segments so they stay off
+    if (ddpSlotCount > 0) {
+      // per-segment mode: freeze eligible segments immediately
+      freezeEligibleSegs();
+      // if WLED is off, freeze non-eligible segments too so they stay dark
       if (bri == 0) {
-        for (size_t s = 0; s < strip.getSegmentsNum(); s++) strip.getSegment(s).freeze = true;
+        for (size_t s = 0; s < strip.getSegmentsNum(); s++) {
+          if (!(rtFrozenSegs & (1UL << s))) strip.getSegment(s).freeze = true;
+        }
       }
     } else {
-      // clear entire strip
-      strip.fill(BLACK);
+      strip.fill(BLACK); // clear entire strip
     }
     // if strip is off (bri==0) and not already in RTM
     if (briT == 0) {
@@ -443,8 +473,11 @@ void exitRealtime() {
   realtimeTimeout = 0; // cancel realtime mode immediately
   realtimeMode = REALTIME_MODE_INACTIVE; // inform UI immediately
   realtimeIP[0] = 0;
-  if (useMainSegmentOnly) { // unfreeze live segment again
-    strip.getMainSegment().freeze = false;
+  if (rtFrozenSegs) { // unfreeze live segment(s) again
+    for (size_t s = 0; s < strip.getSegmentsNum(); s++) {
+      strip.getSegment(s).freeze = false;
+    }
+    rtFrozenSegs = 0;
     strip.trigger();
   } else {
     strip.show(); // possible fix for #3589
@@ -475,7 +508,7 @@ void handleNotifications()
   if (e131NewData && millis() - strip.getLastShow() > 15)
   {
     e131NewData = false;
-    if (useMainSegmentOnly) strip.trigger();
+    if (rtFrozenSegs) strip.showFrozenSegs();
     else                    strip.show();
   }
 
@@ -508,7 +541,7 @@ void handleNotifications()
       for (size_t i = 0, id = 0; i < packetSize -2 && id < totalLen; i += 3, id++) {
         setRealtimePixel(id, lbuf[i], lbuf[i+1], lbuf[i+2], 0);
       }
-      if (useMainSegmentOnly) strip.trigger();
+      if (rtFrozenSegs) strip.showFrozenSegs();
       else                    strip.show();
       return;
     }
@@ -592,7 +625,7 @@ void handleNotifications()
       }
       if (tpmPacketCount == numPackets) { //reset packet count and show if all packets were received
         tpmPacketCount = 0;
-        if (useMainSegmentOnly) strip.trigger();
+        if (rtFrozenSegs) strip.showFrozenSegs();
         else                    strip.show();
       }
       return;
@@ -637,7 +670,7 @@ void handleNotifications()
           setRealtimePixel(id, udpIn[i], udpIn[i+1], udpIn[i+2], udpIn[i+3]);
         }
       }
-      if (useMainSegmentOnly) strip.trigger();
+      if (rtFrozenSegs) strip.showFrozenSegs();
       else                    strip.show();
       return;
     }

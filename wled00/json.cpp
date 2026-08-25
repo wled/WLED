@@ -390,8 +390,10 @@ bool deserializeState(JsonObject root, byte callMode, byte presetId)
     for (size_t s=0; s < strip.getSegmentsNum(); s++) {
       strip.getSegment(s).freeze = false;
     }
-    if (realtimeMode && !realtimeOverride && useMainSegmentOnly) { // keep live segment frozen if live
-      strip.getMainSegment().freeze = true;
+    if (realtimeMode && !realtimeOverride && rtFrozenSegs) { // keep frozen segments frozen if live
+      for (uint8_t i = 0; i < strip.getSegmentsNum() && i < 32; i++) {
+        if (rtFrozenSegs & (1UL << i)) strip.getSegment(i).freeze = true;
+      }
     }
   }
 
@@ -443,9 +445,11 @@ bool deserializeState(JsonObject root, byte callMode, byte presetId)
 
   realtimeOverride = root[F("lor")] | realtimeOverride;
   if (realtimeOverride > 2) realtimeOverride = REALTIME_OVERRIDE_ALWAYS;
-  if (realtimeMode && useMainSegmentOnly) {
-    strip.getMainSegment().freeze = !realtimeOverride;
-    realtimeOverride = REALTIME_OVERRIDE_NONE;  // ignore request for override if using main segment only
+  if (realtimeMode && rtFrozenSegs) {
+    for (uint8_t i = 0; i < strip.getSegmentsNum() && i < 32; i++) {
+      if (rtFrozenSegs & (1UL << i)) strip.getSegment(i).freeze = !realtimeOverride;
+    }
+    realtimeOverride = REALTIME_OVERRIDE_NONE;  // ignore request for override if frozen segments active
   }
 
   if (root.containsKey("live")) {
@@ -487,6 +491,7 @@ bool deserializeState(JsonObject root, byte callMode, byte presetId)
       if (strip.getSegmentsNum() > 3 && deleted >= strip.getSegmentsNum()/2U) strip.purgeSegments(); // batch deleting more than half segments
     }
     strip.resume();
+    rebuildDdpSlots(); // segment geometry changed; update Mode B offset table
   }
   // reset segment request
   if (root[F("rSeg")] | false) {
@@ -769,7 +774,7 @@ void serializeInfo(JsonObject root)
   root[F("udpport")] = udpPort;
   root[F("simplifiedui")] = simplifiedUI;
   root["live"] = (bool)realtimeMode;
-  root[F("liveseg")] = useMainSegmentOnly ? strip.getMainSegmentId() : -1;  // if using main segment only for live
+  root[F("liveseg")] = rtFrozenSegs ? (int)__builtin_ctz(rtFrozenSegs) : -1;  // first frozen segment, or -1 if none
 
   switch (realtimeMode) {
     case REALTIME_MODE_INACTIVE: root["lm"] = ""; break;
@@ -785,6 +790,9 @@ void serializeInfo(JsonObject root)
   }
 
   root[F("lip")] = realtimeIP[0] == 0 ? "" : realtimeIP.toString();
+  root[F("ddpelig")] = ddpEligibleMask;
+  root[F("ddpslots")] = ddpSlotCount;
+  root[F("frozensegs")] = rtFrozenSegs;
 
   #ifdef WLED_ENABLE_WEBSOCKETS
   root[F("ws")] = ws.count();

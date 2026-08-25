@@ -890,6 +890,7 @@ class WS2812FX {
       fixInvalidSegments(),                       // fixes incorrect segment configuration
       blendSegment(const Segment &topSegment) const,    // blends topSegment into pixels
       show(),                                     // initiates LED output
+      showFrozenSegs(),                           // fast-path show for DDP realtime: bypasses full _pixels[] pipeline when rtFrozenSegs is set
       setTargetFps(unsigned fps),
       setupEffectData(),                          // add default effects to the list; defined in FX.cpp
       waitForIt();                                // wait until frame is over (service() has finished or time for 1 frame has passed)
