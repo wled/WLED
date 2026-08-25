@@ -92,6 +92,7 @@ static void handleDDPPacket(e131_packet_t* p, size_t packetLen) {
       // Mode B: distribute flat stream across eligible segments via slot table
       for (uint8_t s = 0; s < ddpSlotCount; s++) {
         DdpSegSlot &slot = ddpSlots[s];
+        if (slot.segId >= strip.getSegmentsNum()) continue; // stale slot after segment removal
         if (start >= slot.globalStart + slot.length) continue;
         if (stop <= slot.globalStart) break;
         unsigned oStart = (start > slot.globalStart) ? start : slot.globalStart;
