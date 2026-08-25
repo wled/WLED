@@ -1871,8 +1871,21 @@ void WS2812FX::showFrozenSegs() {
 
 void WS2812FX::setRealtimePixelColor(unsigned i, uint32_t c) {
   if (rtFrozenSegs) {
-    const Segment &seg = getMainSegment();
-    if (seg.isActive() && i < seg.length()) seg.setPixelColorRaw(i, c);
+    if (ddpSlotCount > 0) {
+      // route through slot table so non-main eligible segments get pixels
+      for (uint8_t s = 0; s < ddpSlotCount; s++) {
+        const DdpSegSlot &slot = ddpSlots[s];
+        if (i < slot.globalStart + slot.length) {
+          Segment &seg = getSegment(slot.segId);
+          if (seg.isActive()) seg.setPixelColorRaw(i - slot.globalStart, c);
+          return;
+        }
+      }
+    } else {
+      // legacy: no slot table, write to main segment
+      const Segment &seg = getMainSegment();
+      if (seg.isActive() && i < seg.length()) seg.setPixelColorRaw(i, c);
+    }
   } else {
     setPixelColor(i, c);
   }
