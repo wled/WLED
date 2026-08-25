@@ -32,6 +32,7 @@ class Animated_Staircase : public Usermod {
 
     /* runtime variables */
     bool initDone = false;
+    bool managedStateApplied = false; // true after enable(true) applied staircase segment state
 
     // Time between checking of the sensors
     const unsigned int scanDelay = 100;
@@ -156,6 +157,21 @@ class Animated_Staircase : public Usermod {
       on = false;
     }
 
+    // Apply the first ON-swipe step and refresh segments immediately.
+    void beginOnSwipe() {
+      if (swipe == SWIPE_UP) {
+        onIndex = minSegmentId;
+        offIndex = minSegmentId + 1;
+        if (offIndex > maxSegmentId) offIndex = maxSegmentId;
+      } else {
+        onIndex = (maxSegmentId > minSegmentId) ? maxSegmentId - 1 : minSegmentId;
+        offIndex = maxSegmentId;
+      }
+      on = true;
+      lastTime = millis();
+      updateSegments();
+    }
+
     // Restore full opacity on sentinel ends after sentinel control stops.
     void restoreSentinelOpacity() {
       byte firstSegId, lastSegId;
@@ -178,6 +194,7 @@ class Animated_Staircase : public Usermod {
       strip.trigger();
       stateChanged = true;
       colorUpdated(CALL_MODE_DIRECT_CHANGE);
+      managedStateApplied = false;
     }
 
     void updateSegments() {
@@ -300,15 +317,14 @@ class Animated_Staircase : public Usermod {
             DEBUG_PRINT(F("ON -> Swipe "));
             DEBUG_PRINTLN(swipe ? F("up.") : F("down."));
 
-            // Always seed start positions so a prior full-range enable/init
-            // cannot turn every step on in one update.
-            if (swipe == SWIPE_UP) {
-              onIndex = minSegmentId;
+            if (onIndex == offIndex) {
+              // Fully off: seed start and turn first step on immediately
+              beginOnSwipe();
             } else {
-              onIndex = maxSegmentId;
+              // Mid off-swipe: keep current lit range, reverse to ON again
+              on = true;
+              lastTime = millis() - segment_delay_ms;
             }
-            offIndex = onIndex;
-            on = true;
           }
         } else if (bottomSensorState || topSensorState) {
           // Keep on-time anchored to last activity while a sensor stays high
@@ -326,6 +342,7 @@ class Animated_Staircase : public Usermod {
         // Swipe OFF in the direction of the last sensor detection
         swipe = !lastSensor;
         on = false;
+        lastTime = millis() - segment_delay_ms; // allow first OFF step on next updateSwipe()
 
         DEBUG_PRINT(F("OFF -> Swipe "));
         DEBUG_PRINTLN(swipe ? F("up.") : F("down."));
@@ -397,9 +414,11 @@ class Animated_Staircase : public Usermod {
         transitionDelay = segment_delay_ms;
         strip.setTransition(segment_delay_ms);
         updateSegments(); // apply off + optional sentinel state immediately
+        managedStateApplied = true;
       } else if (enabled) {
         if (togglePower && !on && offMode) toggleOnOff(); // toggle power on if off
-        restoreManagedSegmentState();
+        if (managedStateApplied) restoreManagedSegmentState();
+        resetSwipeIndices();
         DEBUG_PRINTLN(F("Animated Staircase disabled."));
       }
       enabled = enable;
@@ -426,7 +445,7 @@ class Animated_Staircase : public Usermod {
         topEchoPin = -1;
         bottomPIRorTriggerPin = -1;
         bottomEchoPin = -1;
-        if (enabled) restoreManagedSegmentState();
+        if (managedStateApplied) restoreManagedSegmentState();
         enabled = false;
       } else {
         enable(enabled);
