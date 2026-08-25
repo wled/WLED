@@ -1801,12 +1801,12 @@ void WS2812FX::showFrozenSegs() {
   if (!_pixels || !rtFrozenSegs) { show(); return; }
 
   uint32_t allActiveMask = 0;
-  for (unsigned i = 0; i < _segments.size(); i++)
+  for (unsigned i = 0; i < _segments.size() && i < 32; i++)
     if (_segments[i].isActive()) allActiveMask |= (1u << i);
 
   // Case D: effect segments running -- service() calls show(); calling it here too
   // would double-show per iteration, hanging TFT SPI DMA.
-  for (unsigned i = 0; i < _segments.size(); i++) {
+  for (unsigned i = 0; i < _segments.size() && i < 32; i++) {
     if (!(allActiveMask & (1u << i))) continue;
     if (rtFrozenSegs & (1u << i)) continue;
     if (_segments[i].on && !_segments[i].freeze) { show(); return; }

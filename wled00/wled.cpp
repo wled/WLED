@@ -154,9 +154,9 @@ void WLED::loop()
     bool allSegsFrozenByDDP = false;
     if (realtimeMode && rtFrozenSegs) {
       uint32_t activeMask = 0;
-      for (unsigned _i = 0; _i < strip.getSegmentsNum(); _i++) {
+      for (unsigned _i = 0; _i < strip.getSegmentsNum() && _i < 32; _i++) {
         const Segment &_seg = strip.getSegment(_i);
-      if (_seg.isActive() && _seg.on) activeMask |= (1u << _i);
+        if (_seg.isActive() && _seg.on) activeMask |= (1u << _i);
       }
       allSegsFrozenByDDP = activeMask && ((rtFrozenSegs & activeMask) == activeMask);
     }
