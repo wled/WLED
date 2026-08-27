@@ -43,12 +43,13 @@ void toggleOnOff()
 {
   if (bri == 0)
   {
+    briOld = 0; // in case a transition is active, this ensures we can detect a "zero crossing" in stateUpdated() to handle the transition reversal correctly
     bri = briLast;
     strip.restartRuntime();
   } else
   {
     briLast = bri;
-    bri = 0;
+    bri = 0; // note:  no need to set briOld here, stateUpdated() will handle it correctly
   }
   stateChanged = true;
 }
@@ -67,7 +68,7 @@ byte scaledBri(byte in)
 void applyBri() {
   if (realtimeOverride || !(realtimeMode && arlsForceMaxBri))
   {
-    //DEBUG_PRINTF_P(PSTR("Applying strip brightness: %d (%d,%d)\n"), (int)briT, (int)bri, (int)briOld);
+    DEBUG_PRINTF_P(PSTR("Applying strip brightness: %d (%d,%d)\n"), (int)briT, (int)bri, (int)briOld);
     strip.setBrightness(briT);
   }
 }
@@ -80,7 +81,6 @@ void applyFinalBri() {
   applyBri();
   strip.trigger(); // force one last update
 }
-
 
 //called after every state changes, schedules interface updates, handles brightness transition and nightlight activation
 //unlike colorUpdated(), does NOT apply any colors or FX to segments
@@ -122,17 +122,32 @@ void stateUpdated(byte callMode) {
   // notify usermods of state change
   UsermodManager::onStateChange(callMode);
 
-  if (strip.getTransition() == 0) {
+  // global brightness transition handling
+  DEBUG_PRINTF_P(PSTR("*****************state update: briT: %d bri: %d briOld: %d\n"), (int)briT, (int)bri, (int)briOld);
+
+  if (strip.getTransitionDur() == 0) {
     jsonTransitionOnce = false;
     transitionActive = false;
+    Serial.println("strip.getTransitionDur() == 0");
     applyFinalBri();
   } else {
+    // check if this is global on or off (bri crosses 0) and if so, force all segments to transition mode if not using FADE (starts a spatial segment transition like swipe etc.)
+    bool isOnOffTransition = (bri == 0 || (bri > 0 && briOld == 0)) && blendingStyle != TRANSITION_FADE;
+    if ((bri == 0 || (bri > 0 && briOld == 0)) && blendingStyle != TRANSITION_FADE) {
+      strip.setTransitionMode(true, bri > 0); // force all segments to transition mode, also handles transition inversion (on during off or off during on)
+    }
     if (transitionActive) {
-      briOld = briT;
-    } else if (bri != briOld || stateChanged)
-      strip.setTransitionMode(true); // force all segments to transition mode
-    transitionActive = true;
-    transitionStartTime = now;
+      // record current transition brightness
+      Serial.println("state: transition active, briT: " + String(briT) + " bri: " + String(bri) + " briOld: " + String(briOld));
+      briOld = briT; // update old value to current transition value
+      //transitionStartTime = now; // restart transition
+    }
+
+    // if brightness changed, start a new global transition. note: fading is omitted if segments started a spatial transition (i.e. on/off with non FADE transition), see handleTransitions()
+    if (bri != briOld) {
+      transitionActive = true;
+      transitionStartTime = now;
+    }
   }
   stateChanged = false;
 }
@@ -163,11 +178,13 @@ void handleTransitions() {
   //handle still pending interface update
   updateInterfaces(interfaceUpdateCallMode);
 
-  if (transitionActive && strip.getTransition() > 0) {
+  if (transitionActive && strip.getTransitionDur() > 0) {
     int ti = millis() - transitionStartTime;
-    int tr = strip.getTransition();
+    int tr = strip.getTransitionDur();
+    // finalize once the transition time has elapsed
     if (ti/tr) {
-      strip.setTransitionMode(false); // stop all transitions
+      //if (bri == 0)
+        strip.setTransitionMode(false); // stop all transitions  TODO: this stops any transition after a global brightness transition, this is only needed for off transition!!!
       // restore (global) transition time if not called from UDP notifier or single/temporary transition from JSON (also playlist)
       if (jsonTransitionOnce) strip.setTransition(transitionDelay);
       transitionActive = false;
@@ -178,10 +195,10 @@ void handleTransitions() {
     byte briTO = briT;
     if ((bri == 0 || briOld == 0) && blendingStyle != TRANSITION_FADE) {
       // On/Off change with non-FADE transition: segment transitions render the transition, do not fade global brightness in parallel
-      briT = (bri == 0) ? briOld : bri;
+      briT = (bri == 0) ? briOld : bri; // TODO: this will snap brightness if a fade is going on. should this be omitted?
     } else {
       int deltaBri = (int)bri - (int)briOld;
-      briT = briOld + (deltaBri * ti / tr);
+      briT = briOld + (deltaBri * min(ti, tr) / tr); // clamp: the ramp must not overshoot to avoid glitches (interrupted transitions or global on/off)
     }
     if (briTO != briT) applyBri();
   }
@@ -236,7 +253,7 @@ void handleNightlight() {
       {
         for (unsigned i=0; i<4; i++) colPri[i] = colNlT[i]+ ((colSec[i] - colNlT[i])*nper);   // fading from actual color to secondary color
       }
-      uint16_t transitionduration = strip.getTransition();
+      uint16_t transitionduration = strip.getTransitionDur();
       strip.setTransition(0); // temporary disable transition and set color & brightness directly, (hacky fix for #5620)
       colorUpdated(CALL_MODE_NO_NOTIFY);
       strip.setTransition(transitionduration); // restore transition time to previous value. Note: this needs proper fixing by disabling transitions completely in nightlight mode, reference implementation https://github.com/blazoncek/WLED/commit/c01a6b774969b652c30e383073958302042fd1f9
