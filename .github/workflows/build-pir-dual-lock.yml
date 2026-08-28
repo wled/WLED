@@ -1,0 +1,70 @@
+name: Build WLED 0.16.0.1 - GLEDOPTO PIR Dual Lock
+
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - 'usermods/PIR_Dual_Lock/**'
+      - 'platformio_override.ini'
+      - '.github/workflows/build-pir-dual-lock.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    name: Compile ESP32 firmware
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout WLED source
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version-file: '.nvmrc'
+          cache: 'npm'
+
+      - name: Install Node dependencies
+        run: npm ci
+
+      - name: Build WLED web interface
+        run: npm run build
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+          cache: 'pip'
+
+      - name: Install PlatformIO
+        run: pip install -r requirements.txt
+
+      - name: Cache PlatformIO
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.platformio/.cache
+            ~/.buildcache
+          key: pio-${{ runner.os }}-esp32dev-pir-${{ hashFiles('platformio.ini', 'platformio_override.ini', 'usermods/PIR_Dual_Lock/**') }}
+          restore-keys: |
+            pio-${{ runner.os }}-esp32dev-pir-
+
+      - name: Compile firmware
+        run: pio run -e esp32dev_pir
+
+      - name: Show generated firmware
+        run: |
+          echo 'Generated firmware files:'
+          find build_output -maxdepth 3 -type f -name '*.bin' -print
+
+      - name: Upload firmware artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: WLED-0.16.0.1-GLEDOPTO-PIR-Dual-Lock-ESP32
+          path: |
+            build_output/firmware/esp32dev_pir.bin
+            build_output/release/*.bin
+          if-no-files-found: error
+          retention-days: 30
