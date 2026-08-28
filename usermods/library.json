@@ -1,0 +1,27 @@
+{
+  "name": "PIR_Dual_Lock",
+  "version": "2.1.0",
+  "description": "PIR stair automation with independent 3-stage presets, GPIO, lock times and automatic Wipe/Sweep speed",
+  "keywords": [
+    "wled",
+    "pir",
+    "sensor",
+    "stairs",
+    "esp32"
+  ],
+  "authors": [
+    {
+      "name": "OpenAI"
+    }
+  ],
+  "license": "MIT",
+  "frameworks": [
+    "arduino"
+  ],
+  "platforms": [
+    "espressif32"
+  ],
+  "build": {
+    "libArchive": false
+  }
+}
