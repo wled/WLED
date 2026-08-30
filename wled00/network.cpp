@@ -430,10 +430,13 @@ static u8_t blockRouterAdvertisements(void* arg, struct raw_pcb* pcb, struct pbu
   return 0; // not consumed, pass it on
 }
 
+#if ESP_IDF_VERSION_MAJOR < 5
+// Don't compile the function if it's not used
 void installIPv6RABlocker() {
   struct raw_pcb* ra_blocker = raw_new_ip_type(IPADDR_TYPE_V6, IP6_NEXTH_ICMP6);
   raw_recv(ra_blocker, blockRouterAdvertisements, NULL);
 }
+#endif
 #endif
 
 //handle Ethernet connection event

@@ -320,7 +320,12 @@ void fillMAC2Str(char *str, const uint8_t *mac);
 void fillStr2MAC(uint8_t *mac, const char *str);
 int  findWiFi(bool doScan = false);
 bool isWiFiConfigured();
+#if defined(ARDUINO_ARCH_ESP32) && defined(LWIP_IPV6)
+#if ESP_IDF_VERSION_MAJOR < 5
+// Don't compile the function if it's not used
 void installIPv6RABlocker();
+#endif
+#endif
 void WiFiEvent(WiFiEvent_t event);
 
 //um_manager.cpp
