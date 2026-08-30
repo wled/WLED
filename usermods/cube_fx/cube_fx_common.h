@@ -83,7 +83,7 @@
  * Cube detection is automatic (square, divisible by 3); the "Flat mode"
  * checkbox forces the plane if you ever run a square flat panel.
  *
- * Drop next to user_fx_custom.cpp in the same usermod folder - one
+ * Drop next to cube_fx.cpp in the same usermod folder - one
  * library.json covers every .cpp in the directory. The few static helpers are
  * duplicated from that file on purpose: keeping this separate means the nine
  * working effects don't get rewritten every time we iterate on cube geometry.
@@ -91,7 +91,7 @@
  */
 
 // ---------------------------------------------------------------------------
-// shared helpers (static: private to this file, may duplicate user_fx_custom)
+// shared helpers (static: private to this file, may duplicate cube_fx.cpp)
 // ---------------------------------------------------------------------------
 static um_data_t *cfx_getAudioData() {
   um_data_t *um_data;
@@ -104,7 +104,7 @@ static um_data_t *cfx_getAudioData() {
 static inline void cfx_bands(const uint8_t *fft, int &bass, int &mid, int &treb) {
   bass = (fft[0] + fft[1] + fft[2]) / 3;
   mid  = (fft[5] + fft[6] + fft[7] + fft[8]) / 4;
-  treb = (fft[11] + fft[12] + fft[14] + fft[15]) / 4;
+  treb = (fft[12] + fft[13] + fft[14] + fft[15]) / 4;
 }
 
 static inline uint8_t cfx_drive(float vol, float gain, int floorV) {

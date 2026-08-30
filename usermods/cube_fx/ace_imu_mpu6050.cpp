@@ -8,7 +8,7 @@
 // ace_imu_mpu6050.cpp - our own MPU6050 driver, tunable from the web UI
 // ===========================================================================
 // Replaces the stock `mpu6050_imu` usermod entirely. Drop this file next to
-// the effects in usermods/user_fx_custom/ and it self-registers like they do -
+// the effects in usermods/cube_fx/ and it self-registers like they do -
 // no library.json edit, no custom_usermods entry beyond the one you already
 // have, and no patch to any WLED file.
 //
@@ -325,6 +325,7 @@ class AceImuUsermod : public Usermod {
     const int sel[3] = {axisX, axisY, axisZ};
     int col[3];
     mapOk = true;
+    mirrored = false;
     for (int i = 0; i < 3; i++) {
       int a = sel[i] < 0 ? -sel[i] : sel[i];
       if (a < 1 || a > 3) { mapOk = false; return; }
@@ -336,6 +337,10 @@ class AceImuUsermod : public Usermod {
     int det = (inv & 1) ? -1 : 1;
     for (int i = 0; i < 3; i++) if (sel[i] < 0) det = -det;
     mirrored = (det < 0);
+    // A determinant of -1 is a reflection, which no physical mounting can
+    // produce - refuse it rather than silently feeding effects a mirrored
+    // rotation. `mirrored` stays set so Info can still say why.
+    if (mirrored) mapOk = false;
   }
 
   static inline void remap(const int *sel, const float *s, float *out) {
@@ -591,8 +596,8 @@ class AceImuUsermod : public Usermod {
     if (user.isNull()) user = root.createNestedObject("u");
 
     JsonArray st = user.createNestedArray(FPSTR(_name));
-    if (mapOk && mirrored && present) st.add(F("axis map mirrored"));
-    else                              st.add(statusMsg);
+    if (mirrored && present) st.add(F("axis map mirrored"));
+    else                     st.add(statusMsg);
     if (!mapOk) st.add(F(" - bad axis map")); else st.add("");
 
     if (!present || !enabled) return;
@@ -677,6 +682,17 @@ class AceImuUsermod : public Usermod {
     ok &= getJsonValue(top[FPSTR(_enabled)], enabled, true);
     ok &= getJsonValue(top["sda"],     sda,     21);
     ok &= getJsonValue(top["scl"],     scl,     13);
+
+    // Config is JSON, not just the settings-page dropdown, so a value outside
+    // -1..39 has to be caught here - aimuAllocPin() and Wire.begin() narrow it
+    // to (byte)/int differently, and letting a garbage pin number reach either
+    // one is how you allocate or address a pin nobody meant to touch.
+    if ((sda != -1 && (sda < 0 || sda > 39)) || (scl != -1 && (scl < 0 || scl > 39))) {
+      sda = prevSda; scl = prevScl;
+      busOk = false;
+      statusMsg = "invalid I2C pin";
+      ok = false;
+    }
     ok &= getJsonValue(top["force"],   force,   false);
     ok &= getJsonValue(top["addr"],    addr,    0x68);
     ok &= getJsonValue(top["hz"],      hz,      100);

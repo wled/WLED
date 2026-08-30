@@ -1,5 +1,5 @@
 {
-  "name": "user_fx_custom",
+  "name": "cube_fx",
   "version": "1.0.0",
   "description": "Custom audio-reactive 2D+3D effects for WLED",
   "dependencies": {
