@@ -43,10 +43,10 @@
  * they work on a 16x16 as well as a large gap-mapped matrix.
  *
  * Build:
- *   usermods/user_fx_custom/user_fx_custom.cpp   (this file)
- *   usermods/user_fx_custom/library.json         {"name":"user_fx_custom",
- *                                                 "build":{"libArchive":false}}
- *   platformio_override.ini:  custom_usermods = audioreactive user_fx_custom
+ *   usermods/cube_fx/cube_fx.cpp   (this file)
+ *   usermods/cube_fx/library.json  {"name":"cube_fx",
+ *                                   "build":{"libArchive":false}}
+ *   platformio_override.ini:  custom_usermods = audioreactive cube_fx
  *
  * Effect functions are void in current WLED - WS2812FX::mode_ptr is
  * void (*)(). Older 0.14-era docs show uint16_t with a return FRAMETIME;
@@ -93,7 +93,7 @@ static inline uint8_t fx_tri8(uint8_t v) {
 static inline void fx_bands(const uint8_t *fft, int &bass, int &mid, int &treb) {
   bass = (fft[0] + fft[1] + fft[2]) / 3;
   mid  = (fft[5] + fft[6] + fft[7] + fft[8]) / 4;
-  treb = (fft[11] + fft[12] + fft[14] + fft[15]) / 4;
+  treb = (fft[12] + fft[13] + fft[14] + fft[15]) / 4;
 }
 
 // Volume -> brightness, with a floor so an effect never fully vanishes.

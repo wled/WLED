@@ -5,7 +5,7 @@ one small `.cpp` per effect plus one shared header, so you can work on a single
 effect without scrolling past 29 others, and adding a new effect never means
 editing a file that already has other people's (or your own past) work in it.
 
-`user_fx_custom.cpp` is untouched and unrelated — WLED's usermod build compiles
+`cube_fx.cpp` is untouched and unrelated — WLED's usermod build compiles
 every `.cpp` in the folder into one binary, so this split changes nothing about
 how the project builds.
 
@@ -33,7 +33,7 @@ Each `cube_fx_NN_name.cpp` is fully self-contained:
 
 That last part is what makes new effects drop in cleanly: WLED already supports
 any number of `Usermod`s registering themselves independently (this codebase
-already did that between `user_fx_custom.cpp` and the old `user_fx_cube.cpp`),
+already did that between `cube_fx.cpp` and the old `user_fx_cube.cpp`),
 so each effect file registers *itself*. There's no central "add your effect
 here" list to touch.
 

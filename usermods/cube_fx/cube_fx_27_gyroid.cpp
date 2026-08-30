@@ -67,16 +67,23 @@ static FX_RET mode_gyroid() {
     sT[512 + i] = sT[256 + i]; cT[512 + i] = cT[256 + i];   // Y and Z share phase
   }
 
-  // morph target: slider plus mids, latched on the beat like the Chladnis
+  // morph target: slider plus mids, latched on the beat like the Chladnis.
+  // The latch (raw tgt byte) and the smoothed morph live in separate parts of
+  // SEGENV.step - bits 0-7 vs bits 8-23 - so latching a new target on a beat
+  // never clobbers the smoothed value the tween below is easing toward.
   int tgt = (int)SEGMENT.custom2 + ((mid - 110) >> 1);
   if (tgt < 0) tgt = 0; else if (tgt > 255) tgt = 255;
-  if (SEGMENT.check1) { if (peak) SEGENV.step = (uint32_t)tgt; tgt = (int)SEGENV.step; }
+  if (SEGMENT.check1) {
+    if (peak) SEGENV.step = (SEGENV.step & 0xFFFFFF00u) | (uint32_t)tgt;
+    tgt = (int)(SEGENV.step & 0xFF);
+  }
   int morph = (int)((SEGENV.step >> 8) & 0xFFFF);           // smoothed value lives here
   { const int dif = tgt - morph;
     int mv = (dif * (int)fx_step(rate, dtG)) / 64;
     if (mv == 0 && dif != 0) mv = (dif > 0) ? 1 : -1;
     morph = morph + mv; }
-  SEGENV.step = (uint32_t)((SEGENV.step & 0xFF) | ((uint32_t)morph << 8));
+  if (morph < 0) morph = 0; else if (morph > 255) morph = 255;
+  SEGENV.step = (SEGENV.step & 0xFFu) | ((uint32_t)morph << 8);
 
   const uint32_t sharp = 6 + (SEGMENT.intensity >> 3);
   const uint8_t  glow  = (uint8_t)(((int)SEGMENT.custom3 * 255) / 31);

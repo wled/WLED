@@ -9,7 +9,7 @@
 // ===========================================================================
 // ace_ui_encoder.cpp - N rotary encoders, interrupt driven, gesture aware
 // ===========================================================================
-// Drop next to the effects in usermods/user_fx_custom/. Self-registers like
+// Drop next to the effects in usermods/cube_fx/. Self-registers like
 // they do. Remove `rotary_encoder_ui_ALT` from custom_usermods before building
 // or you will have two things fighting over the same knob.
 //
@@ -750,6 +750,21 @@ class AceUiEncoderUsermod : public Usermod {
       ok &= getJsonValue(top[AUI_K("btn")],  enc[i].swRole, AUI_SW_FULL);
       ok &= getJsonValue(top[AUI_K("bind")], enc[i].bind, AUI_P_BRI);
       #undef AUI_K
+
+      // Config is user/API editable JSON, not just settings-page dropdowns, so
+      // out-of-range values have to be caught here rather than trusted. Role,
+      // swRole and bind are array/switch selectors elsewhere (e.g. the ROLE[]
+      // lookup in addToJsonInfo) - out of range there is an OOB read, not a
+      // graceful no-op. Pin fields feed `v >> pin` against a 16-bit MCP read;
+      // a pin outside 0-15 is a shift-by-invalid-count, which is UB.
+      if (enc[i].src != AUI_SRC_GPIO && enc[i].src != AUI_SRC_MCP) enc[i].src = AUI_SRC_GPIO;
+      if (enc[i].role < AUI_ROLE_NAV || enc[i].role > AUI_ROLE_BOUND) enc[i].role = AUI_ROLE_NAV;
+      if (enc[i].swRole < AUI_SW_FULL || enc[i].swRole > AUI_SW_BACK) enc[i].swRole = AUI_SW_FULL;
+      if (enc[i].bind < 0 || enc[i].bind >= AUI_P_COUNT) enc[i].bind = AUI_P_BRI;
+      const int pinMax = (enc[i].src == AUI_SRC_MCP) ? 15 : 39;
+      if (enc[i].a  != -1 && (enc[i].a  < 0 || enc[i].a  > pinMax)) enc[i].a  = -1;
+      if (enc[i].b  != -1 && (enc[i].b  < 0 || enc[i].b  > pinMax)) enc[i].b  = -1;
+      if (enc[i].sw != -1 && (enc[i].sw < 0 || enc[i].sw > pinMax)) enc[i].sw = -1;
     }
 
     // A settings save, not the boot-time read: rewire live rather than making
