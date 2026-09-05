@@ -103,6 +103,14 @@ main                # Main development trunk (daily/nightly) 17.0.0-dev. Target 
 - Project headers first, then platform/Arduino, then third-party
 - Platform-conditional includes wrapped in `#ifdef ARDUINO_ARCH_ESP32` / `#ifdef ESP8266`
 
+### Debug Output
+
+- Use `DEBUG_PRINTF()` / `DEBUG_PRINTLN()` / `DEBUG_PRINT()` for developer diagnostics and debug output (compiled out unless -D WLED_DEBUG)
+- wled00/wled.h defines these macros. They compile to no output when debug output is disabled, keeping normal serial interfaces clean.
+- Do not use direct `Serial.print()`, `Serial.println()`, `Serial.printf()`, or `Serial.write()` calls unless there is a technical justification for not using DEBUG_... macros.
+
+See docs/cpp.instructions.md section Error Handling for more information.
+
 ### Types and Const
 - Prefer `const &` for read-only function parameters
 - Mark getter/query methods `const`; use `static` for methods not accessing instance state
@@ -114,7 +122,7 @@ main                # Main development trunk (daily/nightly) 17.0.0-dev. Target 
 - **No C++ exceptions** — some builds disable them
 - Use return codes (`false`, `-1`) and global flags (`errorFlag = ERR_LOW_MEM`)
 - Use early returns as guard clauses: `if (!enabled || (strip.isUpdating() && (millis() - last_time < MAX_USERMOD_DELAY))) return;`
-- Debug output: `DEBUG_PRINTF()` / `DEBUG_PRINTLN()` (compiled out unless `-D WLED_DEBUG`)
+- Debug output: `DEBUG_PRINTF()` / `DEBUG_PRINTLN()` (see previous section)
 
 ### Strings and Memory
 - Use `F("string")` for string constants (saves RAM on ESP8266)
@@ -242,6 +250,7 @@ If none of the above apply, the usermod may omit `getId()` (or return the defaul
 ### See Also
 * https://kno.wled.ge/advanced/custom-features/#usermods
 * https://kno.wled.ge/advanced/community-usermods/#index
+* generic instructions for Debug Output, as per previous section in this file.
 
 ## CI/CD
 
