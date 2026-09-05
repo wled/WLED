@@ -405,11 +405,20 @@ extern byte realtimeMode;           // used in getMappedPixelIndex()
 #define TRANSITION_PUSH_MASK       0x10
 #define TRANSITION_COUNT           18
 
-// transition kind: identifies which change triggered the transition (fade channel always runs, spatial channel only with segment copy)
-#define TRANSITION_KIND_FADE        0  // attribute-only change (opacity, CCT): fade channel, never needs segment copy
-#define TRANSITION_KIND_COLOR       1  // color or palette change
-#define TRANSITION_KIND_EFFECT      2  // effect change
-#define TRANSITION_KIND_POWER       3  // segment on/off change
+// transition kind (low nibble of startTransition() parameter): identifies which change triggered the transition (fade channel always runs, spatial channel only with segment copy)
+#define TRANSITION_KIND_FADE        0x00  // attribute-only change (opacity, CCT): fade channel, never needs segment copy
+#define TRANSITION_KIND_DEFAULT     0x01  // on/off or color/palette change (will use segment copy if spatial transition)
+#define TRANSITION_KIND_EFFECT      0x02  // effect change
+#define TRANSITION_KIND_MASK        0x0F
+
+// power transition flags (high nibble of startTransition() parameter)
+#define TRANSITION_POWER_OFF        0x10  // global power transition with explicit target: off (only global brightness changes, segment on state is kept)
+#define TRANSITION_POWER_ON         0x20  // global power transition with explicit target: on
+#define TRANSITION_POWER_TOGGLE     0x30  // segment on/off, target is the inverted segment on state (segment setters call startTransition() before applying the change)
+#define TRANSITION_POWER_TRIGGER    0x40  // set true if the transition was just triggered, used in stateUpdated()
+#define TRANSITION_POWER_MASK       0x30  // mask for power transition flags, excluding the trigger flag
+
+
 
 // transition flags (scope and target state of a power transition)
 #define TRANSITION_FLAG_POWER        0x01  // power (on/off) transition
@@ -523,14 +532,13 @@ class Segment {
       uint16_t      _fadeProgress;        // fade channel progress (0-65535)
       uint8_t       _prevPaletteBlends;   // number of previous palette blends (there are max 255 blends possible)
       uint8_t       _palette, _bri, _cct; // palette ID, brightness and CCT at the start of fade channel (brightness will be 0 if segment was off)
-      uint8_t       _kind;                // transition kind: Fade, Content, Effect (one of TRANSITION_KIND_*)  TODO: this is now unused, remove it?
       uint8_t       _flags;               // TRANSITION_FLAG_* power state
       Transition(uint16_t dur=750)
       : _oldSegment(nullptr)
       , _start(millis())
       , _fadeStart(_start)
       , _colors{0,0,0}
-      , _palT(CRGBPalette16()) // TODO: remove _palT as it is not necessary.
+      , _palT(CRGBPalette16())
       , _dur(dur)
       , _fadeDur(dur)
       , _progress(0)
@@ -539,7 +547,6 @@ class Segment {
       , _palette(0)
       , _bri(0)
       , _cct(0)
-      , _kind(0)
       , _flags(0)
       {}
       ~Transition() {
@@ -565,13 +572,7 @@ class Segment {
     // transition functions
     void stopTransition();                  // ends transition mode by destroying transition structure (does nothing if not in transition)
     void updateTransitionProgress() const;  // sets transition progress (0-65535) based on time passed since transition start
-    inline void handleTransition() {
-      updateTransitionProgress();
-      if (isInTransition()) {
-        if (_t->_oldSegment && _t->_progress == 0xFFFFU) { delete _t->_oldSegment; _t->_oldSegment = nullptr; } // spatial channel completed, release segment copy
-        if (progress() == 0xFFFFU && fadeProgress() == 0xFFFFU) stopTransition();
-      }
-    }
+    void handleTransition();                // handles transition progress and ends transitions when completed
     inline static void modeBlend(bool blend)  { Segment::_modeBlend = blend; }  // for isPreviousMode()
     inline static void setClippingRect(int startX, int stopX, int startY = 0, int stopY = 1) { _clipStart = startX; _clipStop = stopX; _clipStartY = startY; _clipStopY = stopY; };
     inline static bool isPreviousMode()       { return Segment::_modeBlend; }    // needed for determining CCT/opacity during non-TRANSITION_FADE transition
@@ -655,11 +656,12 @@ class Segment {
     inline bool     getOption(uint8_t n)   const { return ((options >> n) & 0x01); }
     inline bool     isSelected()           const { return selected; }
     inline bool     isInTransition()       const { return _t != nullptr; }
-    inline uint16_t progress()             const { return isInTransition() && _t->_oldSegment ? _t->_progress : 0xFFFFU; } // spatial channel progress, relies on handleTransition()/updateTransitionProgress()
+    inline uint16_t progress()             const { return isInTransition() ? _t->_progress : 0xFFFFU; } // spatial channel progress, relies on handleTransition()/updateTransitionProgress()
     inline uint16_t fadeProgress()         const { return isInTransition() ? _t->_fadeProgress : 0xFFFFU; } // fade channel progress, relies on handleTransition()/updateTransitionProgress()
     inline unsigned long getTransitionStart() const { return isInTransition() ? _t->_start : 0; } // spatial channel start time
     inline Segment *getOldSegment()        const { return isInTransition() ? _t->_oldSegment : nullptr; }
-    // power transition helpers (only true while a spatial on/off transition is running)
+    // power transition helpers (true while a spatial on/off transition is running; a power-off transition keeps its
+    // segment copy until the whole transition - incl. the fade channel - ends, see handleTransition())
     inline bool     isPowerTransition()    const { return isInTransition() && (_t->_flags & TRANSITION_FLAG_POWER) && _t->_oldSegment != nullptr; }
     inline bool     isPowerOffTransition() const { return isPowerTransition() && !(_t->_flags & TRANSITION_FLAG_POWER_ON); } // spatial to off
     inline bool     isPowerOnTransition()  const { return isPowerTransition() && (_t->_flags & TRANSITION_FLAG_POWER_ON); }  // spatial to on
@@ -709,9 +711,9 @@ class Segment {
     inline Segment &markForReset() { reset = true; return *this; }  // setOption(SEG_OPTION_RESET, true)
 
     // transition has to start before actual segment values change
-    // powerTarget: target on-state for power transitions; -1 = derive from !on (segment setters call this before applying the change),
-    //              0/1 = explicit target (global on/off never toggles segment on state, only global brightness changes)
-    void startTransition(uint16_t dur, uint8_t kind = TRANSITION_KIND_COLOR, bool isPower = false, int8_t powerTarget = -1);
+    // kind: low nibble = TRANSITION_KIND_* (which change triggered the transition), high nibble = TRANSITION_POWER_* flags
+    //       (POWER_ON/POWER_OFF = global on/off with explicit target, POWER_TOGGLE = segment on/off, target derived from !on)
+    void startTransition(uint16_t dur, uint8_t kind = TRANSITION_KIND_DEFAULT);
     uint8_t  currentCCT() const; // current segment's CCT (blended while in transition)
     uint8_t  currentBri() const; // current segment's opacity/brightness (blended while in transition)
 
@@ -874,6 +876,7 @@ class WS2812FX {
       _frametime(FRAMETIME_FIXED),
       _cumulativeFps(WLED_FPS << FPS_CALC_SHIFT),
       _targetFps(WLED_FPS),
+      _poweringOnOff(0),
       _isServicing(false),
       _isOffRefreshRequired(false),
       _hasWhiteChannel(false),
@@ -942,7 +945,7 @@ class WS2812FX {
     inline void resume()                                      { _suspend = false; }   // will resume strip.service() execution
 
     void restartRuntime();
-    void setTransitionMode(bool start, bool powerOn = false);
+    void setTransitionMode(bool start);
 
     bool checkSegmentAlignment() const;
     bool hasRGBWBus() const;
@@ -955,6 +958,11 @@ class WS2812FX {
     inline bool isOffRefreshRequired() const { return _isOffRefreshRequired; }  // returns true if strip requires regular updates (i.e. TM1814 chipset)
     inline bool isSuspended() const          { return _suspend; }               // returns true if strip.service() execution is suspended
     inline bool needsUpdate() const          { return _triggered; }             // returns true if strip received a trigger() request
+    inline bool isPoweringOff() const        { return _poweringOnOff & TRANSITION_POWER_OFF; }       // returns true while a global power-off transition is running
+    inline bool isPoweringOn() const         { return _poweringOnOff & TRANSITION_POWER_ON; }        // returns true while a global power-on transition is running
+    inline bool isPowerTrigger() const       { return _poweringOnOff & TRANSITION_POWER_TRIGGER; }   // returns true if transition was triggered by toggleOnOff()
+    inline void setPowerFlag(uint8_t flag)   { _poweringOnOff |= flag; }        // set a global power transition flag
+    inline void clearPowerFlag(uint8_t flag) { _poweringOnOff &= ~flag; }       // clear a global power transition flag
 
     // uint8_t paletteBlend;  // obsolete - use global paletteBlend instead of strip.paletteBlend
     uint8_t getActiveSegmentsNum() const;
@@ -978,7 +986,7 @@ class WS2812FX {
     inline uint16_t getFrameTime() const    { return _frametime; }        // returns amount of time a frame should take (in ms)
     inline uint16_t getMinShowDelay() const { return MIN_FRAME_DELAY; }   // returns minimum amount of time strip.service() can be delayed (constant)
     inline uint16_t getLength() const       { return _length; }           // returns actual amount of LEDs on a strip (2D matrix may have less LEDs than W*H)
-    inline uint16_t getTransitionDur() const { return _transitionDur; }   // returns currently set transition duration time (in ms)
+    inline uint16_t getTransition() const   { return _transitionDur; }    // returns currently set transition duration time (in ms)
     inline uint16_t getMappedPixelIndex(uint16_t index) const {           // convert logical address to physical
       if (index < customMappingSize && (realtimeMode == REALTIME_MODE_INACTIVE || realtimeRespectLedMaps)) index = customMappingTable[index];
       return index;
@@ -1057,6 +1065,7 @@ class WS2812FX {
     uint16_t _frametime;
     uint16_t _cumulativeFps;
     uint8_t  _targetFps;
+    uint8_t  _poweringOnOff; // global power transition in progress: TRANSITION_POWER_ON/OFF, 0 = none (suppresses new segment transitions, see Segment::startTransition())
 
     // will require only 1 byte
     struct {
