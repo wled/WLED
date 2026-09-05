@@ -1,0 +1,11 @@
+{
+  "name": "CoreS3_Audio",
+  "version": "0.1.5",
+  "description": "M5Stack CoreS3 built-in microphone Audio Reactive integration usermod for WLED",
+  "build": {
+    "libArchive": false
+  },
+  "dependencies": {
+    "M5GFX": "https://github.com/m5stack/M5GFX.git#0.2.26"
+  }
+}
