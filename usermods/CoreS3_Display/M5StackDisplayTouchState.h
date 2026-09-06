@@ -6,7 +6,7 @@
 //
 // These types contain no hardware access and no WLED operations.
 // Touch geometry is defined separately in M5StackDisplayUI.h.
-// The runtime state machine remains in CoreS3_Display.cpp for now.
+// The runtime state machine lives in M5StackDisplayTouchStateMachine.inc.
 
 // Touch action selected when a press begins.
 enum M5StackTouchTarget : uint8_t {
@@ -44,7 +44,8 @@ enum M5StackTouchTarget : uint8_t {
 
   M5STACK_TOUCH_TARGET_PRESET_DELETE_OPEN, M5STACK_TOUCH_TARGET_PRESET_DELETE_PREV, M5STACK_TOUCH_TARGET_PRESET_DELETE_NEXT, M5STACK_TOUCH_TARGET_PRESET_DELETE_HOLD,
 
-  M5STACK_TOUCH_TARGET_PRESET_BOOT_OPEN, M5STACK_TOUCH_TARGET_PRESET_BOOT_PREV, M5STACK_TOUCH_TARGET_PRESET_BOOT_NEXT, M5STACK_TOUCH_TARGET_PRESET_BOOT_HOLD };
+  M5STACK_TOUCH_TARGET_PRESET_BOOT_OPEN, M5STACK_TOUCH_TARGET_PRESET_BOOT_PREV, M5STACK_TOUCH_TARGET_PRESET_BOOT_NEXT, M5STACK_TOUCH_TARGET_PRESET_BOOT_HOLD
+};
 
 // One hit-test snapshot built from the current Touch coordinates.
 struct M5StackTouchHitState {
@@ -144,6 +145,7 @@ struct M5StackTouchRuntimeState {
   M5StackRepeatTouchState intensityRepeatState;
   M5StackRepeatTouchState paletteRepeatState;
   M5StackRepeatTouchState presetRepeatState;
+
   // ESP32 toolchains use a 16-bit signed short here.
   // Using the fundamental type also keeps VS Code IntelliSense from
   // mis-parsing these final coordinate members in this header.
