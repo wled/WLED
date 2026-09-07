@@ -233,7 +233,7 @@ GPIO0 is used for the ES7210 MCLK and is therefore excluded from the WLED physic
 A ready-to-use CoreS3 PlatformIO override example is included at:
 
 ```text
-usermods/CoreS3_Display/platformio_override.ini.example
+usermods/CoreS3_Display/platformio_override.ini.sample
 ```
 
 Copy it to the WLED repository root and rename it to:
@@ -242,7 +242,7 @@ Copy it to the WLED repository root and rename it to:
 platformio_override.ini
 ```
 
-The example includes the validated CoreS3 environment, Quad PSRAM settings, CoreS3 usermods, Audio Reactive definitions, NeoPixelBus patch pre-scripts, and the post-upload watchdog-reset handling.
+The example includes the CoreS3 environment, Quad PSRAM settings, CoreS3 usermods, Audio Reactive definitions, and the NeoPixelBus patch pre-script.
 
 ## Build
 
@@ -257,7 +257,7 @@ The example includes the validated CoreS3 environment, Quad PSRAM settings, Core
 
 Open the WLED repository in VS Code.
 
-Confirm that `platformio_override.ini` exists at the repository root. If it does not, copy `usermods/CoreS3_Display/platformio_override.ini.example` to the repository root and rename it to `platformio_override.ini`.
+Confirm that `platformio_override.ini` exists at the repository root. If it does not, copy `usermods/CoreS3_Display/platformio_override.ini.sample` to the repository root and rename it to `platformio_override.ini`.
 
 ### 3. Build
 
@@ -281,7 +281,6 @@ Upload the `m5stack_cores3` environment from PlatformIO.
 
 If M5Burner Serial Monitor or another program is holding the COM port open, close it before Upload.
 
-For CoreS3, the PlatformIO post-upload reset is changed to watchdog-reset to improve recovery after ESP32-S3 native USB flashing.
 
 ---
 
@@ -464,7 +463,6 @@ The main CoreS3-specific files are:
 WLED/
 ├─ platformio_override.ini
 ├─ pio-scripts/
-│  ├─ cores3_upload_watchdog_reset.py
 │  └─ cores3_v17_neopixelbus_patch.py
 └─ usermods/
    ├─ CoreS3_Power/

@@ -233,7 +233,7 @@ GPIO0 は ES7210 MCLK として使用するため、WLED の物理 Button から
 CoreS3 用の PlatformIO 設定サンプルを次の場所に同梱しています。
 
 ```text
-usermods/CoreS3_Display/platformio_override.ini.example
+usermods/CoreS3_Display/platformio_override.ini.sample
 ```
 
 このファイルを WLED リポジトリ直下へコピーし、次の名前に変更して使用します。
@@ -242,7 +242,7 @@ usermods/CoreS3_Display/platformio_override.ini.example
 platformio_override.ini
 ```
 
-このサンプルには、検証済みの CoreS3 Environment、Quad PSRAM 設定、CoreS3 Usermod、Audio Reactive 定義、NeoPixelBus patch 用 pre-script、および Upload 後の watchdog-reset 処理が含まれています。
+このサンプルには、CoreS3 Environment、Quad PSRAM 設定、CoreS3 Usermod、Audio Reactive 定義、および NeoPixelBus patch 用 pre-script が含まれています。
 
 ## Build
 
@@ -257,7 +257,7 @@ platformio_override.ini
 
 WLED リポジトリを VS Code で開きます。
 
-`platformio_override.ini` がリポジトリ直下にあることを確認してください。存在しない場合は、`usermods/CoreS3_Display/platformio_override.ini.example` をリポジトリ直下へコピーし、`platformio_override.ini` にリネームしてください。
+`platformio_override.ini` がリポジトリ直下にあることを確認してください。存在しない場合は、`usermods/CoreS3_Display/platformio_override.ini.sample` をリポジトリ直下へコピーし、`platformio_override.ini` にリネームしてください。
 
 ### 3. Build
 
@@ -281,7 +281,6 @@ PlatformIO から `m5stack_cores3` を Upload します。
 
 M5Burner Serial Monitor などが COM ポートを開いている場合は、Upload 前に閉じてください。
 
-CoreS3 では ESP32-S3 native USB の Upload 後復帰を安定させるため、PlatformIO の post-upload reset を watchdog-reset に変更しています。
 
 ---
 
@@ -464,7 +463,6 @@ CoreS3 対応の中心は次のファイルです。
 WLED/
 ├─ platformio_override.ini
 ├─ pio-scripts/
-│  ├─ cores3_upload_watchdog_reset.py
 │  └─ cores3_v17_neopixelbus_patch.py
 └─ usermods/
    ├─ CoreS3_Power/
