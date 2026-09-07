@@ -5,7 +5,7 @@
 This project runs the WLED v17 series natively on M5Stack CoreS3 and combines<br>
 **local touch control / built-in microphone Audio Reactive / battery status / safe power-off / LED control** in a single device.
 
-> **Status:** CoreS3 production baseline<br>
+> **Status:** Hardware-validated CoreS3 implementation<br>
 > **Base:** WLED 17.0.0-devV5<br>
 > **Target:** M5Stack CoreS3 (ESP32-S3 / 16MB Flash / 8MB Quad PSRAM)
 >
@@ -279,7 +279,7 @@ m5stack_cores3  SUCCESS
 
 Upload the `m5stack_cores3` environment from PlatformIO.
 
-If M5Burner Serial Monitor or another program is holding the COM port open, close it before Upload.
+If another serial monitor or program is holding the COM port open, close it before Upload.
 
 
 ---
@@ -510,22 +510,6 @@ Adds CoreS3 built-in microphone / I2S1 integration.
 
 ---
 
-## Design Policy
-
-This project intentionally minimizes changes to the WLED core.
-
-CoreS3-specific logic is primarily contained in:
-
-```text
-usermods/
-pio-scripts/
-platformio_override.ini
-```
-
-This makes future synchronization with WLED upstream easier.
-
----
-
 ## Current Limitations / Notes
 
 - Segment management is intentionally not implemented in the local UI.<br>
@@ -535,38 +519,6 @@ This makes future synchronization with WLED upstream easier.
 - A starting Brightness around 64 is recommended for CoreS3.
 - Browser Screenshot returns a still BMP image; it is not a live stream.
 - DCDC OVP protection is not disabled.
-- Core2 / Core2 for AWS porting is planned as a separate phase after the CoreS3 version is complete.
-
----
-
-## Validation Summary
-
-The following items have been validated on CoreS3 hardware:
-
-- Normal Boot
-- Reset Reboot
-- LED ON / OFF
-- Effect control
-- Multi-Color
-- BLACK Toggle
-- Preset call / management
-- CoreS3 ↔ Web UI sync
-- Sleep / Wake
-- Wi-Fi reconnect
-- Recovery AP
-- Audio Reactive
-- Battery display
-- Runtime Health
-- Safe Shutdown cancel
-- Safe Shutdown full power-off
-- Reboot after shutdown
-- Active-use endurance
-- Idle endurance
-- RMT tail-pixel regression
-- NeoPixelBus clean dependency re-patch
-- Browser Screenshot
-- Screenshot color accuracy
-- Screenshot + normal Touch/UI operation
 
 ---
 
@@ -587,26 +539,6 @@ WLED source in this repository follows the upstream **EUPL v1.2** license.<br>
 NeoPixelBus remains licensed under **LGPL-3.0-or-later**. The CoreS3 build-time patch script modifies the PlatformIO-downloaded NeoPixelBus source while preserving the upstream library license header.
 
 Refer to the repository `LICENSE` file and the respective upstream projects for complete license terms.
-
----
-
-## Roadmap
-
-Remaining work toward CoreS3 v1.0:
-
-- [x] Power stabilization
-- [x] Display / Touch UI
-- [x] Audio Reactive
-- [x] Preset management
-- [x] Battery / Health UX
-- [x] Recovery AP
-- [x] Safe Shutdown
-- [x] NeoPixelBus RMT DMA1024 / LCD-GDMA stabilization
-- [x] Browser Screenshot
-- [ ] Final release branch / tag
-- [ ] Release notes
-- [ ] Optional additional screenshots
-- [ ] Core2 / Core2 for AWS porting
 
 ---
 
