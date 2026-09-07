@@ -265,16 +265,22 @@ No automated linting is configured. Match existing code style in files you edit.
 ## General Rules
 
 - Important: Repository language is **English**. This applies to source code (including comments), commit messages and any kind of documentation for developer or users.
+- Provide references when making analyses or recommendations. Support factual claims with verifiable citations, references or concrete evidence; **never fabricate citations**.
 - The `docs/` folder is for developer/contributor information (coding conventions, architecture, etc.). User documentation is maintained in the [wled/WLED-Docs](https://github.com/wled/WLED-Docs) repository.
 - Never edit or commit auto-generated `wled00/html_*.h` / `wled00/js_*.h`.
-- When updating an existing PR, retain the original description. Only modify it to ensure technical accuracy. Add change logs after the existing description.
-- No force-push on open PRs!
-- Important: **Changes to `platformio.ini` require maintainer approval**!
-- PRs should respect `.gitignore` and not upload files like  `platformio_override.ini`. PR authors may add buildenv examples for custom boards into `platformio_override.ini.sample`.
 - Remove dead/unused code — justify or delete it.
 - Verify feature-flag spelling exactly (misspellings are silently ignored by preprocessor).
-- Provide references when making analyses or recommendations. Support factual claims with verifiable citations, references or concrete evidence; **never fabricate citations**.
-- **Highlight user-visible breaking changes and ripple effects** during reviews. Ask for confirmation that these were introduced intentionally.
+- Important: **Changes to `platformio.ini` require maintainer approval**!
+- PRs should respect `.gitignore` and not upload files like  `platformio_override.ini`. PR authors may add buildenv examples for custom boards into `platformio_override.ini.sample`.
+- **Highlight user-visible breaking changes and ripple effects** during reviews.
+- When updating an existing PR, retain the original description. Only modify it to ensure technical accuracy. Add change logs after the existing description.
+
+### Pull Request Expectations
+- No force-push on open PRs!
+- Every pull request needs a clear description of what changed and why. If the change affects user-visible behavior, describe the expected impact. Link to related issues where applicable.
+- Best practice: Consider adding screenshots to showcase new features.
+- Do not prefix the PR title with `fix:`, `feat:` or other keywords meant to define the type of PR. Use combinations of labels (`bug`, `enhancement`, `effect`, `usermod`, `slop`, etc.) instead.
+- Important: **Fully or partially AI coded PRs MUST be declared clearly** in the description - in addition to comments markers in the source code (see Comments section).
 
 ### Security Hardening
 
