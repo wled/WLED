@@ -1,0 +1,7 @@
+{
+  "name": "FSEQ",
+  "build": {"libArchive": false},
+  "dependencies": {
+    "bitbank2/unzipLIB":"1.0.0"
+  }
+}
