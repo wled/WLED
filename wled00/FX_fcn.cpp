@@ -290,8 +290,7 @@ void Segment::loadPalette(CRGBPalette16 &targetPalette, uint8_t pal) {
 void Segment::handleTransition() {
   updateTransitionProgress();
   if (isInTransition() && !strip.isPoweringOff()) {
-    // end transitions if completed but wait for a power-off transition to complete to avoid revealing pixels (see blendSegment() blanking)
-    // pixel blanking in blendSegment() rely on is PowerOffTransition() (which requires the copy) TODO: should we use the _t->_flags instead of isPoweringOff()?
+    // end transitions if completed but wait for a global power-off transition to complete to avoid revealing pixels (see blendSegment() blanking)
     if (_t->_oldSegment && _t->_progress == 0xFFFFU && !strip.isPoweringOff()) {
       Serial.printf("handleTransition: deleting old segment copy, progress=%d\n", _t->_progress);
       delete _t->_oldSegment; _t->_oldSegment = nullptr;
@@ -305,30 +304,28 @@ void Segment::handleTransition() {
 
 /* Note on how transitions work:
   There are three transition channels: global on strip level that handles global brightness fading and triggering of segment spatial transitions (see led.cpp)
-  on segment level there are two independent channels: a fade channel (_fadeProgress) that handles opacity/brightness (and colors & palette in FADE mode)
+  on segment level there are two independent channels: a fade channel (_fadeProgress) that handles opacity/brightness & CCT (and colors/palette if FADE or as a fallback)
   and a spatial channel (_progress) that handles FX blending and swipe/push/etc. using a copy of the previous segment (aka oldSegment).
   FX transitions always need the oldSegment but can be spatial or fade and always use the spatial channel.
   There are many "special rules" that apply to handle transition updates i.e. calling startTransition() while a transition is already running.
-  Here is a broad summary of the rules:
+  In general the transition logic was chosen to avoid glitches or flashing while allowing segments to act as individual "lights".
+  Here is a short summary of the rules:
+  - Segment opacity or global brightness always uses fade, they can run in parallel to any other transition (and even parallel to each other)
   - Off transition takes priority, in general no other transitions are allowed to simplify the logic, "offMode" is set once the global off finishes
-    since this would require careful sync to the segment transition (for example using swipe) the segment is held in transition until global finishes (see handleTransition())
+    since this would require careful sync to spatial transition, the segment is held in transition until global finishes (see handleTransition() & blendSegment())
   - On strip level, there are flags to check for global on/off transitions which are set in toggleOnOff()
   - A global transition is started in stateUpdated() and triggers segment transitions if needed for spatial transitions
-  - When a spatial on/off transition is triggered during an ongoing on/off transition, it is reversed (i.e. same number of LEDs are lit but reversed)
+  - When a spatial on/off transition is triggered during an ongoing on/off transition, it is reversed (i.e. same number of LEDs are lit but flip position)
   - Fade transitions continue from the current blend state if issued during a running transition
-  - A spatial transition never restarts but fade transitions can run in parallel (unless powering off globally or a segment)
-  - If a spatial transition is running it is never restarted; a subsequent change is deferred to the fade channel instead of applying immediately
-
+  - If a spatial transition is running it is never restarted. A subsequent change is deferred to the fade channel instead
   - For more details, see the comments throughout the code
-  In general the transition logic was chosen to avoid glitches or flashing while allowing segments to act as individual "lights"
-  Segment opacity is faded in currentBri()
 */
 
-// starting a transition has to occur before change so we get current values 1st
-// note: _t is the temporary segment that holds the values transitioned from (palette, colors, brightness,...) and the current segment holds the "to" values
+// startTransition() is called before changing a sement parameter, it captures the current state into _t and/or _t->_oldSegment and starts/updates transition timers.
+// note: _t has the temporary "from" segment value(s) and the current segment holds the "to" values which are set after the transition starts.
 //       the transition has two independent channels:
 //       the fade channel (_fadeStart/_fadeDur/_fadeProgress) crossfades colors, palette, CCT and opacity and never needs a segment copy
-//       the spatial channel (_start/_dur/_progress and _oldSegment) renders wipe/push/etc. using a copy of the previous segment
+//       the spatial channel (_start/_dur/_progress and _oldSegment) renders wipe/push/etc. using a copy of the current state (oldSegment)
 // kind: low nibble = TRANSITION_KIND_x identifying which change triggered the transition (determines whether a segment copy is needed)
 //       high nibble = TRANSITION_POWER_x flags: POWER_ON/POWER_OFF = global on/off, POWER_TOGGLE = segment on/off (both flags are set)
 
@@ -337,37 +334,37 @@ void Segment::startTransition(uint16_t dur, uint8_t kind) {
   kind &= TRANSITION_KIND_MASK;                             // strip the power flags
   const bool targetOn = power == TRANSITION_POWER_TOGGLE ? !on : power == TRANSITION_POWER_ON; // target on-state for power transitions
   Serial.printf("startTransition: dur=%d kind=%d power=%d targetOn=%d\n", dur, kind, power, targetOn);
-  // do not interrupt a global power off transition (unless its a global reversal) otherwise we can turn segment on and it will jump to off once global completes TODO: this is broken again
-  // TODO: the issue is now this: if the next line is used, a segment on during global off will just switch it on as that segment is not in a transition.
-  // if the line is omitted, it will start an on transition but then switch fully off once global off completes. this may be a good compromise as a proper solution may need many more conditionals
-  //if (strip.isPoweringOff() && (power != TRANSITION_POWER_OFF && power != TRANSITION_POWER_ON)) return;
 
-  // check if we even need to start a transition. No transitions if transitions disabled, not an active segment or not in an on state (unless this is a power-on request)
-  // TODO: the simpler version starts a transition on off segments but they will not render as both old and new segment are off. when switching to on, it stops transitions so still works
-  // the only downside is that during a global off, it also fades, then a segment on starts rendering the new segment because it reverses.
-  //if (dur == 0 || !isActive()) || ((power != TRANSITION_POWER_TOGGLE) && !on)) {
-  if (dur == 0 || !isActive()) {
+  // check if we even need to start a transition: abort if transitions disabled, not an active segment or not in an on state (unless this is a power-on request)
+  if (dur == 0 || !isActive() || ((power != TRANSITION_POWER_TOGGLE) && !on)) {
     return;
   }
   // check if we need a copy of current segment: only effect transitions and transitions using a spatial (non-FADE) style
   const bool segmentCopy = kind == TRANSITION_KIND_EFFECT || (kind != TRANSITION_KIND_FADE && blendingStyle != TRANSITION_FADE);
   Serial.printf("*****startTransition: dur=%d kind=%d power=%d targetOn=%d segmentCopy=%d seg is on=%d\n", dur, kind, power, targetOn, segmentCopy, on);
   // helper lambda function to capture current _bri/_cct and optionally _colors to the segments transitions (_t) state  TDODO: needs refinement
-  const auto captureBlend = [&](bool rebaseColors, unsigned long fadeStart) {
-    if (rebaseColors) for (unsigned i = 0; i < NUM_COLORS; i++) _t->_colors[i] = color_blend16(_t->_colors[i], colors[i], _t->_fadeProgress);
+  const auto captureBlend = [&](unsigned long fadeStart) {
+    for (unsigned i = 0; i < NUM_COLORS; i++) _t->_colors[i] = color_blend16(_t->_colors[i], colors[i], _t->_fadeProgress);
     _t->_bri       = currentBri();
     _t->_cct       = currentCCT();
     _t->_prevPaletteBlends = 0;
     _t->_fadeDur   = dur;
     _t->_fadeStart = fadeStart;
   };
-  // helper lambda: returns true while the fade channel is driving color/palette blending (mirrors the condition in beginDraw());
-  // _fadeStart > _start marks a fade channel that was retargeted independently of the spatial channel (e.g. a change during a running spatial transition)
-  const auto isFadeBlending = [&]() { return _t->_fadeProgress < 0xFFFFU && (blendingStyle == TRANSITION_FADE || _t->_oldSegment == nullptr || _t->_fadeStart > _t->_start); };
-  // helper lambda: capture current colors/palette as-is; needed when the fade channel was not blending them (spatial transition) so restarting it does not snap to stale values
-  const auto captureCurrent = [&]() {
-    for (unsigned i = 0; i < NUM_COLORS; i++) _t->_colors[i] = colors[i];
-    loadPalette(_t->_palT, palette);
+  // isFadeBlending returns true while the fade channel is driving color/palette blending
+//  const auto isFadeBlending = [&]() { return _t->_fadeProgress < 0xFFFFU && (blendingStyle == TRANSITION_FADE || _t->_oldSegment == nullptr || fadeTransitionActive()); };
+
+  // create a copy of the current segment to be used for spatial transitions (FX, palette, color, opacity, CCT)
+  const auto createOldSegment = [&](uint16_t colorProgress) {
+    if (_t->_oldSegment) { delete _t->_oldSegment; _t->_oldSegment = nullptr; }
+    _t->_oldSegment = new(std::nothrow) Segment(*this); // store/copy current segment settings
+    if (_t->_oldSegment) {
+      for (unsigned i = 0; i < NUM_COLORS; i++) _t->_oldSegment->colors[i] = color_blend16(_t->_colors[i], colors[i], colorProgress);
+      _t->_oldSegment->opacity = currentBri(); // capture current opacity in case it was being faded
+      _t->_oldSegment->cct     = currentCCT(); // capture current CCT in case it was being faded
+      if (!_t->_oldSegment->isActive()) { delete _t->_oldSegment; _t->_oldSegment = nullptr; } // pixel buffer allocation failed, use fallback
+    }
+    return _t->_oldSegment != nullptr;
   };
 
   if (isInTransition()) {
@@ -375,48 +372,34 @@ void Segment::startTransition(uint16_t dur, uint8_t kind) {
     if (!power) {
       Serial.printf("***re-targeting transition: dur=%d start=%d now=%d progress=%d fadeProgress=%d\n", _t->_dur, _t->_start, millis(), _t->_progress, _t->_fadeProgress);
       // opacity/CCT/color/palette/FX change: rebase fades to the current visual blend and restart it (no jump). A running spatial transition continues
-      if (segmentCopy) {
-        // spatial change: upgrade a running fade transition to spatial; if a spatial transition is already running, do not restart it
-        // but smooth the change on the fade channel (see else branch below)
-        if (_t->_oldSegment == nullptr) {
-          // no old segment, meaning a fade transition is going on (color, palette, opacity, cct)
-          _t->_oldSegment = new(std::nothrow) Segment(*this); // store/copy current segment settings
-          if (_t->_oldSegment) {
-            // capture current state (colors, opacity, CCT) into the old segment (old segment does not fade, it is static)
-            for (unsigned i = 0; i < NUM_COLORS; i++) _t->_oldSegment->colors[i] = color_blend16(_t->_colors[i], colors[i], _t->_progress);
-            _t->_oldSegment->opacity = currentBri(); // captrue current opacity in case it was being faded
-            _t->_oldSegment->cct     = currentCCT(); // capture current CCT in case it was being faded
-            _t->_start = millis(); // (re)start transition (but do not restart fade channel so fading continues on current segment)
-            _t->_dur   = dur;
-            //  _t->_oldSegment->_currentPalette = _t->_palT; // capture current palette (might be partially faded)  TODO: this is not working, _currentPalette is static, investigate why
-            DEBUGFX_PRINTF_P(PSTR("-- Updated transition with segment copy: S=%p T(%p) O[%p] OP[%p]\n"), this, _t, _t->_oldSegment, _t->_oldSegment->pixels);
-            if (!_t->_oldSegment->isActive()) { stopTransition(); } // todo: this is to detect a failed oldsegment, we should not actually stop but degrade to fade
-          } else {
-            // not enough RAM for segment copy: degrade to pure fade instead of dropping the transition
-            // captureBlend(false, millis());  TODO: use this? or not retarget the fade  channel?
-            _t->_fadeStart = millis();
-            _t->_fadeDur   = dur;
-            _t->_prevPaletteBlends = 0;
-          }
-        } else if (_t->_progress > 0) {
-          // spatial transition already running: defer color changes to fade channel instead (FX change will not defer but apply immediately)
-          if (!isFadeBlending()) captureCurrent(); // colors/palette were applied instantly: capture the current look as the fade start
-          captureBlend(true, millis());            // restart fade channel from the current visual state
-          // align fade time with ongoing spatial channel so they finish at the same time to be ready for the next spatial transition
-          _t->_fadeDur = (_t->_dur * _t->_progress) / 0xFFFFU;
+      if (segmentCopy && _t->_oldSegment == nullptr) {
+        // no old segment means a fade transition is going on (color, palette, opacity, cct), capture current state into the old segment
+        if (createOldSegment(_t->_progress)) {
+          _t->_start = millis(); // start spatial transition (fading continues on current segment)
+          _t->_dur   = dur;
+          DEBUGFX_PRINTF_P(PSTR("-- Updated transition with segment copy: S=%p T(%p) O[%p] OP[%p]\n"), this, _t, _t->_oldSegment, _t->_oldSegment->pixels);
+        } else {
+          // not enough RAM for segment copy: degrade to pure fade instead of dropping the transition
+          captureBlend(millis()); // rebase fade channel to the current visual blend and restart it
         }
       }
       else if (_t->_progress > 0) {
-        Serial.printf("***re-targeting fade channel transition, dur=%d start=%d now=%d progress=%d\n", _t->_dur, _t->_start, millis(), _t->_progress);
-        // capture the current visual blend as the new "from" state so the incoming change does not cause a visible jump.
-        captureBlend(true, millis()); // capture current colors, bri & CCT, restart transition
+        // todo: isfadeblending is only used here, maybe remove it and make it explicit?
+        //if (!isFadeBlending() && _t->_oldSegment != nullptr) {
+        if (!fadeTransitionActive() && _t->_oldSegment != nullptr) {
+          // spatial transition with no fade running: enable fade and let the spatial transition continue. Need to capture the current "revealed" state i.e. copy segment colors to _t
+          for (unsigned i = 0; i < NUM_COLORS; i++) _t->_colors[i] = colors[i]; // rebase transition colors&palette from current final state
+          loadPalette(_t->_palT, palette);
+        }
+        captureBlend(millis()); // restart fade channel from the current visual state
+        if (segmentCopy) _t->_fadeDur = (_t->_dur * _t->_progress) / 0xFFFFU; // if this is a deferred spatial request align fade time with ongoing spatial channel
       }
       Serial.printf("*returning from retargeting transition");
       return;
     }
-    Serial.println("***power transition");
-    // power (on/off) transition (per segment or global) during an ongoing power transition
+    // power transition (on or off) request
     if (_t->_flags & TRANSITION_FLAG_POWER) {
+      // power transition request (per segment or global) during an ongoing power transition
       Serial.printf("***power transition: already in a power transition, dur=%d start=%d now=%d progress=%d\n", _t->_dur, _t->_start, millis(), _t->_progress);
       if (targetOn == ((_t->_flags & TRANSITION_FLAG_POWER_ON) != 0)) return; // same target re-issued, let the running transition finish
 
@@ -425,13 +408,9 @@ void Segment::startTransition(uint16_t dur, uint8_t kind) {
         // already in a power transition reverse in place: invert the spatial timeline (20%-completed swipe continues from 80%)
         _t->_dur = dur;
         _t->_start = millis() - (((unsigned)(0xFFFFU - _t->_progress) * dur) / 0xFFFFU);
-        //_t->_fadeDur = dur;
-        //_t->_fadeStart = _t->_start; // sync fade channel, we need them to complete at the same time (if turning off, segment will not turn off until fade is complete, causing a flash)
-        _t->_fadeDur = 0; // fade completes immediately
-        // TODO: when reversing a spatial transition, we should re-copy the current segment as it may have changed since the start
-        //if (_t->_oldSegment) { delete _t->_oldSegment; _t->_oldSegment = nullptr; }
-        //_t->_oldSegment = new(std::nothrow) Segment(*this); // create a fresh copy
-      } else captureBlend(true, millis()); // capture current fade status and restart fade when toggling
+        _t->_fadeDur = 0; // disable fading (any ongoing fade completes immediately)
+        createOldSegment(0xFFFFU); // create a fresh copy from the final state which is currently displayed
+      } else captureBlend(millis()); // capture current fade status and restart fade when toggling
       if (power == TRANSITION_POWER_TOGGLE) {
         // segment-level on/off
         Serial.printf("***power toggle: reversing spatial timeline: dur=%d start=%d now=%d progress=%d\n", _t->_dur, _t->_start, millis(), _t->_progress);
@@ -442,47 +421,31 @@ void Segment::startTransition(uint16_t dur, uint8_t kind) {
           _t->_oldSegment->cct = cct;
         }
       }
-      if (_t->_oldSegment == nullptr && segmentCopy) {
-        _t->_oldSegment = new(std::nothrow) Segment(*this); // create a copy if there is none
-        for (unsigned i = 0; i < NUM_COLORS; i++) _t->_oldSegment->colors[i] = color_blend16(_t->_colors[i], colors[i], _t->_progress);
-        _t->_oldSegment->opacity = currentBri(); // captrue current opacity in case it was being faded
-        _t->_oldSegment->cct     = currentCCT(); // capture current CCT in case it was being faded
-      }
-      // global on/off: the fade channel (colors/opacity/CCT) is independent of the power state, leave it running
-      //_t->_prevPaletteBlends = 0;
       _t->_flags ^= TRANSITION_FLAG_POWER_ON; // flip POWER_ON flag
-      return;
-    }
-    Serial.printf("***power transition: starting new power transition, dur=%d start=%d now=%d progress=%d\n", _t->_dur, _t->_start, millis(), _t->_progress);
-    // global or segment on/off: stop ongoing segment transition immediately and start the power transition from scratch
-    if (_t->_oldSegment) { delete _t->_oldSegment; _t->_oldSegment = nullptr; }
-    // rebase fade channel to the current visual blend before starting the new power transition
-    for (unsigned i = 0; i < NUM_COLORS; i++) _t->_colors[i] = color_blend16(_t->_colors[i], colors[i], _t->_fadeProgress);
-    _t->_bri = currentBri();
-    _t->_cct = currentCCT();
-    if (segmentCopy) _t->_oldSegment = new(std::nothrow) Segment(*this); // spatial transition, need a fresh copy
-    else {
-      _t->_fadeStart = millis(); // fade transition, restart fading
-      _t->_fadeDur   = dur;
-      _t->_prevPaletteBlends = 0; // rebase palette blending so it continues smoothly
-    }
-    if (_t->_oldSegment) {
-      // set old side to the current transition brightness
-      _t->_oldSegment->opacity = _t->_bri;
-      _t->_start = millis();
-      _t->_dur   = dur;
-      if (!_t->_oldSegment->isActive()) stopTransition(); // old segment failed to allocate pixel buffer, stop transition
-      DEBUGFX_PRINTF_P(PSTR("-- Restarted power transition: S=%p T(%p) O[%p] OP[%p]\n"), this, _t, _t->_oldSegment, _t->_oldSegment->pixels);
     } else {
-      // not enough RAM for segment copy: degrade to pure fade instead of dropping the transition
-      _t->_start = millis();
-      _t->_dur   = 0; // TODO: this means no transition. we need to set fade channel too
+      Serial.printf("***power transition: starting new power transition, dur=%d start=%d now=%d progress=%d\n", _t->_dur, _t->_start, millis(), _t->_progress);
+      // global or segment on/off initiated: stop ongoing segment transition immediately, we do need the spatial channel and want to start a new transition
+      if (_t->_oldSegment) { delete _t->_oldSegment; _t->_oldSegment = nullptr; }
+      captureBlend(millis()); // rebase transition values to current visual blend before starting the new power transition
+      if (segmentCopy) {
+        if (createOldSegment(0xFFFFU)) { // spatial transition, need a fresh copy (colors as-is, old side captures the current transition brightness)
+          _t->_start = millis();
+          _t->_dur   = dur;
+          _t->_fadeDur = 0; // non-fade power transition, do not fade anything but reveal the final state (same as a fresh power start)
+          DEBUGFX_PRINTF_P(PSTR("-- Restarted power transition: S=%p T(%p) O[%p] OP[%p]\n"), this, _t, _t->_oldSegment, _t->_oldSegment->pixels);
+        } else {
+          // not enough RAM for segment copy: degrade to pure fade (restarted above) instead of dropping the transition
+          _t->_start = 0; // disables the spatial channel and uses fade instead
+        }
+      } else {
+        // FADE blending: the fade channel (restarted above) carries the power transition
+        _t->_start = 0; // FADE blending: disables the spatial channel and uses fade instead
+      }
+      _t->_flags = TRANSITION_FLAG_POWER | (targetOn ? TRANSITION_FLAG_POWER_ON : 0);
     }
-    _t->_flags = TRANSITION_FLAG_POWER | (targetOn ? TRANSITION_FLAG_POWER_ON : 0);
     return;
   }
-
-  // no previous transition running, start by allocating memory for segment copy
+  // no previous transition running, start by allocating memory for transition values
   _t = new(std::nothrow) Transition(dur);
   if (_t) {
     if (on) _t->_bri = opacity; // if segment is on, start from current opacity instead of the default 0 for proper opacity fade
@@ -494,12 +457,11 @@ void Segment::startTransition(uint16_t dur, uint8_t kind) {
     _t->_flags = power ? TRANSITION_FLAG_POWER | (targetOn ? TRANSITION_FLAG_POWER_ON : 0) : 0;
     loadPalette(_t->_palT, palette); // load target palette, will be blended in beginDraw() if FADE is used
     for (int i=0; i<NUM_COLORS; i++) _t->_colors[i] = colors[i];
-    if (segmentCopy) _t->_oldSegment = new(std::nothrow) Segment(*this); // spatial transition, create copy of current segment (falls back to fade if this fails)
+    if (segmentCopy) createOldSegment(0xFFFFU); // spatial transition, create copy of current segment (falls back to fade if this fails)
     if (_t->_oldSegment) {
-      if (!_t->_oldSegment->isActive()) stopTransition(); // old segment failed to allocate pixel buffer, stop transition
       DEBUGFX_PRINTF_P(PSTR("-- Started transition: S=%p T(%p) O[%p] OP[%p]\n"), this, _t, _t->_oldSegment, _t->_oldSegment->pixels);
     } else {
-      _t->_start = 0; // disables the spatial channel and uses fade instead
+      _t->_start = 0; // disables the spatial channel and use fade i.e. enable fadeTransitionActive()
       DEBUGFX_PRINTF_P(PSTR("-- Started transition without old segment: S=%p T(%p)\n"), this, _t);
     }
   }
@@ -555,9 +517,8 @@ void Segment::beginDraw(uint16_t prog) {
   // load palette into _currentPalette
   loadPalette(Segment::_currentPalette, palette);
 
-  // color&palette blending can use fade channel: in spatial transitions (swpie etc.) _t->_fadeStart > _t->_start if false exept
-  // except if a change arrived during a running spatial transition: in that case colors&palette of new segment fade as the spatial transition continues
-  if (isInTransition() && prog < 0xFFFFU && _t->_fadeStart > _t->_start) {// && (blendingStyle == TRANSITION_FADE || _t->_oldSegment == nullptr || _t->_fadeStart > _t->_start)) {
+  // color&palette fade blending: if using FADE or if changed during an ongoing spatial (swipe etc.) transition i.e. fadeTransitionActive()
+  if (isInTransition() && prog < 0xFFFFU && fadeTransitionActive()) {
     // blend colors
     for (unsigned i = 0; i < NUM_COLORS; i++) _currentColors[i] = color_blend16(_t->_colors[i], colors[i], prog);
     // blend palettes
@@ -1785,7 +1746,6 @@ void WS2812FX::blendSegment(const Segment &topSegment) const {
         c_a = color_blend16(c_a, segO->getPixelColorRaw(x + y*oCols), progInv);
       } else if (blendingStyle != TRANSITION_FADE) {
         // on/off transition workaround: pixels not yet revealed by a wipe-to-off are black, pixels still covered by a wipe-to-on are black
-        // TODO: test this in 2D
         if ((topSegment.isPowerOffTransition() && !clipped) || (topSegment.isPowerOnTransition() && clipped)) c_a = BLACK;
       }
       // map it into frame buffer

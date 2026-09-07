@@ -66,10 +66,7 @@ byte scaledBri(byte in)
 //applies global temporary brightness (briT) to strip
 void applyBri() {
   if (realtimeOverride || !(realtimeMode && arlsForceMaxBri))
-  {
-    DEBUG_PRINTF_P(PSTR("Applying strip brightness: %d (%d,%d)\n"), (int)briT, (int)bri, (int)briOld);
     strip.setBrightness(briT);
-  }
 }
 
 
@@ -79,6 +76,59 @@ void applyFinalBri() {
   briT = bri;
   applyBri();
   strip.trigger(); // force one last update
+}
+
+// local function to handle global brightness transition, called from stateUpdated(). Note: power flags are set in toggleOnOff()
+void handleBriChange() {
+  DEBUG_PRINTF_P(PSTR("***********state update: briT: %d bri: %d briOld: %d, isPoweron: %d , isPoweroff %d, trigger: %d\n"), (int)briT, (int)bri, (int)briOld, (int)strip.isPoweringOn(), (int)strip.isPoweringOff(), (int)strip.isPowerTrigger());
+  if (strip.getTransition() == 0) {
+    jsonTransitionOnce = false;
+    transitionActive = false;
+    applyFinalBri();
+  } else {
+    uint32_t now = millis();
+    if (blendingStyle != TRANSITION_FADE) {
+      if (strip.isPoweringOff() && strip.isPoweringOn()) {
+        // if both flags are set, the power state was reversed during transition, invert the transition time to keep "overall brightness" i.e number of lit LEDs
+        // note: segments do the same, timing to finish the transition matches (more or less), segment blending is held in spatial transition until global transition finishes.
+        int progress = now - transitionStartTime;
+        int duration = strip.getTransition();
+        transitionStartTime = now - (duration - progress); // invert transition progress
+        if (bri > 0) strip.clearPowerFlag(TRANSITION_POWER_OFF);
+        else strip.clearPowerFlag(TRANSITION_POWER_ON);
+      }
+      else if (strip.isPoweringOn() && strip.isPowerTrigger() || (bri > 0 && briOld == 0)) {
+        // global power on from off state either through power button or brightness change
+        strip.setPowerFlag(TRANSITION_POWER_ON | TRANSITION_POWER_TRIGGER); // if powering on by brightness change, set power flag to inite spatial transition (if set)
+        strip.setTransitionMode(false); // stop any transition that is going on while in off mode and start clean (a segment power on prior to global on will continue otherwise)
+        strip.restartRuntime();         // and restart any running effect when powering on
+        if (blendingStyle != TRANSITION_FADE) applyFinalBri();; // set brightness immediately, otherwise it will fade-in -> this does not yet work. need to set to bri old? or bri last?
+      }
+    }
+
+    if (strip.isPoweringOff() && bri > 0) {
+      // powering off but brightness was changed -> switch to powering on, update is handled below
+      strip.clearPowerFlag(TRANSITION_POWER_OFF);
+      strip.setPowerFlag(TRANSITION_POWER_ON | TRANSITION_POWER_TRIGGER);
+      Serial.println("state: brightness change during power off transition, toggling to on transition");
+    }
+
+    // if brightness changed, start a new global transition but do not reset the timer if powering off (unless powering back on i.e. triggered)
+    // Note: fading is omitted if segments run a spatial power off transition, see handleTransitions()
+    if ((bri != briOld && !strip.isPoweringOff()) || strip.isPowerTrigger()) {
+      if (transitionActive) {
+        briOld = briT; // capture transition value: starts brightness fade from current value
+      }
+      transitionActive = true;
+      transitionStartTime = now; // note: this only affects brightness fade, spatial transition continues as it is handled on segment level
+      Serial.println("state: starting global transition, briT: " + String(briT) + " bri: " + String(bri) + " briOld: " + String(briOld));
+    }
+    if (blendingStyle != TRANSITION_FADE && (strip.isPoweringOn() || strip.isPoweringOff()) && strip.isPowerTrigger()) {
+      Serial.println("state: global on/off transition detected, forcing all segments to transition mode");
+      strip.setTransitionMode(true); // force all segments to a spatial on/off transition, segments handle transition inversion (on during off or off during on)
+    }
+    strip.clearPowerFlag(TRANSITION_POWER_TRIGGER);
+  }
 }
 
 //called after every state changes, schedules interface updates, handles brightness transition and nightlight activation
@@ -121,57 +171,7 @@ void stateUpdated(byte callMode) {
   // notify usermods of state change
   UsermodManager::onStateChange(callMode);
 
-  // global brightness transition handling. Note: power flags are set in toggleOnOff()
-  DEBUG_PRINTF_P(PSTR("***********state update: briT: %d bri: %d briOld: %d, isPoweron: %d , isPoweroff %d, trigger: %d\n"), (int)briT, (int)bri, (int)briOld, (int)strip.isPoweringOn(), (int)strip.isPoweringOff(), (int)strip.isPowerTrigger());
-
-  if (strip.getTransition() == 0) {
-    jsonTransitionOnce = false;
-    transitionActive = false;
-    applyFinalBri();
-  } else {
-    if (blendingStyle != TRANSITION_FADE) {
-      if (strip.isPoweringOff() && strip.isPoweringOn()) {
-        // if both flags are set, the power state was reversed during transition, invert the transition time to keep "overall brightness" i.e number of lit LEDs
-        // note: segments do the same, timing to finish the transition matches (more or less), segment blending is held in spatial transition until global transition finishes.
-        int progress = now - transitionStartTime;
-        int duration = strip.getTransition();
-        transitionStartTime = now - (duration - progress); // invert transition progress
-        if (bri > 0) strip.clearPowerFlag(TRANSITION_POWER_OFF);
-        else strip.clearPowerFlag(TRANSITION_POWER_ON);
-      }
-      else if (strip.isPoweringOn() && strip.isPowerTrigger() || (bri > 0 && briOld == 0)) {
-        // global power on from off state either through power button or brightness change
-        strip.setPowerFlag(TRANSITION_POWER_ON | TRANSITION_POWER_TRIGGER); // if powering on by brightness change, set power flag to inite spatial transition (if set)
-        strip.setTransitionMode(false); // stop any transition that is going on while in off mode and start clean (a segment power on prior to global on will continue otherwise)
-        strip.restartRuntime();         // and restart any running effect when powering on
-        if (blendingStyle != TRANSITION_FADE) applyFinalBri();; // set brightness immediately, otherwise it will fade-in -> this does not yet work. need to set to bri old? or bri last?
-      }
-    }
-      //TODO: do we need to set briT = briOld when powering off? since we can now fade in parallel, just let it continue?
-
-    if (strip.isPoweringOff() && bri > 0) {
-      // powering off but brightness was changed -> switch to powering on, update is handled below
-      strip.clearPowerFlag(TRANSITION_POWER_OFF);
-      strip.setPowerFlag(TRANSITION_POWER_ON | TRANSITION_POWER_TRIGGER);
-      Serial.println("state: brightness change during power off transition, toggling to on transition");
-    }
-
-    // if brightness changed, start a new global transition but do not reset the timer if powering off (unless powering back on i.e. triggered)
-    // Note: fading is omitted if segments run a spatial power off transition, see handleTransitions()
-    if ((bri != briOld && !strip.isPoweringOff()) || strip.isPowerTrigger()) {
-      if (transitionActive) {
-        briOld = briT; // capture transition value: starts brightness fade from current value
-      }
-      transitionActive = true;
-      transitionStartTime = now; // note: this only affects brightness fade, spatial transition continues as it is handled on segment level
-      Serial.println("state: starting global transition, briT: " + String(briT) + " bri: " + String(bri) + " briOld: " + String(briOld));
-    }
-    if (blendingStyle != TRANSITION_FADE && (strip.isPoweringOn() || strip.isPoweringOff()) && strip.isPowerTrigger()) {
-      Serial.println("state: global on/off transition detected, forcing all segments to transition mode");
-      strip.setTransitionMode(true); // force all segments to a spatial on/off transition, segments handle transition inversion (on during off or off during on)
-    }
-    strip.clearPowerFlag(TRANSITION_POWER_TRIGGER);
-  }
+  handleBriChange(); // check if a global brightness changed and start/update transition if needed
 
   stateChanged = false;
 }
@@ -218,7 +218,7 @@ void handleTransitions() {
       return;
     }
     // fade global brightness from briOld to bri, skip if powering off using spatial transition (avoid fading in parallel)
-    // note: power on sets briOld = bri so it wont fade but still allows global brightness change during that transition
+    // note: power on sets briOld = bri so it wont fade but still allows global brightness change during that transition which then will fade
     if (!strip.isPoweringOff() || blendingStyle == TRANSITION_FADE) {
       byte briTO = briT;
       int deltaBri = (int)bri - (int)briOld;

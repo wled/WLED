@@ -660,8 +660,7 @@ class Segment {
     inline uint16_t fadeProgress()         const { return isInTransition() ? _t->_fadeProgress : 0xFFFFU; } // fade channel progress, relies on handleTransition()/updateTransitionProgress()
     inline unsigned long getTransitionStart() const { return isInTransition() ? _t->_start : 0; } // spatial channel start time
     inline Segment *getOldSegment()        const { return isInTransition() ? _t->_oldSegment : nullptr; }
-    // power transition helpers (true while a spatial on/off transition is running; a power-off transition keeps its
-    // segment copy until the whole transition - incl. the fade channel - ends, see handleTransition())
+    inline bool     fadeTransitionActive() const { return isInTransition() && _t->_fadeStart > _t->_start; } // true if fading during a spatial transition
     inline bool     isPowerTransition()    const { return isInTransition() && (_t->_flags & TRANSITION_FLAG_POWER) && _t->_oldSegment != nullptr; }
     inline bool     isPowerOffTransition() const { return isPowerTransition() && !(_t->_flags & TRANSITION_FLAG_POWER_ON); } // spatial to off
     inline bool     isPowerOnTransition()  const { return isPowerTransition() && (_t->_flags & TRANSITION_FLAG_POWER_ON); }  // spatial to on
