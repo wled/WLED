@@ -68,8 +68,7 @@ docs/                # Coding convention docs
 
 ```text
 main                # Main development trunk (daily/nightly) 17.0.0-dev. Target branch for PRs.
-  ├── V5            # special branch: code rework for esp-idf 5.5.x (unstable)
-      ├── V5-C6     # special branch: integration of new MCU types: esp32-c5, esp32-c6, esp32-p4 (unstable)
+  ├── V5            # special branch: code rework for esp-idf 5.5.x and new MCU types: esp32-c5, esp32-c6, esp32-p4 (unstable)
 16_x                # maintenance for release 16.0.x
 0_15_x              # maintenance (bugfixes only) for previous release 0.15.x
 (tag) v0.14.4       # old version 0.14.4 (no maintenance)
@@ -104,6 +103,14 @@ main                # Main development trunk (daily/nightly) 17.0.0-dev. Target 
 - Project headers first, then platform/Arduino, then third-party
 - Platform-conditional includes wrapped in `#ifdef ARDUINO_ARCH_ESP32` / `#ifdef ESP8266`
 
+### Debug Output
+
+- Use `DEBUG_PRINTF()` / `DEBUG_PRINTLN()` / `DEBUG_PRINT()` for developer diagnostics and debug output (compiled out unless -D WLED_DEBUG)
+- wled00/wled.h defines these macros. They compile to no output when debug output is disabled, keeping normal serial interfaces clean.
+- Do not use direct `Serial.print()`, `Serial.println()`, `Serial.printf()`, or `Serial.write()` calls unless there is a technical justification for not using DEBUG_... macros.
+
+See docs/cpp.instructions.md section Error Handling for more information.
+
 ### Types and Const
 - Prefer `const &` for read-only function parameters
 - Mark getter/query methods `const`; use `static` for methods not accessing instance state
@@ -115,7 +122,7 @@ main                # Main development trunk (daily/nightly) 17.0.0-dev. Target 
 - **No C++ exceptions** — some builds disable them
 - Use return codes (`false`, `-1`) and global flags (`errorFlag = ERR_LOW_MEM`)
 - Use early returns as guard clauses: `if (!enabled || (strip.isUpdating() && (millis() - last_time < MAX_USERMOD_DELAY))) return;`
-- Debug output: `DEBUG_PRINTF()` / `DEBUG_PRINTLN()` (compiled out unless `-D WLED_DEBUG`)
+- Debug output: `DEBUG_PRINTF()` / `DEBUG_PRINTLN()` (see previous section)
 
 ### Strings and Memory
 - Use `F("string")` for string constants (saves RAM on ESP8266)
@@ -134,8 +141,8 @@ main                # Main development trunk (daily/nightly) 17.0.0-dev. Target 
 
 Background Info:
 
-- PSRAM access is up to 18× slower than DRAM on ESP32 (dual-SPI bus), 3–10× slower than DRAM on ESP32-S3/-S2 with quad-SPI bus. On ESP32-S3 with octal PSRAM (`CONFIG_SPIRAM_MODE_OCT`), the penalty is smaller (~2×) because the 8-line DTR bus can transfer 8 bits in parallel. On ESP32-P4 with hex PSRAM (`CONFIG_SPIRAM_MODE_HEX`), the 16-line bus runs at 200 MHz which brings it on-par with DRAM.
-- Consider that ESP32 often crashes when the largest DRAM chunk gets below 10 KB.
+- PSRAM access is up to 15× slower than DRAM on ESP32 (dual-SPI bus), 3–10× slower than DRAM on ESP32-S3/-S2 with quad-SPI bus. On ESP32-S3 with octal PSRAM (`CONFIG_SPIRAM_MODE_OCT`), the penalty is smaller (~2×) because the 8-line DTR bus can transfer 8 bits in parallel. On ESP32-P4 with hex PSRAM (`CONFIG_SPIRAM_MODE_HEX`), the 16-line bus runs at 200 MHz which brings it on-par with DRAM.
+- Consider that ESP32 often crashes when the largest available DRAM chunk gets below 10 KB.
 
 ### Preprocessor / Feature Flags
 - Feature toggling: `WLED_DISABLE_*` and `WLED_ENABLE_*` flags (exact names matter!)
@@ -162,6 +169,7 @@ Background Info:
 
 - Use FreeRTOS mutexes, semaphores or queues when true concurrent access from multiple FreeRTOS tasks is possible, and race-conditions can lead to unexpected behaviour.
 - **Avoid `portENTER_CRITICAL()` / `portEXIT_CRITICAL()`**, as these functions stall the complete system and may cause LEDs flickering. Prefer FreeRTOS mutexes, semaphores or queues.
+- Don't use `portMAX_DELAY` when waiting to acquire a mutex - this can lock the task indefinitely. Find a reasonable max waiting time, and handle mutex timeouts gracefully.
 - **Important**: Not every shared resource needs a mutex. Some synchronization is guaranteed by the overall control flow, for example when function calls are sequenced within the same loop iteration.
 - Consider using `std::atomic` or RAII scoped guards as alternatives to mutexes, semaphores or queues.
 
@@ -173,9 +181,17 @@ Background Info:
 - After editing, run `npm run build` to regenerate headers
 - **Never edit** `wled00/html_*.h` or `wled00/js_*.h` directly
 
-## Usermod Pattern
+## Usermods
+ 
+### Source Code Location
 
-Usermods live in `usermods/<name>/` with a `.cpp`, optional `.h`, `library.json`, and `readme.md`.
+* **In-Tree Usermods** live in `usermods/<name>/` with a `.cpp`, optional `.h`, `library.json`, and `readme.md`.  An example is in `usermods/EXAMPLE`
+* **Out-Of-Tree Usermods** live in a separate public repository. They use the same pattern as in-tree usermods.
+
+* [Official out-of-tree usermods list](https://kno.wled.ge/advanced/community-usermods/#index)
+* [Writing an out-of-tree usermod](https://kno.wled.ge/advanced/custom-features/#writing-a-usermod)
+
+### Usermod Pattern
 
 ```cpp
 class MyUsermod : public Usermod {
@@ -203,12 +219,22 @@ refer to detailed examples in `usermods/EXAMPLE/`, `usermods/user_fx/` and [in t
 - Store repeated strings as `static const char[] PROGMEM`
 - Add usermod IDs to `wled00/const.h` **only when a unique ID is required** (see below)
 
+### Pin ownership via `pinManager`
+- Before performing any operation on I/O pins, the usermod must allocate its pins from the `pinManager`.
+- I/O pins are allocated via `PinManager::allocatePin(byte gpio, bool output, PinOwner tag)` (or `PinManager::allocateMultiplePins()`), and returned via `PinManager::deallocatePin()` when re-configuring pin numbers.
+- `PinManager::allocatePin()` will return an error code in case that a pin is already assigned to another WLED function.
+- You can use `-1` = `255` for unconfigured / unassigned pin functions.
+- Check for valid pin numbers with `PinManager::isPinOk(byte gpio, bool output)`; this function knows which GPI(O) pins are possible on your specific MCU.
+- PIN numbers for I2C and SPI busses are configured globally in the generic part of the usermod settings page.
+- Usually, a usermod will not start the I2C or SPI units explicitly, since they are already initialised when WLED starts.
+- Use this pattern to check for an incomplete I2C setup: `if (i2c_scl<0 || i2c_sda<0) {enabled = false; return;}`.
+
 ### Usermod IDs
 
 A unique ID (registered in `wled00/const.h` and overriding `getId()`) is **only required** when a usermod needs one or more of the following:
 
 1. **Inter-usermod communication** — another usermod or an FX effect calls `UsermodManager::lookup(mod_id)` or `UsermodManager::getUMData(..., mod_id)` to find or request data from this specific usermod.
-2. **Pin ownership via `pinManager`** — the usermod allocates GPIO pins through `pinManager`. Pin ownership is tracked by `PinOwner` enum values that map directly to `USERMOD_ID_*` constants (see `wled00/pin_manager.h`). This prevents pin-conflict bugs.
+2. **Pin ownership via `PinManager`** — the usermod allocates GPIO pins through `pinManager`. Pin ownership is tracked by `PinOwner` enum values that map directly to `USERMOD_ID_*` constants (see `wled00/pin_manager.h`). This prevents pin-conflict bugs.
 3. **Identification in JSON info** — `UsermodManager::addToJsonInfo` emits each mod's ID into the `"um"` array; a unique ID makes the mod identifiable in that output.
 
 If none of the above apply, the usermod may omit `getId()` (or return the default `USERMOD_ID_UNSPECIFIED`) and does **not** need an entry in `const.h`.
@@ -220,6 +246,11 @@ If none of the above apply, the usermod may omit `getId()` (or return the defaul
     * up to 2000 times/sec with few LEDs and little background activity,
     * between 20 and 300 times/second during high workload from effects and other usermods,
     * (worst case) down to 1-3 times/sec during FS activity or when serving lots of network API requests.
+
+### See Also
+* https://kno.wled.ge/advanced/custom-features/#usermods
+* https://kno.wled.ge/advanced/community-usermods/#index
+* generic instructions for Debug Output, as per previous section in this file.
 
 ## CI/CD
 

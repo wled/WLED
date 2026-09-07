@@ -193,7 +193,7 @@ On ESP32-S3 modules with OPI flash (e.g. N8R8 modules where the SPI flash itself
 
 ## Migrating from ESP-IDF v4.4.x to v5.x
 
-The jump from IDF v4.4 (arduino-esp32 v2.x) to IDF v5.x (arduino-esp32 v3.x) is the largest API break in ESP-IDF history. This section documents the critical changes and recommended migration patterns based on the upstream WLED `V5-C6` branch (`https://github.com/wled/WLED/tree/V5-C6`). Note: WLED has not yet migrated to IDF v5 — these patterns prepare for the future migration.
+The jump from IDF v4.4 (arduino-esp32 v2.x) to IDF v5.x (arduino-esp32 v3.x) is the largest API break in ESP-IDF history. This section documents the critical changes and recommended migration patterns based on the upstream WLED `V5` branch (`https://github.com/wled/WLED/tree/V5`). Note: WLED has not yet migrated to IDF v5 — these patterns prepare for the future migration.
 
 <!-- HUMAN_ONLY_START -->
 ### Compiler changes
@@ -295,7 +295,7 @@ The new API is channel-based:
 | `rmt_item32_t` | `rmt_symbol_word_t` | Different struct layout |
 
 <!-- HUMAN_ONLY_END -->
-**WLED impact**: NeoPixelBus LED output and IR receiver both use legacy RMT. The upstream `V5-C6` branch adds `-D WLED_USE_SHARED_RMT` and disables IR until the library is ported.
+**WLED impact**: NeoPixelBus LED output and IR receiver both use legacy RMT. The upstream `V5` branch adds `-D WLED_USE_SHARED_RMT` and disables IR until the library is ported.
 
 #### I2S (Inter-IC Sound)
 
@@ -363,7 +363,7 @@ WLED already has a compatibility shim in `ota_update.cpp` that maps old names to
 
 ### Features disabled in IDF v5 builds
 
-The upstream `V5-C6` branch explicitly disables features with incompatible library dependencies:
+The upstream `V5` branch explicitly disables features with incompatible library dependencies:
 
 ```ini
 # platformio.ini [esp32_idf_V5]
@@ -699,7 +699,7 @@ RMT drives NeoPixel LED output (via NeoPixelBus) and IR receiver input. Both use
 
 ### Migration notes
 
-- The upstream `V5-C6` branch uses `-D WLED_USE_SHARED_RMT` to switch to the new RMT driver for NeoPixel output.
+- The upstream `V5` branch uses `-D WLED_USE_SHARED_RMT` to switch to the new RMT driver for NeoPixel output.
 - IR is disabled on IDF v5 until the IR library is ported.
 - New chips (C6, P4) have different RMT channel counts — use `SOC_RMT_TX_CANDIDATES_PER_GROUP` to check availability.
 - The new RMT API requires an "encoder" object (`rmt_encoder_t`) to translate data formats — this is more flexible but requires more setup code.
