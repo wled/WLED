@@ -1,0 +1,749 @@
+<!DOCTYPE html>
+<html lang="nl">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Woordklok</title>
+  <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+  <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+  <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      background: #0d0d0d;
+      color: #e8d5a3;
+      font-family: 'Georgia', serif;
+      min-height: 100vh;
+      padding: 32px 32px 48px;
+    }
+
+    h1 {
+      font-size: 2rem;
+      letter-spacing: 0.35em;
+      text-transform: uppercase;
+      color: #e8d5a3;
+      margin-bottom: 6px;
+      font-weight: normal;
+    }
+
+    .subtitle {
+      font-size: 0.8rem;
+      letter-spacing: 0.2em;
+      color: #6b5c3e;
+      margin-bottom: 36px;
+      text-transform: uppercase;
+    }
+
+    /* ── Page layout ───────────────────────────────────────── */
+    .page-body {
+      display: flex;
+      flex-direction: row;
+      align-items: flex-start;
+      gap: 32px;
+    }
+
+    .controls {
+      flex: 0 0 300px;
+      width: 300px;
+      min-width: 300px;
+    }
+
+    @media (max-width: 820px) {
+      .page-body { flex-direction: column; }
+      .controls { flex: unset; width: 100%; min-width: unset; }
+    }
+
+    /* ── Grid ─────────────────────────────────────────────── */
+    .clock-frame {
+      background: #111;
+      border: 2px solid #2a2218;
+      border-radius: 16px;
+      padding: 28px;
+      box-shadow:
+        0 0 0 1px #1a1610,
+        0 8px 40px rgba(0,0,0,0.8),
+        inset 0 1px 0 rgba(255,255,255,0.04);
+    }
+
+    .grid {
+      display: grid;
+      gap: 4px;
+      user-select: none;
+    }
+
+    .cell {
+      width: 38px;
+      height: 38px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 1rem;
+      font-weight: bold;
+      letter-spacing: 0.05em;
+      border-radius: 4px;
+      transition: color 0.25s ease, text-shadow 0.25s ease, background 0.25s ease;
+      color: #2e2618;
+      background: transparent;
+    }
+
+    .cell.dim {
+      color: #3a3020;
+    }
+
+    .cell.highlight {
+      color: #f5d97a;
+      text-shadow:
+        0 0 8px rgba(245, 217, 122, 0.9),
+        0 0 20px rgba(245, 180, 50, 0.5),
+        0 0 40px rgba(245, 160, 0, 0.2);
+      background: rgba(245, 180, 50, 0.07);
+    }
+
+    /* word boundary flash on word-start */
+    .cell.word-start {
+      border-left: 1px solid #1e1a12;
+    }
+
+    /* ── Controls ─────────────────────────────────────────── */
+    .controls {
+      display: flex;
+      flex-direction: column;
+      gap: 24px;
+    }
+
+    .control-group {
+      background: #141210;
+      border: 1px solid #211d14;
+      border-radius: 12px;
+      padding: 20px 24px;
+    }
+
+    .control-group h2 {
+      font-size: 0.7rem;
+      letter-spacing: 0.3em;
+      text-transform: uppercase;
+      color: #5a4e35;
+      margin-bottom: 16px;
+    }
+
+    .slider-row {
+      display: flex;
+      align-items: center;
+      gap: 14px;
+      margin-bottom: 10px;
+    }
+
+    .slider-row:last-child { margin-bottom: 0; }
+
+    .slider-label {
+      width: 64px;
+      font-size: 0.78rem;
+      letter-spacing: 0.12em;
+      color: #7a6a48;
+      text-transform: uppercase;
+    }
+
+    .slider-value {
+      width: 28px;
+      text-align: right;
+      font-size: 0.9rem;
+      color: #c8b078;
+    }
+
+    input[type="range"] {
+      flex: 1;
+      -webkit-appearance: none;
+      background: #1e1a10;
+      height: 4px;
+      border-radius: 2px;
+      outline: none;
+    }
+
+    input[type="range"]::-webkit-slider-thumb {
+      -webkit-appearance: none;
+      width: 16px;
+      height: 16px;
+      border-radius: 50%;
+      background: #c8a040;
+      cursor: pointer;
+      box-shadow: 0 0 6px rgba(200,160,64,0.5);
+    }
+
+    .sentence-input {
+      width: 100%;
+      background: #0d0b07;
+      border: 1px solid #2a2416;
+      border-radius: 8px;
+      padding: 12px 16px;
+      font-size: 1rem;
+      color: #e8d5a3;
+      letter-spacing: 0.05em;
+      outline: none;
+      transition: border-color 0.2s;
+      font-family: inherit;
+    }
+
+    .sentence-input:focus {
+      border-color: #6a5a30;
+      box-shadow: 0 0 0 2px rgba(106,90,48,0.2);
+    }
+
+    .sentence-input::placeholder {
+      color: #3a3020;
+    }
+
+    .button-row {
+      display: flex;
+      gap: 12px;
+      flex-wrap: wrap;
+      margin-top: 4px;
+    }
+
+    button {
+      background: #1e1a10;
+      border: 1px solid #2e2818;
+      border-radius: 8px;
+      color: #a08040;
+      font-size: 0.78rem;
+      letter-spacing: 0.15em;
+      text-transform: uppercase;
+      padding: 9px 18px;
+      cursor: pointer;
+      transition: background 0.15s, color 0.15s, border-color 0.15s;
+      font-family: inherit;
+    }
+
+    button:hover {
+      background: #282010;
+      border-color: #4a3e20;
+      color: #c8a040;
+    }
+
+    button.primary {
+      background: #2a2010;
+      border-color: #5a4820;
+      color: #c8a040;
+    }
+
+    button.primary:hover {
+      background: #342810;
+      border-color: #7a6030;
+      color: #e8c060;
+    }
+
+    .time-display {
+      font-size: 0.82rem;
+      color: #5a4e35;
+      letter-spacing: 0.1em;
+      margin-top: 10px;
+    }
+
+    .time-display span {
+      color: #907040;
+    }
+
+    .word-legend {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+      margin-top: 12px;
+    }
+
+    .word-chip {
+      font-size: 0.68rem;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+      padding: 3px 9px;
+      border-radius: 4px;
+      background: #1a1610;
+      border: 1px solid #2a2418;
+      color: #5a4e35;
+      transition: color 0.2s, border-color 0.2s;
+    }
+
+    .word-chip.active {
+      color: #c8a040;
+      border-color: #4a3820;
+    }
+
+    .word-chip.missing {
+      color: #5a2020;
+      border-color: #3a1818;
+      text-decoration: line-through;
+    }
+
+    .hint {
+      font-size: 0.72rem;
+      color: #3a3020;
+      margin-top: 8px;
+      letter-spacing: 0.05em;
+    }
+
+    .hint b { color: #5a4e35; }
+  </style>
+</head>
+<body>
+  <div id="root"></div>
+
+  <script type="text/babel">
+    const { useState, useMemo, useCallback, useEffect, useRef } = React;
+
+    /* ── Dutch time vocabulary ─────────────────────────────── */
+    // Words are grouped by reading-order segment. Within each group marked
+    // shuffle:true the words are interchangeable (only one is ever lit per
+    // sentence), so their internal order can be randomised freely.
+    const WORD_GROUPS = [
+      { shuffle: false, words: ['HET', 'HET'] },
+      { shuffle: false, words: ['IS', 'IS'] },
+      { shuffle: true,  words: ['VIJF', 'TIEN', 'KWART'] },
+      { shuffle: true,  words: ['OVER', 'VOOR'] },
+      { shuffle: false, words: ['HALF'] },
+      { shuffle: true,  words: ['EEN', 'TWEE', 'DRIE', 'VIER', 'VIJF', 'ZES', 'ZEVEN', 'ACHT', 'NEGEN', 'TIEN', 'ELF', 'TWAALF'] },
+      { shuffle: false, words: ['UUR'] },
+    ];
+
+    // Flat unshuffled list — used only for MIN_WIDTH.
+    const TIME_WORDS_BASE = WORD_GROUPS.flatMap(g => g.words);
+
+    function fisherYates(arr, rng) {
+      const a = [...arr];
+      for (let i = a.length - 1; i > 0; i--) {
+        const j = Math.floor(rng() * (i + 1));
+        [a[i], a[j]] = [a[j], a[i]];
+      }
+      return a;
+    }
+
+    // Build the word groups for a given seed, shuffling within each shuffleable group.
+    // Returns an array-of-arrays so placeWords can avoid separators within a group.
+    function buildTimeWords(seed) {
+      const rng = makePRNG(seed ^ 0x9E3779B9);
+      return WORD_GROUPS.map(g =>
+        g.shuffle ? fisherYates(g.words, rng) : [...g.words]
+      );
+    }
+
+    const HOUR_WORDS = ['EEN','TWEE','DRIE','VIER','VIJF','ZES','ZEVEN','ACHT','NEGEN','TIEN','ELF','TWAALF'];
+
+    /* ── Dutch-weighted random letters ─────────────────────── */
+    const DUTCH_POOL = 'AAABBCDDEEEEEFGHIIIJKLLMMNNOOOPRSTTTUUVWXYZQAAAEEENNNRRR';
+    const randomLetter = (rng) => DUTCH_POOL[Math.floor(rng() * DUTCH_POOL.length)];
+
+    /* ── Seeded PRNG (mulberry32) ──────────────────────────── */
+    function makePRNG(seed) {
+      let s = seed >>> 0;
+      return () => {
+        s += 0x6D2B79F5;
+        let t = s;
+        t = Math.imul(t ^ (t >>> 15), t | 1);
+        t ^= t + Math.imul(t ^ (t >>> 7), t | 61);
+        return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+      };
+    }
+
+    /* ── Grid builder ──────────────────────────────────────── */
+    // Phase 1 is factored into placeWords so it can be reused for
+    // the exact minHeight calculation.
+    const SCRATCH_ROWS = 100; // larger than any realistic grid
+
+    function placeWords(rng, width, wordGroups) {
+      const scratch = Array.from({ length: SCRATCH_ROWS }, () =>
+        Array.from({ length: width }, () => ({ letter: '', isWord: false }))
+      );
+      const wordPositions = {};
+
+      let row = 0, col = 0;
+
+      const fillScratch = (r, from, to) => {
+        for (let c = from; c < to; c++) {
+          if (!scratch[r][c].letter) scratch[r][c].letter = randomLetter(rng);
+        }
+      };
+
+      const advance = () => {
+        col++;
+        if (col >= width) { fillScratch(row, 0, width); row++; col = 0; }
+      };
+
+      for (const group of wordGroups) {
+        let firstInGroup = true;
+
+        for (const word of group) {
+          if (row >= SCRATCH_ROWS) break;
+          if (col >= width) { fillScratch(row, 0, width); row++; col = 0; }
+          if (row >= SCRATCH_ROWS) break;
+
+          if (firstInGroup && col > 0) {
+            // Separator only before the first word of a new group.
+            const seps = (rng() > 0.4) ? 2 : 1;
+            for (let s = 0; s < seps; s++) {
+              if (row >= SCRATCH_ROWS) break;
+              scratch[row][col].letter = randomLetter(rng);
+              advance();
+            }
+            if (row >= SCRATCH_ROWS) break;
+          }
+          firstInGroup = false;
+
+          if (col + word.length > width) {
+            fillScratch(row, col, width);
+            row++; col = 0;
+            if (row >= SCRATCH_ROWS) break;
+          }
+
+          if (col === 0) {
+            const maxPad = Math.max(0, width - word.length - 1);
+            const pad = Math.floor(rng() * (Math.min(maxPad, Math.floor(width / 2)) + 1));
+            for (let p = 0; p < pad; p++) {
+              scratch[row][col].letter = randomLetter(rng);
+              col++;
+            }
+          }
+
+          const positions = [];
+          for (let i = 0; i < word.length; i++) {
+            scratch[row][col].letter = word[i];
+            scratch[row][col].isWord = true;
+            positions.push({ row, col });
+            col++;
+          }
+          // Store per-occurrence: a word may appear in both minute and hour group.
+          const key = word.toLowerCase();
+          if (!wordPositions[key]) wordPositions[key] = [];
+          wordPositions[key].push(positions);
+        }
+        if (row >= SCRATCH_ROWS) break;
+      }
+
+      // Find the last row that has any content.
+      let lastUsedRow = 0;
+      for (let r = SCRATCH_ROWS - 1; r >= 0; r--) {
+        if (scratch[r].some(c => c.letter)) { lastUsedRow = r; break; }
+      }
+
+      return { scratch, wordPositions, rowsUsed: lastUsedRow + 1 };
+    }
+
+    // Exact row count for the given seed+width (no approximation).
+    function computeRowsUsed(width, seed) {
+      return placeWords(makePRNG(seed), width, buildTimeWords(seed)).rowsUsed;
+    }
+
+    function buildGrid(width, height, seed) {
+      const rng = makePRNG(seed);
+      const { scratch, wordPositions: rawWordPositions, rowsUsed } = placeWords(rng, width, buildTimeWords(seed));
+
+      // Split spare rows evenly above and below.
+      const spareRows = Math.max(0, height - rowsUsed);
+      const topPad = Math.floor(spareRows / 2);
+
+      // Copy scratch into the real grid, shifted down by topPad.
+      const grid = Array.from({ length: height }, () =>
+        Array.from({ length: width }, () => ({ letter: '', isWord: false }))
+      );
+
+      for (let r = 0; r < rowsUsed && r + topPad < height; r++) {
+        for (let c = 0; c < width; c++) {
+          if (scratch[r][c].letter) grid[r + topPad][c] = { ...scratch[r][c] };
+        }
+      }
+
+      // Fill all remaining empty cells (top pad rows, bottom pad rows, gaps).
+      for (let r = 0; r < height; r++) {
+        for (let c = 0; c < width; c++) {
+          if (!grid[r][c].letter) grid[r][c].letter = randomLetter(rng);
+        }
+      }
+
+      // Shift word positions to match the vertical offset.
+      const wordPositions = {};
+      for (const [word, occurrences] of Object.entries(rawWordPositions)) {
+        wordPositions[word] = occurrences.map(positions =>
+          positions.map(({ row: r, col: c }) => ({ row: r + topPad, col: c }))
+        );
+      }
+
+      return { grid, wordPositions };
+    }
+
+    /* ── Dutch time sentence ────────────────────────────────── */
+    // totalMinutes: 0‥719 (5-min steps within a 12 h cycle)
+    function getDutchTimeForMinutes(totalMinutes) {
+      const h = Math.floor(totalMinutes / 60) % 12;  // 0‥11 (0 = twaalfuur)
+      const m = totalMinutes % 60;                   // already a multiple of 5
+
+      // hourIndex: index of the current clock hour in HOUR_WORDS (0=EEN … 11=TWAALF)
+      // nextHourIndex: the hour after that (used for half/voor constructions)
+      const hourIndex     = (h - 1 + 12) % 12;
+      const nextHourIndex = h % 12;
+
+      const hour     = HOUR_WORDS[hourIndex].toLowerCase();
+      const nextHour = HOUR_WORDS[nextHourIndex].toLowerCase();
+      const base = 'het is';
+
+      if (m ===  0) return `${base} ${hour} uur`;
+      if (m ===  5) return `${base} vijf over ${hour}`;
+      if (m === 10) return `${base} tien over ${hour}`;
+      if (m === 15) return `${base} kwart over ${hour}`;
+      if (m === 20) return `${base} tien voor half ${nextHour}`;
+      if (m === 25) return `${base} vijf voor half ${nextHour}`;
+      if (m === 30) return `${base} half ${nextHour}`;
+      if (m === 35) return `${base} vijf over half ${nextHour}`;
+      if (m === 40) return `${base} tien over half ${nextHour}`;
+      if (m === 45) return `${base} kwart voor ${nextHour}`;
+      if (m === 50) return `${base} tien voor ${nextHour}`;
+      if (m === 55) return `${base} vijf voor ${nextHour}`;
+      return `${base} ${hour}`;
+    }
+
+    function currentTimeMinutes() {
+      const now = new Date();
+      const rawM = Math.round(now.getMinutes() / 5) * 5;
+      const carry = rawM >= 60 ? 1 : 0;
+      const h = (now.getHours() + carry) % 12;
+      const m = rawM % 60;
+      return h * 60 + m;
+    }
+
+    function getDutchTime() {
+      return getDutchTimeForMinutes(currentTimeMinutes());
+    }
+
+    /* ── Sentence parser → highlighted set ─────────────────── */
+    // Words that appear multiple times in the matrix purely for variety —
+    // randomly pick one of their occurrences on each sentence change.
+    const RANDOM_PICK_WORDS = new Set(['het', 'is']);
+
+    function getHighlightedCells(sentence, wordPositions) {
+      const highlighted = new Set();
+      const tokens = sentence.toLowerCase().trim().split(/\s+/).filter(Boolean);
+      // In Dutch time sentences the hour word is always the last token.
+      // When a word has multiple grid occurrences (e.g. "vijf" or "tien"
+      // appear in both the minute group and the hour group), the last token
+      // must pick the last (hour-group) occurrence; all earlier tokens use
+      // a running counter so they pick the first (minute-group) occurrence.
+      // Exception: words in RANDOM_PICK_WORDS randomly pick any occurrence.
+      const seen = {};
+      tokens.forEach((token, idx) => {
+        const occurrences = wordPositions[token];
+        if (!occurrences) return;
+        const isLastToken = idx === tokens.length - 1;
+        let occIdx;
+        if (RANDOM_PICK_WORDS.has(token) && occurrences.length > 1) {
+          occIdx = Math.floor(Math.random() * occurrences.length);
+        } else if (isLastToken && occurrences.length > 1) {
+          occIdx = occurrences.length - 1; // hour-group occurrence
+        } else {
+          occIdx = seen[token] || 0;
+          seen[token] = occIdx + 1;
+        }
+        const positions = occurrences[Math.min(occIdx, occurrences.length - 1)];
+        for (const { row, col } of positions) {
+          highlighted.add(`${row},${col}`);
+        }
+      });
+      return { highlighted };
+    }
+
+    /* ── Minimum grid dimensions ────────────────────────────── */
+    const MIN_WIDTH = Math.max(...TIME_WORDS_BASE.map(w => w.length)) + 2;
+
+    /* ── Example sentences ──────────────────────────────────── */
+    const EXAMPLES = [
+      'het is kwart over drie',
+      'het is vijf voor twaalf',
+      'het is half twee',
+      'het is tien voor half zes',
+      'het is kwart voor negen',
+      'het is vijf over half elf',
+    ];
+
+    /* ── URL hash helpers ──────────────────────────────────── */
+    function hashToSentence(hash) {
+      // Accept both #word+word and #word%20word
+      return decodeURIComponent(hash.replace(/^#/, '').replace(/\+/g, ' ')).trim();
+    }
+    function sentenceToHash(s) {
+      const t = s.trim();
+      return t ? '#' + t.replace(/\s+/g, '+') : '';
+    }
+
+    /* ── Main App ───────────────────────────────────────────── */
+    function App() {
+      const [width, setWidth]   = useState(13);
+      const [height, setHeight] = useState(9);
+      const [seed, setSeed]     = useState(42);
+      const [sentence, setSentence] = useState(() => hashToSentence(window.location.hash));
+      const [timeMinutes, setTimeMinutes] = useState(currentTimeMinutes);
+      const intervalRef = useRef(null);
+
+      // Keep URL hash in sync with sentence
+      useEffect(() => {
+        const next = sentenceToHash(sentence);
+        if (window.location.hash !== next) {
+          history.replaceState(null, '', next || window.location.pathname);
+        }
+      }, [sentence]);
+
+      // Let browser back/forward and external hash changes update the sentence
+      useEffect(() => {
+        const onHashChange = () => setSentence(hashToSentence(window.location.hash));
+        window.addEventListener('hashchange', onHashChange);
+        return () => window.removeEventListener('hashchange', onHashChange);
+      }, []);
+
+      // Exact minimum height for this specific seed+width combination.
+      const minHeight = useMemo(() => computeRowsUsed(width, seed), [width, seed]);
+      useEffect(() => {
+        setHeight(h => Math.max(h, minHeight));
+      }, [minHeight]);
+
+      const clampedHeight = Math.max(height, minHeight);
+
+      // Update current time every minute
+      useEffect(() => {
+        intervalRef.current = setInterval(() => {
+          setTimeMinutes(currentTimeMinutes());
+        }, 30000);
+        return () => clearInterval(intervalRef.current);
+      }, []);
+
+      const { grid, wordPositions } = useMemo(
+        () => buildGrid(width, clampedHeight, seed),
+        [width, clampedHeight, seed]
+      );
+
+      const activeSentence = sentence.trim() || '';
+      const { highlighted } = useMemo(
+        () => getHighlightedCells(activeSentence, wordPositions),
+        [activeSentence, wordPositions]
+      );
+
+      const [copied, setCopied] = useState(false);
+
+      const copyGridText = useCallback(() => {
+        const text = grid.map(row => row.map(cell => cell.letter).join('')).join('\n');
+        navigator.clipboard.writeText(text).then(() => {
+          setCopied(true);
+          setTimeout(() => setCopied(false), 1800);
+        });
+      }, [grid]);
+
+      const showCurrentTime = () => {
+        const t = currentTimeMinutes();
+        setTimeMinutes(t);
+        setSentence(getDutchTimeForMinutes(t));
+      };
+      const randomize = () => setSeed(s => s + 1);
+      const tryExample = () => {
+        const pick = EXAMPLES[Math.floor(Math.random() * EXAMPLES.length)];
+        setSentence(pick);
+      };
+
+      // Format slider value as h:mm for the label
+      const sliderH = Math.floor(timeMinutes / 60);
+      const sliderM = timeMinutes % 60;
+      const sliderLabel = `${sliderH === 0 ? 12 : sliderH}:${String(sliderM).padStart(2, '0')}`;
+
+      return (
+        <div>
+          <h1>Woordklok</h1>
+          <p className="subtitle">Dutch word clock grid</p>
+
+          <div className="page-body">
+            {/* Controls */}
+            <div className="controls">
+
+            {/* Sentence input */}
+            <div className="control-group">
+              <h2>Zin testen</h2>
+              <div className="slider-row" style={{marginBottom: '14px'}}>
+                <span className="slider-label">Tijd</span>
+                <input
+                  type="range" min="0" max="715" step="5"
+                  value={timeMinutes}
+                  onChange={e => {
+                    const t = +e.target.value;
+                    setTimeMinutes(t);
+                    setSentence(getDutchTimeForMinutes(t));
+                  }}
+                />
+                <span className="slider-value" style={{width:'36px'}}>{sliderLabel}</span>
+              </div>
+              <input
+                type="text"
+                className="sentence-input"
+                placeholder="bijv. het is kwart over drie"
+                value={sentence}
+                onChange={e => setSentence(e.target.value)}
+                spellCheck={false}
+                autoComplete="off"
+              />
+              <div className="button-row">
+                <button className="primary" onClick={showCurrentTime}>
+                  ⏱ Nu
+                </button>
+              </div>
+            </div>
+
+            {/* Grid dimensions */}
+            <div className="control-group">
+              <h2>Rastergrootte</h2>
+              <div className="slider-row">
+                <span className="slider-label">Breedte</span>
+                <input
+                  type="range" min={MIN_WIDTH} max="22"
+                  value={width}
+                  onChange={e => setWidth(+e.target.value)}
+                />
+                <span className="slider-value">{width}</span>
+              </div>
+              <div className="slider-row">
+                <span className="slider-label">Hoogte</span>
+                <input
+                  type="range" min={minHeight} max="20"
+                  value={clampedHeight}
+                  onChange={e => setHeight(+e.target.value)}
+                />
+                <span className="slider-value">{clampedHeight}</span>
+              </div>
+              <div className="button-row">
+                <button onClick={randomize}>↻ Nieuwe opvulling</button>
+                <button onClick={copyGridText}>{copied ? '✓ Gekopieerd' : '⎘ Kopieer tekst'}</button>
+              </div>
+            </div>
+
+            </div>
+
+            {/* Grid */}
+            <div className="clock-frame" style={{flexShrink: 0}}>
+              <div
+                className="grid"
+                style={{ gridTemplateColumns: `repeat(${width}, 38px)` }}
+              >
+                {grid.map((rowArr, r) =>
+                  rowArr.map((cell, c) => {
+                    const key = `${r},${c}`;
+                    const isHighlighted = highlighted.has(key);
+                    return (
+                      <div
+                        key={key}
+                        className={`cell ${isHighlighted ? 'highlight' : 'dim'}`}
+                      >
+                        {cell.letter}
+                      </div>
+                    );
+                  })
+                )}
+              </div>
+            </div>
+          </div>
+        </div>
+      );
+    }
+
+    ReactDOM.createRoot(document.getElementById('root')).render(<App />);
+  </script>
+</body>
+</html>
