@@ -84,6 +84,7 @@ void handleBriChange() {
   if (strip.getTransition() == 0) {
     jsonTransitionOnce = false;
     transitionActive = false;
+    strip.clearPowerFlag(0xFF); // clear all power flags
     applyFinalBri();
   } else {
     uint32_t now = millis();
