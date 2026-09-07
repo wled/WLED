@@ -80,7 +80,7 @@ void applyFinalBri() {
 
 // local function to handle global brightness transition, called from stateUpdated(). Note: power flags are set in toggleOnOff()
 void handleBriChange() {
-  DEBUG_PRINTF_P(PSTR("***********state update: briT: %d bri: %d briOld: %d, isPoweron: %d , isPoweroff %d, trigger: %d\n"), (int)briT, (int)bri, (int)briOld, (int)strip.isPoweringOn(), (int)strip.isPoweringOff(), (int)strip.isPowerTrigger());
+  //DEBUG_PRINTF_P(PSTR("state update: briT: %d bri: %d briOld: %d, isPoweron: %d , isPoweroff %d, trigger: %d\n"), (int)briT, (int)bri, (int)briOld, (int)strip.isPoweringOn(), (int)strip.isPoweringOff(), (int)strip.isPowerTrigger());
   if (strip.getTransition() == 0) {
     jsonTransitionOnce = false;
     transitionActive = false;
@@ -110,7 +110,6 @@ void handleBriChange() {
       // powering off but brightness was changed -> switch to powering on, update is handled below
       strip.clearPowerFlag(TRANSITION_POWER_OFF);
       strip.setPowerFlag(TRANSITION_POWER_ON | TRANSITION_POWER_TRIGGER);
-      Serial.println("state: brightness change during power off transition, toggling to on transition");
     }
 
     // if brightness changed, start a new global transition but do not reset the timer if powering off (unless powering back on i.e. triggered)
@@ -121,10 +120,8 @@ void handleBriChange() {
       }
       transitionActive = true;
       transitionStartTime = now; // note: this only affects brightness fade, spatial transition continues as it is handled on segment level
-      Serial.println("state: starting global transition, briT: " + String(briT) + " bri: " + String(bri) + " briOld: " + String(briOld));
     }
     if (blendingStyle != TRANSITION_FADE && (strip.isPoweringOn() || strip.isPoweringOff()) && strip.isPowerTrigger()) {
-      Serial.println("state: global on/off transition detected, forcing all segments to transition mode");
       strip.setTransitionMode(true); // force all segments to a spatial on/off transition, segments handle transition inversion (on during off or off during on)
     }
     strip.clearPowerFlag(TRANSITION_POWER_TRIGGER);
@@ -204,7 +201,6 @@ void handleTransitions() {
 
   // note: the !stateChanged is a workaround: bri is updated async, this code can run before stateUpdated() is called, causing a jump in the fade
   if (transitionActive && strip.getTransition() > 0 && !stateChanged) {
-    //Serial.printf("GT: %d, bri: %d, briOld: %d\n", (int)briT, (int)bri, (int)briOld);
     int progress = millis() - transitionStartTime;
     int duration = strip.getTransition();
     // finalize once the transition time has elapsed

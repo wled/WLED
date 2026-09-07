@@ -292,11 +292,9 @@ void Segment::handleTransition() {
   if (isInTransition() && !strip.isPoweringOff()) {
     // end transitions if completed but wait for a global power-off transition to complete to avoid revealing pixels (see blendSegment() blanking)
     if (_t->_oldSegment && _t->_progress == 0xFFFFU && !strip.isPoweringOff()) {
-      Serial.printf("handleTransition: deleting old segment copy, progress=%d\n", _t->_progress);
       delete _t->_oldSegment; _t->_oldSegment = nullptr;
     }
     if (progress() == 0xFFFFU && fadeProgress() == 0xFFFFU) {
-      Serial.printf("handleTransition: transition completed, progress=%d fadeProgress=%d\n", _t->_progress, _t->_fadeProgress);
       stopTransition(); // Transition frees a kept copy
     }
   }
@@ -333,15 +331,12 @@ void Segment::startTransition(uint16_t dur, uint8_t kind) {
   const uint8_t power = kind & TRANSITION_POWER_MASK;       // power flags (TRANSITION_POWER_*)
   kind &= TRANSITION_KIND_MASK;                             // strip the power flags
   const bool targetOn = power == TRANSITION_POWER_TOGGLE ? !on : power == TRANSITION_POWER_ON; // target on-state for power transitions
-  Serial.printf("startTransition: dur=%d kind=%d power=%d targetOn=%d\n", dur, kind, power, targetOn);
-
   // check if we even need to start a transition: abort if transitions disabled, not an active segment or not in an on state (unless this is a power-on request)
   if (dur == 0 || !isActive() || ((power != TRANSITION_POWER_TOGGLE) && !on)) {
     return;
   }
   // check if we need a copy of current segment: only effect transitions and transitions using a spatial (non-FADE) style
   const bool segmentCopy = kind == TRANSITION_KIND_EFFECT || (kind != TRANSITION_KIND_FADE && blendingStyle != TRANSITION_FADE);
-  Serial.printf("*****startTransition: dur=%d kind=%d power=%d targetOn=%d segmentCopy=%d seg is on=%d\n", dur, kind, power, targetOn, segmentCopy, on);
   // helper lambda function to capture current _bri/_cct and optionally _colors to the segments transitions (_t) state  TDODO: needs refinement
   const auto captureBlend = [&](unsigned long fadeStart) {
     for (unsigned i = 0; i < NUM_COLORS; i++) _t->_colors[i] = color_blend16(_t->_colors[i], colors[i], _t->_fadeProgress);
@@ -370,7 +365,6 @@ void Segment::startTransition(uint16_t dur, uint8_t kind) {
   if (isInTransition()) {
     // re-targeting a running transition: fade restarts, starting from current blend; a running spatial transition continues to completion
     if (!power) {
-      Serial.printf("***re-targeting transition: dur=%d start=%d now=%d progress=%d fadeProgress=%d\n", _t->_dur, _t->_start, millis(), _t->_progress, _t->_fadeProgress);
       // opacity/CCT/color/palette/FX change: rebase fades to the current visual blend and restart it (no jump). A running spatial transition continues
       if (segmentCopy && _t->_oldSegment == nullptr) {
         // no old segment means a fade transition is going on (color, palette, opacity, cct), capture current state into the old segment
@@ -394,16 +388,12 @@ void Segment::startTransition(uint16_t dur, uint8_t kind) {
         captureBlend(millis()); // restart fade channel from the current visual state
         if (segmentCopy) _t->_fadeDur = (_t->_dur * _t->_progress) / 0xFFFFU; // if this is a deferred spatial request align fade time with ongoing spatial channel
       }
-      Serial.printf("*returning from retargeting transition");
       return;
     }
     // power transition (on or off) request
     if (_t->_flags & TRANSITION_FLAG_POWER) {
       // power transition request (per segment or global) during an ongoing power transition
-      Serial.printf("***power transition: already in a power transition, dur=%d start=%d now=%d progress=%d\n", _t->_dur, _t->_start, millis(), _t->_progress);
       if (targetOn == ((_t->_flags & TRANSITION_FLAG_POWER_ON) != 0)) return; // same target re-issued, let the running transition finish
-
-      Serial.printf("***power transition: reversing ongoing power transition, dur=%d start=%d now=%d progress=%d\n", _t->_dur, _t->_start, millis(), _t->_progress);
       if (blendingStyle != TRANSITION_FADE) {
         // already in a power transition reverse in place: invert the spatial timeline (20%-completed swipe continues from 80%)
         _t->_dur = dur;
@@ -413,7 +403,6 @@ void Segment::startTransition(uint16_t dur, uint8_t kind) {
       } else captureBlend(millis()); // capture current fade status and restart fade when toggling
       if (power == TRANSITION_POWER_TOGGLE) {
         // segment-level on/off
-        Serial.printf("***power toggle: reversing spatial timeline: dur=%d start=%d now=%d progress=%d\n", _t->_dur, _t->_start, millis(), _t->_progress);
         if (_t->_oldSegment) {
           if (strip.isPoweringOff()) _t->_flags ^= TRANSITION_FLAG_POWER_ON; // flip POWER_ON flag, it is flipped back below, we need it to stay off if a segment is turned on during global off
           if (!strip.isPoweringOn()) _t->_oldSegment->on = !_t->_oldSegment->on; // invert old segment's on state (but do not turn old segment off so rendering continues)
@@ -423,7 +412,6 @@ void Segment::startTransition(uint16_t dur, uint8_t kind) {
       }
       _t->_flags ^= TRANSITION_FLAG_POWER_ON; // flip POWER_ON flag
     } else {
-      Serial.printf("***power transition: starting new power transition, dur=%d start=%d now=%d progress=%d\n", _t->_dur, _t->_start, millis(), _t->_progress);
       // global or segment on/off initiated: stop ongoing segment transition immediately, we do need the spatial channel and want to start a new transition
       if (_t->_oldSegment) { delete _t->_oldSegment; _t->_oldSegment = nullptr; }
       captureBlend(millis()); // rebase transition values to current visual blend before starting the new power transition
