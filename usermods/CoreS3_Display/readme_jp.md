@@ -5,7 +5,7 @@
 M5Stack CoreS3 上で WLED v17 系をネイティブ動作させ、<br>
 **タッチディスプレイ / 内蔵マイク Audio Reactive / バッテリー表示 / 安全な電源OFF / LED制御** を1台にまとめるプロジェクトです。
 
-> **Status:** CoreS3 production baseline<br>
+> **Status:** CoreS3 実機検証済み実装<br>
 > **Base:** WLED 17.0.0-devV5<br>
 > **Target:** M5Stack CoreS3 (ESP32-S3 / 16MB Flash / 8MB Quad PSRAM)
 >
@@ -279,7 +279,7 @@ m5stack_cores3  SUCCESS
 
 PlatformIO から `m5stack_cores3` を Upload します。
 
-M5Burner Serial Monitor などが COM ポートを開いている場合は、Upload 前に閉じてください。
+シリアルモニタなどのプログラムが COM ポートを開いている場合は、Upload 前に閉じてください。
 
 
 ---
@@ -510,24 +510,6 @@ CoreS3 built-in microphone / I2S1 連携を追加しています。
 
 ---
 
-## Design Policy
-
-このプロジェクトでは、できるだけ WLED 本体への変更を増やさない方針を取っています。
-
-CoreS3 固有処理は主に:
-
-```text
-usermods/
-pio-scripts/
-platformio_override.ini
-```
-
-へ閉じ込めています。
-
-これにより、将来の WLED upstream 更新への追従をしやすくしています。
-
----
-
 ## Current Limitations / Notes
 
 - Local UI では Segment 管理を行いません<br>
@@ -537,38 +519,6 @@ platformio_override.ini
 - CoreS3 では Brightness 64 前後からの使用を推奨します。
 - Browser Screenshot は BMP の静止画です。ライブストリームではありません。
 - DCDC OVP 保護は無効化していません。
-- Core2 / Core2 for AWS への移植は、CoreS3 版完成後の別フェーズです。
-
----
-
-## Validation Summary
-
-CoreS3 実機で次の項目を確認しています。
-
-- Normal Boot
-- Reset Reboot
-- LED ON / OFF
-- Effect control
-- Multi-Color
-- BLACK Toggle
-- Preset call / management
-- CoreS3 ↔ Web UI sync
-- Sleep / Wake
-- Wi-Fi reconnect
-- Recovery AP
-- Audio Reactive
-- Battery display
-- Runtime Health
-- Safe Shutdown cancel
-- Safe Shutdown full power-off
-- Reboot after shutdown
-- Active-use endurance
-- Idle endurance
-- RMT tail-pixel regression
-- NeoPixelBus clean dependency re-patch
-- Browser Screenshot
-- Screenshot color accuracy
-- Screenshot + normal Touch/UI operation
 
 ---
 
@@ -589,26 +539,6 @@ Please also refer to the upstream repository for WLED documentation, supported L
 NeoPixelBus は **LGPL-3.0-or-later** のままです。CoreS3 の build-time patch script は PlatformIO が取得した NeoPixelBus ソースへ修正を適用しますが、upstream library のライセンスヘッダーは保持します。
 
 完全なライセンス条件については、リポジトリの `LICENSE` と各 upstream project を参照してください。
-
----
-
-## Roadmap
-
-CoreS3 v1.0 までの残作業:
-
-- [x] Power stabilization
-- [x] Display / Touch UI
-- [x] Audio Reactive
-- [x] Preset management
-- [x] Battery / Health UX
-- [x] Recovery AP
-- [x] Safe Shutdown
-- [x] NeoPixelBus RMT DMA1024 / LCD-GDMA stabilization
-- [x] Browser Screenshot
-- [ ] Final release branch / tag
-- [ ] Release notes
-- [ ] Optional additional screenshots
-- [ ] Core2 / Core2 for AWS porting
 
 ---
 
