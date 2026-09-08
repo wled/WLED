@@ -89,13 +89,13 @@ matrix row. The clock rounds the current time to the nearest five minutes.
 
 This usermod is designed for Dutch and uses the character matrix from the
 usermod settings. To create a custom matrix, open
-`woordklok-matrix-generator.html`. When the matrix is ready, click
-"KOPIEER TEXT" and paste the result into `Character Matrix` in
+`word-clock-matrix-generator.html`. When the matrix is ready, click
+"Copy text" and paste the result into `Character Matrix` in
 WLED > Config > Usermods > Word Clock NL. Remove all line breaks, and set
 `Character Matrix Width` to the number of columns in each row.
 
 Using a language other than Dutch requires changes to the code that creates and
-matches time sentences in both `woordklok-matrix-generator.html` and
+matches time sentences in both `word-clock-matrix-generator.html` and
 `usermod_v2_word_clock_nl.cpp`. This is an advanced customization. Test the
 result thoroughly with the HTML generator so that every supported time is
 displayed correctly.

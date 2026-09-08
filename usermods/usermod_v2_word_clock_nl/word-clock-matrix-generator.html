@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Woordklok</title>
+  <title>Word Clock Matrix Generator</title>
   <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
   <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
   <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
@@ -135,6 +135,28 @@
     }
 
     .slider-row:last-child { margin-bottom: 0; }
+
+    .language-row {
+      gap: 24px;
+    }
+
+    .language-select {
+      flex: 1;
+      min-width: 0;
+      background: #0d0b07;
+      border: 1px solid #2a2416;
+      border-radius: 8px;
+      padding: 10px 12px;
+      color: #e8d5a3;
+      font: inherit;
+      letter-spacing: 0.05em;
+      outline: none;
+    }
+
+    .language-select:focus {
+      border-color: #6a5a30;
+      box-shadow: 0 0 0 2px rgba(106,90,48,0.2);
+    }
 
     .slider-label {
       width: 64px;
@@ -289,11 +311,11 @@
   <script type="text/babel">
     const { useState, useMemo, useCallback, useEffect, useRef } = React;
 
-    /* ── Dutch time vocabulary ─────────────────────────────── */
+    /* ── Language configurations ───────────────────────────── */
     // Words are grouped by reading-order segment. Within each group marked
     // shuffle:true the words are interchangeable (only one is ever lit per
     // sentence), so their internal order can be randomised freely.
-    const WORD_GROUPS = [
+    const DUTCH_WORD_GROUPS = [
       { shuffle: false, words: ['HET', 'HET'] },
       { shuffle: false, words: ['IS', 'IS'] },
       { shuffle: true,  words: ['VIJF', 'TIEN', 'KWART'] },
@@ -304,7 +326,43 @@
     ];
 
     // Flat unshuffled list — used only for MIN_WIDTH.
-    const TIME_WORDS_BASE = WORD_GROUPS.flatMap(g => g.words);
+    const DUTCH_HOUR_WORDS = ['EEN','TWEE','DRIE','VIER','VIJF','ZES','ZEVEN','ACHT','NEGEN','TIEN','ELF','TWAALF'];
+    const DUTCH_POOL = 'AAABBCDDEEEEEFGHIIIJKLLMMNNOOOPRSTTTUUVWXYZQAAAEEENNNRRR';
+
+    const GERMAN_WORD_GROUPS = [
+      { shuffle: false, words: ['ES'] },
+      { shuffle: false, words: ['IST'] },
+      { shuffle: true, words: ['FUENF', 'ZEHN', 'VIERTEL', 'ZWANZIG', 'DREIVIERTEL'] },
+      { shuffle: true, words: ['NACH', 'VOR'] },
+      { shuffle: false, words: ['HALB'] },
+      { shuffle: true, words: ['EIN', 'ZWEI', 'DREI', 'VIER', 'FUENF', 'SECHS', 'SIEBEN', 'ACHT', 'NEUN', 'ZEHN', 'ELF', 'ZWOELF'] },
+      { shuffle: false, words: ['UHR'] },
+    ];
+    const GERMAN_HOUR_WORDS = ['EIN','ZWEI','DREI','VIER','FUENF','SECHS','SIEBEN','ACHT','NEUN','ZEHN','ELF','ZWOELF'];
+    const GERMAN_POOL = 'AAAAAEEEEEEIIIINNNNRRRRTTTTUUUUSSSSCCFHLZVWXYZ';
+
+    const LANGUAGE_CONFIGS = {
+      nl: {
+        label: 'Dutch',
+        wordGroups: DUTCH_WORD_GROUPS,
+        hourWords: DUTCH_HOUR_WORDS,
+        randomPool: DUTCH_POOL,
+        randomPickWords: new Set(['het', 'is']),
+        getTime: getDutchTimeForMinutes,
+        examples: ['het is kwart over drie', 'het is vijf voor twaalf', 'het is half twee'],
+      },
+      de: {
+        label: 'German',
+        wordGroups: GERMAN_WORD_GROUPS,
+        hourWords: GERMAN_HOUR_WORDS,
+        randomPool: GERMAN_POOL,
+        randomPickWords: new Set(['es', 'ist']),
+        getTime: getGermanTimeForMinutes,
+        examples: ['es ist viertel nach drei', 'es ist fuenf vor zwoelf', 'es ist halb zwei'],
+      },
+    };
+
+    const getLanguageConfig = language => LANGUAGE_CONFIGS[language] || LANGUAGE_CONFIGS.nl;
 
     function fisherYates(arr, rng) {
       const a = [...arr];
@@ -317,18 +375,14 @@
 
     // Build the word groups for a given seed, shuffling within each shuffleable group.
     // Returns an array-of-arrays so placeWords can avoid separators within a group.
-    function buildTimeWords(seed) {
+    function buildTimeWords(seed, config) {
       const rng = makePRNG(seed ^ 0x9E3779B9);
-      return WORD_GROUPS.map(g =>
+      return config.wordGroups.map(g =>
         g.shuffle ? fisherYates(g.words, rng) : [...g.words]
       );
     }
 
-    const HOUR_WORDS = ['EEN','TWEE','DRIE','VIER','VIJF','ZES','ZEVEN','ACHT','NEGEN','TIEN','ELF','TWAALF'];
-
-    /* ── Dutch-weighted random letters ─────────────────────── */
-    const DUTCH_POOL = 'AAABBCDDEEEEEFGHIIIJKLLMMNNOOOPRSTTTUUVWXYZQAAAEEENNNRRR';
-    const randomLetter = (rng) => DUTCH_POOL[Math.floor(rng() * DUTCH_POOL.length)];
+    const randomLetter = (rng, config) => config.randomPool[Math.floor(rng() * config.randomPool.length)];
 
     /* ── Seeded PRNG (mulberry32) ──────────────────────────── */
     function makePRNG(seed) {
@@ -347,7 +401,7 @@
     // the exact minHeight calculation.
     const SCRATCH_ROWS = 100; // larger than any realistic grid
 
-    function placeWords(rng, width, wordGroups) {
+    function placeWords(rng, width, wordGroups, config) {
       const scratch = Array.from({ length: SCRATCH_ROWS }, () =>
         Array.from({ length: width }, () => ({ letter: '', isWord: false }))
       );
@@ -357,7 +411,7 @@
 
       const fillScratch = (r, from, to) => {
         for (let c = from; c < to; c++) {
-          if (!scratch[r][c].letter) scratch[r][c].letter = randomLetter(rng);
+            if (!scratch[r][c].letter) scratch[r][c].letter = randomLetter(rng, config);
         }
       };
 
@@ -379,7 +433,7 @@
             const seps = (rng() > 0.4) ? 2 : 1;
             for (let s = 0; s < seps; s++) {
               if (row >= SCRATCH_ROWS) break;
-              scratch[row][col].letter = randomLetter(rng);
+              scratch[row][col].letter = randomLetter(rng, config);
               advance();
             }
             if (row >= SCRATCH_ROWS) break;
@@ -396,7 +450,7 @@
             const maxPad = Math.max(0, width - word.length - 1);
             const pad = Math.floor(rng() * (Math.min(maxPad, Math.floor(width / 2)) + 1));
             for (let p = 0; p < pad; p++) {
-              scratch[row][col].letter = randomLetter(rng);
+              scratch[row][col].letter = randomLetter(rng, config);
               col++;
             }
           }
@@ -426,13 +480,13 @@
     }
 
     // Exact row count for the given seed+width (no approximation).
-    function computeRowsUsed(width, seed) {
-      return placeWords(makePRNG(seed), width, buildTimeWords(seed)).rowsUsed;
+    function computeRowsUsed(width, seed, config) {
+      return placeWords(makePRNG(seed), width, buildTimeWords(seed, config), config).rowsUsed;
     }
 
-    function buildGrid(width, height, seed) {
+    function buildGrid(width, height, seed, config) {
       const rng = makePRNG(seed);
-      const { scratch, wordPositions: rawWordPositions, rowsUsed } = placeWords(rng, width, buildTimeWords(seed));
+      const { scratch, wordPositions: rawWordPositions, rowsUsed } = placeWords(rng, width, buildTimeWords(seed, config), config);
 
       // Split spare rows evenly above and below.
       const spareRows = Math.max(0, height - rowsUsed);
@@ -452,7 +506,7 @@
       // Fill all remaining empty cells (top pad rows, bottom pad rows, gaps).
       for (let r = 0; r < height; r++) {
         for (let c = 0; c < width; c++) {
-          if (!grid[r][c].letter) grid[r][c].letter = randomLetter(rng);
+            if (!grid[r][c].letter) grid[r][c].letter = randomLetter(rng, config);
         }
       }
 
@@ -478,8 +532,8 @@
       const hourIndex     = (h - 1 + 12) % 12;
       const nextHourIndex = h % 12;
 
-      const hour     = HOUR_WORDS[hourIndex].toLowerCase();
-      const nextHour = HOUR_WORDS[nextHourIndex].toLowerCase();
+      const hour     = DUTCH_HOUR_WORDS[hourIndex].toLowerCase();
+      const nextHour = DUTCH_HOUR_WORDS[nextHourIndex].toLowerCase();
       const base = 'het is';
 
       if (m ===  0) return `${base} ${hour} uur`;
@@ -497,6 +551,28 @@
       return `${base} ${hour}`;
     }
 
+    function getGermanTimeForMinutes(totalMinutes) {
+      const h = Math.floor(totalMinutes / 60) % 12;
+      const m = totalMinutes % 60;
+      const current = GERMAN_HOUR_WORDS[(h - 1 + 12) % 12].toLowerCase();
+      const next = GERMAN_HOUR_WORDS[h].toLowerCase();
+      const base = 'es ist';
+
+      if (m === 0) return `${base} ${current} uhr`;
+      if (m === 5) return `${base} fuenf nach ${current}`;
+      if (m === 10) return `${base} zehn nach ${current}`;
+      if (m === 15) return `${base} viertel nach ${current}`;
+      if (m === 20) return `${base} zwanzig nach ${current}`;
+      if (m === 25) return `${base} fuenf vor halb ${next}`;
+      if (m === 30) return `${base} halb ${next}`;
+      if (m === 35) return `${base} fuenf nach halb ${next}`;
+      if (m === 40) return `${base} zwanzig vor ${next}`;
+      if (m === 45) return `${base} dreiviertel ${next}`;
+      if (m === 50) return `${base} zehn vor ${next}`;
+      if (m === 55) return `${base} fuenf vor ${next}`;
+      return `${base} ${current}`;
+    }
+
     function currentTimeMinutes() {
       const now = new Date();
       const rawM = Math.round(now.getMinutes() / 5) * 5;
@@ -511,11 +587,7 @@
     }
 
     /* ── Sentence parser → highlighted set ─────────────────── */
-    // Words that appear multiple times in the matrix purely for variety —
-    // randomly pick one of their occurrences on each sentence change.
-    const RANDOM_PICK_WORDS = new Set(['het', 'is']);
-
-    function getHighlightedCells(sentence, wordPositions) {
+    function getHighlightedCells(sentence, wordPositions, config) {
       const highlighted = new Set();
       const tokens = sentence.toLowerCase().trim().split(/\s+/).filter(Boolean);
       // In Dutch time sentences the hour word is always the last token.
@@ -523,14 +595,14 @@
       // appear in both the minute group and the hour group), the last token
       // must pick the last (hour-group) occurrence; all earlier tokens use
       // a running counter so they pick the first (minute-group) occurrence.
-      // Exception: words in RANDOM_PICK_WORDS randomly pick any occurrence.
+      // The selected language determines which words choose random occurrences.
       const seen = {};
       tokens.forEach((token, idx) => {
         const occurrences = wordPositions[token];
         if (!occurrences) return;
         const isLastToken = idx === tokens.length - 1;
         let occIdx;
-        if (RANDOM_PICK_WORDS.has(token) && occurrences.length > 1) {
+        if (config.randomPickWords.has(token) && occurrences.length > 1) {
           occIdx = Math.floor(Math.random() * occurrences.length);
         } else if (isLastToken && occurrences.length > 1) {
           occIdx = occurrences.length - 1; // hour-group occurrence
@@ -547,17 +619,9 @@
     }
 
     /* ── Minimum grid dimensions ────────────────────────────── */
-    const MIN_WIDTH = Math.max(...TIME_WORDS_BASE.map(w => w.length)) + 2;
-
-    /* ── Example sentences ──────────────────────────────────── */
-    const EXAMPLES = [
-      'het is kwart over drie',
-      'het is vijf voor twaalf',
-      'het is half twee',
-      'het is tien voor half zes',
-      'het is kwart voor negen',
-      'het is vijf over half elf',
-    ];
+    function minWidthFor(config) {
+      return Math.max(...config.wordGroups.flatMap(group => group.words.map(word => word.length))) + 2;
+    }
 
     /* ── URL hash helpers ──────────────────────────────────── */
     function hashToSentence(hash) {
@@ -571,6 +635,8 @@
 
     /* ── Main App ───────────────────────────────────────────── */
     function App() {
+      const [language, setLanguage] = useState('de');
+      const languageConfig = getLanguageConfig(language);
       const [width, setWidth]   = useState(13);
       const [height, setHeight] = useState(9);
       const [seed, setSeed]     = useState(42);
@@ -594,7 +660,7 @@
       }, []);
 
       // Exact minimum height for this specific seed+width combination.
-      const minHeight = useMemo(() => computeRowsUsed(width, seed), [width, seed]);
+      const minHeight = useMemo(() => computeRowsUsed(width, seed, languageConfig), [width, seed, languageConfig]);
       useEffect(() => {
         setHeight(h => Math.max(h, minHeight));
       }, [minHeight]);
@@ -610,14 +676,14 @@
       }, []);
 
       const { grid, wordPositions } = useMemo(
-        () => buildGrid(width, clampedHeight, seed),
-        [width, clampedHeight, seed]
+        () => buildGrid(width, clampedHeight, seed, languageConfig),
+        [width, clampedHeight, seed, languageConfig]
       );
 
       const activeSentence = sentence.trim() || '';
       const { highlighted } = useMemo(
-        () => getHighlightedCells(activeSentence, wordPositions),
-        [activeSentence, wordPositions]
+        () => getHighlightedCells(activeSentence, wordPositions, languageConfig),
+        [activeSentence, wordPositions, languageConfig]
       );
 
       const [copied, setCopied] = useState(false);
@@ -651,11 +717,11 @@
       const showCurrentTime = () => {
         const t = currentTimeMinutes();
         setTimeMinutes(t);
-        setSentence(getDutchTimeForMinutes(t));
+        setSentence(languageConfig.getTime(t));
       };
       const randomize = () => setSeed(s => s + 1);
       const tryExample = () => {
-        const pick = EXAMPLES[Math.floor(Math.random() * EXAMPLES.length)];
+        const pick = languageConfig.examples[Math.floor(Math.random() * languageConfig.examples.length)];
         setSentence(pick);
       };
 
@@ -663,11 +729,12 @@
       const sliderH = Math.floor(timeMinutes / 60);
       const sliderM = timeMinutes % 60;
       const sliderLabel = `${sliderH === 0 ? 12 : sliderH}:${String(sliderM).padStart(2, '0')}`;
+      const minWidth = minWidthFor(languageConfig);
 
       return (
         <div>
-          <h1>Woordklok</h1>
-          <p className="subtitle">Dutch word clock grid</p>
+          <h1>Word Clock</h1>
+          <p className="subtitle">{languageConfig.label} word clock matrix generator</p>
 
           <div className="page-body">
             {/* Controls */}
@@ -675,16 +742,29 @@
 
             {/* Sentence input */}
             <div className="control-group">
-              <h2>Zin testen</h2>
+              <h2>Test sentence</h2>
+              <div className="slider-row language-row" style={{marginBottom: '14px'}}>
+                <span className="slider-label">Language</span>
+                <select className="language-select" value={language} onChange={e => {
+                  const nextLanguage = e.target.value;
+                  const nextConfig = getLanguageConfig(nextLanguage);
+                  setLanguage(nextLanguage);
+                  setSentence(nextConfig.getTime(timeMinutes));
+                  setSeed(s => s + 1);
+                }}>
+                  <option value="nl">Dutch</option>
+                  <option value="de">German</option>
+                </select>
+              </div>
               <div className="slider-row" style={{marginBottom: '14px'}}>
-                <span className="slider-label">Tijd</span>
+                <span className="slider-label">Time</span>
                 <input
                   type="range" min="0" max="715" step="5"
                   value={timeMinutes}
                   onChange={e => {
                     const t = +e.target.value;
                     setTimeMinutes(t);
-                    setSentence(getDutchTimeForMinutes(t));
+                    setSentence(languageConfig.getTime(t));
                   }}
                 />
                 <span className="slider-value" style={{width:'36px'}}>{sliderLabel}</span>
@@ -692,7 +772,7 @@
               <input
                 type="text"
                 className="sentence-input"
-                placeholder="bijv. het is kwart over drie"
+                placeholder="e.g. het is kwart over drie"
                 value={sentence}
                 onChange={e => setSentence(e.target.value)}
                 spellCheck={false}
@@ -700,25 +780,25 @@
               />
               <div className="button-row">
                 <button className="primary" onClick={showCurrentTime}>
-                  ⏱ Nu
+                  ⏱ Now
                 </button>
               </div>
             </div>
 
             {/* Grid dimensions */}
             <div className="control-group">
-              <h2>Rastergrootte</h2>
+              <h2>Grid size</h2>
               <div className="slider-row">
-                <span className="slider-label">Breedte</span>
+                <span className="slider-label">Width</span>
                 <input
-                  type="range" min={MIN_WIDTH} max="22"
+                  type="range" min={minWidth} max="22"
                   value={width}
                   onChange={e => setWidth(+e.target.value)}
                 />
                 <span className="slider-value">{width}</span>
               </div>
               <div className="slider-row">
-                <span className="slider-label">Hoogte</span>
+                <span className="slider-label">Height</span>
                 <input
                   type="range" min={minHeight} max="20"
                   value={clampedHeight}
@@ -727,8 +807,8 @@
                 <span className="slider-value">{clampedHeight}</span>
               </div>
               <div className="button-row">
-                <button onClick={randomize}>↻ Nieuwe opvulling</button>
-                <button onClick={copyGridText}>{copied ? '✓ Gekopieerd' : '⎘ Kopieer tekst'}</button>
+                <button onClick={randomize}>↻ Randomize fill</button>
+                <button onClick={copyGridText}>{copied ? '✓ Copied' : '⎘ Copy text'}</button>
               </div>
             </div>
 
