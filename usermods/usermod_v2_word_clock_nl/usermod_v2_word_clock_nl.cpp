@@ -1,35 +1,5 @@
 #include "wled.h"
-
-static const char sOne[] PROGMEM = "EEN";
-static const char sTwo[] PROGMEM = "TWEE";
-static const char sThree[] PROGMEM = "DRIE";
-static const char sFour[] PROGMEM = "VIER";
-static const char sFive[] PROGMEM = "VIJF";
-static const char sSix[] PROGMEM = "ZES";
-static const char sSeven[] PROGMEM = "ZEVEN";
-static const char sEight[] PROGMEM = "ACHT";
-static const char sNine[] PROGMEM = "NEGEN";
-static const char sTen[] PROGMEM = "TIEN";
-static const char sEleven[] PROGMEM = "ELF";
-static const char sTwelve[] PROGMEM = "TWAALF";
-
-static const char sIt[] PROGMEM = "HET";
-static const char sIs[] PROGMEM = "IS";
-static const char sPast[] PROGMEM = "OVER";
-static const char sTo[] PROGMEM = "VOOR";
-static const char sHalf[] PROGMEM = "HALF";
-static const char sQuarter[] PROGMEM = "KWART";
-static const char sHour[] PROGMEM = "UUR";
-static const char sSpace[] PROGMEM = " ";
-
-static const char* const HOUR_WORDS[12] PROGMEM = {
-  sOne, sTwo, sThree, sFour, sFive, sSix,
-  sSeven, sEight, sNine, sTen, sEleven, sTwelve
-};
-
-static PGM_P getHourWord(uint8_t index) {
-  return reinterpret_cast<PGM_P>(pgm_read_ptr(&HOUR_WORDS[index]));
-}
+#include "lang/word_clock_language_nl.h"
 
 /*
  * Word Clock (Dutch)
@@ -73,10 +43,10 @@ private:
   // Dutch sentence, e.g. "HET IS KWART OVER TIEN".
   // The characters of each row are stored sequentially, and the rows are
   // stored sequentially as well, left to right, and top to bottom.
-  String characterMatrix = "NEUEHETHETHTNFEYIEISISVTVIJFKWARTNAAAGBETIENOAEEAINOVERVOORATFUHALFIEENYOEHIBUZEVENVNBNMTWEEELFNDRIEVIERVIJFNEGENZESTIENTWAALFACHTNTBXNHWEUUROAD";
+  String characterMatrix = FPSTR(WordClockDutch::DEFAULT_CHARACTER_MATRIX);
 
   // The number of characters per row
-  int characterMatrixWidth = 12;
+  int characterMatrixWidth = WordClockDutch::DEFAULT_CHARACTER_MATRIX_WIDTH;
 
   // Is the ledstrip always from left to right on each row, or does it
   // meander through the rows (i.e. go from left to right on the first row,
@@ -128,45 +98,6 @@ private:
       memset(ledMask, 0, matrixLength * sizeof(bool));
   }
 
-  /*
-   * Get the Dutch sentence representing the given the time in minutes, e.g. "HET IS KWART OVER TIEN".
-   * totalMinutes: 0.‥1439
-   */
-  String getSentenceForMinutes(int totalMinutes) {
-    int h = (totalMinutes / 60) % 12;  // 0‥.11 (0 = twaalf uur)
-    int m = totalMinutes % 60;
-
-    // Round to nearest 5 minutes
-    m = ((m + 2) / 5) * 5;
-
-    // Carry the hour when the 5-minute rounding produces 60
-    if (m == 60) {
-      m = 0;
-      h = (h + 1) % 12;
-    }
-
-    // hourIndex: index of the current clock hour in HOUR_WORDS
-    int hourIndex = (h - 1 + 12) % 12;
-
-    // nextHourIndex: the hour after that (used for half/voor constructions)
-    int nextHourIndex = h % 12;
-
-    if (m ==  0) return (String) FPSTR(sIt) + FPSTR(sSpace) + FPSTR(sIs) + FPSTR(sSpace) + FPSTR(getHourWord(hourIndex)) + FPSTR(sSpace) + FPSTR(sHour);
-    if (m ==  5) return (String) FPSTR(sIt) + FPSTR(sSpace) + FPSTR(sIs) + FPSTR(sSpace) + FPSTR(sFive) + FPSTR(sSpace) + FPSTR(sPast) + FPSTR(sSpace) + FPSTR(getHourWord(hourIndex));
-    if (m == 10) return (String) FPSTR(sIt) + FPSTR(sSpace) + FPSTR(sIs) + FPSTR(sSpace) + FPSTR(sTen) + FPSTR(sSpace) + FPSTR(sPast) + FPSTR(sSpace) + FPSTR(getHourWord(hourIndex));
-    if (m == 15) return (String) FPSTR(sIt) + FPSTR(sSpace) + FPSTR(sIs) + FPSTR(sSpace) + FPSTR(sQuarter) + FPSTR(sSpace) + FPSTR(sPast) + FPSTR(sSpace) + FPSTR(getHourWord(hourIndex));
-    if (m == 20) return (String) FPSTR(sIt) + FPSTR(sSpace) + FPSTR(sIs) + FPSTR(sSpace) + FPSTR(sTen) + FPSTR(sSpace) + FPSTR(sTo) + FPSTR(sSpace) + FPSTR(sHalf) + FPSTR(sSpace) + FPSTR(getHourWord(nextHourIndex));
-    if (m == 25) return (String) FPSTR(sIt) + FPSTR(sSpace) + FPSTR(sIs) + FPSTR(sSpace) + FPSTR(sFive) + FPSTR(sSpace) + FPSTR(sTo) + FPSTR(sSpace) + FPSTR(sHalf) + FPSTR(sSpace) + FPSTR(getHourWord(nextHourIndex));
-    if (m == 30) return (String) FPSTR(sIt) + FPSTR(sSpace) + FPSTR(sIs) + FPSTR(sSpace) + FPSTR(sHalf) + FPSTR(sSpace) + FPSTR(getHourWord(nextHourIndex));
-    if (m == 35) return (String) FPSTR(sIt) + FPSTR(sSpace) + FPSTR(sIs) + FPSTR(sSpace) + FPSTR(sFive) + FPSTR(sSpace) + FPSTR(sPast) + FPSTR(sSpace) + FPSTR(sHalf) + FPSTR(sSpace) + FPSTR(getHourWord(nextHourIndex));
-    if (m == 40) return (String) FPSTR(sIt) + FPSTR(sSpace) + FPSTR(sIs) + FPSTR(sSpace) + FPSTR(sTen) + FPSTR(sSpace) + FPSTR(sPast) + FPSTR(sSpace) + FPSTR(sHalf) + FPSTR(sSpace) + FPSTR(getHourWord(nextHourIndex));
-    if (m == 45) return (String) FPSTR(sIt) + FPSTR(sSpace) + FPSTR(sIs) + FPSTR(sSpace) + FPSTR(sQuarter) + FPSTR(sSpace) + FPSTR(sTo) + FPSTR(sSpace) + FPSTR(getHourWord(nextHourIndex));
-    if (m == 50) return (String) FPSTR(sIt) + FPSTR(sSpace) + FPSTR(sIs) + FPSTR(sSpace) + FPSTR(sTen) + FPSTR(sSpace) + FPSTR(sTo) + FPSTR(sSpace) + FPSTR(getHourWord(nextHourIndex));
-    if (m == 55) return (String) FPSTR(sIt) + FPSTR(sSpace) + FPSTR(sIs) + FPSTR(sSpace) + FPSTR(sFive) + FPSTR(sSpace) + FPSTR(sTo) + FPSTR(sSpace) + FPSTR(getHourWord(nextHourIndex));
-
-    return (String) FPSTR(sIt) + FPSTR(sSpace) + FPSTR(sIs) + FPSTR(sSpace) + FPSTR(getHourWord(hourIndex));
-  }
-
   String lastSentence = "";
 
   /*
@@ -174,175 +105,27 @@ private:
    * the LED at index i should be on for the current time, and false if it
    * should be off.
    */
-  bool wordFitsInRow(int pos, int len) {
-    return (pos / characterMatrixWidth) == ((pos + len - 1) / characterMatrixWidth);
-  }
-
   // Clamp a value to the inclusive [lo, hi] range.
   int clampInt(int v, int lo, int hi) {
     return v < lo ? lo : (v > hi ? hi : v);
   }
 
-  // Length of the longest word that can appear in a sentence; a row must be at least this wide to ever fit a word.
-  int getMaxWordLength() {
-    int maxLen = 0;
-
-    for (int i = 0; i < 12; i++) {
-      int len = strlen_P(getHourWord(i));
-      if (len > maxLen) maxLen = len;
-    }
-
-    const char* others[] = {sIt, sIs, sPast, sTo, sHalf, sQuarter, sHour};
-
-    for (int i = 0; i < 7; i++) {
-      int len = strlen_P(others[i]);
-      if (len > maxLen) maxLen = len;
-    }
-
-    return maxLen;
-  }
-
   void updateLedMaskForCurrentTime() {
-    int nrOfLeds = characterMatrix.length();
+    const int currentMinutes = testHour >= 0
+      ? (testHour * 60 + testMinute) % 1440
+      : (hour(localTime) * 60 + minute(localTime)) % 1440;
+    const WordClockCore::TimeContext time = WordClockCore::makeTimeContext(currentMinutes, false);
+    WordClockCore::DisplayPlan plan;
+    if (!WordClockDutch::buildPlan(time, plan) ||
+        !WordClockDutch::placePlan(plan, characterMatrix, characterMatrixWidth, meander, ledMask))
+      return;
 
-    // Use test time if set, otherwise use the real local time
-    int currentMinutes;
-
-    if (testHour >= 0) {
-      currentMinutes = (testHour * 60 + testMinute) % 1440;
-    } else {
-      currentMinutes = (hour(localTime) * 60 + minute(localTime)) % 1440;
+    String sentence;
+    for (uint8_t index = 0; index < plan.count; ++index) {
+      if (index > 0) sentence += ' ';
+      sentence += FPSTR(WordClockDutch::wordText(static_cast<WordClockDutch::WordId>(plan.units[index].id)));
     }
-
-    // Get the sentence to display for the current time
-    String sentence = getSentenceForMinutes(currentMinutes);
-
-    if (sentence.equals(lastSentence))
-      return; // No need to update the mask if the sentence hasn't changed since the last update
-
-    // Remember the current sentence for the next update
     lastSentence = sentence;
-
-    // Erase the ledMask before recomputing it
-    if (ledMask)
-      memset(ledMask, 0, nrOfLeds * sizeof(bool));
-
-    // Split the sentence into words and for each word, find the next
-    // occurrence of that word in the characterMatrix and update the
-    // corresponding ledMask values.
-    int searchFromIndex = 0;
-    int sentenceLength = sentence.length();
-
-    for (int i = 0; i < sentenceLength; ) {
-      // Extract the next word from the sentence
-      int nextSpaceIndex = sentence.indexOf(' ', i);
-
-      if (nextSpaceIndex == -1)
-        nextSpaceIndex = sentenceLength;
-
-      String word = sentence.substring(i, nextSpaceIndex);
-      i = nextSpaceIndex + 1;
-
-      // Find the occurrence of the word to highlight.
-      // "HET" and "IS" appear multiple times in the matrix for visual variety;
-      // pick a random occurrence each update so the same physical LEDs are not
-      // always lit for these two fixed words.
-      // All other words are found sequentially (so e.g. "VIJF OVER VIJF" lights
-      // the minute VIJF first, then the hour VIJF second).
-      int wordIndex;
-      bool advanceSearchFrom = true;
-
-      if (word == FPSTR(sIt) || word == FPSTR(sIs)) {
-        // Count how many times the word appears in the matrix, ignoring
-        // occurrences that would be split across two rows
-        int count = 0;
-        int pos = 0;
-
-        while ((pos = characterMatrix.indexOf(word, pos)) != -1) {
-          if (wordFitsInRow(pos, word.length())) {
-            count++;
-            pos += word.length();
-          } else {
-            pos += 1;
-          }
-        }
-
-        // Pick a random occurrence (stays at 0 when only one occurrence exists)
-        int pick = (count > 1) ? (int)random(count) : 0;
-        int seen = 0;
-        pos = 0;
-        wordIndex = -1;
-
-        while ((pos = characterMatrix.indexOf(word, pos)) != -1) {
-          if (wordFitsInRow(pos, word.length())) {
-            if (seen == pick) {
-              wordIndex = pos;
-              break;
-            }
-            seen++;
-            pos += word.length();
-          } else {
-            pos += 1;
-          }
-        }
-        // Do not advance searchFromIndex: HET and IS are independent of word order
-        advanceSearchFrom = false;
-      } else {
-        wordIndex = searchFromIndex;
-
-        while ((wordIndex = characterMatrix.indexOf(word, wordIndex)) != -1) {
-          if (wordFitsInRow(wordIndex, word.length()))
-            break;
-          wordIndex += 1;
-        }
-      }
-
-      if (wordIndex == -1) {
-        // This should never happen if the characterMatrix contains all words
-        // needed to display the time in Dutch. Note that the words "VIJF" and
-        // "TIEN" have to occur multiple times in the characterMatrix, e.g. to
-        // display "VIJF OVER VIJF" or "TIEN VOOR TIEN".
-        Serial.println("Error: word not found in characterMatrix: " + word);
-        continue;
-      }
-
-      // Update the ledMask values for this word
-      for (int j = 0; j < word.length(); j++) {
-        int charIndex = wordIndex + j;
-
-        if (charIndex >= (int)characterMatrix.length()) {
-          Serial.println("Error: character index out of bounds: " + String(charIndex));
-          continue;
-        }
-
-        if (!meander) {
-          // If the ledstrip is always from left to right on each row, then the
-          // character index is the same as the led index
-          ledMask[charIndex] = true;
-        } else {
-          // If the ledstrip meanders through the rows, we need to convert the
-          // character index to a led index
-          int row = charIndex / characterMatrixWidth;
-          int col = charIndex % characterMatrixWidth;
-          int rowStart = row * characterMatrixWidth;
-          int rowLength = min(characterMatrixWidth, (int)characterMatrix.length() - rowStart);
-          int ledIndex;
-
-          if (row % 2 == 0) {
-            // Even row: left to right
-            ledIndex = rowStart + col;
-          } else {
-            // Odd row: right to left
-            ledIndex = rowStart + (rowLength - 1 - col);
-          }
-
-          ledMask[ledIndex] = true;
-        }
-      }
-
-      if (advanceSearchFrom)
-        searchFromIndex = wordIndex + word.length();
-    }
   };
 
 public:
@@ -537,7 +320,7 @@ public:
 
     int prevCharacterMatrixWidth = characterMatrixWidth;
     getJsonValue(top[F("Character_Matrix_Width")], characterMatrixWidth);
-    characterMatrixWidth = clampInt(characterMatrixWidth, getMaxWordLength(), characterMatrix.length());
+    characterMatrixWidth = clampInt(characterMatrixWidth, WordClockDutch::maxWordLength(), characterMatrix.length());
 
     if (characterMatrixWidth != prevCharacterMatrixWidth) {
       lastSentence = "";             // force mask recompute

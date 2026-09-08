@@ -18,6 +18,7 @@ enum class MatchMode : uint8_t {
 struct DisplayUnit {
   uint16_t id;       // Language-pack identifier for a word or symbol.
   MatchMode matchMode; // How the generic matcher should select its occurrence.
+  int8_t occurrence;  // Zero-based occurrence to use, or -1 for normal searching.
 };
 
 // Fixed-capacity display plan produced for one time value.
@@ -25,11 +26,11 @@ struct DisplayPlan {
   DisplayUnit units[MAX_PLAN_UNITS]{}; // Ordered units to place.
   uint8_t count = 0;                   // Number of valid entries in units.
 
-  bool append(uint16_t id, MatchMode matchMode = MatchMode::Sequential) {
+  bool append(uint16_t id, MatchMode matchMode = MatchMode::Sequential, int8_t occurrence = -1) {
     if (count >= MAX_PLAN_UNITS)
       return false;
 
-    units[count++] = {id, matchMode};
+    units[count++] = {id, matchMode, occurrence};
 
     return true;
   }
