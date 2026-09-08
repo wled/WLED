@@ -266,6 +266,20 @@ inline size_t wordLength(const char* word) {
 }
 
 /*
+ * Return the longest word used by the German language pack.
+ * @return maximum word length in bytes
+ */
+inline int maxWordLength() {
+  int maximum = 0;
+  for (uint16_t id = 0; id <= static_cast<uint16_t>(WordId::OnePlural); ++id) {
+    const int length = static_cast<int>(wordLength(wordText(static_cast<WordId>(id))));
+    if (length > maximum)
+      maximum = length;
+  }
+  return maximum;
+}
+
+/*
  * Compare a language word with the default matrix at a logical position.
  *
  * @param position zero-based matrix position

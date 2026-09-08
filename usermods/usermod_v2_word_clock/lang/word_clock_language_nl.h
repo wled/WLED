@@ -1,6 +1,6 @@
 #pragma once
 
-#include "../../usermod_v2_word_clock/word_clock_core.h"
+#include "../word_clock_core.h"
 
 #include <stdint.h>
 
