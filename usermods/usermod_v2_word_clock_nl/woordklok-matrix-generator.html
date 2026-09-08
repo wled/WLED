@@ -624,10 +624,28 @@
 
       const copyGridText = useCallback(() => {
         const text = grid.map(row => row.map(cell => cell.letter).join('')).join('\n');
-        navigator.clipboard.writeText(text).then(() => {
+        const markCopied = () => {
           setCopied(true);
           setTimeout(() => setCopied(false), 1800);
-        });
+        };
+        const copyWithFallback = () => {
+          const textarea = document.createElement('textarea');
+          textarea.value = text;
+          textarea.setAttribute('readonly', '');
+          textarea.style.position = 'fixed';
+          textarea.style.opacity = '0';
+          document.body.appendChild(textarea);
+          textarea.select();
+          const copiedWithFallback = document.execCommand('copy');
+          document.body.removeChild(textarea);
+          if (copiedWithFallback) markCopied();
+        };
+
+        if (navigator.clipboard?.writeText) {
+          navigator.clipboard.writeText(text).then(markCopied).catch(copyWithFallback);
+        } else {
+          copyWithFallback();
+        }
       }, [grid]);
 
       const showCurrentTime = () => {
