@@ -74,9 +74,12 @@ static const char WORD_HALF[] PROGMEM = "HALF";
 static const char WORD_QUARTER[] PROGMEM = "KWART";
 static const char WORD_HOUR[] PROGMEM = "UUR";
 
-// Return the flash-resident text represented by a language token.
-// @param id language token to resolve
-// @return pointer to the token text, or nullptr for an invalid token
+/*
+ * Return the flash-resident text represented by a language token.
+ *
+ * @param id language token to resolve
+ * @return pointer to the token text, or nullptr for an invalid token
+ */
 inline const char* wordText(WordId id) {
   switch (id) {
     case WordId::It: return WORD_IT;
@@ -102,9 +105,12 @@ inline const char* wordText(WordId id) {
   return nullptr;
 }
 
-// Select the word for an hour.
-// @param hour hour in the range 1-12
-// @return language token for the selected hour
+/*
+ * Select the word for an hour.
+ *
+ * @param hour hour in the range 1-12
+ * @return language token for the selected hour
+ */
 inline WordId hourWord(uint8_t hour) {
   switch (hour) {
     case 1: return WordId::One;
@@ -122,20 +128,26 @@ inline WordId hourWord(uint8_t hour) {
   }
 }
 
-// Append a token to a fixed-capacity display plan.
-// @param plan destination plan
-// @param id token to append
-// @param mode sequential or random occurrence matching behavior
-// @return false when the plan has reached its capacity
+/*
+ * Append a token to a fixed-capacity display plan.
+ *
+ * @param plan destination plan
+ * @param id token to append
+ * @param mode sequential or random occurrence matching behavior
+ * @return false when the plan has reached its capacity
+ */
 inline bool append(WordClockCore::DisplayPlan& plan, WordId id,
                    WordClockCore::MatchMode mode = WordClockCore::MatchMode::Sequential) {
   return plan.append(static_cast<uint16_t>(id), mode);
 }
 
-// Build the phrase plan for a normalized time.
-// @param time rounded time context supplied by the shared core
-// @param plan output sequence of tokens and match modes
-// @return false if the fixed-size plan cannot hold the phrase
+/*
+ * Build the phrase plan for a normalized time.
+ *
+ * @param time rounded time context supplied by the shared core
+ * @param plan output sequence of tokens and match modes
+ * @return false if the fixed-size plan cannot hold the phrase
+ */
 inline bool buildPlan(const WordClockCore::TimeContext& time,
                       WordClockCore::DisplayPlan& plan) {
   plan = {};
@@ -176,28 +188,37 @@ inline bool buildPlan(const WordClockCore::TimeContext& time,
   }
 }
 
-// Return the length of a flash-resident word.
-// @param word PROGMEM word pointer
-// @return word length in bytes
+/*
+ * Return the length of a flash-resident word.
+ *
+ * @param word PROGMEM word pointer
+ * @return word length in bytes
+ */
 inline int wordLength(const char* word) {
   return static_cast<int>(strlen_P(word));
 }
 
-// Return whether a word fits entirely within one matrix row.
-// @param position zero-based matrix position
-// @param length word length in bytes
-// @param rowWidth configured matrix width
-// @return true when the word does not cross a row boundary
+/*
+ * Return whether a word fits entirely within one matrix row.
+ *
+ * @param position zero-based matrix position
+ * @param length word length in bytes
+ * @param rowWidth configured matrix width
+ * @return true when the word does not cross a row boundary
+ */
 inline bool wordFitsInRow(int position, int length, int rowWidth) {
   return WordClockCore::wordFitsInRow(position, length, rowWidth);
 }
 
-// Find the first row-contained occurrence at or after a logical position.
-// @param matrix user-configured character matrix
-// @param word flash-resident word to find
-// @param searchFrom zero-based position where searching begins
-// @param rowWidth configured matrix width
-// @return logical matrix position, or -1 when no occurrence fits
+/*
+ * Find the first row-contained occurrence at or after a logical position.
+ *
+ * @param matrix user-configured character matrix
+ * @param word flash-resident word to find
+ * @param searchFrom zero-based position where searching begins
+ * @param rowWidth configured matrix width
+ * @return logical matrix position, or -1 when no occurrence fits
+ */
 inline int findWord(const String& matrix, const char* word, int searchFrom, int rowWidth) {
   const String target = FPSTR(word);
   const int length = target.length();
@@ -208,11 +229,14 @@ inline int findWord(const String& matrix, const char* word, int searchFrom, int 
   return -1;
 }
 
-// Select a random valid occurrence of a word in the matrix.
-// @param matrix user-configured character matrix
-// @param word flash-resident word to find
-// @param rowWidth configured matrix width
-// @return selected logical position, or -1 when no occurrence fits
+/*
+ * Select a random valid occurrence of a word in the matrix.
+ *
+ * @param matrix user-configured character matrix
+ * @param word flash-resident word to find
+ * @param rowWidth configured matrix width
+ * @return selected logical position, or -1 when no occurrence fits
+ */
 inline int findRandomWord(const String& matrix, const char* word, int rowWidth) {
   const String target = FPSTR(word);
   const int length = target.length();
@@ -232,14 +256,17 @@ inline int findRandomWord(const String& matrix, const char* word, int rowWidth) 
   return -1;
 }
 
-// Place a display plan into the logical/physical LED mask.
-// @param time normalized time including the cumulative minute-dot count
-// @param plan token plan to place
-// @param matrix user-configured character matrix
-// @param rowWidth configured matrix width
-// @param meander reverse odd zero-based rows for physical wiring
-// @param ledMask destination mask with one entry per matrix position
-// @return false for invalid words or out-of-range mappings
+/*
+ * Place a display plan into the logical/physical LED mask.
+ *
+ * @param time normalized time including the cumulative minute-dot count
+ * @param plan token plan to place
+ * @param matrix user-configured character matrix
+ * @param rowWidth configured matrix width
+ * @param meander reverse odd zero-based rows for physical wiring
+ * @param ledMask destination mask with one entry per matrix position
+ * @return false for invalid words or out-of-range mappings
+ */
 inline bool placePlan(const WordClockCore::TimeContext& time,
                       const WordClockCore::DisplayPlan& plan, const String& matrix,
                       int rowWidth, bool meander, bool* ledMask) {
@@ -282,8 +309,11 @@ inline bool placePlan(const WordClockCore::TimeContext& time,
   return true;
 }
 
-// Return the longest word used by the language pack.
-// @return maximum word length in bytes
+/*
+ * Return the longest word used by the language pack.
+ *
+ * @return maximum word length in bytes
+ */
 inline int maxWordLength() {
   int maximum = 0;
   for (uint8_t id = 0; id <= static_cast<uint8_t>(WordId::Hour); ++id)

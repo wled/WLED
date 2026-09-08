@@ -58,8 +58,14 @@ struct MinuteDotMarkers {
   bool enabled() const { return count == MAX_MINUTE_DOTS; }
 };
 
-// Build a normalized clock context. Complete dot markers select floor rounding;
-// a marker-free layout selects nearest-five-minute rounding.
+/*
+ * Build a normalized clock context. Complete dot markers select floor rounding;
+ * a marker-free layout selects nearest-five-minute rounding.
+ * 
+ * @param totalMinutes total minutes since midnight
+ * @param minuteDotsEnabled whether the layout has complete minute-dot markers
+ * @return normalized time context
+ */
 inline TimeContext makeTimeContext(uint16_t totalMinutes, bool minuteDotsEnabled) {
   totalMinutes %= 1440;
   uint8_t hour24 = totalMinutes / 60;
@@ -90,14 +96,28 @@ inline TimeContext makeTimeContext(uint16_t totalMinutes, bool minuteDotsEnabled
   return {hour24, hour12, nextHour12, displayedMinute, minuteDotCount, totalMinutes};
 }
 
-// Return whether a word lies wholly within one configured matrix row.
+/*
+ * Return whether a word lies wholly within one configured matrix row.
+ *
+ * @param position logical start position of the word
+ * @param length length of the word in characters
+ * @param rowWidth configured matrix row width
+ * @return true if the word fits entirely within a single row, false otherwise
+ */
 constexpr bool wordFitsInRow(int position, int length, int rowWidth) {
   return rowWidth > 0 && length > 0 &&
          (position / rowWidth) == ((position + length - 1) / rowWidth);
 }
 
-// Convert a logical matrix position to a serpentine physical position. The
-// final row is allowed to be shorter than rowWidth.
+/*
+ * Convert a logical matrix position to a serpentine physical position. The
+ * final row is allowed to be shorter than rowWidth.
+ * 
+ * @param logicalIndex logical position in the matrix
+ * @param rowWidth configured matrix row width
+ * @param matrixLength total number of positions in the matrix
+ * @return physical position in the serpentine-wired matrix, or -1 for invalid input
+ */
 inline int toMeanderIndex(int logicalIndex, int rowWidth, int matrixLength) {
   if (rowWidth <= 0 || logicalIndex < 0 || logicalIndex >= matrixLength)
     return -1;
@@ -111,11 +131,18 @@ inline int toMeanderIndex(int logicalIndex, int rowWidth, int matrixLength) {
   return (row % 2 == 0) ? logicalIndex : rowStart + rowLength - 1 - column;
 }
 
-// Parse optional physical minute-dot markers from the current byte-oriented
-// layout format. A future symbol-ID layout should provide an equivalent
-// language-specific parser rather than treating UTF-8 bytes as positions.
-// No markers is valid; otherwise exactly one each of '1', '2', '3', and '4' is
-// required. Marker positions remain in the raw layout coordinate system.
+/*
+ * Parse optional physical minute-dot markers from the current byte-oriented
+ * layout format. A future symbol-ID layout should provide an equivalent
+ * language-specific parser rather than treating UTF-8 bytes as positions.
+ * No markers is valid; otherwise exactly one each of '1', '2', '3', and '4' is
+ * required. Marker positions remain in the raw layout coordinate system.
+ * 
+ * @param layout byte-oriented character layout
+ * @param length number of bytes in the layout
+ * @param result output structure to hold parsed marker positions
+ * @return true if the markers are valid, false otherwise
+ */
 inline bool parseMinuteDotMarkers(const char* layout, size_t length, MinuteDotMarkers& result) {
   result = {};
   bool seen[MAX_MINUTE_DOTS] = {};
