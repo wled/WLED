@@ -310,14 +310,16 @@ private:
           // character index to a led index
           int row = charIndex / characterMatrixWidth;
           int col = charIndex % characterMatrixWidth;
+          int rowStart = row * characterMatrixWidth;
+          int rowLength = min(characterMatrixWidth, (int)characterMatrix.length() - rowStart);
           int ledIndex;
 
           if (row % 2 == 0) {
             // Even row: left to right
-            ledIndex = row * characterMatrixWidth + col;
+            ledIndex = rowStart + col;
           } else {
             // Odd row: right to left
-            ledIndex = row * characterMatrixWidth + (characterMatrixWidth - 1 - col);
+            ledIndex = rowStart + (rowLength - 1 - col);
           }
 
           ledMask[ledIndex] = true;
