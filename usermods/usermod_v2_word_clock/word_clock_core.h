@@ -5,6 +5,10 @@
 
 namespace WordClockCore {
 
+// The first-generation matrix API is byte-oriented: one byte represents one
+// visible matrix position. A future non-Latin language can replace this with a
+// symbol-ID matrix without changing the display-plan API below.
+
 constexpr uint8_t MAX_PLAN_UNITS = 12;
 constexpr uint8_t MAX_MINUTE_DOTS = 4;
 
@@ -16,7 +20,7 @@ enum class MatchMode : uint8_t {
 
 // One language-defined item to place in the character matrix.
 struct DisplayUnit {
-  uint16_t id;       // Language-pack identifier for a word or symbol.
+  uint16_t id;       // Language token, independent of matrix byte encoding.
   MatchMode matchMode; // How the generic matcher should select its occurrence.
   int8_t occurrence;  // Zero-based occurrence to use, or -1 for normal searching.
 };
@@ -107,7 +111,9 @@ inline int toMeanderIndex(int logicalIndex, int rowWidth, int matrixLength) {
   return (row % 2 == 0) ? logicalIndex : rowStart + rowLength - 1 - column;
 }
 
-// Parse the optional physical minute-dot markers from a byte-oriented layout.
+// Parse optional physical minute-dot markers from the current byte-oriented
+// layout format. A future symbol-ID layout should provide an equivalent
+// language-specific parser rather than treating UTF-8 bytes as positions.
 // No markers is valid; otherwise exactly one each of '1', '2', '3', and '4' is
 // required. Marker positions remain in the raw layout coordinate system.
 inline bool parseMinuteDotMarkers(const char* layout, size_t length, MinuteDotMarkers& result) {

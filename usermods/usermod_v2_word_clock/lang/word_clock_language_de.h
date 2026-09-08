@@ -19,6 +19,8 @@ namespace WordClockGerman {
 // Logical 11x10 layout reconstructed from the legacy normal-wiring masks.
 // Umlauts use single-byte Latin-1 escapes so each physical letter occupies one
 // matrix position. The final four positions are the optional minute dots.
+// This byte-oriented Latin-1 representation is intentional for the initial
+// refactor; a future non-Latin pack should use symbol IDs instead.
 static const char DEFAULT_CHARACTER_MATRIX[] PROGMEM =
   "ESXISTXF\xDC" "NF"
   "ZEHNZWANZIG"

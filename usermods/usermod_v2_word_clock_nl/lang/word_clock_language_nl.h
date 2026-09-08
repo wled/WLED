@@ -6,7 +6,8 @@
 
 namespace WordClockDutch {
 
-// Default matrix used when no user-configured matrix is available.
+// Default byte-oriented Latin-script matrix used when no user-configured
+// matrix is available. A future non-Latin pack should use symbol IDs instead.
 static const char DEFAULT_CHARACTER_MATRIX[] PROGMEM =
   "NEUEHETHETHT"
   "NFEYIEISISVT"
@@ -22,6 +23,12 @@ static const char DEFAULT_CHARACTER_MATRIX[] PROGMEM =
   "BXNHWEUUROAD";
 
 constexpr uint8_t DEFAULT_CHARACTER_MATRIX_WIDTH = 12;
+constexpr uint16_t DEFAULT_CHARACTER_MATRIX_LENGTH = sizeof(DEFAULT_CHARACTER_MATRIX) - 1;
+constexpr uint8_t DEFAULT_CHARACTER_MATRIX_HEIGHT =
+  DEFAULT_CHARACTER_MATRIX_LENGTH / DEFAULT_CHARACTER_MATRIX_WIDTH;
+
+static_assert(DEFAULT_CHARACTER_MATRIX_LENGTH % DEFAULT_CHARACTER_MATRIX_WIDTH == 0,
+              "Dutch default matrix must contain complete rows");
 
 enum class WordId : uint16_t {
   It,
