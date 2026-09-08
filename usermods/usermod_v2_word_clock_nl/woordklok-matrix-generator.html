@@ -623,7 +623,7 @@
       const [copied, setCopied] = useState(false);
 
       const copyGridText = useCallback(() => {
-        const text = grid.map(row => row.map(cell => cell.letter).join('')).join('\n');
+        const text = grid.map(row => row.map(cell => cell.letter).join('')).join('');
         const markCopied = () => {
           setCopied(true);
           setTimeout(() => setCopied(false), 1800);
