@@ -20,14 +20,16 @@ static const char DEFAULT_CHARACTER_MATRIX[] PROGMEM =
   "DRIEVIERVIJF"
   "NEGENZESTIEN"
   "TWAALFACHTNT"
-  "BXNHWEUUROAD";
+  "BXNHWEUUROAD"
+  "1234";
 
 constexpr uint8_t DEFAULT_CHARACTER_MATRIX_WIDTH = 12;
+constexpr uint8_t MINUTE_DOT_COUNT = 4;
 constexpr uint16_t DEFAULT_CHARACTER_MATRIX_LENGTH = sizeof(DEFAULT_CHARACTER_MATRIX) - 1;
 constexpr uint8_t DEFAULT_CHARACTER_MATRIX_HEIGHT =
-  DEFAULT_CHARACTER_MATRIX_LENGTH / DEFAULT_CHARACTER_MATRIX_WIDTH;
+  (DEFAULT_CHARACTER_MATRIX_LENGTH - MINUTE_DOT_COUNT) / DEFAULT_CHARACTER_MATRIX_WIDTH;
 
-static_assert(DEFAULT_CHARACTER_MATRIX_LENGTH % DEFAULT_CHARACTER_MATRIX_WIDTH == 0,
+static_assert((DEFAULT_CHARACTER_MATRIX_LENGTH - MINUTE_DOT_COUNT) % DEFAULT_CHARACTER_MATRIX_WIDTH == 0,
               "Dutch default matrix must contain complete rows");
 
 enum class WordId : uint16_t {
@@ -231,18 +233,30 @@ inline int findRandomWord(const String& matrix, const char* word, int rowWidth) 
 }
 
 // Place a display plan into the logical/physical LED mask.
+// @param time normalized time including the cumulative minute-dot count
 // @param plan token plan to place
 // @param matrix user-configured character matrix
 // @param rowWidth configured matrix width
 // @param meander reverse odd zero-based rows for physical wiring
 // @param ledMask destination mask with one entry per matrix position
 // @return false for invalid words or out-of-range mappings
-inline bool placePlan(const WordClockCore::DisplayPlan& plan, const String& matrix,
+inline bool placePlan(const WordClockCore::TimeContext& time,
+                      const WordClockCore::DisplayPlan& plan, const String& matrix,
                       int rowWidth, bool meander, bool* ledMask) {
   if (ledMask == nullptr)
     return false;
 
   memset(ledMask, 0, matrix.length() * sizeof(bool));
+  WordClockCore::MinuteDotMarkers markers;
+  if (!WordClockCore::parseMinuteDotMarkers(matrix.c_str(), matrix.length(), markers))
+    return false;
+
+  if (markers.enabled()) {
+    for (uint8_t dot = 0; dot < time.minuteDotCount; ++dot)
+      if (markers.positions[dot] < matrix.length())
+        ledMask[markers.positions[dot]] = true;
+  }
+
   int searchFrom = 0;
   for (uint8_t unitIndex = 0; unitIndex < plan.count; ++unitIndex) {
     const char* word = wordText(static_cast<WordId>(plan.units[unitIndex].id));

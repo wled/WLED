@@ -114,17 +114,25 @@ private:
     const int currentMinutes = testHour >= 0
       ? (testHour * 60 + testMinute) % 1440
       : (hour(localTime) * 60 + minute(localTime)) % 1440;
-    const WordClockCore::TimeContext time = WordClockCore::makeTimeContext(currentMinutes, false);
+    WordClockCore::MinuteDotMarkers markers;
+
+    if (!WordClockCore::parseMinuteDotMarkers(characterMatrix.c_str(), characterMatrix.length(), markers))
+      return;
+
+    const WordClockCore::TimeContext time = WordClockCore::makeTimeContext(currentMinutes, markers.enabled());
     WordClockCore::DisplayPlan plan;
+
     if (!WordClockDutch::buildPlan(time, plan) ||
-        !WordClockDutch::placePlan(plan, characterMatrix, characterMatrixWidth, meander, ledMask))
+      !WordClockDutch::placePlan(time, plan, characterMatrix, characterMatrixWidth, meander, ledMask))
       return;
 
     String sentence;
+
     for (uint8_t index = 0; index < plan.count; ++index) {
       if (index > 0) sentence += ' ';
       sentence += FPSTR(WordClockDutch::wordText(static_cast<WordClockDutch::WordId>(plan.units[index].id)));
     }
+
     lastSentence = sentence;
   };
 
