@@ -96,9 +96,6 @@ private:
   // Is this usermod active?
   bool usermodActive = false;
 
-  // Number of leds before the first character
-  int ledOffset = 0;
-
   // Opacity (0=off, 255=full brightness) applied to LEDs that ARE part of the current time sentence.
   int opacityActive = 255;
 
@@ -106,7 +103,7 @@ private:
   int opacityInactive = 0;
 
   // Number of characters to skip at the start of the matrix when mapping to physical LEDs.
-  // E.g. set to 10 to skip the first row, so matrix char 10 maps to physical LED ledOffset+0.
+  // E.g. set to 10 to skip the first row, so matrix char 10 maps to physical LED 0.
   int matrixCharOffset = 0;
 
   // Test time override: set testHour (0‥23) and testMinute (0‥59) to force a specific time to be
@@ -472,7 +469,6 @@ public:
     oappend(F("addInfo('Word Clock NL:Brightness_Inactive', 1, '(0-255)');"));
     oappend(F("addInfo('Word Clock NL:Test_Hour', 1, '(0-23, -1 for real time)');"));
     oappend(F("addInfo('Word Clock NL:Test_Minute', 1, '(0-59)');"));
-    // oappend(F("addInfo('Word clock NL:ledOffset', 1, 'Number of LEDs before the letters');"));
   }
 
   /*
@@ -574,7 +570,7 @@ public:
 
     // Loop over all leds
     for (int i = matrixCharOffset; i < matrixLen; i++) {
-      int physIndex = ledOffset + i - matrixCharOffset;
+      int physIndex = i - matrixCharOffset;
       uint32_t color = strip.getPixelColor(physIndex);
       // Scale by opacityActive for lit LEDs, opacityInactive for dimmed LEDs.
       int scale = ledMask[i] ? opacityActive : opacityInactive;
