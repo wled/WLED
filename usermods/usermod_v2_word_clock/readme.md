@@ -57,7 +57,8 @@ These settings control the word clock:
     * `Meander`: set to `false` when the LED strip runs left to right on every row. Set to `true` when each row alternates direction.
     * `Character Matrix`: the layout letters and optional minute markers. Include all words needed by the selected language, with each row placed directly after the previous row.
     * `Character Matrix Width`: the number of letters in each row. It cannot be greater than the total number of letters or smaller than the longest word the clock needs to display.
-    * `Matrix Char Offset`: the number of letters to skip at the beginning of the matrix when matching letters to LEDs. This is useful when the first physical LEDs do not correspond to the first letters.
+    * `Led Offset`: the number of physical LEDs before the first word-clock letter.
+    * `Display It Is`: include the `ES IST` or `HET IS` prefix when supported by the selected language.
     * `Test Hour`: the hour to display for testing, from 0 to 23. Set it to -1 to use the real time.
     * `Test Minute`: the minute to display for testing, from 0 to 59.
 
@@ -83,11 +84,16 @@ minute dots; without markers, the clock rounds to the nearest five minutes.
     monitor_port = /dev/cu.wchusbserial123
     monitor_speed = 115200
     custom_usermods = ${env:esp32dev.custom_usermods} usermod_v2_word_clock
+    # Optional: uncomment to enable specific language
+    # build_flags =
+    #   ${env:esp32dev.build_flags}
+    #   -D WORD_CLOCK_LANGUAGE_NL
+
 
 2. Build WLED and upload it to your controller:
 
     npm run build
-    pio run -e wordclock_nl --target upload
+    pio run -e wordclock --target upload
 
 3. Open WLED and activate the usermod at Config > Usermods > Word Clock.
 
@@ -104,10 +110,12 @@ The generator supports Dutch and German configurations, but its JavaScript
 language data is maintained separately from the firmware language packs.
 Changing the language grammar in firmware is an advanced customization.
 
-The merged usermod keeps the canonical `WordClockUsermod` configuration object.
-Existing German settings are read unchanged. Legacy Dutch settings under
-`Word Clock NL` are imported and rewritten under the canonical object when the
+The merged usermod stores settings under the `Word Clock` configuration
+object. Existing settings under `WordClockUsermod` and legacy Dutch settings
+under `Word Clock NL` are imported and rewritten under the new object when the
 merged usermod starts.
+The friendly setting names `Led Offset` and `Display It Is` migrate existing
+`ledOffset` and `displayItIs` values automatically.
 
 
 ### Define Your Options

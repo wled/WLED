@@ -151,14 +151,16 @@ inline bool append(WordClockCore::DisplayPlan& plan, WordId id,
  * Build the phrase plan for a normalized time.
  *
  * @param time rounded time context supplied by the shared core
+ * @param displayItIs include the optional HET IS prefix
  * @param plan output sequence of tokens and match modes
  * @return false if the fixed-size plan cannot hold the phrase
  */
-inline bool buildPlan(const WordClockCore::TimeContext& time,
+inline bool buildPlan(const WordClockCore::TimeContext& time, bool displayItIs,
                       WordClockCore::DisplayPlan& plan) {
   plan = {};
-  if (!append(plan, WordId::It, WordClockCore::MatchMode::RandomOccurrence) ||
-      !append(plan, WordId::Is, WordClockCore::MatchMode::RandomOccurrence))
+  if (displayItIs &&
+      (!append(plan, WordId::It, WordClockCore::MatchMode::RandomOccurrence) ||
+       !append(plan, WordId::Is, WordClockCore::MatchMode::RandomOccurrence)))
     return false;
 
   const WordId currentHour = hourWord(time.hour12);
@@ -210,6 +212,7 @@ inline int wordLength(const char* word) {
  * @param position zero-based matrix position
  * @param length word length in bytes
  * @param rowWidth configured matrix width
+ * @param selectionSeed stable seed for selecting repeated word occurrences
  * @return true when the word does not cross a row boundary
  */
 inline bool wordFitsInRow(int position, int length, int rowWidth) {
@@ -236,14 +239,15 @@ inline int findWord(const String& matrix, const char* word, int searchFrom, int 
 }
 
 /*
- * Select a random valid occurrence of a word in the matrix.
+ * Select a stable valid occurrence of a repeated word in the matrix.
  *
  * @param matrix user-configured character matrix
  * @param word flash-resident word to find
  * @param rowWidth configured matrix width
  * @return selected logical position, or -1 when no occurrence fits
  */
-inline int findRandomWord(const String& matrix, const char* word, int rowWidth) {
+inline int findRandomWord(const String& matrix, const char* word, int rowWidth,
+                          uint16_t selectionSeed) {
   const String target = FPSTR(word);
   const int length = target.length();
   int count = 0;
@@ -254,7 +258,7 @@ inline int findRandomWord(const String& matrix, const char* word, int rowWidth) 
   if (count == 0)
     return -1;
 
-  int selected = count > 1 ? random(count) : 0;
+  int selected = count > 1 ? selectionSeed % count : 0;
   for (int position = 0; position + length <= matrix.length(); ++position) {
     if (wordFitsInRow(position, length, rowWidth) && matrix.substring(position, position + length).equals(target) && selected-- == 0)
       return position;
@@ -275,7 +279,8 @@ inline int findRandomWord(const String& matrix, const char* word, int rowWidth) 
  */
 inline bool placePlan(const WordClockCore::TimeContext& time,
                       const WordClockCore::DisplayPlan& plan, const String& matrix,
-                      int rowWidth, bool meander, bool* ledMask) {
+                      int rowWidth, bool meander, bool* ledMask,
+                      uint16_t selectionSeed) {
   if (ledMask == nullptr)
     return false;
 
@@ -294,7 +299,7 @@ inline bool placePlan(const WordClockCore::TimeContext& time,
   for (uint8_t unitIndex = 0; unitIndex < plan.count; ++unitIndex) {
     const char* word = wordText(static_cast<WordId>(plan.units[unitIndex].id));
     int wordIndex = plan.units[unitIndex].matchMode == WordClockCore::MatchMode::RandomOccurrence
-      ? findRandomWord(matrix, word, rowWidth)
+      ? findRandomWord(matrix, word, rowWidth, selectionSeed + plan.units[unitIndex].id)
       : findWord(matrix, word, searchFrom, rowWidth);
     if (wordIndex < 0)
       return false;

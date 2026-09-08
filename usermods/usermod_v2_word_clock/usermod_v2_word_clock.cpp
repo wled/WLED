@@ -4,6 +4,9 @@
   #include "lang/word_clock_language_nl.h"
   namespace WordClock = WordClockDutch;
 #else
+  #ifndef WORD_CLOCK_LANGUAGE_DE
+    #define WORD_CLOCK_LANGUAGE_DE
+  #endif
   #include "lang/word_clock_language_de.h"
   namespace WordClock = WordClockGerman;
 #endif
@@ -34,9 +37,8 @@
  *   - `Character Matrix Width`: the number of letters in each row. It cannot
  *     be greater than the total number of letters or smaller than the longest
  *     word the clock needs to display.
- *   - `Matrix Char Offset`: the number of letters to skip at the beginning of
- *     the matrix when matching letters to LEDs. This is useful when the first
- *     physical LEDs do not correspond to the first letters.
+ *   - `Led Offset`: the number of physical LEDs before the first word-clock
+ *     letter.
  *   - `Test Hour`: the hour to display for testing, from 0 to 23. Set it to
  *     -1 to use the real time.
  *   - `Test Minute`: the minute to display for testing, from 0 to 59.
@@ -62,10 +64,11 @@ private:
 
   // Keep track of the last time our loop executed.
   // Initialised to trigger an update on the very first loop() call.
-  unsigned long lastTime = ULONG_MAX - 60000UL;
+  int lastRefreshMinute = -1;
 
   // ledMask[i] is true if the LED at index i should be on for the current time, and false if it should be off
   bool* ledMask = nullptr;
+  bool* wordMask = nullptr;
 
 
   // Set your config variables to their boot default value (this can also be done in readFromConfig() or a constructor if you prefer)
@@ -75,22 +78,13 @@ private:
 
   bool displayItIs = false;
   bool nord = false;
-  int ledOffset =
-#if defined(WORD_CLOCK_LANGUAGE_NL)
-    0;
-#else
-    100;
-#endif
+  int ledOffset = 0;
 
   // Opacity (0=off, 255=full brightness) applied to LEDs that ARE part of the current time sentence.
   int opacityActive = 255;
 
   // Opacity (0=off, 255=full brightness) applied to LEDs that are NOT part of the current time sentence.
   int opacityInactive = 0;
-
-  // Number of characters to skip at the start of the matrix when mapping to physical LEDs.
-  // E.g. set to 10 to skip the first row, so matrix char 10 maps to physical LED 0.
-  int matrixCharOffset = 0;
 
   // Test time override: set testHour (0‥23) and testMinute (0‥59) to force a specific time to be
   // displayed instead of the real time. Set testHour to -1 to disable (use real time).
@@ -102,6 +96,10 @@ private:
       d_free(ledMask);
       ledMask = nullptr;
     }
+    if (wordMask) {
+      d_free(wordMask);
+      wordMask = nullptr;
+    }
 
     size_t matrixLength = characterMatrix.length();
 
@@ -109,12 +107,35 @@ private:
       return;
 
     ledMask = (bool*) d_malloc(matrixLength * sizeof(bool));
+    wordMask = (bool*) d_malloc(matrixLength * sizeof(bool));
 
-    if (ledMask)
+    if (ledMask && wordMask) {
       memset(ledMask, 0, matrixLength * sizeof(bool));
+      memset(wordMask, 0, matrixLength * sizeof(bool));
+    } else {
+      if (ledMask) {
+        d_free(ledMask);
+        ledMask = nullptr;
+      }
+      if (wordMask) {
+        d_free(wordMask);
+        wordMask = nullptr;
+      }
+    }
   }
 
   String lastSentence = "";
+  int lastPhraseKey = -1;
+  bool phraseMaskValid = false;
+
+  void updateMinuteDots(const WordClockCore::MinuteDotMarkers& markers, uint8_t minuteDotCount) {
+    if (!markers.enabled() || !ledMask || !wordMask)
+      return;
+
+    memcpy(ledMask, wordMask, characterMatrix.length() * sizeof(bool));
+    for (uint8_t dot = 0; dot < WordClockCore::MAX_MINUTE_DOTS; ++dot)
+      ledMask[markers.positions[dot]] = dot < minuteDotCount;
+  }
 
   /*
    * Update the ledMask for the current time, by setting ledMask[i] to true if
@@ -136,18 +157,37 @@ private:
       return;
 
     const WordClockCore::TimeContext time = WordClockCore::makeTimeContext(currentMinutes, markers.enabled());
+    const int phraseKey = markers.enabled()
+      ? currentMinutes - currentMinutes % 5
+      : time.totalMinutes - time.displayedMinute;
+
+    if (phraseMaskValid && phraseKey == lastPhraseKey) {
+      updateMinuteDots(markers, time.minuteDotCount);
+      return;
+    }
+
     WordClockCore::DisplayPlan plan;
 
     bool placementOk = false;
   #if defined(WORD_CLOCK_LANGUAGE_NL)
-    placementOk = WordClock::buildPlan(time, plan) &&
-            WordClock::placePlan(time, plan, characterMatrix, characterMatrixWidth, meander, ledMask);
+    placementOk = WordClock::buildPlan(time, displayItIs, plan) &&
+          WordClock::placePlan(time, plan, characterMatrix, characterMatrixWidth, meander, ledMask,
+             static_cast<uint16_t>(phraseKey));
   #else
     placementOk = WordClock::buildPlan(time, displayItIs, nord, plan) &&
             WordClock::placePlan(time, plan, meander, ledMask, characterMatrix.length());
   #endif
     if (!placementOk)
       return;
+
+    memcpy(wordMask, ledMask, characterMatrix.length() * sizeof(bool));
+    if (markers.enabled()) {
+      for (uint8_t dot = 0; dot < WordClockCore::MAX_MINUTE_DOTS; ++dot)
+        wordMask[markers.positions[dot]] = false;
+    }
+    lastPhraseKey = phraseKey;
+    phraseMaskValid = true;
+    updateMinuteDots(markers, time.minuteDotCount);
 
     String sentence;
 
@@ -165,6 +205,8 @@ public:
   ~WordClockUsermod() {
     if (ledMask)
       d_free(ledMask);
+    if (wordMask)
+      d_free(wordMask);
   }
 
   /*
@@ -193,14 +235,18 @@ public:
    *    Instead, use a timer check as shown here.
    */
   void loop() {
-    // Execute only once per minute
-    if (millis() - lastTime < 60 * 1000)
+    if (testHour < 0 && localTime == 0)
+      return;
+
+    const int currentMinute = testHour >= 0
+      ? (testHour * 60 + testMinute) % 1440
+      : (hour(localTime) * 60 + minute(localTime)) % 1440;
+
+    if (currentMinute == lastRefreshMinute)
       return;
 
     updateLedMaskForCurrentTime();
-
-    // Remember this update
-    lastTime = millis();
+    lastRefreshMinute = currentMinute;
   }
 
   /*
@@ -283,28 +329,32 @@ public:
    * I highly recommend checking out the basics of ArduinoJson serialization and deserialization in order to use custom settings!
    */
   void addToConfig(JsonObject &root) {
-    JsonObject top = root.createNestedObject(F("WordClockUsermod"));
+    JsonObject top = root.createNestedObject(F("Word Clock"));
     top[F("active")] = usermodActive;
-    top[F("displayItIs")] = displayItIs;
-    top[F("ledOffset")] = ledOffset;
+    top[F("Display It Is")] = displayItIs;
+    top[F("Led Offset")] = ledOffset;
+  #if defined(WORD_CLOCK_LANGUAGE_DE)
     top[F("Norddeutsch")] = nord;
+  #endif
     top[F("Brightness_Active")] = opacityActive;
     top[F("Brightness_Inactive")] = opacityInactive;
     top[F("meander")] = meander;
     top[F("Character_Matrix")] = characterMatrix;
     top[F("Character_Matrix_Width")] = characterMatrixWidth;
-    top[F("Matrix_Char_Offset")] = matrixCharOffset;
     top[F("Test_Hour")] = testHour;
     top[F("Test_Minute")] = testMinute;
   }
 
   void appendConfigData() {
     // Add hints for the Usermod Settings page, so the user knows what the settings mean
-    oappend(F("addInfo('WordClockUsermod:Brightness_Active', 1, '(0-255)');"));
-    oappend(F("addInfo('WordClockUsermod:Brightness_Inactive', 1, '(0-255)');"));
-    oappend(F("addInfo('WordClockUsermod:Test_Hour', 1, '(0-23, -1 for real time)');"));
-    oappend(F("addInfo('WordClockUsermod:Test_Minute', 1, '(0-59)');"));
-    oappend(F("addInfo('WordClockUsermod:Norddeutsch', 1, 'Viertel vor instead of Dreiviertel');"));
+    oappend(F("addInfo('Word Clock:Brightness_Active', 1, '(0-255)');"));
+    oappend(F("addInfo('Word Clock:Brightness_Inactive', 1, '(0-255)');"));
+    oappend(F("addInfo('Word Clock:Led Offset', 1, 'Number of LEDs before the letters');"));
+    oappend(F("addInfo('Word Clock:Test_Hour', 1, '(0-23, -1 for real time)');"));
+    oappend(F("addInfo('Word Clock:Test_Minute', 1, '(0-59)');"));
+  #if defined(WORD_CLOCK_LANGUAGE_DE)
+    oappend(F("addInfo('Word Clock:Norddeutsch', 1, 'Viertel vor instead of Dreiviertel');"));
+  #endif
   }
 
   /*
@@ -326,27 +376,47 @@ public:
     // default settings values could be set here (or below using the 3-argument getJsonValue()) instead of in the class definition or constructor
     // setting them inside readFromConfig() is slightly more robust, handling the rare but plausible use case of single value being missing after boot (e.g. if the cfg.json was manually edited and a value was removed)
 
-    JsonObject top = root[F("WordClockUsermod")];
+    JsonObject top = root[F("Word Clock")];
     bool legacyConfig = top.isNull();
-    if (legacyConfig)
-      top = root[F("Word Clock NL")];
+
+    if (legacyConfig) {
+      top = root[F("WordClockUsermod")];
+    }
 
     bool configComplete = !top.isNull() && !legacyConfig;
 
     configComplete &= getJsonValue(top[F("active")], usermodActive);
-    getJsonValue(top[F("displayItIs")], displayItIs);
-    getJsonValue(top[F("ledOffset")], ledOffset);
+    bool prevDisplayItIs = displayItIs;
+    if (!getJsonValue(top[F("Display It Is")], displayItIs))
+      getJsonValue(top[F("displayItIs")], displayItIs);
+    if (!getJsonValue(top[F("Led Offset")], ledOffset))
+      getJsonValue(top[F("ledOffset")], ledOffset);
+  #if defined(WORD_CLOCK_LANGUAGE_DE)
+    bool prevNord = nord;
     getJsonValue(top[F("Norddeutsch")], nord);
+  #endif
     getJsonValue(top[F("Brightness_Active")], opacityActive);
     getJsonValue(top[F("Brightness_Inactive")], opacityInactive);
     opacityActive = clampInt(opacityActive, 0, 255);
     opacityInactive = clampInt(opacityInactive, 0, 255);
+
+    if (displayItIs != prevDisplayItIs
+  #if defined(WORD_CLOCK_LANGUAGE_DE)
+        || nord != prevNord
+  #endif
+    ) {
+      lastSentence = "";
+      phraseMaskValid = false;
+      lastRefreshMinute = -1;
+    }
+
     bool prevMeander = meander;
     getJsonValue(top[F("meander")], meander);
 
     if (meander != prevMeander) {
       lastSentence = "";             // force mask recompute
-      lastTime = ULONG_MAX - 60000UL; // trigger recompute on very next loop() call
+      phraseMaskValid = false;
+      lastRefreshMinute = -1; // trigger recompute on very next loop() call
     }
 
     String prevCharacterMatrix = characterMatrix;
@@ -356,7 +426,8 @@ public:
       allocateLedMask();
 
       lastSentence = "";             // force mask recompute
-      lastTime = ULONG_MAX - 60000UL; // trigger recompute on very next loop() call
+      phraseMaskValid = false;
+      lastRefreshMinute = -1; // trigger recompute on very next loop() call
     }
 
     int prevCharacterMatrixWidth = characterMatrixWidth;
@@ -365,11 +436,9 @@ public:
 
     if (characterMatrixWidth != prevCharacterMatrixWidth) {
       lastSentence = "";             // force mask recompute
-      lastTime = ULONG_MAX - 60000UL; // trigger recompute on very next loop() call
+      phraseMaskValid = false;
+      lastRefreshMinute = -1; // trigger recompute on very next loop() call
     }
-
-    getJsonValue(top[F("Matrix_Char_Offset")], matrixCharOffset);
-    matrixCharOffset = clampInt(matrixCharOffset, 0, characterMatrix.length());
 
     int prevTestHour = testHour;
     int prevTestMinute = testMinute;
@@ -380,7 +449,8 @@ public:
 
     if (testHour != prevTestHour || testMinute != prevTestMinute) {
       lastSentence = "";               // force mask recompute
-      lastTime = ULONG_MAX - 60000UL;  // trigger recompute on very next loop() call
+      phraseMaskValid = false;
+      lastRefreshMinute = -1;  // trigger recompute on very next loop() call
     }
 
     return configComplete;
@@ -402,8 +472,8 @@ public:
     int matrixLen = (int)characterMatrix.length();
 
     // Loop over all leds
-    for (int i = matrixCharOffset; i < matrixLen; i++) {
-      int physIndex = ledOffset + i - matrixCharOffset;
+    for (int i = 0; i < matrixLen; i++) {
+      int physIndex = ledOffset + i;
       uint32_t color = strip.getPixelColor(physIndex);
       // Scale by opacityActive for lit LEDs, opacityInactive for dimmed LEDs.
       int scale = ledMask[i] ? opacityActive : opacityInactive;
