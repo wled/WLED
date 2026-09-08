@@ -40,6 +40,15 @@ struct DisplayPlan {
   }
 };
 
+/*
+ * Language-pack contract:
+ *
+ * Every language pack owns both plan generation and placement. Latin-script
+ * packs may delegate placement to the shared row/matrix helpers, while a
+ * future non-Latin pack may provide a different placement representation.
+ * This core intentionally does not impose a concrete matrix type on packs.
+ */
+
 // Time values normalized for language-specific plan generation.
 struct TimeContext {
   uint8_t hour24;          // Current hour in the range 0-23.

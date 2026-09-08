@@ -6,6 +6,12 @@
 
 namespace WordClockDutch {
 
+/*
+ * This pack uses the shared byte-matrix placement primitives. A future
+ * language with a different writing system may replace placePlan() while
+ * keeping the same buildPlan() and display-plan concepts.
+ */
+
 // Default byte-oriented Latin-script matrix used when no user-configured
 // matrix is available. A future non-Latin pack should use symbol IDs instead.
 static const char DEFAULT_CHARACTER_MATRIX[] PROGMEM =

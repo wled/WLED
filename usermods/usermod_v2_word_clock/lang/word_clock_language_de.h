@@ -16,6 +16,12 @@
 
 namespace WordClockGerman {
 
+/*
+ * This pack owns both phrase planning and matrix placement. Its
+ * placement delegates ordinary row and meander work to WordClockCore while
+ * retaining language-specific occurrence choices in the plan.
+ */
+
 // Logical 11x10 layout reconstructed from the legacy normal-wiring masks.
 // Umlauts use single-byte Latin-1 escapes so each physical letter occupies one
 // matrix position. The final four positions are the optional minute dots.
