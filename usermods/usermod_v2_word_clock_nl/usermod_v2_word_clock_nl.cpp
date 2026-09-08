@@ -125,6 +125,12 @@ private:
     // Round to nearest 5 minutes
     m = ((m + 2) / 5) * 5;
 
+    // Carry the hour when the 5-minute rounding produces 60
+    if (m == 60) {
+      m = 0;
+      h = (h + 1) % 12;
+    }
+
     // hourIndex: index of the current clock hour in HOUR_WORDS
     int hourIndex = (h - 1 + 12) % 12;
 
