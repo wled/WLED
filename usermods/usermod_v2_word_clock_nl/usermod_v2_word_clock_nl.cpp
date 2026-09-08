@@ -1,5 +1,36 @@
 #include "wled.h"
 
+static const char sOne[] PROGMEM = "EEN";
+static const char sTwo[] PROGMEM = "TWEE";
+static const char sThree[] PROGMEM = "DRIE";
+static const char sFour[] PROGMEM = "VIER";
+static const char sFive[] PROGMEM = "VIJF";
+static const char sSix[] PROGMEM = "ZES";
+static const char sSeven[] PROGMEM = "ZEVEN";
+static const char sEight[] PROGMEM = "ACHT";
+static const char sNine[] PROGMEM = "NEGEN";
+static const char sTen[] PROGMEM = "TIEN";
+static const char sEleven[] PROGMEM = "ELF";
+static const char sTwelve[] PROGMEM = "TWAALF";
+
+static const char sIt[] PROGMEM = "HET";
+static const char sIs[] PROGMEM = "IS";
+static const char sPast[] PROGMEM = "OVER";
+static const char sTo[] PROGMEM = "VOOR";
+static const char sHalf[] PROGMEM = "HALF";
+static const char sQuarter[] PROGMEM = "KWART";
+static const char sHour[] PROGMEM = "UUR";
+static const char sSpace[] PROGMEM = " ";
+
+static const char* const HOUR_WORDS[12] PROGMEM = {
+  sOne, sTwo, sThree, sFour, sFive, sSix,
+  sSeven, sEight, sNine, sTen, sEleven, sTwelve
+};
+
+static PGM_P getHourWord(uint8_t index) {
+  return reinterpret_cast<PGM_P>(pgm_read_ptr(&HOUR_WORDS[index]));
+}
+
 /*
  * Word Clock (Dutch)
  * This is a usermod for the WLED project that displays the time in words in
@@ -60,34 +91,6 @@ private:
   bool* ledMask = nullptr; 
 
   
-  // The words for the hours in Dutch, used to construct the sentences
-  // representing the time. 0 = twaalf uur, 1 = een uur, etc.
-  // Use PROGMEM as per the coding guidelines for usermods.
-  const char* sOne PROGMEM = "EEN";
-  const char* sTwo PROGMEM = "TWEE";
-  const char* sThree PROGMEM = "DRIE";
-  const char* sFour PROGMEM = "VIER";
-  const char* sFive PROGMEM = "VIJF";
-  const char* sSix PROGMEM = "ZES";
-  const char* sSeven PROGMEM = "ZEVEN";
-  const char* sEight PROGMEM = "ACHT";
-  const char* sNine PROGMEM = "NEGEN";
-  const char* sTen PROGMEM = "TIEN";
-  const char* sEleven PROGMEM = "ELF";
-  const char* sTwelve PROGMEM = "TWAALF";
-
-  // Other things needed to form complete sentences
-  const char* sIt PROGMEM = "HET";
-  const char* sIs PROGMEM = "IS";
-  const char* sPast PROGMEM = "OVER";
-  const char* sTo PROGMEM = "VOOR";
-  const char* sHalf PROGMEM = "HALF";
-  const char* sQuarter PROGMEM = "KWART";
-  const char* sHour PROGMEM = "UUR";
-  const char* sSpace PROGMEM = " ";
-
-  const char* const HOUR_WORDS[12] PROGMEM = {sOne, sTwo, sThree, sFour, sFive, sSix, sSeven, sEight, sNine, sTen, sEleven, sTwelve};
-
   // Set your config variables to their boot default value (this can also be done in readFromConfig() or a constructor if you prefer)
 
   // Is this usermod active?
@@ -128,20 +131,20 @@ private:
     // nextHourIndex: the hour after that (used for half/voor constructions)
     int nextHourIndex = h % 12;
 
-    if (m ==  0) return (String) FPSTR(sIt) + FPSTR(sSpace) + FPSTR(sIs) + FPSTR(sSpace) + FPSTR(HOUR_WORDS[hourIndex]) + FPSTR(sSpace) + FPSTR(sHour);
-    if (m ==  5) return (String) FPSTR(sIt) + FPSTR(sSpace) + FPSTR(sIs) + FPSTR(sSpace) + FPSTR(sFive) + FPSTR(sSpace) + FPSTR(sPast) + FPSTR(sSpace) + FPSTR(HOUR_WORDS[hourIndex]);
-    if (m == 10) return (String) FPSTR(sIt) + FPSTR(sSpace) + FPSTR(sIs) + FPSTR(sSpace) + FPSTR(sTen) + FPSTR(sSpace) + FPSTR(sPast) + FPSTR(sSpace) + FPSTR(HOUR_WORDS[hourIndex]);
-    if (m == 15) return (String) FPSTR(sIt) + FPSTR(sSpace) + FPSTR(sIs) + FPSTR(sSpace) + FPSTR(sQuarter) + FPSTR(sSpace) + FPSTR(sPast) + FPSTR(sSpace) + FPSTR(HOUR_WORDS[hourIndex]);
-    if (m == 20) return (String) FPSTR(sIt) + FPSTR(sSpace) + FPSTR(sIs) + FPSTR(sSpace) + FPSTR(sTen) + FPSTR(sSpace) + FPSTR(sTo) + FPSTR(sSpace) + FPSTR(sHalf) + FPSTR(sSpace) + FPSTR(HOUR_WORDS[nextHourIndex]);
-    if (m == 25) return (String) FPSTR(sIt) + FPSTR(sSpace) + FPSTR(sIs) + FPSTR(sSpace) + FPSTR(sFive) + FPSTR(sSpace) + FPSTR(sTo) + FPSTR(sSpace) + FPSTR(sHalf) + FPSTR(sSpace) + FPSTR(HOUR_WORDS[nextHourIndex]);
-    if (m == 30) return (String) FPSTR(sIt) + FPSTR(sSpace) + FPSTR(sIs) + FPSTR(sSpace) + FPSTR(sHalf) + FPSTR(sSpace) + FPSTR(HOUR_WORDS[nextHourIndex]);
-    if (m == 35) return (String) FPSTR(sIt) + FPSTR(sSpace) + FPSTR(sIs) + FPSTR(sSpace) + FPSTR(sFive) + FPSTR(sSpace) + FPSTR(sPast) + FPSTR(sSpace) + FPSTR(sHalf) + FPSTR(sSpace) + FPSTR(HOUR_WORDS[nextHourIndex]);
-    if (m == 40) return (String) FPSTR(sIt) + FPSTR(sSpace) + FPSTR(sIs) + FPSTR(sSpace) + FPSTR(sTen) + FPSTR(sSpace) + FPSTR(sPast) + FPSTR(sSpace) + FPSTR(sHalf) + FPSTR(sSpace) + FPSTR(HOUR_WORDS[nextHourIndex]);
-    if (m == 45) return (String) FPSTR(sIt) + FPSTR(sSpace) + FPSTR(sIs) + FPSTR(sSpace) + FPSTR(sQuarter) + FPSTR(sSpace) + FPSTR(sTo) + FPSTR(sSpace) + FPSTR(HOUR_WORDS[nextHourIndex]);
-    if (m == 50) return (String) FPSTR(sIt) + FPSTR(sSpace) + FPSTR(sIs) + FPSTR(sSpace) + FPSTR(sTen) + FPSTR(sSpace) + FPSTR(sTo) + FPSTR(sSpace) + FPSTR(HOUR_WORDS[nextHourIndex]);
-    if (m == 55) return (String) FPSTR(sIt) + FPSTR(sSpace) + FPSTR(sIs) + FPSTR(sSpace) + FPSTR(sFive) + FPSTR(sSpace) + FPSTR(sTo) + FPSTR(sSpace) + FPSTR(HOUR_WORDS[nextHourIndex]);
+    if (m ==  0) return (String) FPSTR(sIt) + FPSTR(sSpace) + FPSTR(sIs) + FPSTR(sSpace) + FPSTR(getHourWord(hourIndex)) + FPSTR(sSpace) + FPSTR(sHour);
+    if (m ==  5) return (String) FPSTR(sIt) + FPSTR(sSpace) + FPSTR(sIs) + FPSTR(sSpace) + FPSTR(sFive) + FPSTR(sSpace) + FPSTR(sPast) + FPSTR(sSpace) + FPSTR(getHourWord(hourIndex));
+    if (m == 10) return (String) FPSTR(sIt) + FPSTR(sSpace) + FPSTR(sIs) + FPSTR(sSpace) + FPSTR(sTen) + FPSTR(sSpace) + FPSTR(sPast) + FPSTR(sSpace) + FPSTR(getHourWord(hourIndex));
+    if (m == 15) return (String) FPSTR(sIt) + FPSTR(sSpace) + FPSTR(sIs) + FPSTR(sSpace) + FPSTR(sQuarter) + FPSTR(sSpace) + FPSTR(sPast) + FPSTR(sSpace) + FPSTR(getHourWord(hourIndex));
+    if (m == 20) return (String) FPSTR(sIt) + FPSTR(sSpace) + FPSTR(sIs) + FPSTR(sSpace) + FPSTR(sTen) + FPSTR(sSpace) + FPSTR(sTo) + FPSTR(sSpace) + FPSTR(sHalf) + FPSTR(sSpace) + FPSTR(getHourWord(nextHourIndex));
+    if (m == 25) return (String) FPSTR(sIt) + FPSTR(sSpace) + FPSTR(sIs) + FPSTR(sSpace) + FPSTR(sFive) + FPSTR(sSpace) + FPSTR(sTo) + FPSTR(sSpace) + FPSTR(sHalf) + FPSTR(sSpace) + FPSTR(getHourWord(nextHourIndex));
+    if (m == 30) return (String) FPSTR(sIt) + FPSTR(sSpace) + FPSTR(sIs) + FPSTR(sSpace) + FPSTR(sHalf) + FPSTR(sSpace) + FPSTR(getHourWord(nextHourIndex));
+    if (m == 35) return (String) FPSTR(sIt) + FPSTR(sSpace) + FPSTR(sIs) + FPSTR(sSpace) + FPSTR(sFive) + FPSTR(sSpace) + FPSTR(sPast) + FPSTR(sSpace) + FPSTR(sHalf) + FPSTR(sSpace) + FPSTR(getHourWord(nextHourIndex));
+    if (m == 40) return (String) FPSTR(sIt) + FPSTR(sSpace) + FPSTR(sIs) + FPSTR(sSpace) + FPSTR(sTen) + FPSTR(sSpace) + FPSTR(sPast) + FPSTR(sSpace) + FPSTR(sHalf) + FPSTR(sSpace) + FPSTR(getHourWord(nextHourIndex));
+    if (m == 45) return (String) FPSTR(sIt) + FPSTR(sSpace) + FPSTR(sIs) + FPSTR(sSpace) + FPSTR(sQuarter) + FPSTR(sSpace) + FPSTR(sTo) + FPSTR(sSpace) + FPSTR(getHourWord(nextHourIndex));
+    if (m == 50) return (String) FPSTR(sIt) + FPSTR(sSpace) + FPSTR(sIs) + FPSTR(sSpace) + FPSTR(sTen) + FPSTR(sSpace) + FPSTR(sTo) + FPSTR(sSpace) + FPSTR(getHourWord(nextHourIndex));
+    if (m == 55) return (String) FPSTR(sIt) + FPSTR(sSpace) + FPSTR(sIs) + FPSTR(sSpace) + FPSTR(sFive) + FPSTR(sSpace) + FPSTR(sTo) + FPSTR(sSpace) + FPSTR(getHourWord(nextHourIndex));
 
-    return (String) FPSTR(sIt) + FPSTR(sSpace) + FPSTR(sIs) + FPSTR(sSpace) + FPSTR(HOUR_WORDS[hourIndex]);
+    return (String) FPSTR(sIt) + FPSTR(sSpace) + FPSTR(sIs) + FPSTR(sSpace) + FPSTR(getHourWord(hourIndex));
   }
 
   String lastSentence = "";
@@ -165,14 +168,14 @@ private:
     int maxLen = 0;
 
     for (int i = 0; i < 12; i++) {
-      int len = strlen(HOUR_WORDS[i]);
+      int len = strlen_P(getHourWord(i));
       if (len > maxLen) maxLen = len;
     }
 
     const char* others[] = {sIt, sIs, sPast, sTo, sHalf, sQuarter, sHour};
 
     for (int i = 0; i < 7; i++) {
-      int len = strlen(others[i]);
+      int len = strlen_P(others[i]);
       if (len > maxLen) maxLen = len;
     }
 
