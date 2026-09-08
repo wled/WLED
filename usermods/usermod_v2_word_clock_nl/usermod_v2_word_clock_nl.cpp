@@ -111,6 +111,23 @@ private:
   int testHour = -1;
   int testMinute = 0;
 
+  void allocateLedMask() {
+    if (ledMask) {
+      d_free(ledMask);
+      ledMask = nullptr;
+    }
+
+    size_t matrixLength = characterMatrix.length();
+
+    if (matrixLength == 0)
+      return;
+
+    ledMask = (bool*) d_malloc(matrixLength * sizeof(bool));
+
+    if (ledMask)
+      memset(ledMask, 0, matrixLength * sizeof(bool));
+  }
+
   /*
    * Get the Dutch sentence representing the given the time in minutes, e.g. "HET IS KWART OVER TIEN".
    * totalMinutes: 0.‥1439
@@ -331,16 +348,17 @@ private:
 public:
   // Functions called by WLED
 
+  ~WordClockNlUsermod() {
+    if (ledMask)
+      d_free(ledMask);
+  }
+
   /*
    * setup() is called once at boot. WiFi is not yet connected at this point.
    * You can use it to initialize variables, sensors or similar.
    */
   void setup() {
-    // Initialize the ledMask with false values
-    ledMask = (bool*) d_malloc(characterMatrix.length() * sizeof(bool));
-
-    if (ledMask)
-      memset(ledMask, 0, characterMatrix.length() * sizeof(bool));
+    allocateLedMask();
   }
 
   /*
@@ -511,16 +529,7 @@ public:
     getJsonValue(top[F("Character_Matrix")], characterMatrix);
 
     if (!characterMatrix.equals(prevCharacterMatrix)) {
-      // Size may have changed, so the ledMask buffer must be reallocated
-      if (ledMask) {
-        free(ledMask);
-        ledMask = nullptr;
-      }
-
-      ledMask = (bool*) d_malloc(characterMatrix.length() * sizeof(bool));
-
-      if (ledMask)
-        memset(ledMask, 0, characterMatrix.length() * sizeof(bool));
+      allocateLedMask();
 
       lastSentence = "";             // force mask recompute
       lastTime = ULONG_MAX - 60000UL; // trigger recompute on very next loop() call
