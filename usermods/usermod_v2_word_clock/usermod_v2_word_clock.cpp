@@ -412,6 +412,8 @@ public:
       top[F("Led Offset")] = ledOffset;
     }
 
+    ledOffset = ledOffset < 0 ? 0 : ledOffset;
+
   #if defined(WORD_CLOCK_LANGUAGE_DE)
     bool prevNord = nord;
     getJsonValue(top[F("Norddeutsch")], nord);
