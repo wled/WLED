@@ -503,7 +503,8 @@ public:
       uint8_t r = ((color >> 16) & 0xFF) * scale / 255;
       uint8_t g = ((color >>  8) & 0xFF) * scale / 255;
       uint8_t b = ((color >>  0) & 0xFF) * scale / 255;
-      strip.setPixelColor(physIndex, RGBW32(r, g, b, 0));
+      uint8_t w = ((color >> 24) & 0xFF) * scale / 255;
+      strip.setPixelColor(physIndex, RGBW32(r, g, b, w));
     }
   }
 
