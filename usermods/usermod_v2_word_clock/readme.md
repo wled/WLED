@@ -70,9 +70,9 @@ minute dots; without markers, the clock rounds to the nearest five minutes.
 
 ## Installation
 
-1. Copy `platformio_override.sample.ini` from the main WLED folder to
-    `platformio_override.ini`. Update the board and serial port settings to
-    match your hardware. For example:
+1. Copy `platformio_override.sample.ini` from the `usermods/usermod_v2_word_clock`
+   folder to `platformio_override.ini` in the top WLED folder. Update the board
+   and serial port settings to match your hardware. For example:
 
     ```ini
     [platformio]
@@ -86,6 +86,7 @@ minute dots; without markers, the clock rounds to the nearest five minutes.
     monitor_port = /dev/cu.wchusbserial123
     monitor_speed = 115200
     custom_usermods = ${env:esp32dev.custom_usermods} usermod_v2_word_clock
+
     # Optional: uncomment to enable specific language
     # build_flags =
     #   ${env:esp32dev.build_flags}
