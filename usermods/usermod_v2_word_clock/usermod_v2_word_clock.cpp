@@ -445,17 +445,27 @@ public:
     String prevCharacterMatrix = characterMatrix;
     getJsonValue(top[F("Character_Matrix")], characterMatrix);
 
-    if (!characterMatrix.equals(prevCharacterMatrix)) {
-      allocateLedMask();
-
-      lastSentence = "";             // force mask recompute
-      phraseMaskValid = false;
-      lastRefreshMinute = -1; // trigger recompute on very next loop() call
-    }
-
     int prevCharacterMatrixWidth = characterMatrixWidth;
     getJsonValue(top[F("Character_Matrix_Width")], characterMatrixWidth);
-    characterMatrixWidth = clampInt(characterMatrixWidth, WordClock::maxWordLength(), characterMatrix.length());
+
+    // Only do a basic sanity check. We're not performing a full
+    // validation of the character matrix here to allow the user
+    // some leeway in the matrix design.
+    if (characterMatrix.length() < WordClock::maxWordLength()) {
+      characterMatrix = prevCharacterMatrix;
+      characterMatrixWidth = prevCharacterMatrixWidth;
+      configComplete = false;
+    } else {
+      if (!characterMatrix.equals(prevCharacterMatrix)) {
+        allocateLedMask();
+
+        lastSentence = "";             // force mask recompute
+        phraseMaskValid = false;
+        lastRefreshMinute = -1; // trigger recompute on very next loop() call
+      }
+
+      characterMatrixWidth = clampInt(characterMatrixWidth, WordClock::maxWordLength(), characterMatrix.length());
+    }
 
     if (characterMatrixWidth != prevCharacterMatrixWidth) {
       lastSentence = "";             // force mask recompute
