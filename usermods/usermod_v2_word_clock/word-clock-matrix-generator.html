@@ -340,6 +340,8 @@
     ];
     const GERMAN_HOUR_WORDS = ['EIN','ZWEI','DREI','VIER','FUENF','SECHS','SIEBEN','ACHT','NEUN','ZEHN','ELF','ZWOELF'];
     const GERMAN_POOL = 'AAAAAEEEEEEIIIINNNNRRRRTTTTUUUUSSSSCCFHLZVWXYZ';
+    // Convenience limit for the generator UI; the firmware does not require a maximum width of 22.
+    const MAX_GENERATOR_WIDTH = 22;
 
     const LANGUAGE_CONFIGS = {
       nl: {
@@ -750,6 +752,7 @@
                   const nextLanguage = e.target.value;
                   const nextConfig = getLanguageConfig(nextLanguage);
                   setLanguage(nextLanguage);
+                  setWidth(currentWidth => Math.min(MAX_GENERATOR_WIDTH, Math.max(currentWidth, minWidthFor(nextConfig))));
                   setSentence(nextConfig.getTime(timeMinutes, nextLanguage === 'de' && nord));
                   setSeed(s => s + 1);
                 }}>
@@ -805,7 +808,7 @@
               <div className="slider-row">
                 <span className="slider-label">Width</span>
                 <input
-                  type="range" min={minWidth} max="22"
+                  type="range" min={minWidth} max={MAX_GENERATOR_WIDTH}
                   value={width}
                   onChange={e => setWidth(+e.target.value)}
                 />
