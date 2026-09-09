@@ -73,6 +73,7 @@ minute dots; without markers, the clock rounds to the nearest five minutes.
     `platformio_override.ini`. Update the board and serial port settings to
     match your hardware. For example:
 
+    ```ini
     [platformio]
     default_envs = wordclock
 
@@ -88,7 +89,7 @@ minute dots; without markers, the clock rounds to the nearest five minutes.
     # build_flags =
     #   ${env:esp32dev.build_flags}
     #   -D WORD_CLOCK_LANGUAGE_NL
-
+    ```
 
 2. Build WLED and upload it to your controller:
 
