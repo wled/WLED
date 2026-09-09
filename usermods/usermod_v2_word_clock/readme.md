@@ -10,8 +10,8 @@ The language is not a runtime setting.
 
 The default German matrix has 11 columns and 10 rows, plus four minute-dot
 markers (`1234`) at the end of the layout. The dots are cumulative: at 12:03,
-dots 1, 2, and 3 are lit. A marker-free custom matrix uses nearest-five-minute
-rounding instead.
+dots 1, 2, and 3 are lit. Adding these minute dots is optional; a marker-free
+custom matrix uses nearest-five-minute rounding instead.
 
 The generator can create Dutch or German example matrices. For example, a
 Dutch matrix can be generated with the language selector in
@@ -32,7 +32,8 @@ four minute-dot positions:
     ZEHNEUNXUHR
     1234
 
-At 6:43, the default German clock displays `ZWANZIG VOR SIEBEN`:
+At 6:43 (06:40 and 3 minutes), the default German clock displays `ZWANZIG VOR SIEBEN`
+and lights 3 of the minute-dot markers:
 
     ES.IST.....
     ....ZWANZIG
