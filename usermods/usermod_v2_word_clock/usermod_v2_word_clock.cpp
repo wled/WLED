@@ -392,19 +392,27 @@ public:
 
     JsonObject top = root[F("Word Clock")];
     bool legacyConfig = top.isNull();
+    JsonObject legacyTop = root[F("WordClockUsermod")];
 
-    if (legacyConfig) {
-      top = root[F("WordClockUsermod")];
+    if (legacyConfig && !legacyTop.isNull()) {
+      top = root.createNestedObject(F("Word Clock"));
     }
 
-    bool configComplete = !top.isNull() && !legacyConfig;
+    bool configComplete = !top.isNull();
 
     configComplete &= getJsonValue(top[F("active")], usermodActive);
     bool prevDisplayItIs = displayItIs;
-    if (!getJsonValue(top[F("Display It Is")], displayItIs))
-      getJsonValue(top[F("displayItIs")], displayItIs);
-    if (!getJsonValue(top[F("Led Offset")], ledOffset))
-      getJsonValue(top[F("ledOffset")], ledOffset);
+
+    if (!getJsonValue(top[F("Display It Is")], displayItIs) &&
+        getJsonValue(legacyTop[F("displayItIs")], displayItIs)) {
+      top[F("Display It Is")] = displayItIs;
+    }
+
+    if (!getJsonValue(top[F("Led Offset")], ledOffset) &&
+        getJsonValue(legacyTop[F("ledOffset")], ledOffset)) {
+      top[F("Led Offset")] = ledOffset;
+    }
+
   #if defined(WORD_CLOCK_LANGUAGE_DE)
     bool prevNord = nord;
     getJsonValue(top[F("Norddeutsch")], nord);
