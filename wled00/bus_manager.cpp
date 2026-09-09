@@ -103,6 +103,12 @@ void Bus::calculateCCT(uint32_t c, uint8_t &ww, uint8_t &cw) {
 // 0 means "treat the W LED as neutral white" which preserves legacy behavior
 // where autoWhiteCalc subtracted the same value from R, G, B.
 void Bus::setWhiteKelvin(uint16_t k) {
+  // The correction only makes sense for RGB+W buses with a single fixed white:
+  // dual-white CCT buses have a variable white point set via the CCT control,
+  // and buses without RGB or without W have nothing to correct. Force the
+  // feature off here (once, at configuration) so autoWhiteCalc's per-pixel
+  // path only has to test _whiteKelvin == 0.
+  if (_hasCCT || !_hasRgb || !_hasWhite) k = 0;
   _whiteKelvin = k;
   if (k == 0) {
     _wR = _wG = _wB = 255; // legacy: treat W as neutral
@@ -139,14 +145,12 @@ uint32_t Bus::autoWhiteCalc(uint32_t c, uint8_t &ww, uint8_t &cw) const {
       //ignore auto-white calculation if w>0 and mode DUAL (DUAL behaves as BRIGHTER if w==0)
     } else if (aWM == RGBW_MODE_MAX) {
       w = r > g ? (r > b ? r : b) : (g > b ? g : b); // brightest RGB channel
-    } else if (_whiteKelvin == 0 || _hasCCT || !_hasRgb) {
-      // Fast path: per-bus W channel color temperature feature is off, OR the bus type can't
-      // use it — dual-white CCT buses have a variable white point set via
-      // the CCT control (not a single fixed Kelvin), and non-RGB buses have
-      // nothing to derive the correction from. Identical to the pre-feature
-      // behavior: pick darkest RGB channel as W and (for ACCURATE) subtract
-      // it equally. Also avoids three divisions per pixel in the common
-      // default case, since most strips never enable the feature.
+    } else if (_whiteKelvin == 0) {
+      // Fast path: per-bus W channel color temperature feature is off
+      // (setWhiteKelvin also forces it off for bus types that can't use it).
+      // Identical to the pre-feature behavior: pick darkest RGB channel as W
+      // and (for ACCURATE) subtract it equally. Most strips never enable the
+      // feature, so this is the common default case.
       w = r < g ? (r < b ? r : b) : (g < b ? g : b);
       if (aWM == RGBW_MODE_AUTO_ACCURATE) { r -= w; g -= w; b -= w; }
     } else {
