@@ -119,16 +119,16 @@ class Bus {
     , _NPBbri(255)
     , _start(start)
     , _len(std::max(len,(uint16_t)1))
-    , _reversed(reversed)
-    , _valid(false)
-    , _needsRefresh(refresh)
     , _whiteKelvin(0)
-    , _wR(255)
-    , _wG(255)
-    , _wB(255)
     , _rwR(32768 / 256) // Q15 reciprocal of (_wR+1) for _wR=255 (kept consistent though unused while _whiteKelvin==0)
     , _rwG(32768 / 256)
     , _rwB(32768 / 256)
+    , _wR(255)
+    , _wG(255)
+    , _wB(255)
+    , _reversed(reversed)
+    , _valid(false)
+    , _needsRefresh(refresh)
     {
       _autoWhiteMode = Bus::hasWhite(type) ? aw : RGBW_MODE_MANUAL_ONLY;
     };
@@ -230,13 +230,14 @@ class Bus {
     uint8_t  _autoWhiteMode; // global Auto White Calculation override
     uint16_t _start;
     uint16_t _len;
+    // 16-bit members grouped with _start/_len, 8-bit ones with the bools below, to avoid padding
     uint16_t _whiteKelvin; // physical W channel color temperature in Kelvin (0 = neutral/legacy behavior)
-    uint8_t  _wR;          // cached W LED RGB equivalent (255,255,255 when _whiteKelvin==0)
-    uint8_t  _wG;
-    uint8_t  _wB;
     uint16_t _rwR;         // Q15 reciprocal of (_wR+1), i.e. 32768/(_wR+1) in [128,32768], for autoWhiteCalc hot path
     uint16_t _rwG;
     uint16_t _rwB;
+    uint8_t  _wR;          // cached W LED RGB equivalent (255,255,255 when _whiteKelvin==0)
+    uint8_t  _wG;
+    uint8_t  _wB;
     //struct { //using bitfield struct adds abour 250 bytes to binary size
       bool _reversed;//     : 1;
       bool _valid;//        : 1;
