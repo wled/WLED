@@ -278,9 +278,8 @@ public:
              hour(localTime), minute(localTime), second(localTime));
     user[F("WClock localTime")] = timeBuf;
 
-    // The Dutch sentence currently displayed. Skip the constant "HET IS " prefix (7 chars)
-    // so the two visible characters in the UI show the variable part (e.g. "TIEN OVER DRIE").
-    user[F("WClock sentence")] = lastSentence.length() > 7 ? lastSentence.substring(7) : (lastSentence.isEmpty() ? F("(not computed yet)") : lastSentence);
+    // The sentence is built from the words selected for the configured display options.
+    user[F("WClock sentence")] = lastSentence.isEmpty() ? F("(not computed yet)") : lastSentence;
 
     // How many matrix LEDs are currently lit
     int litCount = 0;
