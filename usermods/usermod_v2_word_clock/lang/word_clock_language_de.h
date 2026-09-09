@@ -266,39 +266,43 @@ inline size_t wordLength(const char* word) {
 }
 
 /*
- * Return the longest word used by the German language pack.
+ * Return the longest word used by the language pack.
  * @return maximum word length in bytes
  */
 inline int maxWordLength() {
   int maximum = 0;
+
   for (uint16_t id = 0; id <= static_cast<uint16_t>(WordId::OnePlural); ++id) {
     const int length = static_cast<int>(wordLength(wordText(static_cast<WordId>(id))));
+
     if (length > maximum)
       maximum = length;
   }
+
   return maximum;
 }
 
 /*
- * Compare a language word with the default matrix at a logical position.
+ * Compare a language word with a matrix at a logical position.
  *
+ * @param matrix configured character matrix, stored in RAM or flash as needed
  * @param position zero-based matrix position
  * @param word flash-resident word to compare
  * @param length number of bytes to compare
  * @return true when the matrix contains the word at position
  */
-inline bool wordMatchesAt(int position, const char* word, size_t length) {
+inline bool wordMatchesAt(const String& matrix, int position, const char* word, size_t length) {
 #ifdef ARDUINO
-  const char* matrix = DEFAULT_CHARACTER_MATRIX + position;
+  const char* matrixPosition = matrix.c_str() + position;
 
   for (size_t index = 0; index < length; ++index) {
-    if (pgm_read_byte(matrix + index) != pgm_read_byte(word + index))
+    if (matrixPosition[index] != pgm_read_byte(word + index))
       return false;
   }
 
   return true;
 #else
-  return strncmp(DEFAULT_CHARACTER_MATRIX + position, word, length) == 0;
+  return strncmp(matrix.c_str() + position, word, length) == 0;
 #endif
 }
 
@@ -309,12 +313,13 @@ inline bool wordMatchesAt(int position, const char* word, size_t length) {
  * @param searchFrom zero-based position where searching begins
  * @return logical matrix position, or -1 when no occurrence fits
  */
-inline int findWord(const char* word, int searchFrom) {
+inline int findWord(const String& matrix, const char* word, int searchFrom, int rowWidth) {
   const size_t length = wordLength(word);
+  const int matrixLength = static_cast<int>(matrix.length());
 
-  for (int position = searchFrom; position + static_cast<int>(length) <= LETTER_MATRIX_LENGTH; ++position) {
-    if (WordClockCore::wordFitsInRow(position, static_cast<int>(length), DEFAULT_CHARACTER_MATRIX_WIDTH) &&
-        wordMatchesAt(position, word, length))
+  for (int position = searchFrom; position + static_cast<int>(length) <= matrixLength; ++position) {
+    if (WordClockCore::wordFitsInRow(position, static_cast<int>(length), rowWidth) &&
+        wordMatchesAt(matrix, position, word, length))
       return position;
   }
 
@@ -328,13 +333,14 @@ inline int findWord(const char* word, int searchFrom) {
  * @param occurrence zero-based occurrence number
  * @return logical matrix position, or -1 when that occurrence does not exist
  */
-inline int findWordOccurrence(const char* word, int occurrence) {
+inline int findWordOccurrence(const String& matrix, const char* word, int occurrence, int rowWidth) {
   const size_t length = wordLength(word);
+  const int matrixLength = static_cast<int>(matrix.length());
   int seen = 0;
 
-  for (int position = 0; position + static_cast<int>(length) <= LETTER_MATRIX_LENGTH; ++position) {
-    if (WordClockCore::wordFitsInRow(position, static_cast<int>(length), DEFAULT_CHARACTER_MATRIX_WIDTH) &&
-        wordMatchesAt(position, word, length) && seen++ == occurrence)
+  for (int position = 0; position + static_cast<int>(length) <= matrixLength; ++position) {
+    if (WordClockCore::wordFitsInRow(position, static_cast<int>(length), rowWidth) &&
+        wordMatchesAt(matrix, position, word, length) && seen++ == occurrence)
       return position;
   }
 
@@ -354,14 +360,22 @@ inline int findWordOccurrence(const char* word, int occurrence) {
  * @return false for invalid words, capacity, or out-of-range mappings
  */
 inline bool placePlan(const WordClockCore::TimeContext& time,
-                      const WordClockCore::DisplayPlan& plan, bool meander,
-                      bool* ledMask, size_t maskLength) {
-  if (ledMask == nullptr || maskLength < DEFAULT_CHARACTER_MATRIX_LENGTH)
+                      const WordClockCore::DisplayPlan& plan, const String& matrix,
+                      int rowWidth, bool meander, bool* ledMask, size_t maskLength) {
+  if (ledMask == nullptr || maskLength < matrix.length())
     return false;
 
   memset(ledMask, 0, maskLength * sizeof(bool));
-  for (uint8_t dot = 0; dot < time.minuteDotCount; ++dot)
-    ledMask[LETTER_MATRIX_LENGTH + dot] = true;
+  WordClockCore::MinuteDotMarkers markers;
+
+  if (!WordClockCore::parseMinuteDotMarkers(matrix.c_str(), matrix.length(), markers))
+    return false;
+
+  if (markers.enabled()) {
+    for (uint8_t dot = 0; dot < time.minuteDotCount; ++dot)
+      if (markers.positions[dot] < matrix.length())
+        ledMask[markers.positions[dot]] = true;
+  }
 
   int searchFrom = 0;
 
@@ -374,9 +388,9 @@ inline bool placePlan(const WordClockCore::TimeContext& time,
     int position = -1;
 
     if (plan.units[unitIndex].occurrence >= 0) {
-      position = findWordOccurrence(word, plan.units[unitIndex].occurrence);
+      position = findWordOccurrence(matrix, word, plan.units[unitIndex].occurrence, rowWidth);
     } else {
-      position = findWord(word, searchFrom);
+      position = findWord(matrix, word, searchFrom, rowWidth);
     }
 
     if (position < 0)
@@ -388,7 +402,7 @@ inline bool placePlan(const WordClockCore::TimeContext& time,
       int ledIndex = position + offset;
 
       if (meander)
-        ledIndex = WordClockCore::toMeanderIndex(ledIndex, DEFAULT_CHARACTER_MATRIX_WIDTH, LETTER_MATRIX_LENGTH);
+        ledIndex = WordClockCore::toMeanderIndex(ledIndex, rowWidth, static_cast<int>(matrix.length()));
 
       if (ledIndex < 0 || static_cast<size_t>(ledIndex) >= maskLength)
         return false;

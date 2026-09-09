@@ -175,7 +175,8 @@ private:
              static_cast<uint16_t>(phraseKey));
   #else
     placementOk = WordClock::buildPlan(time, displayItIs, nord, plan) &&
-            WordClock::placePlan(time, plan, meander, ledMask, characterMatrix.length());
+            WordClock::placePlan(time, plan, characterMatrix, characterMatrixWidth, meander, ledMask,
+                                characterMatrix.length());
   #endif
     if (!placementOk)
       return;
