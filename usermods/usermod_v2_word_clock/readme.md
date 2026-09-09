@@ -70,7 +70,7 @@ minute dots; without markers, the clock rounds to the nearest five minutes.
 
 ## Installation
 
-1. Copy `platformio_override.sample.ini` from the `usermods/usermod_v2_word_clock`
+1. Copy `platformio_override.ini.sample` from the `usermods/usermod_v2_word_clock`
    folder to `platformio_override.ini` in the top WLED folder. Update the board
    and serial port settings to match your hardware. For example:
 
