@@ -289,7 +289,14 @@ inline int maxWordLength() {
  */
 inline bool wordMatchesAt(int position, const char* word, size_t length) {
 #ifdef ARDUINO
-  return strncmp_P(DEFAULT_CHARACTER_MATRIX + position, word, length) == 0;
+  const char* matrix = DEFAULT_CHARACTER_MATRIX + position;
+
+  for (size_t index = 0; index < length; ++index) {
+    if (pgm_read_byte(matrix + index) != pgm_read_byte(word + index))
+      return false;
+  }
+
+  return true;
 #else
   return strncmp(DEFAULT_CHARACTER_MATRIX + position, word, length) == 0;
 #endif
