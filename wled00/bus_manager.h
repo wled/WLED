@@ -126,9 +126,9 @@ class Bus {
     , _wR(255)
     , _wG(255)
     , _wB(255)
-    , _rwR(1u << 15)   // Q15 reciprocal of _wR=255 (kept consistent though unused while _whiteKelvin==0)
-    , _rwG(1u << 15)
-    , _rwB(1u << 15)
+    , _rwR(32768 / 256) // Q15 reciprocal of (_wR+1) for _wR=255 (kept consistent though unused while _whiteKelvin==0)
+    , _rwG(32768 / 256)
+    , _rwB(32768 / 256)
     {
       _autoWhiteMode = Bus::hasWhite(type) ? aw : RGBW_MODE_MANUAL_ONLY;
     };
@@ -234,9 +234,9 @@ class Bus {
     uint8_t  _wR;          // cached W LED RGB equivalent (255,255,255 when _whiteKelvin==0)
     uint8_t  _wG;
     uint8_t  _wB;
-    uint32_t _rwR;         // Q15 reciprocal of _wR (floor((255<<15)/_wR), 0 if _wR==0) for autoWhiteCalc hot path
-    uint32_t _rwG;
-    uint32_t _rwB;
+    uint16_t _rwR;         // Q15 reciprocal of (_wR+1), i.e. 32768/(_wR+1) in [128,32768], for autoWhiteCalc hot path
+    uint16_t _rwG;
+    uint16_t _rwB;
     //struct { //using bitfield struct adds abour 250 bytes to binary size
       bool _reversed;//     : 1;
       bool _valid;//        : 1;
