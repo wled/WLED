@@ -113,9 +113,8 @@ language data is maintained separately from the firmware language packs.
 Changing the language grammar in firmware is an advanced customization.
 
 The merged usermod stores settings under the `Word Clock` configuration
-object. Existing settings under `WordClockUsermod` and legacy Dutch settings
-under `Word Clock NL` are imported and rewritten under the new object when the
-merged usermod starts.
+object. Existing settings under `WordClockUsermod` are imported and rewritten
+under the new object when the merged usermod starts.
 The friendly setting names `Led Offset` and `Display It Is` migrate existing
 `ledOffset` and `displayItIs` values automatically.
 
