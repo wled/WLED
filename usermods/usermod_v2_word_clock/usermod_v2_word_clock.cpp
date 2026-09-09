@@ -133,8 +133,21 @@ private:
       return;
 
     memcpy(ledMask, wordMask, characterMatrix.length() * sizeof(bool));
-    for (uint8_t dot = 0; dot < WordClockCore::MAX_MINUTE_DOTS; ++dot)
-      ledMask[markers.positions[dot]] = dot < minuteDotCount;
+
+    for (uint8_t dot = 0; dot < WordClockCore::MAX_MINUTE_DOTS; ++dot) {
+      const int markerIndex = markers.positions[dot];
+
+      if (markerIndex < 0 || static_cast<size_t>(markerIndex) >= characterMatrix.length())
+        continue;
+
+      int ledIndex = markerIndex;
+
+      if (meander)
+        ledIndex = WordClockCore::toMeanderIndex(ledIndex, characterMatrixWidth, characterMatrix.length());
+
+      if (ledIndex >= 0 && static_cast<size_t>(ledIndex) < characterMatrix.length())
+        ledMask[ledIndex] = dot < minuteDotCount;
+    }
   }
 
   /*
