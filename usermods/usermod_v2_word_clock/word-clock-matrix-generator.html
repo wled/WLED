@@ -551,7 +551,7 @@
       return `${base} ${hour}`;
     }
 
-    function getGermanTimeForMinutes(totalMinutes) {
+    function getGermanTimeForMinutes(totalMinutes, nord = false) {
       const h = Math.floor(totalMinutes / 60) % 12;
       const m = totalMinutes % 60;
       const current = GERMAN_HOUR_WORDS[(h - 1 + 12) % 12].toLowerCase();
@@ -561,13 +561,13 @@
       if (m === 0) return `${base} ${current} uhr`;
       if (m === 5) return `${base} fuenf nach ${current}`;
       if (m === 10) return `${base} zehn nach ${current}`;
-      if (m === 15) return `${base} viertel nach ${current}`;
+      if (m === 15) return nord ? `${base} viertel nach ${current}` : `${base} viertel ${next}`;
       if (m === 20) return `${base} zwanzig nach ${current}`;
       if (m === 25) return `${base} fuenf vor halb ${next}`;
       if (m === 30) return `${base} halb ${next}`;
       if (m === 35) return `${base} fuenf nach halb ${next}`;
       if (m === 40) return `${base} zwanzig vor ${next}`;
-      if (m === 45) return `${base} dreiviertel ${next}`;
+      if (m === 45) return nord ? `${base} viertel vor ${next}` : `${base} dreiviertel ${next}`;
       if (m === 50) return `${base} zehn vor ${next}`;
       if (m === 55) return `${base} fuenf vor ${next}`;
       return `${base} ${current}`;
@@ -637,6 +637,7 @@
     function App() {
       const [language, setLanguage] = useState('de');
       const languageConfig = getLanguageConfig(language);
+      const [nord, setNord] = useState(false);
       const [width, setWidth]   = useState(13);
       const [height, setHeight] = useState(9);
       const [seed, setSeed]     = useState(42);
@@ -717,7 +718,7 @@
       const showCurrentTime = () => {
         const t = currentTimeMinutes();
         setTimeMinutes(t);
-        setSentence(languageConfig.getTime(t));
+        setSentence(languageConfig.getTime(t, language === 'de' && nord));
       };
       const randomize = () => setSeed(s => s + 1);
       const tryExample = () => {
@@ -749,13 +750,26 @@
                   const nextLanguage = e.target.value;
                   const nextConfig = getLanguageConfig(nextLanguage);
                   setLanguage(nextLanguage);
-                  setSentence(nextConfig.getTime(timeMinutes));
+                  setSentence(nextConfig.getTime(timeMinutes, nextLanguage === 'de' && nord));
                   setSeed(s => s + 1);
                 }}>
                   <option value="nl">Dutch</option>
                   <option value="de">German</option>
                 </select>
               </div>
+              {language === 'de' && (
+                <div className="slider-row language-row" style={{marginBottom: '14px'}}>
+                  <span className="slider-label">Style</span>
+                  <select className="language-select" value={nord ? 'nord' : 'standard'} onChange={e => {
+                    const nextNord = e.target.value === 'nord';
+                    setNord(nextNord);
+                    setSentence(getGermanTimeForMinutes(timeMinutes, nextNord));
+                  }}>
+                    <option value="standard">Standard</option>
+                    <option value="nord">Northern</option>
+                  </select>
+                </div>
+              )}
               <div className="slider-row" style={{marginBottom: '14px'}}>
                 <span className="slider-label">Time</span>
                 <input
@@ -764,7 +778,7 @@
                   onChange={e => {
                     const t = +e.target.value;
                     setTimeMinutes(t);
-                    setSentence(languageConfig.getTime(t));
+                    setSentence(languageConfig.getTime(t, language === 'de' && nord));
                   }}
                 />
                 <span className="slider-value" style={{width:'36px'}}>{sliderLabel}</span>
