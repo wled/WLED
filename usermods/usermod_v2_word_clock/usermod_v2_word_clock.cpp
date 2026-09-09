@@ -172,7 +172,7 @@ private:
     const WordClockCore::TimeContext time = WordClockCore::makeTimeContext(currentMinutes, markers.enabled());
     const int phraseKey = markers.enabled()
       ? currentMinutes - currentMinutes % 5
-      : ((time.totalMinutes / 60) * 60) + time.displayedMinute;
+      : time.hour12 * 60 + time.displayedMinute;
 
     if (phraseMaskValid && phraseKey == lastPhraseKey) {
       updateMinuteDots(markers, time.minuteDotCount);
