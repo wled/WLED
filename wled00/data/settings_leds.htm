@@ -398,8 +398,10 @@
 				// The "Correct auto-white for W channel color temperature" control is
 				// only meaningful for true single-white RGBW buses (hasW && hasRGB &&
 				// !hasCCT) AND when autoWhiteCalc uses the per-channel-cap path that
-				// consumes _wR/_wG/_wB — i.e. AW mode is Brighter (1), Accurate (2), or
-				// Dual (3, where manual w==0 falls through to the Brighter path). Hide
+				// consumes _wR/_wG/_wB — i.e. AW mode is Accurate (2).
+				// Brighter (1) and Dual (3, which is Brighter when manual w==0) never
+				// subtract W from RGB, so they stay on plain min(r,g,b) and the
+				// control is not offered for them. Hide
 				// the whole toggle otherwise. The Kelvin input lives in a child block
 				// that's shown only when the checkbox is on; the input is disabled (and
 				// so not submitted) when off, so the backend stores wk=0 and the legacy
@@ -407,14 +409,15 @@
 				{
 					const awEl = d.Sf["AW"+n];
 					const awv = awEl ? parseInt(awEl.value) : 0;
-					// The per-channel-cap path runs when the auto-white mode is Brighter/
-					// Accurate/Dual, which can be set per-bus (AW<n>) or via the global override
+					// The per-channel-cap path runs only in Accurate mode: Brighter, and Dual
+					// with w==0, never subtract W from RGB, so there is nothing to correct.
+					// The mode can be set per-bus (AW<n>) or via the global override
 					// (AW; 255=Disabled). The per-bus AW selector stays visible even under a
 					// global override, so keep this control consistent with it: show when EITHER
-					// the per-bus mode OR the global override is one of those modes.
+					// the per-bus mode OR the global override is Accurate.
 					const gAWel = d.Sf["AW"];
 					const gAW = gAWel ? parseInt(gAWel.value) : 255;
-					const isCap = (m) => (m === 1 || m === 2 || m === 3);
+					const isCap = (m) => (m === 2);
 					const wkBox = gId("dig"+n+"wk");
 					// only true single-white RGBW types: a fixed W-LED color temperature is
 					// meaningless for dual-white CCT buses (variable white point) and for

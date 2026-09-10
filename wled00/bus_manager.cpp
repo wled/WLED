@@ -145,12 +145,14 @@ uint32_t Bus::autoWhiteCalc(uint32_t c, uint8_t &ww, uint8_t &cw) const {
       //ignore auto-white calculation if w>0 and mode DUAL (DUAL behaves as BRIGHTER if w==0)
     } else if (aWM == RGBW_MODE_MAX) {
       w = r > g ? (r > b ? r : b) : (g > b ? g : b); // brightest RGB channel
-    } else if (_whiteKelvin == 0) {
+    } else if (_whiteKelvin == 0 || aWM != RGBW_MODE_AUTO_ACCURATE) {
       // Fast path: per-bus W channel color temperature feature is off
-      // (setWhiteKelvin also forces it off for bus types that can't use it).
-      // Identical to the pre-feature behavior: pick darkest RGB channel as W
-      // and (for ACCURATE) subtract it equally. Most strips never enable the
-      // feature, so this is the common default case.
+      // (setWhiteKelvin also forces it off for bus types that can't use it),
+      // or mode is BRIGHTER / DUAL-with-w==0, which never subtract W from RGB
+      // so the W-LED colour has nothing to correct. Identical to the
+      // pre-feature behavior: pick darkest RGB channel as W and (for ACCURATE)
+      // subtract it equally. Most strips never enable the feature, so this is
+      // the common default.
       w = r < g ? (r < b ? r : b) : (g < b ? g : b);
       if (aWM == RGBW_MODE_AUTO_ACCURATE) { r -= w; g -= w; b -= w; }
     } else {
