@@ -78,6 +78,13 @@ main                # Main development trunk (daily/nightly) 17.0.0-dev. Target 
 
 ## C++ Code Style (wled00/, usermods/)
 
+### General
+
+- Follow the existing style in the file you are editing
+- Avoid unexplained "magic numbers". Prefer named constants (`constexpr`) or C-style `#define` constants for repeated numbers that have the same meaning
+- If possible, use `static` for local (C-style) variables and functions (keeps the global namespace clean)
+- When moving global items to another scope, do not leave comments such as `// lastMqttReconnectAttempt is now private to wled.cpp - see there`. These comments create technical debt for maintenance and will inevitably become out of date
+
 ### Formatting
 - **2-space indentation** (no tabs in C++ files)
 - K&R brace style preferred (opening brace on same line)
