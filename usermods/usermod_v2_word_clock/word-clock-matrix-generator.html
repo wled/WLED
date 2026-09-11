@@ -332,13 +332,13 @@
     const GERMAN_WORD_GROUPS = [
       { shuffle: false, words: ['ES'] },
       { shuffle: false, words: ['IST'] },
-      { shuffle: true, words: ['FUENF', 'ZEHN', 'VIERTEL', 'ZWANZIG', 'DREIVIERTEL'] },
+      { shuffle: true, words: ['F\xDCNF', 'ZEHN', 'VIERTEL', 'ZWANZIG', 'DREIVIERTEL'] },
       { shuffle: true, words: ['NACH', 'VOR'] },
       { shuffle: false, words: ['HALB'] },
-      { shuffle: true, words: ['EIN', 'ZWEI', 'DREI', 'VIER', 'FUENF', 'SECHS', 'SIEBEN', 'ACHT', 'NEUN', 'ZEHN', 'ELF', 'ZWOELF'] },
+      { shuffle: true, words: ['EINS', 'ZWEI', 'DREI', 'VIER', 'F\xDCNF', 'SECHS', 'SIEBEN', 'ACHT', 'NEUN', 'ZEHN', 'ELF', 'ZW\xD6LF'] },
       { shuffle: false, words: ['UHR'] },
     ];
-    const GERMAN_HOUR_WORDS = ['EIN','ZWEI','DREI','VIER','FUENF','SECHS','SIEBEN','ACHT','NEUN','ZEHN','ELF','ZWOELF'];
+    const GERMAN_HOUR_WORDS = ['EINS','ZWEI','DREI','VIER','F\xDCNF','SECHS','SIEBEN','ACHT','NEUN','ZEHN','ELF','ZW\xD6LF'];
     const GERMAN_POOL = 'AAAAAEEEEEEIIIINNNNRRRRTTTTUUUUSSSSCCFHLZVWXYZ';
   	// Convenience limit for the generator UI; the firmware does not require a maximum width of 22.
   	const MAX_GENERATOR_WIDTH = 22;
@@ -360,7 +360,7 @@
         randomPool: GERMAN_POOL,
         randomPickWords: new Set(['es', 'ist']),
         getTime: getGermanTimeForMinutes,
-        examples: ['es ist viertel nach drei', 'es ist fuenf vor zwoelf', 'es ist halb zwei'],
+        examples: ['es ist viertel nach drei', 'es ist f\xFCnf vor zw\xF6lf', 'es ist halb zwei'],
       },
     };
 
@@ -553,25 +553,32 @@
       return `${base} ${hour}`;
     }
 
+    function getGermanHourWord(hour, exactHour) {
+      const word = GERMAN_HOUR_WORDS[(hour - 1 + 12) % 12];
+      return hour === 1 ? (exactHour ? 'EIN' : 'EINS') : word;
+    }
+
     function getGermanTimeForMinutes(totalMinutes, nord = false) {
       const h = Math.floor(totalMinutes / 60) % 12;
       const m = totalMinutes % 60;
-      const current = GERMAN_HOUR_WORDS[(h - 1 + 12) % 12].toLowerCase();
-      const next = GERMAN_HOUR_WORDS[h].toLowerCase();
+      const currentHour = h === 0 ? 12 : h;
+      const nextHour = currentHour === 12 ? 1 : currentHour + 1;
+      const current = getGermanHourWord(currentHour, m === 0).toLowerCase();
+      const next = getGermanHourWord(nextHour, false).toLowerCase();
       const base = 'es ist';
 
       if (m === 0) return `${base} ${current} uhr`;
-      if (m === 5) return `${base} fuenf nach ${current}`;
+      if (m === 5) return `${base} f\xFCnf nach ${current}`;
       if (m === 10) return `${base} zehn nach ${current}`;
       if (m === 15) return nord ? `${base} viertel nach ${current}` : `${base} viertel ${next}`;
       if (m === 20) return `${base} zwanzig nach ${current}`;
-      if (m === 25) return `${base} fuenf vor halb ${next}`;
+      if (m === 25) return `${base} f\xFCnf vor halb ${next}`;
       if (m === 30) return `${base} halb ${next}`;
-      if (m === 35) return `${base} fuenf nach halb ${next}`;
+      if (m === 35) return `${base} f\xFCnf nach halb ${next}`;
       if (m === 40) return `${base} zwanzig vor ${next}`;
       if (m === 45) return nord ? `${base} viertel vor ${next}` : `${base} dreiviertel ${next}`;
       if (m === 50) return `${base} zehn vor ${next}`;
-      if (m === 55) return `${base} fuenf vor ${next}`;
+      if (m === 55) return `${base} f\xFCnf vor ${next}`;
       return `${base} ${current}`;
     }
 
@@ -600,7 +607,7 @@
       // The selected language determines which words choose random occurrences.
       const seen = {};
       tokens.forEach((token, idx) => {
-        const occurrences = wordPositions[token];
+        const occurrences = wordPositions[token] || (token === 'ein' ? wordPositions.eins : undefined);
         if (!occurrences) return;
         const isLastToken = idx === tokens.length - 1;
         let occIdx;
