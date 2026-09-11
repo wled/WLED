@@ -166,8 +166,10 @@ private:
       : (hour(localTime) * 60 + minute(localTime)) % 1440;
     WordClockCore::MinuteDotMarkers markers;
 
-    if (!WordClockCore::parseMinuteDotMarkers(characterMatrix.c_str(), characterMatrix.length(), markers))
+    if (!WordClockCore::parseMinuteDotMarkers(characterMatrix.c_str(), characterMatrix.length(), markers)) {
+      DEBUG_PRINTLN(F("Invalid word clock configuration"));
       return;
+    }
 
     const WordClockCore::TimeContext time = WordClockCore::makeTimeContext(currentMinutes, markers.enabled());
     const int phraseKey = markers.enabled()
@@ -180,25 +182,45 @@ private:
     }
 
     WordClockCore::DisplayPlan plan;
+    const size_t matrixLength = characterMatrix.length();
+    if (!ledMask || !wordMask) {
+      errorFlag = ERR_LOW_MEM;
+      return;
+    }
+
+    bool* pendingMask = (bool*) d_malloc(matrixLength * sizeof(bool));
+
+    if (!pendingMask) {
+      errorFlag = ERR_LOW_MEM;
+      return;
+    }
 
     bool placementOk = false;
   #if defined(WORD_CLOCK_LANGUAGE_NL)
     placementOk = WordClock::buildPlan(time, displayItIs, plan) &&
-          WordClock::placePlan(time, plan, characterMatrix, characterMatrixWidth, meander, ledMask,
+          WordClock::placePlan(time, plan, characterMatrix, characterMatrixWidth, meander, pendingMask,
              static_cast<uint16_t>(phraseKey));
   #else
     placementOk = WordClock::buildPlan(time, displayItIs, nord, plan) &&
-            WordClock::placePlan(time, plan, characterMatrix, characterMatrixWidth, meander, ledMask,
+            WordClock::placePlan(time, plan, characterMatrix, characterMatrixWidth, meander, pendingMask,
                                 characterMatrix.length());
   #endif
-    if (!placementOk)
-      return;
 
-    memcpy(wordMask, ledMask, characterMatrix.length() * sizeof(bool));
+    if (!placementOk) {
+      d_free(pendingMask);
+      DEBUG_PRINTLN(F("Invalid word clock configuration"));
+      return;
+    }
+
+    memcpy(ledMask, pendingMask, matrixLength * sizeof(bool));
+    memcpy(wordMask, pendingMask, matrixLength * sizeof(bool));
+    d_free(pendingMask);
+
     if (markers.enabled()) {
       for (uint8_t dot = 0; dot < WordClockCore::MAX_MINUTE_DOTS; ++dot)
         wordMask[markers.positions[dot]] = false;
     }
+
     lastPhraseKey = phraseKey;
     phraseMaskValid = true;
     updateMinuteDots(markers, time.minuteDotCount);
