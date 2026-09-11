@@ -10965,6 +10965,8 @@ uint8_t WS2812FX::addEffect(uint8_t id, mode_ptr mode_fn, const char *mode_name)
     if (_modeCount < _mode.size()) _modeCount++;
     return _mode.size() - 1;
   } else {
+    DEBUG_PRINT(F("WARNING: effect list full, could not add effect: "));
+    DEBUG_PRINTLN(FPSTR(mode_name));
     return 255; // The vector is full so return 255
   }
 }
