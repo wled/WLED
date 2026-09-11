@@ -39,7 +39,7 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
           tag_name: nightly
-          name: 'Nightly Release $$'
+          name: 'Development Nightly (unstable) Build $$'
           prerelease: true
           body_path: CHANGELOG_NIGHTLY.md
           files: |
