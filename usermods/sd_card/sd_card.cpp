@@ -1,23 +1,26 @@
 #include "wled.h"
 
+#if !defined(WLED_USE_SD_SPI) && !defined(WLED_USE_SD_MMC)
+#define WLED_USE_SD_SPI // Fall back to SPI driver if buildenv does not specify the interface to be used.
+#endif
+#if defined(WLED_USE_SD_SPI) && defined(WLED_USE_SD_MMC)
+  #error "Both WLED_USE_SD_MMC and WLED_USE_SD_SPI are defined, please use only one."
+#endif
+
 // SD connected via MMC / SPI
 #if defined(WLED_USE_SD_MMC)
   #define USED_STORAGE_FILESYSTEMS "SD MMC, LittleFS"
   #define SD_ADAPTER SD_MMC
   #include "SD_MMC.h"
+  #pragma message "SD card usermod uses SD MMC driver"
 // SD connected via SPI (adjustable via usermod config)
 #elif defined(WLED_USE_SD_SPI)
   #define SD_ADAPTER SD
   #define USED_STORAGE_FILESYSTEMS "SD SPI, LittleFS"
   #include "SD.h"
   #include "SPI.h"
-#else
-  #error "Please define either WLED_USE_SD_MMC or WLED_USE_SD_SPI"
+  #pragma message "SD card usermod uses SD SPI driver"
 #endif
-#if defined(WLED_USE_SD_SPI) && defined(WLED_USE_SD_MMC)
-  #error "Both WLED_USE_SD_MMC and WLED_USE_SD_SPI are defined, please use only one."
-#endif
-
 
 #ifndef UM_SD_SELECT
   #define UM_SD_SELECT 16
