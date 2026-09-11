@@ -80,13 +80,14 @@ minute dots; without markers, the clock rounds to the nearest five minutes.
 
     [env:wordclock]
     extends = env:esp32dev
-    # Use `ls /dev/cu.*` to find the correct port for your connected board
-    upload_port = /dev/cu.wchusbserial123
-    upload_speed = 921600
-    monitor_port = /dev/cu.wchusbserial123
-    monitor_speed = 115200
     custom_usermods = ${env:esp32dev.custom_usermods} usermod_v2_word_clock
 
+    # On Mac/Linux, use `ls /dev/cu.*` to find the correct port for your connected board
+    # upload_port = /dev/cu.wchusbserial123
+    # upload_speed = 921600
+    # monitor_port = /dev/cu.wchusbserial123
+    # monitor_speed = 115200
+    
     # Optional: uncomment to enable specific language
     # build_flags =
     #   ${env:esp32dev.build_flags}
