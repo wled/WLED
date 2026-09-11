@@ -412,8 +412,6 @@ public:
       top[F("Led Offset")] = ledOffset;
     }
 
-    ledOffset = ledOffset < 0 ? 0 : ledOffset;
-
   #if defined(WORD_CLOCK_LANGUAGE_DE)
     bool prevNord = nord;
     getJsonValue(top[F("Norddeutsch")], nord);
@@ -467,6 +465,16 @@ public:
       characterMatrixWidth = clampInt(characterMatrixWidth, WordClock::maxWordLength(), characterMatrix.length());
     }
 
+    const int stripLength = strip.getLengthTotal();
+
+    if (characterMatrix.length() > static_cast<size_t>(stripLength)) {
+      ledOffset = 0;
+      configComplete = false;
+    } else {
+      const int maxLedOffset = stripLength - characterMatrix.length();
+      ledOffset = clampInt(ledOffset, 0, maxLedOffset);
+    }
+
     if (characterMatrixWidth != prevCharacterMatrixWidth) {
       lastSentence = "";             // force mask recompute
       phraseMaskValid = false;
@@ -503,6 +511,10 @@ public:
       return;
 
     int matrixLen = (int)characterMatrix.length();
+    const int stripLength = strip.getLengthTotal();
+
+    if (ledOffset < 0 || matrixLen > stripLength - ledOffset)
+      return;
 
     // Loop over all leds
     for (int i = 0; i < matrixLen; i++) {
