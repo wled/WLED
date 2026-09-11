@@ -647,6 +647,9 @@ WLED_GLOBAL std::vector<Button> buttons; // vector of button structs
 WLED_GLOBAL bool buttonPublishMqtt                            _INIT(false);
 WLED_GLOBAL bool disablePullUp                                _INIT(false);
 WLED_GLOBAL byte touchThreshold                               _INIT(TOUCH_THRESHOLD);
+WLED_GLOBAL uint16_t buttonDebounceMs                         _INIT(WLED_DEBOUNCE_THRESHOLD);
+WLED_GLOBAL uint16_t buttonLongPressMs                        _INIT(WLED_LONG_PRESS);
+WLED_GLOBAL uint16_t buttonDoublePressMs                      _INIT(WLED_DOUBLE_PRESS);
 
 // notifications
 WLED_GLOBAL bool sendNotifications    _INIT(false);           // master notification switch
