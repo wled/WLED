@@ -1179,7 +1179,7 @@ void mode_running_random(void) {
   uint16_t PRNG16 = SEGENV.aux0;
 
   unsigned z = it % zoneSize;
-  bool nzone = (!z && it != SEGENV.aux1);
+  bool nzone = (!z && (it & 0xFFFF) != SEGENV.aux1);
   for (int i=SEGLEN-1; i >= 0; i--) {
     if (nzone || z >= zoneSize) {
       unsigned lastrand = PRNG16 >> 8;
@@ -1198,7 +1198,7 @@ void mode_running_random(void) {
     z++;
   }
 
-  SEGENV.aux1 = it;
+  SEGENV.aux1 = it & 0xFFFF;
 }
 static const char _data_FX_MODE_RUNNING_RANDOM[] PROGMEM = "Stream@!,Zone size;;!";
 
