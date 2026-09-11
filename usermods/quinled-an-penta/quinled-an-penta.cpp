@@ -354,7 +354,7 @@ class QuinLEDAnPentaUsermod : public Usermod
 
             // Always draw these two on the bottom
             char charUptime[charPerRow+1];
-            sprintf(charUptime, "Uptime: %ds", int(millis()/1000 + rolloverMillis*4294967)); // From json.cpp
+            sprintf(charUptime, "Uptime: %ds", int(millis()/1000 + getRolloverMillis()*4294967)); // From json.cpp
             oledDisplay->drawStr(0, 53, charUptime);
 
             char charWledVersion[charPerRow+1];
