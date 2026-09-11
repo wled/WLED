@@ -8,6 +8,12 @@
 static void sendNTPPacket();
 static bool checkNTPResponse();
 
+// Runtime state private to this file - previously WLED_GLOBAL, a leftover from
+// when all state lived in one big extern block regardless of who used it.
+static byte lastTimerMinute = 0;
+static unsigned long ntpPacketSentTime = NTP_NEVER;
+static IPAddress ntpServerIP;
+
 
 // WARNING: may cause errors in sunset calculations on ESP8266, see #3400
 // building with `-D WLED_USE_REAL_MATH` will prevent those errors at the expense of flash and RAM
