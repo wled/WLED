@@ -609,9 +609,17 @@
       tokens.forEach((token, idx) => {
         const occurrences = wordPositions[token] || (token === 'ein' ? wordPositions.eins : undefined);
         if (!occurrences) return;
+
         const isLastToken = idx === tokens.length - 1;
+        const isGermanExactHour = config === LANGUAGE_CONFIGS.de &&
+          idx === tokens.length - 2 &&
+          tokens[tokens.length - 1] === 'uhr' &&
+          (token === 'fünf' || token === 'fuenf' || token === 'zehn');
         let occIdx;
-        if (config.randomPickWords.has(token) && occurrences.length > 1) {
+
+        if (isGermanExactHour && occurrences.length > 1) {
+          occIdx = 1;
+        } else if (config.randomPickWords.has(token) && occurrences.length > 1) {
           occIdx = Math.floor(Math.random() * occurrences.length);
         } else if (isLastToken && occurrences.length > 1) {
           occIdx = occurrences.length - 1; // hour-group occurrence
@@ -619,7 +627,9 @@
           occIdx = seen[token] || 0;
           seen[token] = occIdx + 1;
         }
+
         const positions = occurrences[Math.min(occIdx, occurrences.length - 1)];
+
         for (const { row, col } of positions) {
           highlighted.add(`${row},${col}`);
         }

@@ -167,18 +167,22 @@ inline bool append(WordClockCore::DisplayPlan& plan, WordId id, int8_t occurrenc
 }
 
 /*
- * Describe which matrix occurrence is used for an ambiguous hour word.
+ * Determine which matrix occurrence is used for an ambiguous hour word.
  *
  * @param id hour token
  * @param exactHour whether the phrase is an exact-hour phrase
  * @return zero-based occurrence, or -1 for normal sequential matching
  */
 inline int8_t hourOccurrence(WordId id, bool exactHour) {
+  // DREI and VIER also occur inside DREIVIERTEL and VIERTEL, so the standalone
+  // hour word must use the second occurrence in the matrix.
   if (id == WordId::Three || id == WordId::Four)
     return 1;
 
+  // Select the second (hour) group for ES IST FÜNF UHR and ES IST ZEHN UHR
   if (exactHour && (id == WordId::Five || id == WordId::Ten))
     return 1;
+
   return -1;
 }
 
