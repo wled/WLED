@@ -120,9 +120,9 @@ class Bus {
     , _start(start)
     , _len(std::max(len,(uint16_t)1))
     , _whiteKelvin(0)
-    , _rwR(32768 / 256) // Q15 reciprocal of (_wR+1) for _wR=255 (kept consistent though unused while _whiteKelvin==0)
-    , _rwG(32768 / 256)
-    , _rwB(32768 / 256)
+    , _rwR(WK_RECIP_NEUTRAL) // matches _wR=255 (kept consistent though unused while _whiteKelvin==0)
+    , _rwG(WK_RECIP_NEUTRAL)
+    , _rwB(WK_RECIP_NEUTRAL)
     , _wR(255)
     , _wG(255)
     , _wB(255)
@@ -230,9 +230,15 @@ class Bus {
     uint8_t  _autoWhiteMode; // global Auto White Calculation override
     uint16_t _start;
     uint16_t _len;
+    // Q15 fixed point used by the W Kelvin correction in autoWhiteCalc(): _rwX = WK_Q15_ONE / (_wX + 1),
+    // consumed as (value * _rwX) >> WK_Q15_SHIFT. WK_RECIP_NEUTRAL is the reciprocal for a neutral
+    // (255) coefficient, i.e. the W LED treated as pure white: 32768 / 256 = 128.
+    static constexpr unsigned WK_Q15_SHIFT     = 15;
+    static constexpr uint16_t WK_Q15_ONE       = 1u << WK_Q15_SHIFT;
+    static constexpr uint16_t WK_RECIP_NEUTRAL = WK_Q15_ONE / (255 + 1);
     // 16-bit members grouped with _start/_len, 8-bit ones with the bools below, to avoid padding
     uint16_t _whiteKelvin; // physical W channel color temperature in Kelvin (0 = neutral/legacy behavior)
-    uint16_t _rwR;         // Q15 reciprocal of (_wR+1), i.e. 32768/(_wR+1) in [128,32768], for autoWhiteCalc hot path
+    uint16_t _rwR;         // Q15 reciprocal of (_wR+1), i.e. WK_Q15_ONE/(_wR+1) in [128,32768], for autoWhiteCalc hot path
     uint16_t _rwG;
     uint16_t _rwB;
     uint8_t  _wR;          // cached W LED RGB equivalent (255,255,255 when _whiteKelvin==0)

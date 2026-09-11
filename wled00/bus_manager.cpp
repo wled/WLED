@@ -129,9 +129,9 @@ void Bus::setWhiteKelvin(uint16_t k) {
   // floor() under-estimates the reciprocal, so the w cap derived from it can
   // only be <= the exact value, never larger, keeping the subtraction
   // underflow-safe (verified exhaustively over all channel/_wX pairs).
-  _rwR = 32768U / (_wR + 1U);
-  _rwG = 32768U / (_wG + 1U);
-  _rwB = 32768U / (_wB + 1U);
+  _rwR = WK_Q15_ONE / (_wR + 1U);
+  _rwG = WK_Q15_ONE / (_wG + 1U);
+  _rwB = WK_Q15_ONE / (_wB + 1U);
 }
 // AI: end
 
@@ -173,9 +173,9 @@ uint32_t Bus::autoWhiteCalc(uint32_t c, uint8_t &ww, uint8_t &cw) const {
       // (256*256-1)*32768 fits in 32 bits. A zero coefficient (_wB at/below
       // 1900 K) gives reciprocal 32768 and a cap >= 255, i.e. that channel
       // does not constrain w — same as the previous explicit guard.
-      unsigned wMaxR = (((r + 1U) << 8) - 1U) * _rwR >> 15;
-      unsigned wMaxG = (((g + 1U) << 8) - 1U) * _rwG >> 15;
-      unsigned wMaxB = (((b + 1U) << 8) - 1U) * _rwB >> 15;
+      unsigned wMaxR = (((r + 1U) << 8) - 1U) * _rwR >> WK_Q15_SHIFT;
+      unsigned wMaxG = (((g + 1U) << 8) - 1U) * _rwG >> WK_Q15_SHIFT;
+      unsigned wMaxB = (((b + 1U) << 8) - 1U) * _rwB >> WK_Q15_SHIFT;
       unsigned wCap = wMaxR < wMaxG ? (wMaxR < wMaxB ? wMaxR : wMaxB) : (wMaxG < wMaxB ? wMaxG : wMaxB);
       if (wCap > 255U) wCap = 255U;
       w = wCap;
