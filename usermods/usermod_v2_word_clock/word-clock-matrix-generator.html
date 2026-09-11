@@ -607,7 +607,8 @@
       // The selected language determines which words choose random occurrences.
       const seen = {};
       tokens.forEach((token, idx) => {
-        const occurrences = wordPositions[token] || (token === 'ein' ? wordPositions.eins : undefined);
+        const occurrences = wordPositions[token] ||
+          (token === 'ein' && wordPositions.eins ? [wordPositions.eins[0].slice(0, 3)] : undefined);
         if (!occurrences) return;
 
         const isLastToken = idx === tokens.length - 1;
