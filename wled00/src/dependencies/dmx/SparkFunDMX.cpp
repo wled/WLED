@@ -23,7 +23,6 @@ Distributed as-is; no warranty is given.
 #include <HardwareSerial.h>
 
 #define dmxMaxChannel  512
-#define defaultMax 32
 
 #define DMXSPEED       250000
 #define DMXFORMAT      SERIAL_8N2
@@ -90,7 +89,7 @@ void SparkFunDMX::initRead(int chanQuant) {
   _READWRITE = _READ;
   if (chanQuant > dmxMaxChannel || chanQuant <= 0) 
   {
-    chanQuant = defaultMax;
+    chanQuant = dmxMaxChannel;
   }
   chanSize = chanQuant;
   if (enablePin >= 0) {
@@ -106,7 +105,7 @@ void SparkFunDMX::initWrite (int chanQuant) {
 
   _READWRITE = _WRITE;
   if (chanQuant > dmxMaxChannel || chanQuant <= 0) {
-    chanQuant = defaultMax;
+    chanQuant = dmxMaxChannel;
   }
 
   chanSize = chanQuant + 1; //Add 1 for start code
@@ -121,17 +120,15 @@ void SparkFunDMX::initWrite (int chanQuant) {
 #if !defined(DMX_SEND_ONLY)
 // Function to read DMX data
 uint8_t SparkFunDMX::read(int Channel) {
-  if (Channel > chanSize) Channel = chanSize;
+  if ((Channel < 1) || (Channel > chanSize)) return 0;
   return(dmxData[Channel - 1]); //subtract one to account for start byte
 }
 #endif
 
 // Function to send DMX data
 void SparkFunDMX::write(int Channel, uint8_t value) {
-  if (Channel < 0) Channel = 0;
-  if (Channel > chanSize) chanSize = Channel;
-  dmxData[0] = 0;
-  dmxData[Channel] = value; //add one to account for start byte
+  if ((Channel < 1) || (Channel > chanSize)) return;
+  dmxData[Channel] = value; //start byte at dmxData[0]
 }
 
 
