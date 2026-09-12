@@ -179,7 +179,8 @@ class Bus {
     static constexpr bool hasWhite(uint8_t type) {
       return  (type >= TYPE_WS2812_1CH && type <= TYPE_WS2812_WWA) ||
               type == TYPE_SK6812_RGBW || type == TYPE_TM1814 || type == TYPE_UCS8904 ||
-              type == TYPE_FW1906 || type == TYPE_WS2805 || type == TYPE_SM16825 ||        // digital types with white channel
+              type == TYPE_FW1906 || type == TYPE_WS2805 || type == TYPE_SM16825 ||
+              type == TYPE_WS2812_RGBW_PAIR ||                                             // digital types with white channel
               (type > TYPE_ONOFF && type <= TYPE_ANALOG_5CH && type != TYPE_ANALOG_3CH) || // analog types with white channel
               type == TYPE_NET_DDP_RGBW || type == TYPE_NET_ARTNET_RGBW;                   // network types with white channel
     }
@@ -263,6 +264,9 @@ class BusDigital : public Bus {
     uint16_t getLEDCurrent() const override  { return _milliAmpsPerLed; }
     uint16_t getUsedCurrent() const override { return _milliAmpsTotal; }
     uint16_t getMaxCurrent() const override  { return _milliAmpsMax; }
+    static constexpr uint32_t physicalLengthForType(uint8_t type, uint16_t len) { return (type == TYPE_WS2812_RGBW_PAIR) ? (uint32_t)len * 2 : len; }
+    // Paired RGBW buses use two physical pixels per logical LED; other types keep their existing length semantics.
+    uint32_t getPhysicalLength() const        { return physicalLengthForType(_type, _len); }
     uint8_t  getDriverType() const override  { return _driverType; }
     void     setCurrentLimit(uint16_t milliAmps) { _milliAmpsLimit = milliAmps; }
     void     estimateCurrent(); // estimate used current from summed colors
@@ -301,6 +305,10 @@ class BusDigital : public Bus {
     }
 };
 
+static_assert(BusDigital::physicalLengthForType(TYPE_WS2812_RGBW_PAIR, 30) == 60, "paired RGBW buses count two physical pixels per logical LED");
+static_assert(BusDigital::physicalLengthForType(TYPE_WS2812_RGB, 30) == 30, "standard RGB buses keep logical and physical lengths equal");
+static_assert(BusDigital::physicalLengthForType(TYPE_FW1906, 30) == 30, "existing RGBCCT buses keep logical and physical lengths equal");
+static_assert(BusDigital::physicalLengthForType(TYPE_WS2812_RGBW_PAIR, UINT16_MAX / 2) == UINT16_MAX - 1, "paired RGBW physical length calculation must not overflow");
 
 class BusPwm : public Bus {
   public:
@@ -469,8 +477,12 @@ struct BusConfig {
   uint8_t iType; // internal bus type (I_*) determined during memory estimation, used for bus creation
   String text;
 
+  static constexpr uint16_t clampPairedLength(uint8_t busType, uint16_t len, uint8_t skip) {
+    return ((busType & 0x7F) == TYPE_WS2812_RGBW_PAIR && (uint32_t)len + skip > UINT16_MAX / 2) ? UINT16_MAX / 2 - skip : len;
+  }
+
   BusConfig(uint8_t busType, uint8_t* ppins, uint16_t pstart, uint16_t len = 1, uint8_t pcolorOrder = COL_ORDER_GRB, bool rev = false, uint8_t skip = 0, byte aw=RGBW_MODE_MANUAL_ONLY, uint16_t clock_kHz=0U, uint8_t maPerLed=LED_MILLIAMPS_DEFAULT, uint16_t maMax=ABL_MILLIAMPS_DEFAULT, uint8_t driver=0, String sometext = "")
-  : count(std::max(len,(uint16_t)1))
+  : count(std::max(clampPairedLength(busType, len, skip),(uint16_t)1))
   , start(pstart)
   , colorOrder(pcolorOrder)
   , reversed(rev)
@@ -514,6 +526,10 @@ struct BusConfig {
 
   size_t memUsage() const;
 };
+
+static_assert(BusConfig::clampPairedLength(TYPE_WS2812_RGBW_PAIR, UINT16_MAX, 0) == UINT16_MAX / 2, "paired RGBW lengths are clamped to keep doubled physical count in range");
+static_assert(BusConfig::clampPairedLength(TYPE_WS2812_RGBW_PAIR, UINT16_MAX, 1) == UINT16_MAX / 2 - 1, "paired RGBW length clamp accounts for skipped pixels");
+static_assert(BusConfig::clampPairedLength(TYPE_WS2812_RGB, UINT16_MAX, 0) == UINT16_MAX, "standard RGB lengths keep existing handling");
 
 
 // milliamps used by ESP (for power estimation)
