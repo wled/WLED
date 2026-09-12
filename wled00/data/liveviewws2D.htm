@@ -14,6 +14,7 @@
 <body>
 	<canvas id="canv"></canvas>
 	<script>
+		window.__noDevBanner = true; // canvas layout assumes viewport starts at y=0
 		// load common.js with retry on error
 		(function common() {
 			const l = document.createElement('script');

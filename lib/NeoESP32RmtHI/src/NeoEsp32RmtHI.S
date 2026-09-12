@@ -5,14 +5,16 @@
  *
  */
 
-#if defined(__XTENSA__) && defined(ESP32) && !defined(CONFIG_BTDM_CTRL_HLI)
+#if defined(__XTENSA__) && defined(ESP32)
 
-#include <freertos/xtensa_context.h>
+#include "esp_idf_version.h"
 #include "sdkconfig.h"
-#include "soc/soc.h"
 
 /* If the Bluetooth driver has hooked the high-priority interrupt, we piggyback on it and don't need this. */
-#ifndef CONFIG_BTDM_CTRL_HLI
+#if !defined(CONFIG_BTDM_CTRL_HLI) && ESP_IDF_VERSION < ESP_IDF_VERSION_VAL(5, 0, 0)
+
+#include <freertos/xtensa_context.h>
+#include "soc/soc.h"
 
 /*
    Select interrupt based on system check level
@@ -257,7 +259,6 @@ _highint_stack_switch:
 
     .global ld_include_hli_vectors_rmt
 ld_include_hli_vectors_rmt:
-
 
 #endif // CONFIG_BTDM_CTRL_HLI
 #endif // XTensa

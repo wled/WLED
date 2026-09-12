@@ -65,15 +65,11 @@
 						select.setAttribute("onchange", "T(this)");
 						preScanSSID = input.value;
 
-						for (let i = 0; i < select.children.length; i++) {
-							select.removeChild(select.children[i]);
-						}
-
 						for (let i = 0; i < networks.length; i++) {
 							const option = cE("option");
 
 							option.setAttribute("value", networks[i].ssid);
-							option.textContent = `${networks[i].ssid} (${networks[i].rssi} dBm)`; // [${networks[i].bssid.replaceAll(':','')}]
+							option.textContent = `${networks[i].ssid} (${networks[i].rssi} dBm, Ch ${networks[i].channel})`; // [${networks[i].bssid.replaceAll(':','')}]
 
 							if (networks[i].ssid === input.value) {
 								option.setAttribute("selected", "selected");
@@ -236,8 +232,10 @@ Static subnet mask:<br>
 			<option value="11">ESP32-POE-WROVER</option>
 			<option value="7">KIT-VE</option>
 			<option value="12">LILYGO T-POE Pro</option>
-			<option value="8">QuinLED-Dig-Octa & T-ETH-POE</option>
-			<option value="4">QuinLED-ESP32</option>
+			<option value="4">QuinLED Uno/Quad</option>
+			<option value="8">QuinLED Octa & T-ETH-POE</option>
+			<option value="14">QuinLED v4 Uno/Quad</option>
+			<option value="15">QuinLED v4 Octa</option>
 			<option value="10">Serg74-ETH32</option>
 			<option value="5">TwilightLord-ESP32</option>
 			<option value="3">WESP32</option>
@@ -276,7 +274,15 @@ Static subnet mask:<br>
 		Disable WiFi sleep: <input type="checkbox" name="WS"><br>
 		<i>Disabling WiFi sleep increases power consumption<br>
 		but can help with connectivity issues and sync.</i><br><br>
-		<div id="tx">Max. TX power: <select name="TX">
+		<div id="bm">WiFi band: <select name="BM">
+			<option value="1">2.4 GHz only</option>
+			<option value="2">5 GHz only</option>
+			<option value="3">Auto (both)</option>
+		</select><br></div>
+		<div id="tx">Max. TX power: <select name="TX">  <!-- V5 framework allows  84 = 21dBm ... -4 = Minus_1dBm -->
+			<option value="84">21 dBm</option>
+			<option value="82">20.5 dBm</option>
+			<option value="80">20 dBm</option>
 			<option value="78">19.5 dBm</option>
 			<option value="76">19 dBm</option>
 			<option value="74">18.5 dBm</option>

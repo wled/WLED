@@ -89,28 +89,29 @@ class DeepSleepUsermod : public Usermod {
       int currentWeekday = weekdayMondayFirst(); // 1=Monday ... 7=Sunday
       int minDifference = INT_MAX;
 
-      for (uint8_t i = 0; i < 8; i++) {
-        // check if timer is enabled and date is in range, also wakes up if no macro is used
-        if ((timerWeekday[i] & 0x01) && isTodayInDateRange(((timerMonth[i] >> 4) & 0x0F), timerDay[i], timerMonth[i] & 0x0F, timerDayEnd[i])) {
+      for (size_t i = 0; i < timers.size(); i++) {
+        const Timer& t = timers[i];
+        // only regular enabled timers with valid date range can be used for wake scheduling
+        if (!t.isEnabled() || !t.isRegular()) continue;
+        if (!isTodayInDateRange(t.monthStart, t.dayStart, t.monthEnd, t.dayEnd)) continue;
 
-          // if timer is enabled (bit0 of timerWeekday) and date is in range, check all weekdays it is set for
-          for (int dayOffset = 0; dayOffset < 7; dayOffset++) {
-            int checkWeekday = ((currentWeekday + dayOffset) % 7); // 1-7, check all weekdays starting from today
-            if (checkWeekday == 0) {
-              checkWeekday = 7; // sunday is 7 not 0
-            }
+        // check all weekdays for the current timer, starting from today
+        for (int dayOffset = 0; dayOffset < 7; dayOffset++) {
+          int checkWeekday = (currentWeekday + dayOffset) % 7; // 1-7, check all weekdays starting from today
+          if (checkWeekday == 0) {
+            checkWeekday = 7; // sunday is 7 not 0
+          }
 
-            int targetHour = timerHours[i];
-            int targetMinute = timerMinutes[i];
-            if ((timerWeekday[i] >> (checkWeekday)) & 0x01) {
-              if (dayOffset == 0 && (targetHour < currentHour || (targetHour == currentHour && targetMinute <= currentMinute)))
-                continue; // skip if time has already passed today
+          int targetHour = t.hour;
+          int targetMinute = t.minute;
+          if ((t.weekdays >> checkWeekday) & 0x01) {
+            if (dayOffset == 0 && (targetHour < currentHour || (targetHour == currentHour && targetMinute <= currentMinute)))
+              continue; // skip if time has already passed today
 
-              int timeDifference = calculateTimeDifference(currentHour, currentMinute, targetHour + (dayOffset * 24), targetMinute);
-              if (timeDifference < minDifference) {
-                minDifference = timeDifference;
-                wakeupPreset = timerMacro[i];
-              }
+            int timeDifference = calculateTimeDifference(currentHour, currentMinute, targetHour + (dayOffset * 24), targetMinute);
+            if (timeDifference < minDifference) {
+              minDifference = timeDifference;
+              wakeupPreset = t.preset;
             }
           }
         }

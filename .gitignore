@@ -1,5 +1,4 @@
 .cache
-.clang-format
 .direnv
 .DS_Store
 .idea
@@ -16,6 +15,7 @@ __pycache__/
 
 esp01-update.sh
 platformio_override.ini
+platformio_release.ini
 replace_fs.py
 wled-update.sh
 

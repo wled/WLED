@@ -3,6 +3,15 @@
 #define WLED_FCN_DECLARE_H
 #include <dynarray.h>
 
+// dummy macro for 8266
+#ifndef ARDUINO_ARCH_ESP32
+#ifndef ESP_IDF_VERSION_VAL
+#define ESP_IDF_VERSION_VAL(n1,n2,n3) 500
+#endif
+#endif
+
+#include "colors.h"
+
 /*
  * All globally accessible functions are declared here
  */
@@ -23,7 +32,9 @@ bool isButtonPressed(uint8_t b=0);
 void handleButton();
 void handleOnOff(bool forceOff = false);
 void handleIO();
+#ifdef SOC_TOUCH_VERSION_2 // ESP32 S2 and S3 have a function to check touch state but need to attach an interrupt to do so
 void IRAM_ATTR touchButtonISR();
+#endif
 
 //cfg.cpp
 bool backupConfig();
@@ -98,7 +109,7 @@ void initDMXInput();
 void handleDMXInput();
 
 //e131.cpp
-void handleE131Packet(e131_packet_t* p, IPAddress clientIP, byte protocol);
+void handleE131Packet(e131_packet_t* p, IPAddress clientIP, byte protocol, size_t packetLen);
 void handleDMXData(uint16_t uni, uint16_t dmxChannels, uint8_t* e131_data, uint8_t mde, uint8_t previousUniverses);
 // void handleArtnetPollReply(IPAddress ipAddress);                                          // local function, only used in e131.cpp
 // void prepareArtnetPollReply(ArtPollReply* reply);                                         // local function, only used in e131.cpp
@@ -111,6 +122,8 @@ bool writeObjectToFile(const char* file, const char* key, const JsonDocument* co
 bool readObjectFromFileUsingId(const char* file, uint16_t id, JsonDocument* dest, const JsonDocument* filter = nullptr);
 bool readObjectFromFile(const char* file, const char* key, JsonDocument* dest, const JsonDocument* filter = nullptr);
 void updateFSInfo();
+size_t getFsBytesUsed();
+size_t getFsBytesTotal();
 void closeFile();
 inline bool writeObjectToFileUsingId(const String &file, uint16_t id, const JsonDocument* content) { return writeObjectToFileUsingId(file.c_str(), id, content); };
 inline bool writeObjectToFile(const String &file, const char* key, const JsonDocument* content) { return writeObjectToFile(file.c_str(), key, content); };
@@ -174,7 +187,6 @@ void serializeSegment(const JsonObject& root, const Segment& seg, byte id, bool 
 void serializeState(JsonObject root, bool forPreset = false, bool includeBri = true, bool segmentBounds = true, bool selectedSegmentsOnly = false);
 void serializeInfo(JsonObject root);
 void serializeModeNames(JsonArray arr);
-void serializeModeData(JsonArray fxdata);
 void serializePins(JsonObject root);
 void serveJson(AsyncWebServerRequest* request);
 #ifdef WLED_ENABLE_JSONLIVE
@@ -221,6 +233,34 @@ void checkTimers();
 void calculateSunriseAndSunset();
 void setTimeFromAPI(uint32_t timein);
 
+const uint8_t TH_SUNRISE = 255;
+const uint8_t TH_SUNSET = 254;
+
+struct Timer {
+  uint8_t preset;
+  uint8_t hour;
+  int8_t minute;
+  uint8_t weekdays;
+  uint8_t monthStart;
+  uint8_t monthEnd;
+  uint8_t dayStart;
+  uint8_t dayEnd;
+  inline bool isEnabled() const { return (weekdays & 0x01) && (preset != 0); }
+  inline bool isSunrise() const { return hour == TH_SUNRISE; }
+  inline bool isSunset() const { return hour == TH_SUNSET; }
+  inline bool isRegular() const { return hour < TH_SUNSET; }
+  Timer() : preset(0), hour(0), minute(0), weekdays(255), monthStart(1), monthEnd(12), dayStart(1), dayEnd(31) {}
+  Timer(uint8_t p, uint8_t h, int8_t m, uint8_t wd, uint8_t ms = 1, uint8_t me = 12, uint8_t ds = 1, uint8_t de = 31)
+    : preset(p), hour(h), minute(m), weekdays(wd), monthStart(ms), monthEnd(me), dayStart(ds), dayEnd(de) {}
+};
+
+void addTimer(uint8_t preset, uint8_t hour, int8_t minute, uint8_t weekdays,
+              uint8_t monthStart = 1, uint8_t monthEnd = 12, uint8_t dayStart = 1, uint8_t dayEnd = 31);
+void removeTimer(size_t index);
+void clearTimers();
+size_t getTimerCount();
+void compactTimers();
+
 //overlay.cpp
 void handleOverlayDraw();
 // void _overlayAnalogCountdown();  // local function, only used in overlay.cpp
@@ -256,6 +296,9 @@ bool isAsterisksOnly(const char* str, byte maxLen);
 void handleSettingsSet(AsyncWebServerRequest *request, byte subPage);
 bool handleSet(AsyncWebServerRequest *request, const String& req, bool apply=true);
 
+//wled.cpp
+uint16_t getRolloverMillis();
+
 //udp.cpp
 void notify(byte callMode, bool followUp=false);
 uint8_t realtimeBroadcast(uint8_t type, IPAddress client, uint16_t length, const uint8_t* buffer, uint8_t bri=255, bool isRGBW=false);
@@ -277,6 +320,7 @@ void fillMAC2Str(char *str, const uint8_t *mac);
 void fillStr2MAC(uint8_t *mac, const char *str);
 int  findWiFi(bool doScan = false);
 bool isWiFiConfigured();
+void installIPv6RABlocker();
 void WiFiEvent(WiFiEvent_t event);
 
 //um_manager.cpp
@@ -382,7 +426,7 @@ namespace UsermodManager {
 };
 
 // Register usermods by building a static list via a linker section
-#define REGISTER_USERMOD(x) DYNARRAY_MEMBER(Usermod*, usermods, um_##x, 1) = &x
+#define REGISTER_USERMOD(x) DYNARRAY_MEMBER(Usermod*, usermods, um_##x, 00001) = &x
 
 //usermod.cpp
 void userSetup();
@@ -409,8 +453,11 @@ size_t printSetFormValue(Print& settingsScript, const char* key, int val);
 size_t printSetFormValue(Print& settingsScript, const char* key, const char* val);
 size_t printSetFormIndex(Print& settingsScript, const char* key, int index);
 size_t printSetClassElementHTML(Print& settingsScript, const char* key, const int index, const char* val);
-void prepareHostname(char* hostname);
+void getWLEDhostname(char* hostname, size_t maxLen, bool preferMDNS=false); // maxLen = hostname buffer size including \0; if preferMDNSname=true, use mdns name (sanitized)
+void prepareHostname(char* hostname, size_t maxLen);                        // legacy function - not recommended for new code
 [[gnu::pure]] bool isAsterisksOnly(const char* str, byte maxLen);
+uint32_t utf8_decode(const char *s, uint8_t *len);
+size_t utf8_strlen(const char *s);
 bool requestJSONBufferLock(uint8_t moduleID=JSON_LOCK_UNKNOWN);
 void releaseJSONBufferLock();
 uint8_t extractModeName(uint8_t mode, const char *src, char *dest, uint8_t maxLen);
@@ -418,11 +465,19 @@ uint8_t extractModeSlider(uint8_t mode, uint8_t slider, char *dest, uint8_t maxL
 int16_t extractModeDefaults(uint8_t mode, const char *segVar);
 void checkSettingsPIN(const char *pin);
 uint16_t crc16(const unsigned char* data_p, size_t length);
+
+#if !defined(ARDUINO_ARCH_ESP32) || (ESP_IDF_VERSION < ESP_IDF_VERSION_VAL(6, 0, 0)) // ToDO: verify that this works correctly in V5
 String computeSHA1(const String& input);
 String getDeviceId();
-uint16_t beatsin88_t(accum88 beats_per_minute_88, uint16_t lowest = 0, uint16_t highest = 65535, uint32_t timebase = 0, uint16_t phase_offset = 0);
-uint16_t beatsin16_t(accum88 beats_per_minute, uint16_t lowest = 0, uint16_t highest = 65535, uint32_t timebase = 0, uint16_t phase_offset = 0);
-uint8_t beatsin8_t(accum88 beats_per_minute, uint8_t lowest = 0, uint8_t highest = 255, uint32_t timebase = 0, uint8_t phase_offset = 0);
+#endif
+
+uint16_t beat88(uint16_t beats_per_minute_88, uint32_t timebase = 0);
+uint16_t beat16(uint16_t beats_per_minute, uint32_t timebase = 0);
+uint8_t beat8(uint16_t beats_per_minute, uint32_t timebase = 0);
+uint16_t beatsin88_t(uint16_t beats_per_minute_88, uint16_t lowest = 0, uint16_t highest = 65535, uint32_t timebase = 0, uint16_t phase_offset = 0);
+uint16_t beatsin16_t(uint16_t beats_per_minute, uint16_t lowest = 0, uint16_t highest = 65535, uint32_t timebase = 0, uint16_t phase_offset = 0);
+uint8_t beatsin8_t(uint16_t beats_per_minute, uint8_t lowest = 0, uint8_t highest = 255, uint32_t timebase = 0, uint8_t phase_offset = 0);
+
 um_data_t* simulateSound(uint8_t simulationId);
 void enumerateLedmaps();
 [[gnu::hot]] uint8_t get_random_wheel_index(uint8_t pos);
@@ -487,10 +542,10 @@ inline size_t getFreeHeapSize() { return ESP.getFreeHeap(); } // returns free he
 inline size_t getContiguousFreeHeap() { return ESP.getMaxFreeBlockSize(); } // returns largest contiguous free block
 #endif
 #define BFRALLOC_NOBYTEACCESS    (1 << 0) // ESP32 has 32bit accessible DRAM (usually ~50kB free) that must not be byte-accessed
-#define BFRALLOC_PREFER_DRAM     (1 << 1) // prefer DRAM over PSRAM
-#define BFRALLOC_ENFORCE_DRAM    (1 << 2) // use DRAM only, no PSRAM
-#define BFRALLOC_PREFER_PSRAM    (1 << 3) // prefer PSRAM over DRAM
-#define BFRALLOC_ENFORCE_PSRAM   (1 << 4) // use PSRAM if available, otherwise uses DRAM
+#define BFRALLOC_PREFER_DRAM     (1 << 1) // prefer DRAM over PSRAM (can still use PSRAM for larger allocations if DRAM is starting to run low)
+#define BFRALLOC_ENFORCE_DRAM    (1 << 2) // use DRAM only, no PSRAM allowed
+#define BFRALLOC_PREFER_PSRAM    (1 << 3) // prefer PSRAM over DRAM (can still use DRAM if there is loads of free DRAM to optimize speed)
+#define BFRALLOC_ENFORCE_PSRAM   (1 << 4) // use PSRAM if available, falls back to DRAM if PSRAM fails
 #define BFRALLOC_CLEAR           (1 << 5) // clear allocated buffer after allocation
 void *allocate_buffer(size_t size, uint32_t type);
 
@@ -515,6 +570,9 @@ class JSONBufferGuard {
 };
 
 //wled_math.cpp
+#define sin_t sin_approx
+#define cos_t cos_approx
+#define tan_t tan_approx
 //float cos_t(float phi); // use float math
 //float sin_t(float phi);
 //float tan_t(float x);
@@ -532,9 +590,6 @@ template <typename T> T atan_t(T x);
 float floor_t(float x);
 float fmod_t(float num, float denom);
 uint32_t sqrt32_bw(uint32_t x);
-#define sin_t sin_approx
-#define cos_t cos_approx
-#define tan_t tan_approx
 
 /*
 #include <math.h>  // standard math functions. use a lot of flash
@@ -547,6 +602,7 @@ uint32_t sqrt32_bw(uint32_t x);
 #define fmod_t fmodf
 #define floor_t floorf
 */
+
 //wled_serial.cpp
 void handleSerial();
 void updateBaudRate(uint32_t rate);

@@ -4,6 +4,11 @@
  * Receives client input
  */
 
+// Runtime state private to this file - previously WLED_GLOBAL, a leftover from
+// when all state lived in one big extern block regardless of who used it.
+static byte presetCycMin = 1;
+static byte presetCycMax = 5;
+
 //called upon POST settings form submit
 void handleSettingsSet(AsyncWebServerRequest *request, byte subPage)
 {
@@ -118,11 +123,27 @@ void handleSettingsSet(AsyncWebServerRequest *request, byte subPage)
 
     #ifdef ARDUINO_ARCH_ESP32
     int tx = request->arg(F("TX")).toInt();
-    txPower = min(max(tx, (int)WIFI_POWER_2dBm), (int)WIFI_POWER_19_5dBm);
+    #if (ESP_IDF_VERSION_MAJOR > 4)
+      txPower = min(max((int)tx, (int)WIFI_POWER_2dBm), (int)WIFI_POWER_21dBm);  // V5 allows WIFI_POWER_21dBm = 84 ... WIFI_POWER_MINUS_1dBm = -4
+    #else
+      txPower = min(max((int)tx, (int)WIFI_POWER_2dBm), (int)WIFI_POWER_19_5dBm);
+    #endif
     #endif
 
     force802_3g = request->hasArg(F("FG"));
     noWifiSleep = request->hasArg(F("WS"));
+    #ifdef SOC_WIFI_SUPPORT_5G
+    if (request->hasArg(F("BM"))) {
+      int bm = request->arg(F("BM")).toInt();
+      if (bm >= WIFI_BAND_MODE_2G_ONLY && bm <= WIFI_BAND_MODE_AUTO) {
+        if (bm != wifiBandMode) { 
+          forceReconnect = true;
+          WiFi.scanDelete();
+        }
+        wifiBandMode = bm;
+      }
+    }
+    #endif
 
     #ifndef WLED_DISABLE_ESPNOW
     bool oldESPNow = enableESPNow;
@@ -212,7 +233,7 @@ void handleSettingsSet(AsyncWebServerRequest *request, byte subPage)
       char ld[4] = "LD"; ld[2] = offset+s; ld[3] = 0; //driver type (RMT=0, I2S=1)
       char hs[4] = "HS"; hs[2] = offset+s; hs[3] = 0; //hostname (for network types, custom text for others)
       if (!request->hasArg(lp)) {
-        DEBUG_PRINTF_P(PSTR("# of buses: %d\n"), s+1);
+        DEBUG_PRINTF_P(PSTR("# of buses: %d\n"), s);
         break;
       }
       for (int i = 0; i < 5; i++) {
@@ -339,8 +360,8 @@ void handleSettingsSet(AsyncWebServerRequest *request, byte subPage)
             DEBUG_PRINTF_P(PSTR("PIN ALLOC error: GPIO%d for touch button #%d is not an touch pin!\n"), buttons[i].pin, i);
             PinManager::deallocatePin(buttons[i].pin, PinOwner::Button);
             buttons[i].type = BTN_TYPE_NONE;
-          }          
-          #ifdef SOC_TOUCH_VERSION_2 // ESP32 S2 and S3 have a fucntion to check touch state but need to attach an interrupt to do so
+          }
+          #ifdef SOC_TOUCH_VERSION_2 // ESP32 S2 and S3 have a function to check touch state but need to attach an interrupt to do so
           else touchAttachInterrupt(buttons[i].pin, touchButtonISR, touchThreshold << 4); // threshold on Touch V2 is much higher (1500 is a value given by Espressif example, I measured changes of over 5000)
           #endif
         } else
@@ -580,29 +601,46 @@ void handleSettingsSet(AsyncWebServerRequest *request, byte subPage)
       ii++;
     }
 
-    char k[3]; k[2] = 0;
-    for (int i = 0; i<10; i++) {
-      k[1] = i+48;//ascii 0,1,2,3,...
-      k[0] = 'H'; //timer hours
-      timerHours[i] = request->arg(k).toInt();
-      k[0] = 'N'; //minutes
-      timerMinutes[i] = request->arg(k).toInt();
-      k[0] = 'T'; //macros
-      timerMacro[i] = request->arg(k).toInt();
-      k[0] = 'W'; //weekdays
-      timerWeekday[i] = request->arg(k).toInt();
-      if (i<8) {
-        k[0] = 'M'; //start month
-        timerMonth[i] = request->arg(k).toInt() & 0x0F;
-        timerMonth[i] <<= 4;
-        k[0] = 'P'; //end month
-        timerMonth[i] += (request->arg(k).toInt() & 0x0F);
-        k[0] = 'D'; //start day
-        timerDay[i] = request->arg(k).toInt();
-        k[0] = 'E'; //end day
-        timerDayEnd[i] = request->arg(k).toInt();
+    clearTimers();
+    char k[5]; k[4] = 0;
+    for (int ti = 0; ti < (int)WLED_MAX_TIMERS; ti++) {
+      if (ti < 10) {
+        k[1] = ti + 48;
+        k[2] = 0;
+      } else {
+        k[1] = '0' + (ti / 10);
+        k[2] = '0' + (ti % 10);
+        k[3] = 0;
       }
+      k[0] = 'T';
+      if (!request->hasArg(k)) continue;
+      uint8_t p = request->arg(k).toInt();
+      k[0] = 'H';
+      uint8_t h = request->arg(k).toInt();
+      k[0] = 'N';
+      int minuteVal = request->arg(k).toInt();
+      if (minuteVal < -120) minuteVal = -120;
+      if (minuteVal > 120) minuteVal = 120;
+      int8_t m = (int8_t)minuteVal;
+      k[0] = 'W';
+      uint8_t wd = request->arg(k).toInt();
+      uint8_t ms = 1, me = 12, ds = 1, de = 31;
+      k[0] = 'M';
+      ms = request->arg(k).toInt();
+      if (ms == 0) ms = 1;
+      k[0] = 'P';
+      me = request->arg(k).toInt();
+      if (me == 0) me = 12;
+      k[0] = 'D';
+      ds = request->arg(k).toInt();
+      if (ds == 0) ds = 1;
+      k[0] = 'E';
+      de = request->arg(k).toInt();
+      if (de == 0) de = 31;
+      addTimer(p, h, m, wd, ms, me, ds, de);
     }
+    compactTimers();
+
   }
 
   //SECURITY
@@ -987,7 +1025,7 @@ bool handleSet(AsyncWebServerRequest *request, const String& req, bool apply)
 
   pos = req.indexOf(F("NP")); //advances to next preset in a playlist
   if (pos > 0) doAdvancePlaylist = true;
-  
+
   //set brightness
   updateVal(req.c_str(), "&A=", bri);
 
