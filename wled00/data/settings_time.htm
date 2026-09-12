@@ -83,20 +83,18 @@
 		if (sel.value === "" && initialVal !== null && initialVal !== "") sel.value = initialVal;
 		if (sel.value === "") sel.value = "0";
 	}
-	function expand(o,i)
+	function expand(i)
 	{
-		var t = gId("WD"+i);
-		t.style.display = t.style.display!=="none" ? "none" : "";
-		o.innerHTML = t.style.display==="none" ? "&#128197;" : "&#x2715;";
+		gId("WD"+i).style.display = "";
 	}
 	function Cs() { gId("cac").style.display=(gN("OL").checked)?"block":"none"; }
 	function BTa()
 	{
 		timerCount = 0;
-		gId("TMT").innerHTML = "<thead><tr><th>En.</th><th>Type</th><th>Hour</th><th>Minute</th><th></th></tr></thead>";
+		gId("TMT").innerHTML = "<thead><tr><th>En.</th><th>Type</th><th>Hour</th><th>Minute</th><th></th><th></th></tr></thead>";
 	}
 	function addTimerRow(hour, minute, preset, weekdays, monthStart, dayStart, monthEnd, dayEnd) {
-		if (timerCount >= maxTimers) return;
+		if (gId("TMT").querySelectorAll('tbody[id^="TG"]').length >= maxTimers) return;
 		var i = timerCount++;
 		var isSunrise = (hour === TIMER_SUNRISE);
 		var isSunset = (hour === TIMER_SUNSET);
@@ -113,7 +111,7 @@
 		var dow = weekdays >> 1;
 		var container = gId("TMT");
 		var hourVal = isSpecial ? 0 : hour;
-		var presetOpts = '<option value="0">Delete Timer</option>' + sortedPresetOptions;
+		var presetOpts = '<option value="0">Select preset</option>' + sortedPresetOptions;
 
 		var weekdayTable = '<table class="tw"><tr><th>M</th><th>T</th><th>W</th><th>T</th><th>F</th><th>S</th><th>S</th></tr><tr>';
 		for (j=1;j<8;j++) weekdayTable += `<td><input id="W${i}${j}" type="checkbox" ${(dow>>(j-1))&1?'checked':''}></td>`;
@@ -140,12 +138,13 @@
 					<input ${isSpecial ? "" : 'name="H'+i+'"'} id="H${i}" class="s" type="number" min="0" max="24" value="${hourVal}" ${isSpecial ? "disabled" : ""}>
 				</td>
 				<td><input name="N${i}" id="N${i}" class="l" type="number" min="${isSpecial ? -120 : 0}" max="${isSpecial ? 120 : 59}" value="${minute}"></td>
-				<td><div id="CB${i}" onclick="expand(this,${i})" class="cal">&#128197;</div></td>
+				<td><div id="CB${i}" onclick="expand(${i})" class="cal">&#128197;</div></td>
+				<td><button type="button" onclick="rTR(${i})" title="Remove">-</button></td>
 			</tr><tr>
 				<td colspan="5">
 					<select name="T${i}" id="T${i}" class="s">${presetOpts}</select>
 				</td>
-			</tr><tr><td colspan="5"><hr></td></tr>
+			</tr>
 		`;
 
 		var timerExpanded = `
@@ -158,12 +157,19 @@
 						<hr>
 					</div>
 				</td>
-			</tr>
+			</tr><tr><td colspan="5"><hr></td></tr>
 		`;
 
-		container.insertAdjacentHTML("beforeend", timerMain + timerExpanded);
+		var timerGroup = document.createElement('tbody');
+		timerGroup.id = "TG"+i;
+		timerGroup.innerHTML = timerMain + timerExpanded;
+		container.appendChild(timerGroup);
 		var timerPresetSel = gId("T"+i);
 		sPSV(timerPresetSel, preset, "data-preset");
+	}
+	function rTR(i) { // remove timer row immediately, no save required
+		var tg = gId("TG"+i);
+		if (tg) tg.remove();
 	}
 	function TT(i) {
 		var sel = gId("TS"+i);
@@ -212,7 +218,7 @@
 		}
 	}
 	function rTOPO() { // refreshTimerPresetOptions
-		var presetOpts = '<option value="0">Delete Timer</option>' + sortedPresetOptions;
+		var presetOpts = '<option value="0">Select preset</option>' + sortedPresetOptions;
 		for (var i=0; i<timerCount; i++) {
 			var sel = gId("T"+i);
 			if (!sel) continue;
@@ -255,7 +261,8 @@
 	}
 	function Wd()
 	{
-		for (i=0; i<timerCount; i++) {
+		document.querySelectorAll('#TMT > tbody[id^="TG"]').forEach(function(tg){
+			var i = tg.id.slice(2);
 			var m=1, val=0;
 			for(j=0;j<8;j++) { val+=gId(("W"+i)+j).checked*m; m*=2;}
 			gId("W"+i).value=val;
@@ -267,7 +274,7 @@
 				hour.disabled = false;
 				hour.value = sel.value;
 			}
-		}
+		});
 		if (d.Sf.LTR.value==="S") { d.Sf.LT.value = -1*parseFloat(d.Sf.LT.value); }
 		if (d.Sf.LNR.value==="W") { d.Sf.LN.value = -1*parseFloat(d.Sf.LN.value); }
 	}
