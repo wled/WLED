@@ -159,9 +159,17 @@ bool deserializeConfig(JsonObject doc, bool fromFS) {
   noWifiSleep = !(wifi[F("sleep")] | !noWifiSleep); // inverted
   //noWifiSleep = !noWifiSleep;
   CJSON(force802_3g, wifi[F("phy")]); //force phy mode g?
+#ifdef SOC_WIFI_SUPPORT_5G
+  CJSON(wifiBandMode, wifi[F("band")]);
+  if (wifiBandMode < WIFI_BAND_MODE_2G_ONLY || wifiBandMode > WIFI_BAND_MODE_AUTO) wifiBandMode = WIFI_BAND_MODE_AUTO;
+#endif
 #ifdef ARDUINO_ARCH_ESP32
   CJSON(txPower, wifi[F("txpwr")]);
-  txPower = min(max((int)txPower, (int)WIFI_POWER_2dBm), (int)WIFI_POWER_19_5dBm);
+  #if defined(ARDUINO_ARCH_ESP32) && (ESP_IDF_VERSION_MAJOR > 4)
+    txPower = min(max((int)txPower, (int)WIFI_POWER_2dBm), (int)WIFI_POWER_21dBm);  // V5 allows WIFI_POWER_21dBm = 84 ... WIFI_POWER_MINUS_1dBm = -4
+  #else
+    txPower = min(max((int)txPower, (int)WIFI_POWER_2dBm), (int)WIFI_POWER_19_5dBm);
+  #endif
 #endif
 
   JsonObject hw = doc[F("hw")];
@@ -239,7 +247,7 @@ bool deserializeConfig(JsonObject doc, bool fromFS) {
       uint16_t freqkHz = elm[F("freq")] | 0;  // will be in kHz for DotStar and Hz for PWM
       uint8_t AWmode = elm[F("rgbwm")] | RGBW_MODE_MANUAL_ONLY;
       uint8_t maPerLed = elm[F("ledma")] | LED_MILLIAMPS_DEFAULT;
-      uint16_t maMax = elm[F("maxpwr")] | (ablMilliampsMax * length) / total; // rough (incorrect?) per strip ABL calculation when no config exists
+      uint16_t maMax = elm[F("maxpwr")] | (total > 0 ? (ablMilliampsMax * length) / total : ablMilliampsMax); // rough (incorrect?) per strip ABL calculation when no config exists
       // To disable brightness limiter we either set output max current to 0 or single LED current to 0 (we choose output max current)
       if (Bus::isPWM(ledType) || Bus::isOnOff(ledType) || Bus::isVirtual(ledType)) { // analog and virtual
         maPerLed = 0;
@@ -909,6 +917,9 @@ void serializeConfig(JsonObject root) {
   JsonObject wifi = root.createNestedObject(F("wifi"));
   wifi[F("sleep")] = !noWifiSleep;
   wifi[F("phy")] = force802_3g;
+#ifdef SOC_WIFI_SUPPORT_5G
+  wifi[F("band")] = wifiBandMode;
+#endif
 #ifdef ARDUINO_ARCH_ESP32
   wifi[F("txpwr")] = txPower;
 #endif

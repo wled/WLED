@@ -1,6 +1,13 @@
 #include "wled.h"
 #ifndef WLED_DISABLE_ESPNOW
 
+// Sanity check: -P4 does not support esp-now
+#if defined(ARDUINO_ARCH_ESP32) && (ESP_IDF_VERSION_MAJOR > 4)
+  #if CONFIG_ESP_WIFI_REMOTE_ENABLED
+    #error "ESP-NOW is not supported on your MCU. Only SoCs with native Wi-Fi support have ESP-NOW."
+  #endif
+#endif
+
 #define ESPNOW_BUSWAIT_TIMEOUT 24 // one frame timeout to wait for bus to finish updating
 
 #define NIGHT_MODE_DEACTIVATED     -1

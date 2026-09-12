@@ -8,6 +8,12 @@
 static void sendNTPPacket();
 static bool checkNTPResponse();
 
+// Runtime state private to this file - previously WLED_GLOBAL, a leftover from
+// when all state lived in one big extern block regardless of who used it.
+static byte lastTimerMinute = 0;
+static unsigned long ntpPacketSentTime = NTP_NEVER;
+static IPAddress ntpServerIP;
+
 
 // WARNING: may cause errors in sunset calculations on ESP8266, see #3400
 // building with `-D WLED_USE_REAL_MATH` will prevent those errors at the expense of flash and RAM
@@ -197,7 +203,11 @@ void handleNetworkTime()
     if (millis() - ntpPacketSentTime > 10000)
     {
       #ifdef ARDUINO_ARCH_ESP32   // I had problems using udp.flush() on 8266
-      while (ntpUdp.parsePacket() > 0) ntpUdp.flush(); // flush any existing packets
+      #if ESP_IDF_VERSION >= ESP_IDF_VERSION_VAL(5, 0, 0)
+        while (ntpUdp.parsePacket() > 0) ntpUdp.clear();  // flush() is deprecated in arduino-esp32 3.x.y
+      #else
+        while (ntpUdp.parsePacket() > 0) ntpUdp.flush(); // flush any existing packets
+      #endif
       #endif
       if (!ntpServerIP.fromString(ntpServerName)) // check if server is IP or domain
       {
@@ -286,7 +296,11 @@ static bool checkNTPResponse()
   int cb = ntpUdp.parsePacket();
   if (cb < NTP_MIN_PACKET_SIZE) {
     #ifdef ARDUINO_ARCH_ESP32   // I had problems using udp.flush() on 8266
-    if (cb > 0) ntpUdp.flush();  // this avoids memory leaks on esp32
+    #if ESP_IDF_VERSION >= ESP_IDF_VERSION_VAL(5, 0, 0)
+      if (cb > 0) ntpUdp.clear();  // flush() is deprecated in arduino-esp32 3.x.y
+    #else
+      if (cb > 0) ntpUdp.flush();  // this avoids memory leaks on esp32
+    #endif
     #endif
     return false;
   }

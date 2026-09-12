@@ -190,7 +190,7 @@
 		}
 	}
 	function pMP() { // populateMacroPresets
-		var presetOpts = '<option value="0">Default Action</option>' + sortedPresetOptions;
+		var presetOpts = '<option value="0">Default Action (0)</option>' + sortedPresetOptions;
 		var fields = ['A0','A1','MC','MN'];
 		for (var f of fields) {
 			var inp = gN(f);
@@ -219,13 +219,38 @@
 			rPS(sel, presetOpts, "data-preset");
 		}
 	}
+	function bAO() { // buildAnalogOptions: analog functions + per-segment opacity (segment 0 included; MD=0 => segment 0)
+		var o = '<optgroup label="Analog Functions"><option value="250">Global brightness (250)</option><option value="249">Effect speed (249)</option><option value="248">Effect intensity (248)</option><option value="247">Palette (247)</option><option value="200">Primary color hue (200)</option></optgroup><optgroup label="Analog Segment Opacity">';
+		for (var j=0; j<=32; j++) o += `<option value="${j}">Segment ${j} opacity</option>`;
+		o += '</optgroup>';
+		return o;
+	}
+	function isAnalogBtn(t) { return t==7 || t==8; } // BTN_TYPE_ANALOG / BTN_TYPE_ANALOG_INVERTED
+	function isSwitchBtn(t) { return t==4 || t==5 || t==9; } // BTN_TYPE_SWITCH / BTN_TYPE_PIR_SENSOR / BTN_TYPE_TOUCH_SWITCH
+	function btnTypeName(t) { // mirrors the button type dropdown on the LED settings page
+		switch (+t) {
+			case 2: return 'Pushbutton';
+			case 3: return 'Push inverted';
+			case 4: return 'Switch';
+			case 5: return 'PIR sensor';
+			case 6: return 'Touch';
+			case 7: return 'Analog';
+			case 8: return 'Analog inverted';
+			case 9: return 'Touch (switch)';
+			default: return 'Disabled';
+		}
+	}
 	function rBPO() { // refreshButtonPresetOptions
-		var presetOpts = '<option value="0">Default Action</option>' + sortedPresetOptions;
+		var presetOpts = '<option value="0">Default Action (0)</option>' + sortedPresetOptions;
+		var analogOpts = bAO();
 		var container = gId("macros");
 		if (!container) return;
+		// analog buttons only have an MD select (MP/ML are hidden 0 inputs); MD uses analog options, never presets
 		var sels = container.querySelectorAll('select[name^="MP"],select[name^="ML"],select[name^="MD"]');
 		for (var sel of sels) {
-			rPS(sel, presetOpts, "data-preset");
+			var bb = sel.closest ? sel.closest(".bb") : null;
+			var t = bb ? parseInt(bb.getAttribute("data-btype")||"0",10) : 0;
+			rPS(sel, isAnalogBtn(t) ? analogOpts : presetOpts, "data-preset");
 		}
 	}
 	function Wd()
@@ -246,33 +271,73 @@
 		if (d.Sf.LTR.value==="S") { d.Sf.LT.value = -1*parseFloat(d.Sf.LT.value); }
 		if (d.Sf.LNR.value==="W") { d.Sf.LN.value = -1*parseFloat(d.Sf.LN.value); }
 	}
-	function addRow(i,p,l,d) {
+	function addRow(i,p,l,d,t) {
+		if (t===undefined) t = 0;
 		var b = String.fromCharCode((i<10?48:55)+i);
-		var presetOpts = '<option value="0">Default Action</option>' + sortedPresetOptions;
+		var presetOpts = '<option value="0">Default Action (0)</option>' + sortedPresetOptions;
+		var typeName = btnTypeName(t);
 		var buttonBlock = document.createElement('div');
 		buttonBlock.className = 'bb';
-		buttonBlock.innerHTML = `
-			<div class="bh">Button (switch) ${i}</div>
-			<div class="bs">
-				<div class="ba">
-					<label>Short (on → off)</label>
-					<select name="MP${b}" class="s" required>${presetOpts}</select>
+		buttonBlock.setAttribute('data-btype', t); // read back by rBPO() to rebuild selects correctly
+		if (isAnalogBtn(t)) {
+			// analog buttons: MD holds the function/segment; short/long press are unused (firmware defaults missing MP/ML to 0)
+			buttonBlock.innerHTML = `
+				<div class="bh">Analog ${i} - ${typeName}</div>
+				<div class="bs">
+					<div class="ba">
+						<label>Analog function</label>
+						<select name="MD${b}" class="s" required>${bAO()}</select>
+					</div>
 				</div>
-				<div class="ba">
-					<label>Long (off → on)</label>
-					<select name="ML${b}" class="s" required>${presetOpts}</select>
+				<hr style="width:100%;margin:8px 0 0 0;">
+			`;
+			sPSV(buttonBlock.querySelector('select[name="MD'+b+'"]'), String(d), "data-preset");
+		} else if (isSwitchBtn(t)) {
+			// switches: MP fires on On->Off, ML on Off->On; double press (MD) is unused (firmware defaults missing MD to 0)
+			buttonBlock.innerHTML = `
+				<div class="bh">Switch ${i} - ${typeName}</div>
+				<div class="bs">
+					<div class="ba">
+						<label>On → Off</label>
+						<select name="MP${b}" class="s" required>${presetOpts}</select>
+					</div>
+					<div class="ba">
+						<label>Off → On</label>
+						<select name="ML${b}" class="s" required>${presetOpts}</select>
+					</div>
 				</div>
-				<div class="ba">
-					<label>Double press (n/a)</label>
-					<select name="MD${b}" class="s" required>${presetOpts}</select>
+				<hr style="width:100%;margin:8px 0 0 0;">
+			`;
+			var switchSels = buttonBlock.querySelectorAll("select");
+			var switchVals = [String(p), String(l)];
+			for (var si=0; si<switchSels.length; si++) {
+				sPSV(switchSels[si], switchVals[si], "data-preset");
+			}
+		} else {
+			// pushbuttons: short (MP), long (ML) and double (MD) press
+			buttonBlock.innerHTML = `
+				<div class="bh">Button ${i} - ${typeName}</div>
+				<div class="bs">
+					<div class="ba">
+						<label>Short press</label>
+						<select name="MP${b}" class="s" required>${presetOpts}</select>
+					</div>
+					<div class="ba">
+						<label>Long press</label>
+						<select name="ML${b}" class="s" required>${presetOpts}</select>
+					</div>
+					<div class="ba">
+						<label>Double press</label>
+						<select name="MD${b}" class="s" required>${presetOpts}</select>
+					</div>
 				</div>
-			</div>
-			<hr style="width:100%;margin:8px 0 0 0;">
-		`;
-		var buttonSels = buttonBlock.querySelectorAll("select");
-		var buttonVals = [String(p), String(l), String(d)];
-		for (var si=0; si<buttonSels.length; si++) {
-			sPSV(buttonSels[si], buttonVals[si], "data-preset");
+				<hr style="width:100%;margin:8px 0 0 0;">
+			`;
+			var buttonSels = buttonBlock.querySelectorAll("select");
+			var buttonVals = [String(p), String(l), String(d)];
+			for (var si=0; si<buttonSels.length; si++) {
+				sPSV(buttonSels[si], buttonVals[si], "data-preset");
+			}
 		}
 		gId("macros").appendChild(buttonBlock);
 	}
@@ -372,7 +437,7 @@
 		Alexa On/Off Preset: <input name="A0" class="m" type="number" min="0" max="250" required> <input name="A1" class="m" type="number" min="0" max="250" required><br>
 	</div>
 	<div class="sec">
-		<h3>Button (switch) Action Presets</h3>
+		<h3>Button Action Presets</h3>
 		<div id="macros"></div>
 		<a href="https://kno.wled.ge/features/macros/#analog-button" target="_blank">Analog Button setup</a>
 	</div>

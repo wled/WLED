@@ -103,7 +103,7 @@ def check_elf_modules(elf_path: Path, env, module_lib_builders) -> set[str]:
 def count_usermod_objects(map_file: list[str]) -> int:
     """ Returns the number of usermod objects in the usermod list.
 
-    Computes the count from the address span between the .dynarray.usermods.0
+    Computes the count from the address span between the .dynarray.usermods.00000
     and .dynarray.usermods.99999 sentinel sections.  This mirrors the
     DYNARRAY_LENGTH macro and is reliable under LTO, where all entries are
     merged into a single ltrans partition so counting section occurrences
@@ -115,7 +115,7 @@ def count_usermod_objects(map_file: list[str]) -> int:
 
     for i, line in enumerate(map_file):
         stripped = line.strip()
-        if stripped == '.dynarray.usermods.0':
+        if stripped == '.dynarray.usermods.00000':
             if i + 1 < len(map_file):
                 m = re.search(r'0x([0-9a-fA-F]+)', map_file[i + 1])
                 if m:

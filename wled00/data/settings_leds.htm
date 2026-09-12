@@ -158,10 +158,9 @@
 					}
 				}
 			};
-			if (bquot > 100) {var msg = "Too many LEDs! Can't handle that!"; alert(msg); e.stopPropagation(); return false;}
+			if (bquot > 100) {alert("Too many LEDs! Can't handle that!"); e.stopPropagation(); return false;}
 			else {
-				if (bquot > 80) {var msg = "Memory usage is high, reboot recommended!\n\rSet transitions to 0 to save memory.";
-				if (bquot > 100) msg += "\n\rToo many LEDs for me to handle properly!"; if (maxM < 10000) msg += "\n\rConsider using an ESP32."; alert(msg);}
+				if (bquot > 80) alert("Memory usage is high, reboot recommended!\n\rSet transitions to 0 to save memory.");
 				if (!d.Sf.ABL.checked || d.Sf.PPL.checked) d.Sf.MA.value = 0; // submit 0 as ABL (PPL will handle it)
 				if (d.Sf.checkValidity()) {
 					d.Sf.querySelectorAll("#mLC select[name^=LT]").forEach((s)=>{s.disabled=false;}); // just in case
@@ -382,15 +381,11 @@
 				d.Sf.CR.checked = false;
 			}
 			// update start indexes, max values, calculate current, etc
-			let sameType = 0;
 			var nList = d.Sf.querySelectorAll("#mLC input[name^=L]");
 			nList.forEach((LC,i)=>{
 				let nm = LC.name.substring(0,2);     // field name : /L./
 				let n  = LC.name.substring(2,3);     // bus number (0-Z)
 				let t  = parseInt(d.Sf["LT"+n].value); // LED type SELECT
-				if (isDig(t) && !isD2P(t)) {
-					if (sameType == 0) sameType = t; // first bus type
-				}
 				// do we have a led count field
 				if (nm=="LC") {
 					if (!isHub75(t)) {
@@ -470,8 +465,8 @@
 					}
 				}
 			});
+			// note: do not remove this second call to updateTypeDropdowns() as it also updates the available LED types based on the current bus configuration, not just the driver options
 			updateTypeDropdowns(); // update type dropdowns to disable unavailable digital/analog types (I2S/RMT bus count may have changed due to memory usage change)
-			// note: do not remvoe this second call to updateTypeDropdowns() as it also updates the available LED types based on the current bus configuration, not just the driver options
 
 			// Show channel usage warning
 			let chanuse = gId('chanuse');
@@ -770,7 +765,7 @@ Swap: <select id="xw${s}" name="XW${s}">
 				if (c.hw) {
 					if (c.hw.led) {
 						// remove all existing outputs
-						for (const i=0; i<36; i++) addLEDs(-1); // was i<maxb+maxV when number of virtual buses was limited (now :"0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ")
+						for (let i=0; i<36; i++) addLEDs(-1); // was i<maxb+maxV when number of virtual buses was limited (now :"0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ")
 						let l = c.hw.led;
 						l.ins.forEach((v,i,a)=>{
 							addLEDs(1);
@@ -1126,8 +1121,7 @@ Swap: <select id="xw${s}" name="XW${s}">
 	<div class="sec">
 		<h3>Power up</h3>
 		Turn LEDs on after power up/reset: <input type="checkbox" name="BO"><br>
-		with brightness: <input name="CA" type="number" class="m" min="1" max="255" required> (1-255)<br>
-		<i>(disable if using boot preset to turn LEDs on)</i><br><br>
+		Bootup brightness: <input name="CA" type="number" class="m" min="1" max="255" required> (1-255)<br><br>
 		Apply preset <input name="BP" type="number" class="m" min="0" max="250" required> at boot (0 = none)<br><br>
 	</div>
 	<div class="sec">
