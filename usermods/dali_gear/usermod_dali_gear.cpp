@@ -332,12 +332,25 @@ class DaliGearUsermod : public Usermod {
 
     _dali.begin(busIsHigh, busSetLow, busSetHigh);
 
-      // Hardware timer: arduino-esp32 core 3.x (IDF v5) API.
-      // timerBegin() takes the tick frequency in Hz directly (no divider/edge args).
-      // 1 MHz tick, alarm at 104 ticks → ~9615 Hz ≈ 1200 baud × 8 oversample.
+      // Hardware timer: 1 MHz tick, alarm at 104 ticks → ~9615 Hz ≈ 1200 baud × 8 oversample.
+      // API differs between arduino-esp32 core generations:
+      //  - core 3.x (IDF v5): timerBegin() takes the tick frequency in Hz directly,
+      //    timerAttachInterrupt() has no edge arg, and timerAlarm() combines
+      //    write+enable in one call.
+      //  - core 2.x (IDF v4): timerBegin() takes (timer, prescaler, countUp),
+      //    timerAttachInterrupt() takes an edge arg, and the alarm is armed via
+      //    separate timerAlarmWrite()/timerAlarmEnable() calls.
+#if ESP_ARDUINO_VERSION_MAJOR >= 3
     _daliTimer = timerBegin(1000000);
     timerAttachInterrupt(_daliTimer, &daliTimerISR);
     timerAlarm(_daliTimer, 104, true, 0);
+#else
+    // Timer 1 (timer 0 is used by SparkFunDMX), prescaler 80 → 1 MHz tick.
+    _daliTimer = timerBegin(1, 80, true);
+    timerAttachInterrupt(_daliTimer, &daliTimerISR, true);
+    timerAlarmWrite(_daliTimer, 104, true);
+    timerAlarmEnable(_daliTimer);
+#endif
 
     DEBUG_PRINTF("[DALI] Gear usermod initialised (RX=%d TX=%d txInv=%d addr=%d)\n", _rxPin, _txPin, (int)_txInverted, _daliAddr);
     _initDone = true;
