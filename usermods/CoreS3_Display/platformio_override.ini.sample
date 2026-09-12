@@ -1,0 +1,72 @@
+; =============================================================================
+; WLED - M5Stack CoreS3
+; Public build example for the CoreS3 production configuration
+;
+; Usage:
+;   Copy this file to the WLED repository root as:
+;     platformio_override.ini
+;
+; Validated runtime basis:
+;   WLED 17.0.0-devV5 / current main-derived tree
+;   pioarduino 55.03.39
+;   Arduino Core 3.3.9
+;   ESP-IDF 5.5.4
+;   M5Stack CoreS3: 16MB Flash + 8MB QUAD PSRAM
+;
+; This example preserves:
+;   - the validated CoreS3 Quad PSRAM configuration
+;   - CoreS3 Power / Display / Audio / AudioReactive integration
+;   - the validated ESP32-S3 NeoPixelBus RMT DMA1024 and LCD/GDMA patches
+;
+; IMPORTANT:
+;   Do NOT set lib_archive=yes in this custom environment.
+;   WLED main already contains [v5_pioarduino_workaround].
+; =============================================================================
+
+[platformio]
+default_envs = m5stack_cores3
+
+[env:m5stack_cores3]
+
+; WLED's current 16MB ESP32-S3 parent environment.
+extends = env:esp32s3dev_16MB_opi
+
+; CoreS3 uses 8MB QUAD PSRAM, not Octal PSRAM.
+board_build.arduino.memory_type = qio_qspi
+board_build.flash_mode = qio
+
+; Current WLED pioarduino / ESP-IDF 5 build family.
+platform = ${esp32_idf_V5.platform_pioarduino}
+platform_packages = ${esp32_idf_V5.platform_packages_pioarduino}
+
+; Preserve normal WLED build scripts.
+;
+; Apply the validated NeoPixelBus ESP32-S3 RMT DMA1024 and LCD/GDMA patches.
+extra_scripts =
+    ${scripts_defaults.extra_scripts}
+    pre:pio-scripts/cores3_v17_neopixelbus_patch.py
+
+custom_usermods =
+    CoreS3_Power
+    CoreS3_Display
+    CoreS3_Audio
+    audioreactive
+
+build_unflags =
+    ${env:esp32s3dev_16MB_opi.build_unflags}
+
+build_flags =
+    ${env:esp32s3dev_16MB_opi.build_flags}
+
+    ; CoreS3 internal I2C bus.
+    -D I2CSDAPIN=12
+    -D I2CSCLPIN=11
+
+    ; CoreS3 built-in ES7210 / AudioReactive integration.
+    -D WLED_M5STACK_CORES3_AUDIO=1
+    -D UM_AUDIOREACTIVE_ENABLE
+    -D SR_DMTYPE=7
+
+    ; GPIO0 is ES7210 MCLK, not a WLED physical button.
+    -D BTNPIN=-1
+    -D BTNTYPE=0
