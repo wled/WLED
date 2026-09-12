@@ -391,6 +391,7 @@ WLED_GLOBAL bool cctICused          _INIT(true);  // CCT IC used (Athom 15W bulb
 WLED_GLOBAL bool cctICused          _INIT(false); // CCT IC used (Athom 15W bulbs)
 #endif
 WLED_GLOBAL bool gammaCorrectCol    _INIT(true);  // use gamma correction on colors
+WLED_GLOBAL bool applyGamma         _INIT(true);  // apply gamma correction to colors if not (temporarily) disabled
 WLED_GLOBAL bool gammaCorrectBri    _INIT(false); // use gamma correction on brightness
 WLED_GLOBAL float gammaCorrectVal   _INIT(2.2f);  // gamma correction value
 
