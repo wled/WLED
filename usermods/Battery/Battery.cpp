@@ -16,9 +16,13 @@ class UsermodBattery : public Usermod
   private:
     // battery pin can be defined in my_config.h
     int8_t batteryPin = USERMOD_BATTERY_MEASUREMENT_PIN;
-    
+
     UMBattery* bat = new UnkownUMBattery();
     batteryConfig cfg;
+
+    int8_t batteryLevel = 0; // current battery level in %
+    float batteryVoltage = 0.0f; // current battery voltage in V
+
 
     // Initial delay before first reading to allow voltage stabilization
     unsigned long initialDelay = USERMOD_BATTERY_INITIAL_DELAY;
@@ -78,6 +82,12 @@ class UsermodBattery : public Usermod
         if(str[i] >= 'A' && str[i] <= 'Z')
             str[i] += 32;
       return str;
+    }
+
+    void refreshExportedBatteryData()
+    {
+      batteryVoltage = bat->getVoltage();
+      batteryLevel = bat->getLevel();
     }
 
     /**
@@ -213,6 +223,21 @@ class UsermodBattery : public Usermod
         pinMode(batteryPin, INPUT);
       #endif
 
+      // Export snapshot for um_data is allocated only once.
+      // setup() may be called again after a pin change via readFromConfig(),
+      // but the exported pointers remain valid because they still point to
+      // the same member variables of this usermod instance.
+      if (!this->um_data) {
+        this->um_data = new um_data_t;
+        this->um_data->u_size = 2;
+        this->um_data->u_type = new um_types_t[this->um_data->u_size];
+        this->um_data->u_data = new void*[this->um_data->u_size];
+        this->um_data->u_data[0] = &batteryVoltage;
+        this->um_data->u_type[0] = UMT_FLOAT;
+        this->um_data->u_data[1] = &batteryLevel;
+        this->um_data->u_type[1] = UMT_BYTE;
+      }
+
       // First voltage reading is delayed to allow voltage stabilization after powering up
       nextReadTime = millis() + initialDelay;
       lastReadTime = millis();
@@ -256,7 +281,10 @@ class UsermodBattery : public Usermod
       // Make the first voltage reading after the initial delay has elapsed
       if (isFirstVoltageReading)
         {
-          bat->setVoltage(readVoltage());
+          float firstVoltage = readVoltage();
+          bat->setVoltage(firstVoltage);
+          bat->calculateAndSetLevel(firstVoltage);
+          refreshExportedBatteryData();
           isFirstVoltageReading = false;
         }
 
@@ -277,13 +305,14 @@ class UsermodBattery : public Usermod
       bat->setVoltage(filteredVoltage);
       // translate battery voltage into percentage
       bat->calculateAndSetLevel(filteredVoltage);
+      refreshExportedBatteryData();
 
       // Auto off -- Master power off
       if (autoOffEnabled && (autoOffThreshold >= bat->getLevel()))
         turnOff();
 
 #ifndef WLED_DISABLE_MQTT
-      publishMqtt("battery", String(bat->getLevel(), 0).c_str());
+      publishMqtt("battery", String(bat->getLevel()).c_str());
       publishMqtt("voltage", String(bat->getVoltage()).c_str());
 #endif
 
@@ -313,7 +342,7 @@ class UsermodBattery : public Usermod
 
       infoNextUpdate.add((nextReadTime - millis()) / 1000);
       infoNextUpdate.add(F(" sec"));
-      
+
       if (initializing) {
         infoPercentage.add(FPSTR(_init));
         infoVoltage.add(FPSTR(_init));
@@ -376,7 +405,7 @@ class UsermodBattery : public Usermod
       setLowPowerIndicatorThreshold(lp[FPSTR(_threshold)] | lowPowerIndicatorThreshold);
       lowPowerIndicatorReactivationThreshold = lowPowerIndicatorThreshold+10;
       setLowPowerIndicatorDuration(lp[FPSTR(_duration)] | lowPowerIndicatorDuration);
-      
+
       if(initDone) 
         bat->update(cfg);
     }
@@ -391,9 +420,9 @@ class UsermodBattery : public Usermod
 
       if (battery.isNull())
         battery = root.createNestedObject(FPSTR(_name));
-      
+
       addBatteryToJsonObject(battery, true);
-      
+
       DEBUG_PRINTLN(F("Battery state exposed in JSON API."));
     }
 
@@ -411,7 +440,7 @@ class UsermodBattery : public Usermod
 
       if (!battery.isNull()) {
         getUsermodConfigFromJsonObject(battery);
-      
+
         DEBUG_PRINTLN(F("Battery state read from JSON API."));
       }
     }
@@ -456,7 +485,7 @@ class UsermodBattery : public Usermod
     void addToConfig(JsonObject& root)
     {
       JsonObject battery = root.createNestedObject(FPSTR(_name));
-      
+
       if (battery.isNull()) {
         battery = root.createNestedObject(FPSTR(_name));
       }
@@ -464,11 +493,14 @@ class UsermodBattery : public Usermod
       #ifdef ARDUINO_ARCH_ESP32
         battery[F("pin")] = batteryPin;
       #endif
-      
+
       addBatteryToJsonObject(battery, false);
 
       // read voltage in case calibration or voltage multiplier changed to see immediate effect
-      bat->setVoltage(readVoltage());
+      float configVoltage = readVoltage();
+      bat->setVoltage(configVoltage);
+      bat->calculateAndSetLevel(configVoltage);
+      refreshExportedBatteryData();
 
       DEBUG_PRINTLN(F("Battery config saved."));
     }
@@ -488,7 +520,7 @@ class UsermodBattery : public Usermod
       oappend(F("addInfo('Battery:auto-off:threshold',1,'%');"));   // 45 Bytes
       oappend(F("addInfo('Battery:indicator:threshold',1,'%');"));  // 46 Bytes
       oappend(F("addInfo('Battery:indicator:duration',1,'s');"));   // 45 Bytes
-      
+
       // this option list would exeed the oappend() buffer
       // a list of all presets to select one from
       // oappend(F("bd=addDropdown('Battery:low-power-indicator', 'preset');"));
@@ -523,7 +555,7 @@ class UsermodBattery : public Usermod
       #ifdef ARDUINO_ARCH_ESP32
         int8_t newBatteryPin = batteryPin;
       #endif
-      
+
       JsonObject battery = root[FPSTR(_name)];
       if (battery.isNull()) 
       {
@@ -652,7 +684,7 @@ class UsermodBattery : public Usermod
     {
       return bat->getMaxVoltage();
     }
-    
+
     /**
      * Set highest battery voltage
      * can't be below minBatteryVoltage
@@ -733,7 +765,7 @@ class UsermodBattery : public Usermod
     {
       autoOffEnabled = enabled;
     }
-    
+
     /**
      * Get auto-off threshold in percent (0-100)
      */
@@ -843,6 +875,13 @@ class UsermodBattery : public Usermod
     bool getHomeAssistantDiscovery()
     {
       return HomeAssistantDiscovery;
+    }
+
+    bool getUMData(um_data_t **data) override
+    {
+      if (!data || !this->um_data) return false; // no pointer provided or no data available
+      *data = this->um_data;
+      return true;
     }
 };
 
