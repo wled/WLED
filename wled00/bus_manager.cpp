@@ -1388,7 +1388,6 @@ int BusManager::add(const BusConfig &bc, bool placeholder) {
     errorFlag = ERR_NORAM;
     busses.back() = make_unique<BusPlaceholder>(bc);
   }
-  _lastBusCache = busses[0].get(); // set cache to first bus, can be a placeholder but pointer must be valid (saves us pointer checking in hot path)
   return busses.size();
 }
 
@@ -1435,7 +1434,6 @@ void BusManager::removeAll() {
   DEBUGBUS_PRINTLN(F("Removing all."));
   //prevents crashes due to deleting busses while in use.
   while (!canAllShow()) yield();
-  _lastBusCache = nullptr; // Reset cache before destroying buses to avoid dangling pointer UB
   busses.clear();
   // Reset channel tracking for fresh allocation
   PixelBusAllocator::resetChannelTracking();
@@ -1533,14 +1531,9 @@ void BusManager::show() {
 }
 
 void IRAM_ATTR BusManager::setPixelColor(unsigned pix, uint32_t c) {
-  if (_lastBusCache->containsPixel(pix)) {
-    _lastBusCache->setPixelColor(pix - _lastBusCache->getStart(), c);
-    return;
-  }
   for (auto &bus : busses) {
     if (bus->containsPixel(pix)) {
       bus->setPixelColor(pix - bus->getStart(), c);
-      _lastBusCache = bus.get();
       return;
     }
   }
@@ -1679,5 +1672,4 @@ std::vector<std::unique_ptr<Bus>> BusManager::busses;
 uint16_t BusManager::_gMilliAmpsUsed = 0;
 uint16_t BusManager::_gMilliAmpsMax = ABL_MILLIAMPS_DEFAULT;
 bool BusManager::_useABL = false;
-Bus* BusManager::_lastBusCache = nullptr; // cache for setPixelColor() fast path
 
