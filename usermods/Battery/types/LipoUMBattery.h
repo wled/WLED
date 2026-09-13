@@ -6,11 +6,15 @@
 
 /**
  *  LiPo Battery
- * 
+ *  Uses a lookup table based on typical 1S LiPo discharge curve data.
+ *  see https://blog.ampow.com/lipo-voltage-chart/
  */
 class LipoUMBattery : public UMBattery
 {
     private:
+        // Typical 1S LiPo discharge curve
+        static const LutEntry dischargeLut[] PROGMEM;
+        static const uint8_t dischargeLutSize;
 
     public:
         LipoUMBattery() : UMBattery()
@@ -19,36 +23,40 @@ class LipoUMBattery : public UMBattery
             this->setMaxVoltage(USERMOD_BATTERY_LIPO_MAX_VOLTAGE);
         }
 
-        /**
-         * LiPo batteries have a differnt discharge curve, see 
-         * https://blog.ampow.com/lipo-voltage-chart/
-         */
-        float mapVoltage(float v, float min, float max) override 
+        float mapVoltage(float v) override
         {
-            float lvl = 0.0f;
-            lvl = this->linearMapping(v, min, max); // basic mapping
-
-            if (lvl < 40.0f) 
-                lvl = this->linearMapping(lvl, 0, 40, 0, 12);       // last 45% -> drops very quickly
-            else {
-            if (lvl < 90.0f)
-                lvl = this->linearMapping(lvl, 40, 90, 12, 95);     // 90% ... 40% -> almost linear drop
-            else // level >  90%
-                lvl = this->linearMapping(lvl, 90, 105, 95, 100);   // highest 15% -> drop slowly
-            }
-
-            return lvl;
+            return this->lutInterpolate(v, dischargeLut, dischargeLutSize);
         };
 
-        void calculateAndSetLevel(float voltage) override
-        {
-            this->setLevel(this->mapVoltage(voltage, this->getMinVoltage(), this->getMaxVoltage()));
-        };
-
-        virtual void setMaxVoltage(float voltage) override
+        void setMaxVoltage(float voltage) override
         {
             this->maxVoltage = max(getMinVoltage()+0.7f, voltage);
         }
 };
+
+const UMBattery::LutEntry LipoUMBattery::dischargeLut[] PROGMEM = {
+    {4.20f, 100.0f},
+    {4.15f,  95.0f},
+    {4.11f,  90.0f},
+    {4.08f,  85.0f},
+    {4.02f,  80.0f},
+    {3.98f,  75.0f},
+    {3.95f,  70.0f},
+    {3.91f,  65.0f},
+    {3.87f,  60.0f},
+    {3.85f,  55.0f},
+    {3.84f,  50.0f},
+    {3.82f,  45.0f},
+    {3.80f,  40.0f},
+    {3.79f,  35.0f},
+    {3.77f,  30.0f},
+    {3.75f,  25.0f},
+    {3.73f,  20.0f},
+    {3.71f,  15.0f},
+    {3.69f,  10.0f},
+    {3.61f,   5.0f},
+    {3.20f,   0.0f},
+};
+const uint8_t LipoUMBattery::dischargeLutSize = sizeof(LipoUMBattery::dischargeLut) / sizeof(LipoUMBattery::dischargeLut[0]);
 
 #endif
