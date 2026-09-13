@@ -1,0 +1,4 @@
+{
+  "name": "UM_SensorDummy",
+  "build": { "libArchive": false }
+}
