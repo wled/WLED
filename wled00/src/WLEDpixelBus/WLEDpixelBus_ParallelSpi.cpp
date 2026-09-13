@@ -64,14 +64,8 @@ static constexpr uint16_t SPI_ONE_BIT  = 0x0111;  // output: [1,1,1,0] = 75% hig
 // 300us * 2.6MHz = 780 bits. We use 1024 bits (~400us) to be safe for all LED types. TODO: is this really safe for all led types?
 static constexpr uint32_t SPI_RESET_BITS = 1024;
 
-// Maximum bits per SPI user transfer (18-bit length register on C3 SPI_MS_DLEN_REG)
-static constexpr uint32_t SPI_MAX_BITS = 262143; // note: 4x parallel, 4 steps -> 16bits per source bit, 2kbyte or 680 RGB LEDs max (tested, confirmed)
-// Chained segment size in whole source bytes (128 SPI bits each), just under SPI_MAX_BITS.
-// Longer frames are sent as multiple back-to-back transfers, chained in the trans_done ISR.
-// The DMA stream is not affected by segment boundaries - only the SPI bit length is.
-static constexpr uint32_t SPI_SEG_BITS = 2047 * 128; // 262016 bits = 2047 source bytes
-// Maximum chained segments per frame (2 segments ~= 1364 RGB LEDs)
-#define WLEDPB_SPI_MAX_SEGMENTS 2
+// Maximum bits per SPI user transfer: 18-bit length register SPI_MS_DATA_BITLEN=262143, we need 16bits per source bit (4x parallel, 4 steps) or 128bits per byte
+static constexpr uint32_t SPI_MAX_BITS = (2047 * 128); // 262016 is the max bits that fit in a single SPI transfer (full encoded bytes), multiple transfers can be chained
 
 SpiBusContext* SpiBusContext::_instance = nullptr;
 uint8_t SpiBusContext::_refCount = 0;
@@ -132,8 +126,10 @@ bool SpiBusContext::isIdle() const {
   }
 
   if (_hw->cmd.usr == 0) {
-    for (int i = 0; i < 200; i++) {
-      if (_hw->cmd.usr != 0) return false;       // chained segment restarted, all good
+    // give the SPI hardware up to 30us to update its status: hardware clears cmd.usr, ISR "immediately" sets it again (if the gap is longer, LEDs may have latched)
+    const uint32_t waitStart = micros();
+    while ((uint32_t)(micros() - waitStart) < 30) {
+      if (_hw->cmd.usr != 0) return false;       // chained segment restarted, SPI is still running
       if (_state == SpiState::Idle) return true; // trans_done ISR completed normally
     }
     // SPI genuinely stopped without completing: trans_done ISR was lost.
@@ -232,10 +228,8 @@ void IRAM_ATTR SpiBusContext::spiISR(void* arg) {
   ctx->_hw->dma_int_clr.val = status; // Clear all flags immediately
   if (status & SPI_TRANS_DONE_INT_ST) {
     if (ctx->_bitsLeft > 0) {
-      // Chain the next segment. The circular DMA never stopped, so the TX FIFO already
-      // holds the next bits: only re-arm the bit length and restart. Do NOT touch the
-      // FIFO or DMA here - that would break bit-stream continuity and stall the restart.
-      uint32_t bits = (ctx->_bitsLeft > (int32_t)SPI_SEG_BITS) ? SPI_SEG_BITS : (uint32_t)ctx->_bitsLeft;
+      // Chain the next segment: the circular DMA never stopped, re-arm the SPI transfer
+      uint32_t bits = (ctx->_bitsLeft > (int32_t)SPI_MAX_BITS) ? SPI_MAX_BITS : (uint32_t)ctx->_bitsLeft;
       ctx->_bitsLeft -= (int32_t)bits;
       spi_ll_set_mosi_bitlen(ctx->_hw, bits);
       spi_ll_apply_config(ctx->_hw); // fast handshake, sub-microsecond
@@ -516,17 +510,13 @@ bool SpiBusContext::startTransmit() {
     }
   }
   _numBytes = newBytes;
-// clamp to chain capacity (tail pixels simply keep their previous values)
-  const size_t maxBytes = 2047 * WLEDPB_SPI_MAX_SEGMENTS;
-  if (_numBytes > maxBytes) _numBytes = maxBytes;
 
-  // Total bits: 16 DMA bytes per source byte * 8 bits/byte = 128 bits per source byte
-  // Plus reset: extra zero bits at the end (in the last segment).
-  // Frames longer than one transfer are chained in the trans_done ISR.
+  // Total bits: 16 DMA bytes per source byte * 8 bits/byte = 128 bits per source byte plus reset: extra zero bits at the end (in the last segment).
+  // Note: frames longer than one transfer of SPI_MAX_BITS are chained in the trans_done ISR into multiple SPI user transfers
   uint32_t dataBits = _numBytes * 16 * 8;
   uint32_t totalBits = dataBits + SPI_RESET_BITS;
 
-  uint32_t firstBits = (totalBits > SPI_SEG_BITS) ? SPI_SEG_BITS : totalBits;
+  uint32_t firstBits = (totalBits > SPI_MAX_BITS) ? SPI_MAX_BITS : totalBits;
   _bitsLeft = (int32_t)(totalBits - firstBits); // remaining bits are chained by the ISR
 
   // Wait for SPI to be idle
