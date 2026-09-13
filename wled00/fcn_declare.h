@@ -357,6 +357,10 @@ typedef struct UM_Exchange_Data {
 } um_data_t;
 const unsigned int um_data_size = sizeof(um_data_t);  // 12 bytes
 
+// usermods can inject JS into the main web UI via addUIInjectCode() (served at /um.js);
+// external usermods can test this macro to stay compatible with older WLED bases
+#define WLED_ENABLE_UM_UI_INJECT
+
 class Usermod {
   protected:
     um_data_t *um_data; // um_data should be allocated using new in (derived) Usermod's setup() or constructor
@@ -381,6 +385,7 @@ class Usermod {
     virtual bool onUdpPacket(uint8_t* payload, size_t len) { return false; } //fired upon UDP packet received
     virtual void onUpdateBegin(bool) {}                                      // fired prior to and after unsuccessful firmware update
     virtual void onStateChange(uint8_t mode) {}                              // fired upon WLED state change
+    virtual void addUIInjectCode(Print &dest) {}                             // print JS code injecting UI elements into the main web UI (served at /um.js, run after every state render)
     virtual uint16_t getId() {return USERMOD_ID_UNSPECIFIED;}
 
   // API shims
@@ -421,6 +426,7 @@ namespace UsermodManager {
   bool onUdpPacket(uint8_t* payload, size_t len);
   void onUpdateBegin(bool);
   void onStateChange(uint8_t);
+  void addUIInjectCode(Print &dest);
   Usermod* lookup(uint16_t mod_id);
   size_t getModCount();
 };
