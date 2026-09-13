@@ -1,0 +1,5 @@
+{
+  "name": "pulse_presets",
+  "build": { "libArchive": false },
+  "dependencies": {}
+}
