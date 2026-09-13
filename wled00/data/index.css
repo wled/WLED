@@ -971,6 +971,7 @@ div.sel-p:after {
 	border-left: 8px solid transparent;
 	border-right: 8px solid transparent;
 	border-top: 8px solid var(--c-f);
+	pointer-events: none;
 }
 select.sel-ple {
 	text-align: center;
