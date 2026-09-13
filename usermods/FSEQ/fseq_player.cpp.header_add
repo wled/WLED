@@ -1,0 +1,30 @@
+#include "fseq_player.h"
+#include "usermod_fseq.h"
+#include "wled.h"
+#include <Arduino.h>
+
+#ifdef WLED_USE_SD_SPI
+#include <SD.h>
+#include <SPI.h>
+#endif
+
+// Static member definitions moved from header to avoid multiple definition errors
+const char UsermodFseq::_name[] PROGMEM = "usermod FSEQ sd card";
+
+#ifdef WLED_USE_SD_SPI
+int8_t UsermodFseq::configPinSourceSelect = 5;
+int8_t UsermodFseq::configPinSourceClock  = 18;
+int8_t UsermodFseq::configPinPoci         = 19;
+int8_t UsermodFseq::configPinPico         = 23;
+#endif
+
+File FSEQPlayer::recordingFile;
+uint8_t FSEQPlayer::colorChannels = 3;
+int32_t FSEQPlayer::recordingRepeats = RECORDING_REPEAT_DEFAULT;
+uint32_t FSEQPlayer::now = 0;
+uint32_t FSEQPlayer::next_time = 0;
+uint16_t FSEQPlayer::playbackLedStart = 0;
+uint16_t FSEQPlayer::playbackLedStop = uint16_t(-1);
+uint32_t FSEQPlayer::frame = 0;
+float FSEQPlayer::secondsElapsed = 0;
+// ... (rest of file content logic is not here, I should append or use replace)
