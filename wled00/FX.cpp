@@ -4643,6 +4643,9 @@ void mode_image(void) {
   #ifndef WLED_ENABLE_GIF
   FX_FALLBACK_STATIC;
   #else
+  #ifdef WLED_ENABLE_JPEG
+  if (SEGMENT.check1) { renderLiveCoverArtToSegment(SEGMENT); return; }
+  #endif
   renderImageToSegment(SEGMENT);
   #endif
   // if (status != 0 && status != 254 && status != 255) {
@@ -4650,7 +4653,7 @@ void mode_image(void) {
   //   Serial.println(status);
   // }
 }
-static const char _data_FX_MODE_IMAGE[] PROGMEM = "Image@!,Blur,;;;12;sx=128,ix=0";
+static const char _data_FX_MODE_IMAGE[] PROGMEM = "Image@!,Blur,,,,Live;;;12;sx=128,ix=0,o1=0";
 
 /*
   Blends random colors across palette
