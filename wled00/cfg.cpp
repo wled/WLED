@@ -633,6 +633,7 @@ bool deserializeConfig(JsonObject doc, bool fromFS) {
   CJSON(macroAlexaOn, interfaces["va"]["macros"][0]);
   CJSON(macroAlexaOff, interfaces["va"]["macros"][1]);
   CJSON(alexaNumPresets, interfaces["va"]["p"]);
+  CJSON(alexaExposeSegments, interfaces["va"]["seg"]);
 #endif
 
 #ifndef WLED_DISABLE_MQTT
@@ -1168,6 +1169,7 @@ void serializeConfig(JsonObject root) {
   if_va_macros.add(macroAlexaOff);
 
   if_va["p"] = alexaNumPresets;
+  if_va["seg"] = alexaExposeSegments;
 #endif
 
 #ifndef WLED_DISABLE_MQTT
