@@ -10,6 +10,11 @@ static void handleArtnetPollReply(IPAddress ipAddress);
 static void prepareArtnetPollReply(ArtPollReply *reply);
 static void sendArtnetPollReply(ArtPollReply *reply, IPAddress ipAddress, uint16_t portAddress);
 
+// Runtime state private to this file - previously WLED_GLOBAL, a leftover from
+// when all state lived in one big extern block regardless of who used it.
+static E131Priority highPriority(3);                              // E1.31 highest priority tracking, init = timeout in seconds
+static byte e131LastSequenceNumber[E131_MAX_UNIVERSE_COUNT];       // to detect packet loss
+static uint16_t pollReplyCount = 0;                                // count number of replies for ArtPoll node report
 
 /*
  * E1.31 handler

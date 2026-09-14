@@ -78,6 +78,13 @@ main                # Main development trunk (daily/nightly) 17.0.0-dev. Target 
 
 ## C++ Code Style (wled00/, usermods/)
 
+### General
+
+- Follow the existing style in the file you are editing
+- Avoid unexplained "magic numbers". Prefer named constants (`constexpr`) or C-style `#define` constants for repeated numbers that have the same meaning
+- If possible, use `static` for local (C-style) variables and functions (keeps the global namespace clean)
+- When moving global items to another scope, do not leave comments such as `// lastMqttReconnectAttempt is now private to wled.cpp - see there`. These comments create technical debt for maintenance and will inevitably become out of date
+
 ### Formatting
 - **2-space indentation** (no tabs in C++ files)
 - K&R brace style preferred (opening brace on same line)
@@ -103,6 +110,14 @@ main                # Main development trunk (daily/nightly) 17.0.0-dev. Target 
 - Project headers first, then platform/Arduino, then third-party
 - Platform-conditional includes wrapped in `#ifdef ARDUINO_ARCH_ESP32` / `#ifdef ESP8266`
 
+### Debug Output
+
+- Use `DEBUG_PRINTF()` / `DEBUG_PRINTLN()` / `DEBUG_PRINT()` for developer diagnostics and debug output (compiled out unless -D WLED_DEBUG)
+- wled00/wled.h defines these macros. They compile to no output when debug output is disabled, keeping normal serial interfaces clean.
+- Do not use direct `Serial.print()`, `Serial.println()`, `Serial.printf()`, or `Serial.write()` calls unless there is a technical justification for not using DEBUG_... macros.
+
+See docs/cpp.instructions.md section Error Handling for more information.
+
 ### Types and Const
 - Prefer `const &` for read-only function parameters
 - Mark getter/query methods `const`; use `static` for methods not accessing instance state
@@ -114,7 +129,7 @@ main                # Main development trunk (daily/nightly) 17.0.0-dev. Target 
 - **No C++ exceptions** — some builds disable them
 - Use return codes (`false`, `-1`) and global flags (`errorFlag = ERR_LOW_MEM`)
 - Use early returns as guard clauses: `if (!enabled || (strip.isUpdating() && (millis() - last_time < MAX_USERMOD_DELAY))) return;`
-- Debug output: `DEBUG_PRINTF()` / `DEBUG_PRINTLN()` (compiled out unless `-D WLED_DEBUG`)
+- Debug output: `DEBUG_PRINTF()` / `DEBUG_PRINTLN()` (see previous section)
 
 ### Strings and Memory
 - Use `F("string")` for string constants (saves RAM on ESP8266)
@@ -173,9 +188,17 @@ Background Info:
 - After editing, run `npm run build` to regenerate headers
 - **Never edit** `wled00/html_*.h` or `wled00/js_*.h` directly
 
-## Usermod Pattern
+## Usermods
+ 
+### Source Code Location
 
-Usermods live in `usermods/<name>/` with a `.cpp`, optional `.h`, `library.json`, and `readme.md`.
+* **In-Tree Usermods** live in `usermods/<name>/` with a `.cpp`, optional `.h`, `library.json`, and `readme.md`.  An example is in `usermods/EXAMPLE`
+* **Out-Of-Tree Usermods** live in a separate public repository. They use the same pattern as in-tree usermods.
+
+* [Official out-of-tree usermods list](https://kno.wled.ge/advanced/community-usermods/#index)
+* [Writing an out-of-tree usermod](https://kno.wled.ge/advanced/custom-features/#writing-a-usermod)
+
+### Usermod Pattern
 
 ```cpp
 class MyUsermod : public Usermod {
@@ -203,12 +226,22 @@ refer to detailed examples in `usermods/EXAMPLE/`, `usermods/user_fx/` and [in t
 - Store repeated strings as `static const char[] PROGMEM`
 - Add usermod IDs to `wled00/const.h` **only when a unique ID is required** (see below)
 
+### Pin ownership via `pinManager`
+- Before performing any operation on I/O pins, the usermod must allocate its pins from the `pinManager`.
+- I/O pins are allocated via `PinManager::allocatePin(byte gpio, bool output, PinOwner tag)` (or `PinManager::allocateMultiplePins()`), and returned via `PinManager::deallocatePin()` when re-configuring pin numbers.
+- `PinManager::allocatePin()` will return an error code in case that a pin is already assigned to another WLED function.
+- You can use `-1` = `255` for unconfigured / unassigned pin functions.
+- Check for valid pin numbers with `PinManager::isPinOk(byte gpio, bool output)`; this function knows which GPI(O) pins are possible on your specific MCU.
+- PIN numbers for I2C and SPI busses are configured globally in the generic part of the usermod settings page.
+- Usually, a usermod will not start the I2C or SPI units explicitly, since they are already initialised when WLED starts.
+- Use this pattern to check for an incomplete I2C setup: `if (i2c_scl<0 || i2c_sda<0) {enabled = false; return;}`.
+
 ### Usermod IDs
 
 A unique ID (registered in `wled00/const.h` and overriding `getId()`) is **only required** when a usermod needs one or more of the following:
 
 1. **Inter-usermod communication** — another usermod or an FX effect calls `UsermodManager::lookup(mod_id)` or `UsermodManager::getUMData(..., mod_id)` to find or request data from this specific usermod.
-2. **Pin ownership via `pinManager`** — the usermod allocates GPIO pins through `pinManager`. Pin ownership is tracked by `PinOwner` enum values that map directly to `USERMOD_ID_*` constants (see `wled00/pin_manager.h`). This prevents pin-conflict bugs.
+2. **Pin ownership via `PinManager`** — the usermod allocates GPIO pins through `pinManager`. Pin ownership is tracked by `PinOwner` enum values that map directly to `USERMOD_ID_*` constants (see `wled00/pin_manager.h`). This prevents pin-conflict bugs.
 3. **Identification in JSON info** — `UsermodManager::addToJsonInfo` emits each mod's ID into the `"um"` array; a unique ID makes the mod identifiable in that output.
 
 If none of the above apply, the usermod may omit `getId()` (or return the default `USERMOD_ID_UNSPECIFIED`) and does **not** need an entry in `const.h`.
@@ -220,6 +253,11 @@ If none of the above apply, the usermod may omit `getId()` (or return the defaul
     * up to 2000 times/sec with few LEDs and little background activity,
     * between 20 and 300 times/second during high workload from effects and other usermods,
     * (worst case) down to 1-3 times/sec during FS activity or when serving lots of network API requests.
+
+### See Also
+* https://kno.wled.ge/advanced/custom-features/#usermods
+* https://kno.wled.ge/advanced/community-usermods/#index
+* generic instructions for Debug Output, as per previous section in this file.
 
 ## CI/CD
 
@@ -234,16 +272,22 @@ No automated linting is configured. Match existing code style in files you edit.
 ## General Rules
 
 - Important: Repository language is **English**. This applies to source code (including comments), commit messages and any kind of documentation for developer or users.
+- Provide references when making analyses or recommendations. Support factual claims with verifiable citations, references or concrete evidence; **never fabricate citations**.
 - The `docs/` folder is for developer/contributor information (coding conventions, architecture, etc.). User documentation is maintained in the [wled/WLED-Docs](https://github.com/wled/WLED-Docs) repository.
 - Never edit or commit auto-generated `wled00/html_*.h` / `wled00/js_*.h`.
-- When updating an existing PR, retain the original description. Only modify it to ensure technical accuracy. Add change logs after the existing description.
-- No force-push on open PRs!
-- Important: **Changes to `platformio.ini` require maintainer approval**!
-- PRs should respect `.gitignore` and not upload files like  `platformio_override.ini`. PR authors may add buildenv examples for custom boards into `platformio_override.ini.sample`.
 - Remove dead/unused code — justify or delete it.
 - Verify feature-flag spelling exactly (misspellings are silently ignored by preprocessor).
-- Provide references when making analyses or recommendations. Support factual claims with verifiable citations, references or concrete evidence; **never fabricate citations**.
-- **Highlight user-visible breaking changes and ripple effects** during reviews. Ask for confirmation that these were introduced intentionally.
+- Important: **Changes to `platformio.ini` require maintainer approval**!
+- PRs should respect `.gitignore` and not upload files like  `platformio_override.ini`. PR authors may add buildenv examples for custom boards into `platformio_override.ini.sample`.
+- **Highlight user-visible breaking changes and ripple effects** during reviews.
+- When updating an existing PR, retain the original description. Only modify it to ensure technical accuracy. Add change logs after the existing description.
+
+### Pull Request Expectations
+- No force-push on open PRs!
+- Every pull request needs a clear description of what changed and why. If the change affects user-visible behavior, describe the expected impact. Link to related issues where applicable.
+- Best practice: Consider adding screenshots to showcase new features.
+- Do not prefix the PR title with `fix:`, `feat:` or other keywords meant to define the type of PR. Use combinations of labels (`bug`, `enhancement`, `effect`, `usermod`, `slop`, etc.) instead.
+- Important: **Fully or partially AI coded PRs MUST be declared clearly** in the description - in addition to comments markers in the source code (see Comments section).
 
 ### Security Hardening
 

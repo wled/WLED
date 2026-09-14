@@ -1,0 +1,8 @@
+---
+# This directory holds vendored third-party code (src/dependencies/*: json,
+# fastled_slim, espalexa, e131, dmx, ws2812fx, etc.) and generated font data
+# (src/font/*), none of which follows WLED's own style. A child .clang-format
+# fully replaces the parent's config for everything below it (no merging), so
+# this disables formatting entirely rather than letting the root .clang-format
+# reach in and reformat upstream/generated code.
+DisableFormat: true

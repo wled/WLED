@@ -150,15 +150,17 @@ Your contribution will be in the next WLED release - thank you! 🎉
 ## Coding Guidelines
 
 ### Source Code from an AI agent or bot
-> [!IMPORTANT]
+> [!TIP]
 > It's OK if you took help from an AI for writing your source code. 
->
-> AI tools can be very helpful, but as the contributor, **you're responsible for the code**.
+> AI tools can be very helpful, but as the contributor, **you're responsible for the code**. We expect that you've reviewed AI code thoroughly before opening a PR.
 
 * Make sure you really understand the AI-generated code, don't just accept it because it "seems to work".
 * Don't let the AI change existing code without double-checking by you as the contributor. Often, the result will not be complete. For example, previous source code comments may be lost.
 * Remember that AI is still "Often-Wrong" ;-)
 * If you don't feel confident using English, you can use AI for translating code comments and descriptions into English. AI bots are very good at understanding language. However, always check if the results are correct. The translation might still have wrong technical terms, or errors in some details.
+
+> [!IMPORTANT]
+> Fully or partially AI coded PRs MUST be declared clearly in the PR description, in addition to comment markers in the source code. This helps reviewers to set expectations and focus on typical AI mistakes. It also helps contributors to avoid frustration. 
 
 #### Best Practice with AI
 
