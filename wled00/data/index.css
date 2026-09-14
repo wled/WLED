@@ -962,14 +962,14 @@ div.sel-p {
 	position: relative;
 }
 div.sel-p:after {
-    content: "";
-    position: absolute;
-    top: 20px; right: 16px;
-    width: 7px; height: 7px;
-    border-left: 2px solid var(--c-f);
-    border-bottom: 2px solid var(--c-f);
-    transform: rotate(-45deg);
-    pointer-events: none;
+	content: "";
+	position: absolute;
+	top: 20px; right: 16px;
+	width: 7px; height: 7px;
+	border-left: 2px solid var(--c-f);
+	border-bottom: 2px solid var(--c-f);
+	transform: rotate(-45deg);
+	pointer-events: none;
 }
 select.sel-ple {
 	text-align: center;
