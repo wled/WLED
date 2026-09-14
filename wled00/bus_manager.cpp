@@ -230,8 +230,8 @@ void BusDigital::setBrightness(uint8_t b) {
   _bri = b;
   if (!_busPtr) return;
   if (_type == TYPE_TM1814 || _type == TYPE_TM1815) {
-    // TM1814/TM1815: coarse brightness via hardware drive current (64 steps),
-    // fine residual applied via color_fade() in setPixelColor().
+    // coarse brightness via per-strip hardware drive current (64 steps), 0 is 6.5mA, 63 is 38mA
+    // residual applied via color_fade() in setPixelColor().
     uint8_t currentStep, residualBri;
     WLEDpixelBus::mapBrightnessToCurrentStep(b, 64, 44, currentStep, residualBri);
     uint8_t prefix[8];
@@ -240,13 +240,12 @@ void BusDigital::setBrightness(uint8_t b) {
     _busPtr->updatePrefix(prefix, 8);
     _busPtr->setBusBri(residualBri);      // used by color_fade() in setPixelColor()
   } else if (_type == TYPE_APA102) {
-    // APA102: two-stage brightness. Hardware 5-bit brightness byte (0..31) for coarse
-    // control, color_fade() residual for fine interpolation between steps.
-    // minBri=8 reflects step-0 = 1/31 of max current (~3.2% of full brightness).
+    // coarse brightness via per-pixel hardware drive current (32 steps), 0 is 0mA, 31 is 24mA
+    // residual applied via color_fade() in setPixelColor().
     uint8_t hwStep, residualBri;
-    WLEDpixelBus::mapBrightnessToCurrentStep(b, 32, 8, hwStep, residualBri);
-    _busPtr->setApa102HwBri(hwStep);
-    _busPtr->setBusBri(residualBri);      // used by color_fade() in setPixelColor()
+    WLEDpixelBus::mapBrightnessToCurrentStep(b, 31, 8, hwStep, residualBri);
+    _busPtr->setApa102HwBri(hwStep + 1); // 0 is off so use 1..31
+    _busPtr->setBusBri(residualBri);     // used by color_fade() in setPixelColor()
   } else if (is16bit()) {
     // 16-bit LED types (SM16825, UCS8903, UCS8904): color_fade() is a no-op (_busBri=255);
     // encoder applies full 16-bit precision via channel*_encBri.
