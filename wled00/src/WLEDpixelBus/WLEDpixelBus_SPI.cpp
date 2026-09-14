@@ -174,6 +174,7 @@ void SpiBus::sendEndFrame(uint16_t numPixels) {
   // APA102: ceil(N/16) zero bytes.  TODO: NPB seems to send zero bytes, datasheet states four 0xFF bytes is the end frame
   //   Each APA102 delays the clock by one half-cycle; N LEDs need N/2 extra clock pulses to ensure the last pixel latches. One byte = 8 clocks,
   //   so ceil(N/16) bytes provide the required ceil(N/2) pulses. The APA102 datasheet's "4 zero bytes" claim is only valid for N ≤ 64.
+  // Note: current code works on SK9822 which officially uses zero bytes for the end frame
   // LPD6803: ceil(N/8) zero bytes (one clock per pixel required).
   // LPD8806: ceil(N/32) 0xFF bytes (high level = latch for MSB-set pixel data).
   // P9813: fixed 4 zero bytes.
