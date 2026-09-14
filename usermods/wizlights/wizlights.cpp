@@ -1,5 +1,6 @@
 #include "wled.h"
 #include <WiFiUdp.h>
+#include "colors.h"
 
 // Maximum number of lights supported
 #define MAX_WIZ_LIGHTS 15
@@ -37,7 +38,7 @@ class WizLightsUsermod : public Usermod {
     // RGB or C/W white
     // TODO:
     //   Better utilize WLED existing white mixing logic
-    void wizSendColor(IPAddress ip, uint32_t color) {
+    void wizSendColor(IPAddress ip, uint32_t color, bool gammaCorrect) {
       UDP.beginPacket(ip, 38899);
 
       // If no LED color, turn light off. Note wiz light setting for "Off fade-out" will be applied by the light itself.
@@ -61,12 +62,15 @@ class WizLightsUsermod : public Usermod {
 
       // Send color as RGB  
       } else {
+        uint32_t color2 = color;
+        if (gammaCorrect) color2 = gamma32(color2);
+        
         UDP.print("{\"method\":\"setPilot\",\"params\":{\"r\":");
-        UDP.print(R(color));
+        UDP.print(R(color2));
         UDP.print(",\"g\":");
-        UDP.print(G(color));
+        UDP.print(G(color2));
         UDP.print(",\"b\":");
-        UDP.print(B(color));
+        UDP.print(B(color2));
         UDP.print("}}");
       }
     
@@ -84,6 +88,9 @@ class WizLightsUsermod : public Usermod {
       
       // Make sure we are connected first
       if (!WLED_CONNECTED) return;
+
+      // use color gamma correction if enabled, not in realtime mode with gamma disabled or currently overriding RT mode
+      bool useGammaCorrection = gammaCorrectCol && !(realtimeMode && arlsDisableGammaCorrection && !realtimeOverride);
       
       unsigned long ellapsedTime = millis() - lastTime;
       if (ellapsedTime > updateInterval) {
@@ -92,7 +99,7 @@ class WizLightsUsermod : public Usermod {
           if (!lightsValid[i]) { continue; }
           uint32_t newColor = strip.getPixelColor(i);
           if (forceUpdate || (newColor != colorsSent[i]) || (ellapsedTime > forceUpdateMinutes*60000)){
-            wizSendColor(lightsIP[i], newColor);
+            wizSendColor(lightsIP[i], newColor, useGammaCorrection);
             colorsSent[i] = newColor;
             update = true;
             delay(sendDelay);
