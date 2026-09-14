@@ -47,7 +47,7 @@ bool SpiBus::begin() {
     // On ESP32 SPI.begin(sck, miso, mosi, ss) must be called with the actual pins so the IO matrix routes the SPI peripheral to the right GPIOs.
     // On ESP8266 the hardware SPI uses fixed pins (MOSI=GPIO13, SCK=GPIO14) so no pin args are needed.
 #if defined(ARDUINO_ARCH_ESP32)
-    SPI.begin(_clockPin, 127, _dataPin, -1); // note: in arduino core, -1 means "default" not "none", passing 127 as the MISO pin is a workaround to prevent SPI.begin() assign the default pin, see #5670
+    SPI.begin(_clockPin, -1, _dataPin, -1); // note: the Arduino core interprets -1 as "no pin" (in older versions it meant "default pin" this bug was fixed)
 #else
     SPI.begin();
 #endif
