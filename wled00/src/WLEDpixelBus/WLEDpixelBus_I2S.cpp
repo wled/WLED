@@ -249,7 +249,8 @@ void IRAM_ATTR  I2sBusContext::hwStopTransfer() {
 void I2sBusContext::hwRoutePin(int8_t pin, int8_t idx, bool inverted) {
   gpio_set_direction((gpio_num_t)pin, GPIO_MODE_OUTPUT);
   esp_rom_gpio_connect_out_signal(pin, LCD_DATA_OUT0_IDX + idx, inverted, false);
-  gpio_hal_iomux_func_sel(GPIO_PIN_MUX_REG[pin], PIN_FUNC_GPIO);
+  gpio_hal_context_t gpio_hal = { .dev = GPIO_HAL_GET_HW(GPIO_PORT_0) };
+  gpio_hal_func_sel(&gpio_hal, GPIO_PIN_MUX_REG[pin], PIN_FUNC_GPIO);
   gpio_set_drive_capability((gpio_num_t)pin, GPIO_DRIVE_CAP_3);
 }
 
