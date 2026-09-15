@@ -89,13 +89,7 @@ If a future target names it differently, adjust the PARLIO_HW macro below.
 #include "soc/soc_caps.h"
 #endif
 
-#if defined(SOC_PARLIO_SUPPORTED)
-  #if ESP_IDF_VERSION >= ESP_IDF_VERSION_VAL(5, 3, 0)
-    #define WLEDPB_PARLIO_SUPPORT 1
-  #endif
-#endif
-
-#ifdef WLEDPB_PARLIO_SUPPORT
+#ifdef SOC_PARLIO_SUPPORTED
 
 #include "driver/parlio_tx.h"
 #include "driver/gpio.h"
@@ -117,9 +111,7 @@ If a future target names it differently, adjust the PARLIO_HW macro below.
   #include "esp_private/gdma.h"  // gdma_start/stop/append, gdma_register_tx_event_callbacks
 
 // Mirror of the beginning of the IDF driver's private struct parlio_tx_unit_t (parlio_tx.c, parlio_priv.h since v5.5)
-// up to the dma_chan field which we need to reconfigure the DMA. In V6 it changed again but not before
-// dma_chan, so the mirror is still valid.
-#if ESP_IDF_VERSION >= ESP_IDF_VERSION_VAL(5, 5, 0)
+// up to the dma_chan field which we need to reconfigure the DMA. In V6 it changed again but not before dma_chan, so the mirror is still valid.
 typedef struct {
   int unit_id;
   int dir;
@@ -133,17 +125,6 @@ typedef struct {
   void* pm_lock;
   gdma_channel_handle_t dma_chan;
 } WledpbParlioTxUnitHead;
-#else // IDF V5.3, 5.4
-typedef struct {
-  int unit_id;                  // parlio_unit_t.unit_id
-  int dir;                      // parlio_unit_t.dir (parlio_dir_t)
-  void* group;                  // parlio_unit_t.group
-  size_t data_width;
-  void* intr;                   // intr_handle_t
-  void* pm_lock;                // esp_pm_lock_handle_t
-  gdma_channel_handle_t dma_chan;
-} WledpbParlioTxUnitHead;
-#endif
 
 #define WLEDPB_PARLIO_TX_DMA_CHAN(unit) (((const WledpbParlioTxUnitHead*)(unit))->dma_chan)
 #endif
