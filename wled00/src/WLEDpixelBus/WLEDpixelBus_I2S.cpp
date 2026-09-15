@@ -324,10 +324,7 @@ bool I2sBusContext::hwInit(const LedTiming& timing) {
 #endif
   _i2sDev->fifo_conf.tx_data_num = 32;  // FIFO threshold
 
-  // PCM bypass
-  _i2sDev->conf1.val = 0;
-  _i2sDev->conf1.tx_stop_en = 0;
-  _i2sDev->conf1.tx_pcm_bypass = 1;
+  // note: PCM bypass is not needed for raw parallel output in LCD mode so we do not touch conf1
 
   // Channel config
   _i2sDev->conf_chan.val = 0;

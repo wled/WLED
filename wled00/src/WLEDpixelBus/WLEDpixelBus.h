@@ -19,7 +19,7 @@ written by Damian Schneider @dedehai 2026
 #include "driver/gpio.h"
 #include "esp_idf_version.h"
 
-// I2S support: targets where the LCD Intel 8080 bus is present
+// I2S support: targets where the LCD Intel 8080 bus is present (ESP32, ESP32-S2, ESP32-S3)
 #if SOC_LCD_I80_BUSES
   #define WLEDPB_I2S_SUPPORT
 #endif
