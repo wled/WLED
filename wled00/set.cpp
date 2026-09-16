@@ -329,6 +329,7 @@ void handleSettingsSet(AsyncWebServerRequest *request, byte subPage)
     }
     rlyMde = (bool)request->hasArg(F("RM"));
     rlyOpenDrain = (bool)request->hasArg(F("RO"));
+    relayDelay = request->arg(F("RLD")).toInt();
 
     disablePullUp = (bool)request->hasArg(F("IP"));
     touchThreshold = request->arg(F("TT")).toInt();
