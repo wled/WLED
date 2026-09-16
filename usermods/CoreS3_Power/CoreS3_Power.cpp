@@ -843,13 +843,28 @@ private:
         //
         // handleOverlayDraw() explicitly replaces the full OLD logical
         // range with BLACK immediately before WLED paints the frame to
-        // BusManager and calls show(). Require several such frames.
+        // BusManager and calls show(). Require several such frames, but keep
+        // the confirmation bounded so a failed render path cannot leave the
+        // generic bus re-init gate asserted forever.
         if (ledShrinkBlackOverlayFrames < LED_REINIT_REQUIRED_BLACK_FRAMES) {
           if (now - ledShrinkLastBlackTriggerAt >= LED_REINIT_BLACK_FRAME_TRIGGER_MS) {
             ledShrinkLastBlackTriggerAt = now;
             strip.trigger();
           }
-          return;
+
+          if (now - ledShrinkOffConfirmedAt < LED_REINIT_OFF_CONFIRM_TIMEOUT_MS) {
+            return;
+          }
+
+          Serial.printf(
+            "[CoreS3_Power][LED] WARNING: BLACK frame confirmation timeout %u/%u; continuing bus re-init\n",
+            ledShrinkBlackOverlayFrames,
+            LED_REINIT_REQUIRED_BLACK_FRAMES
+          );
+
+          // Release this stage after the bounded fallback so the warning is
+          // emitted only once if a later output-idle check needs another loop.
+          ledShrinkBlackOverlayFrames = LED_REINIT_REQUIRED_BLACK_FRAMES;
         }
 
         // Keep a conservative OFF settle window in addition to actual
@@ -868,7 +883,8 @@ private:
         delay(LED_REINIT_POST_BLACK_GUARD_MS);
 
         // The complete OLD range has now been explicitly BLACK in multiple
-        // real WLED show frames. Freeze drawing, then release the generic rebuild gate.
+        // real WLED show frames, or the bounded confirmation fallback expired.
+        // Freeze drawing, then release the generic rebuild gate.
         strip.suspend();
         strip.waitForIt();
 
