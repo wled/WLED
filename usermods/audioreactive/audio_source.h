@@ -2,6 +2,10 @@
 #ifdef ARDUINO_ARCH_ESP32
 #include "wled.h"
 #include <driver/i2s.h>
+#if defined(WLED_M5STACK_CORES3)
+#include <M5GFX.h>
+#include <driver/i2c.h>
+#endif
 #if defined(CONFIG_IDF_TARGET_ESP32) && (ESP_IDF_VERSION_MAJOR < 5)
 #include <driver/adc.h>  // legacy ADC driver causes bootloops in V5
 #endif
@@ -168,18 +172,8 @@ class AudioSource {
 */
 class I2SSource : public AudioSource {
   public:
-    I2SSource(
-      SRate_t sampleRate,
-      int blockSize,
-      float sampleScale = 1.0f,
-      i2s_port_t i2sPort = I2S_NUM_0,
-      i2s_channel_t channelMode = I2S_CHANNEL_MONO,
-      bool managePins = true
-    ) :
-      AudioSource(sampleRate, blockSize, sampleScale),
-      _i2sPort(i2sPort),
-      _channelMode(channelMode),
-      _managePins(managePins) {
+    I2SSource(SRate_t sampleRate, int blockSize, float sampleScale = 1.0f) :
+      AudioSource(sampleRate, blockSize, sampleScale) {
       _config = {
         .mode = i2s_mode_t(I2S_MODE_MASTER | I2S_MODE_RX),
         .sample_rate = _sampleRate,
@@ -205,7 +199,7 @@ class I2SSource : public AudioSource {
 
     virtual void initialize(int8_t i2swsPin = I2S_PIN_NO_CHANGE, int8_t i2ssdPin = I2S_PIN_NO_CHANGE, int8_t i2sckPin = I2S_PIN_NO_CHANGE, int8_t mclkPin = I2S_PIN_NO_CHANGE) {
       DEBUGSR_PRINTLN(F("I2SSource:: initialize()."));
-      if (_managePins && i2swsPin != I2S_PIN_NO_CHANGE && i2ssdPin != I2S_PIN_NO_CHANGE) {
+      if (i2swsPin != I2S_PIN_NO_CHANGE && i2ssdPin != I2S_PIN_NO_CHANGE) {
         if (!PinManager::allocatePin(i2swsPin, true, PinOwner::UM_Audioreactive) ||
             !PinManager::allocatePin(i2ssdPin, false, PinOwner::UM_Audioreactive)) { // #206
           DEBUGSR_PRINTF("\nAR: Failed to allocate I2S pins: ws=%d, sd=%d\n",  i2swsPin, i2ssdPin); 
@@ -215,7 +209,7 @@ class I2SSource : public AudioSource {
 
       // i2ssckPin needs special treatment, since it might be unused on PDM mics
       if (i2sckPin != I2S_PIN_NO_CHANGE) {
-        if (_managePins && !PinManager::allocatePin(i2sckPin, true, PinOwner::UM_Audioreactive)) {
+        if (!PinManager::allocatePin(i2sckPin, true, PinOwner::UM_Audioreactive)) {
           DEBUGSR_PRINTF("\nAR: Failed to allocate I2S pins: sck=%d\n",  i2sckPin); 
           return;
         }
@@ -260,16 +254,13 @@ class I2SSource : public AudioSource {
       #endif
 #endif
 
-      // Reserve the master clock pin if provided.
-      // CoreS3 internal audio pins are fixed board resources and intentionally
-      // bypass WLED PinManager; generic AudioReactive sources keep the
-      // original PinManager behavior.
+      // Reserve the master clock pin if provided
       _mclkPin = mclkPin;
       if (mclkPin != I2S_PIN_NO_CHANGE) {
-        if (_managePins && !PinManager::allocatePin(mclkPin, true, PinOwner::UM_Audioreactive)) {
+        if(!PinManager::allocatePin(mclkPin, true, PinOwner::UM_Audioreactive)) {
           DEBUGSR_PRINTF("\nAR: Failed to allocate I2S pin: MCLK=%d\n",  mclkPin);
           return;
-        }
+        } else
         _routeMclk(mclkPin);
       }
 
@@ -285,32 +276,32 @@ class I2SSource : public AudioSource {
 
       //DEBUGSR_PRINTF("[AR] I2S: SD=%d, WS=%d, SCK=%d, MCLK=%d\n", i2ssdPin, i2swsPin, i2sckPin, mclkPin);
 
-      esp_err_t err = i2s_driver_install(_i2sPort, &_config, 0, nullptr);
+      esp_err_t err = i2s_driver_install(I2S_NUM_0, &_config, 0, nullptr);
       if (err != ESP_OK) {
         DEBUGSR_PRINTF("AR: Failed to install i2s driver: %d\n", err);
         return;
       }
 
-      DEBUGSR_PRINTF("AR: I2S#%d driver %s aPLL; fixed_mclk=%d.\n", (int)_i2sPort, _config.use_apll? "uses":"without", _config.fixed_mclk);
+      DEBUGSR_PRINTF("AR: I2S#0 driver %s aPLL; fixed_mclk=%d.\n", _config.use_apll? "uses":"without", _config.fixed_mclk);
       DEBUGSR_PRINTF("AR: %d bits, Sample scaling factor = %6.4f\n",  _config.bits_per_sample, _sampleScale);
       if (_config.mode & I2S_MODE_PDM) {
-          DEBUGSR_PRINTF("AR: I2S#%d driver installed in PDM MASTER mode.\n", (int)_i2sPort);
+          DEBUGSR_PRINTLN(F("AR: I2S#0 driver installed in PDM MASTER mode."));
       } else { 
-          DEBUGSR_PRINTF("AR: I2S#%d driver installed in MASTER mode.\n", (int)_i2sPort);
+          DEBUGSR_PRINTLN(F("AR: I2S#0 driver installed in MASTER mode."));
       }
 
-      err = i2s_set_pin(_i2sPort, &_pinConfig);
+      err = i2s_set_pin(I2S_NUM_0, &_pinConfig);
       if (err != ESP_OK) {
         DEBUGSR_PRINTF("AR: Failed to set i2s pin config: %d\n", err);
-        i2s_driver_uninstall(_i2sPort);  // uninstall already-installed driver
+        i2s_driver_uninstall(I2S_NUM_0);  // uninstall already-installed driver
         return;
       }
 
 #if ESP_IDF_VERSION >= ESP_IDF_VERSION_VAL(4, 2, 0)
-      err = i2s_set_clk(_i2sPort, _sampleRate, _config.bits_per_sample, _channelMode);  // set bit clocks. Also takes care of MCLK routing if needed.
+      err = i2s_set_clk(I2S_NUM_0, _sampleRate, I2S_SAMPLE_RESOLUTION, I2S_CHANNEL_MONO);  // set bit clocks. Also takes care of MCLK routing if needed.
       if (err != ESP_OK) {
         DEBUGSR_PRINTF("AR: Failed to configure i2s clocks: %d\n", err);
-        i2s_driver_uninstall(_i2sPort);  // uninstall already-installed driver
+        i2s_driver_uninstall(I2S_NUM_0);  // uninstall already-installed driver
         return;
       }
 #endif
@@ -319,18 +310,16 @@ class I2SSource : public AudioSource {
 
     virtual void deinitialize() {
       _initialized = false;
-      esp_err_t err = i2s_driver_uninstall(_i2sPort);
+      esp_err_t err = i2s_driver_uninstall(I2S_NUM_0);
       if (err != ESP_OK) {
         DEBUGSR_PRINTF("Failed to uninstall i2s driver: %d\n", err);
         return;
       }
-      if (_managePins) {
-        if (_pinConfig.ws_io_num   != I2S_PIN_NO_CHANGE) PinManager::deallocatePin(_pinConfig.ws_io_num,   PinOwner::UM_Audioreactive);
-        if (_pinConfig.data_in_num != I2S_PIN_NO_CHANGE) PinManager::deallocatePin(_pinConfig.data_in_num, PinOwner::UM_Audioreactive);
-        if (_pinConfig.bck_io_num  != I2S_PIN_NO_CHANGE) PinManager::deallocatePin(_pinConfig.bck_io_num,  PinOwner::UM_Audioreactive);
-        // Release the master clock pin
-        if (_mclkPin != I2S_PIN_NO_CHANGE) PinManager::deallocatePin(_mclkPin, PinOwner::UM_Audioreactive);
-      }
+      if (_pinConfig.ws_io_num   != I2S_PIN_NO_CHANGE) PinManager::deallocatePin(_pinConfig.ws_io_num,   PinOwner::UM_Audioreactive);
+      if (_pinConfig.data_in_num != I2S_PIN_NO_CHANGE) PinManager::deallocatePin(_pinConfig.data_in_num, PinOwner::UM_Audioreactive);
+      if (_pinConfig.bck_io_num  != I2S_PIN_NO_CHANGE) PinManager::deallocatePin(_pinConfig.bck_io_num,  PinOwner::UM_Audioreactive);
+      // Release the master clock pin
+      if (_mclkPin != I2S_PIN_NO_CHANGE) PinManager::deallocatePin(_mclkPin, PinOwner::UM_Audioreactive);
     }
 
     virtual void getSamples(FFTsampleType *buffer, uint16_t num_samples) {
@@ -339,7 +328,7 @@ class I2SSource : public AudioSource {
         size_t bytes_read = 0;        /* Counter variable to check if we actually got enough data */
         I2S_datatype newSamples[num_samples]; /* Intermediary sample storage */
 
-        err = i2s_read(_i2sPort, (void *)newSamples, sizeof(newSamples), &bytes_read, portMAX_DELAY);
+        err = i2s_read(I2S_NUM_0, (void *)newSamples, sizeof(newSamples), &bytes_read, portMAX_DELAY);
         if (err != ESP_OK) {
           DEBUGSR_PRINTF("Failed to get samples: %d\n", err);
           return;
@@ -411,115 +400,243 @@ class I2SSource : public AudioSource {
     i2s_config_t _config;
     i2s_pin_config_t _pinConfig;
     int8_t _mclkPin;
-    i2s_port_t _i2sPort;
-    i2s_channel_t _channelMode;
-    bool _managePins;
 };
 
-
-#if defined(WLED_M5STACK_CORES3_AUDIO) && defined(CONFIG_IDF_TARGET_ESP32S3)
 /*
- * M5Stack CoreS3 ES7210 source
+ * ES7210 Microphone
  *
- * ES7210 codec setup is performed by CoreS3_Audio. This source waits until
- * the codec-ready signal is published, then becomes the sole owner of
- * I2S_NUM_1 for PCM sampling.
+ * Generic ES7210 I2S ADC source for AudioReactive.
  *
- * Hardware-verified CoreS3 audio path:
- *   MCLK GPIO0
- *   BCLK GPIO34
- *   WS   GPIO33
- *   DIN  GPIO14
- *   I2S_NUM_1
- *   Stereo 16-bit / 16000 Hz
+ * WLED samples at 22050 Hz. The ES7210 is configured for:
+ *   - 22050 Hz LRCK
+ *   - 11.2896 MHz MCLK (512 * sample rate)
+ *   - 24-bit I2S output
+ *   - MIC1 / MIC2 enabled
+ *
+ * Board-specific pin assignments remain in the build configuration.
  */
-class CoreS3ES7210Source : public I2SSource {
+#ifndef ES7210_ADDR
+#define ES7210_ADDR 0x40
+#endif
+
+// AI: below section was generated by an AI
+class ES7210Source : public I2SSource {
+  private:
+    struct RegisterValue {
+      uint8_t reg;
+      uint8_t value;
+    };
+
+    bool _es7210I2cWrite(uint8_t reg, uint8_t value) {
+#if defined(WLED_M5STACK_CORES3)
+      /*
+       * CoreS3 Display/Touch owns the internal GPIO12/GPIO11 bus through
+       * M5GFX on I2C_NUM_1 after display.begin(). Reuse that initialized
+       * bus instead of accessing the same pins through Arduino Wire.
+       */
+      static constexpr i2c_port_t CORES3_INTERNAL_I2C_PORT = I2C_NUM_1;
+      static constexpr uint32_t CORES3_INTERNAL_I2C_FREQUENCY = 400000;
+
+      const uint8_t data[2] = { reg, value };
+      auto result = lgfx::i2c::transactionWrite(
+        CORES3_INTERNAL_I2C_PORT,
+        ES7210_ADDR,
+        data,
+        sizeof(data),
+        CORES3_INTERNAL_I2C_FREQUENCY
+      );
+
+      if (!result.has_value()) {
+        DEBUGSR_PRINTF(
+          "AR: ES7210 CoreS3 I2C1 write failed "
+          "(addr=0x%X, reg=0x%X, val=0x%X).\n",
+          ES7210_ADDR,
+          reg,
+          value
+        );
+        return false;
+      }
+
+      return true;
+#else
+      Wire.beginTransmission(ES7210_ADDR);
+      Wire.write(reg);
+      Wire.write(value);
+
+      uint8_t i2cErr = Wire.endTransmission();
+
+      if (i2cErr != 0) {
+        DEBUGSR_PRINTF(
+          "AR: ES7210 I2C write failed with error=%d "
+          "(addr=0x%X, reg=0x%X, val=0x%X).\n",
+          i2cErr,
+          ES7210_ADDR,
+          reg,
+          value
+        );
+        return false;
+      }
+
+      return true;
+#endif
+    }
+
+    bool _es7210InitAdc() {
+      if (_sampleRate != 22050) {
+        DEBUGSR_PRINTF(
+          "AR: ES7210 requires 22050 Hz sampling; requested %u Hz.\n",
+          (unsigned)_sampleRate
+        );
+        return false;
+      }
+
+      // Reset before applying the ES7210 ADC profile.
+      if (!_es7210I2cWrite(0x00, 0xFF)) {
+        return false;
+      }
+
+      delay(1);
+
+      /*
+       * The CoreS3 hardware-validated ES7210 sequence is retained for
+       * analog power, microphone bias, HPF and MIC1/MIC2 selection.
+       *
+       * The clock and sample-format registers are changed from the old
+       * 16 kHz / 16-bit profile to WLED's standard:
+       *
+       *   22050 Hz
+       *   MCLK = 22050 * 512 = 11.2896 MHz
+       *   24-bit I2S
+       *
+       * ES7210 22.05 kHz coefficient:
+       *   REG02 = 0x81
+       *   REG07 = 0x20
+       *   REG04 = 0x02
+       *   REG05 = 0x00
+       *
+       * ES7210 24-bit sample format:
+       *   REG11 = 0x00
+       */
+      static constexpr RegisterValue registers[] = {
+        { 0x00, 0x41 },
+        { 0x01, 0x1F },
+        { 0x06, 0x00 },
+        { 0x07, 0x20 },
+        { 0x08, 0x10 },
+        { 0x09, 0x30 },
+        { 0x0A, 0x30 },
+
+        { 0x20, 0x0A },
+        { 0x21, 0x2A },
+        { 0x22, 0x0A },
+        { 0x23, 0x2A },
+
+        // 22.05 kHz with 11.2896 MHz MCLK.
+        { 0x02, 0x81 },
+        { 0x04, 0x02 },
+        { 0x05, 0x00 },
+
+        // 24-bit I2S output.
+        { 0x11, 0x00 },
+
+        // Analog / microphone configuration.
+        { 0x40, 0x42 },
+        { 0x41, 0x70 },
+        { 0x42, 0x70 },
+
+        // MIC1 / MIC2 enabled using the validated gain profile.
+        { 0x43, 0x1B },
+        { 0x44, 0x1B },
+
+        // MIC3 / MIC4 remain unused.
+        { 0x45, 0x00 },
+        { 0x46, 0x00 },
+        { 0x47, 0x00 },
+        { 0x48, 0x00 },
+        { 0x49, 0x00 },
+        { 0x4A, 0x00 },
+
+        { 0x4B, 0x00 },
+        { 0x4C, 0xFF },
+
+        // Enable the required ES7210 clocks.
+        { 0x01, 0x14 }
+      };
+
+      for (const auto& item : registers) {
+        if (!_es7210I2cWrite(item.reg, item.value)) {
+          return false;
+        }
+      }
+
+      return true;
+    }
+
   public:
-    static constexpr uint16_t MAX_MONO_SAMPLES = 512;
-    CoreS3ES7210Source(SRate_t sampleRate, int blockSize) :
-      I2SSource(
-        sampleRate,
-        blockSize,
-        1.0f / 16.0f,
-        I2S_NUM_1,
-        I2S_CHANNEL_STEREO,
-        false
-      ) {
-      _config.mode = i2s_mode_t(I2S_MODE_MASTER | I2S_MODE_RX);
-      _config.sample_rate = _sampleRate;
-      _config.bits_per_sample = I2S_BITS_PER_SAMPLE_16BIT;
-      _config.channel_format = I2S_CHANNEL_FMT_RIGHT_LEFT;
-      _config.communication_format = i2s_comm_format_t(I2S_COMM_FORMAT_STAND_I2S);
-      _config.intr_alloc_flags = ESP_INTR_FLAG_LEVEL1;
-      _config.dma_buf_count = 8;
-      _config.dma_buf_len = _blockSize;
-      _config.use_apll = false;
-      _config.tx_desc_auto_clear = false;
-      _config.fixed_mclk = 0;
+    ES7210Source(
+      SRate_t sampleRate,
+      int blockSize,
+      float sampleScale = 1.0f
+    ) :
+      I2SSource(sampleRate, blockSize, sampleScale) {
+
 #if ESP_IDF_VERSION >= ESP_IDF_VERSION_VAL(4, 4, 0)
-      _config.mclk_multiple = I2S_MCLK_MULTIPLE_256;
-      _config.bits_per_chan = I2S_BITS_PER_CHAN_16BIT;
+      /*
+       * ES7210 22.05 kHz uses an 11.2896 MHz master clock.
+       * 22050 * 512 = 11289600.
+       *
+       * Keep the standard WLED I2S0 source and request the supported
+       * 512x MCLK multiplier from the ESP-IDF legacy I2S driver.
+       */
+      _config.mclk_multiple = I2S_MCLK_MULTIPLE_512;
 #endif
     }
 
     void initialize(
-      int8_t = I2S_PIN_NO_CHANGE,
-      int8_t = I2S_PIN_NO_CHANGE,
-      int8_t = I2S_PIN_NO_CHANGE,
-      int8_t = I2S_PIN_NO_CHANGE
+      int8_t i2swsPin,
+      int8_t i2ssdPin,
+      int8_t i2sckPin,
+      int8_t mclkPin
     ) override {
-      DEBUGSR_PRINTLN(F("CoreS3ES7210Source:: initialize fixed internal pins;"));
+      DEBUGSR_PRINTLN(F("ES7210Source:: initialize();"));
 
-      // CoreS3 ES7210 pins are board-internal fixed resources.
-      // Ignore Usermod pin dropdown values and bypass WLED PinManager.
-      I2SSource::initialize(
-        33, // WS / LRCK
-        14, // SD / DIN
-        34, // BCLK
-        0   // MCLK
-      );
-    }
-
-    void getSamples(FFTsampleType *buffer, uint16_t num_samples) override {
-      if (buffer == nullptr || num_samples == 0) return;
-      memset(buffer, 0, num_samples * sizeof(FFTsampleType));
-
-      if (!_initialized || num_samples > MAX_MONO_SAMPLES) return;
-
-      int16_t stereoSamples[MAX_MONO_SAMPLES * 2];
-      const size_t requestedBytes = (size_t)num_samples * 2U * sizeof(int16_t);
-      size_t bytesRead = 0;
-
-      esp_err_t err = i2s_read(
-        _i2sPort,
-        stereoSamples,
-        requestedBytes,
-        &bytesRead,
-        portMAX_DELAY
-      );
-
-      if (err != ESP_OK) {
-        DEBUGSR_PRINTF("AR: CoreS3 ES7210 sample read failed: %d\n", err);
+      if ((i2sckPin < 0) || (mclkPin < 0)) {
+        DEBUGSR_PRINTF(
+          "\nAR: invalid ES7210 I2S pin: SCK=%d, MCLK=%d\n",
+          i2sckPin,
+          mclkPin
+        );
         return;
       }
 
-      const size_t framesRead = bytesRead / (sizeof(int16_t) * 2U);
-      const size_t framesToCopy = min((size_t)num_samples, framesRead);
-
-      for (size_t i = 0; i < framesToCopy; i++) {
-        const int32_t left  = stereoSamples[i * 2U];
-        const int32_t right = stereoSamples[i * 2U + 1U];
-        const float mono = ((float)(left + right) * 0.5f) * _sampleScale;
-
-#if defined(UM_AUDIOREACTIVE_USE_INTEGER_FFT)
-        buffer[i] = (int16_t)constrain((int32_t)lroundf(mono), (int32_t)INT16_MIN, (int32_t)INT16_MAX);
+#if ESP_IDF_VERSION < ESP_IDF_VERSION_VAL(4, 4, 0)
+      DEBUGSR_PRINTLN(
+        F("AR: ES7210 requires ESP-IDF 4.4 or newer for 512x MCLK.")
+      );
+      return;
 #else
-        buffer[i] = mono;
-#endif
+      if (!_es7210InitAdc()) {
+        DEBUGSR_PRINTLN(F("AR: ES7210 codec initialization failed."));
+        return;
       }
+
+      /*
+       * Standard I2SSource owns:
+       *   - PinManager allocation
+       *   - I2S_NUM_0
+       *   - I2S driver lifecycle
+       *   - standard sample acquisition
+       */
+      I2SSource::initialize(
+        i2swsPin,
+        i2ssdPin,
+        i2sckPin,
+        mclkPin
+      );
+#endif
     }
 };
-#endif
+// AI: end
 
 /* ES7243 Microphone
    This is an I2S microphone that requires initialization over

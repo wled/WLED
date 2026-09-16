@@ -211,14 +211,12 @@ CoreS3-specific usermods:
 ```text
 CoreS3_Power
 CoreS3_Display
-CoreS3_Audio
 audioreactive
 ```
 
 Audio Reactive definitions:
 
 ```text
-WLED_M5STACK_CORES3_AUDIO=1
 UM_AUDIOREACTIVE_ENABLE
 SR_DMTYPE=7
 ```
@@ -377,15 +375,16 @@ If the Power Key is released after BLACK but before the final hard power-off, sh
 
 The built-in ES7210 and CoreS3 microphones are used.
 
-The Audio usermod initializes ES7210, while Audio Reactive owns I2S1 / PCM / FFT processing.
+Audio Reactive initializes ES7210 and uses the standard WLED I2S0 / PCM / FFT processing path.
 
 Main settings:
 
 ```text
 Codec          ES7210
-I2S            I2S1
-Sample Rate    16000 Hz
-Format         Stereo / 16-bit
+I2S            I2S0
+Sample Rate    22050 Hz
+Codec Format   24-bit I2S
+I2S Input      Mono / WLED 32-bit container
 MCLK           GPIO0
 DIN            GPIO14
 ```
@@ -467,7 +466,6 @@ WLED/
 └─ usermods/
    ├─ CoreS3_Power/
    ├─ CoreS3_Display/
-   ├─ CoreS3_Audio/
    └─ audioreactive/
 ```
 
@@ -495,18 +493,9 @@ Responsibilities:
 - Preset UI
 - Browser Screenshot
 
-### CoreS3_Audio
-
-Responsibilities:
-
-- ES7210 probe / initialization
-- Audio pins
-- Audio health
-- Audio Reactive handoff
-
 ### audioreactive
 
-Adds CoreS3 built-in microphone / I2S1 integration.
+Adds ES7210 support for the CoreS3 built-in microphone through the standard WLED Audio Reactive I2S path.
 
 ---
 
