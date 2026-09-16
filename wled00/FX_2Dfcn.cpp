@@ -71,29 +71,33 @@ void WS2812FX::setUpMatrix() {
       // allowed values are: -1 (missing pixel/no LED attached), 0 (inactive/unused pixel), 1 (active/used pixel)
       char    fileName[32]; strcpy_P(fileName, PSTR("/2d-gaps.json"));
       bool    isFile = WLED_FS.exists(fileName);
-      size_t  gapSize = 0;
       int8_t *gapTable = nullptr;
 
-      if (isFile && requestJSONBufferLock(JSON_LOCK_LEDGAP)) {
+      if (isFile) {
         DEBUG_PRINT(F("Reading LED gap from "));
         DEBUG_PRINTLN(fileName);
-        // read the array into global JSON buffer
-        if (readObjectFromFile(fileName, nullptr, pDoc)) {
-          // the array is similar to ledmap, except it has only 3 values:
-          // -1 ... missing pixel (do not increase pixel count)
-          //  0 ... inactive pixel (it does count, but should be mapped out (-1))
-          //  1 ... active pixel (it will count and will be mapped)
-          JsonArray map = pDoc->as<JsonArray>();
-          gapSize = map.size();
-          if (!map.isNull() && gapSize >= matrixSize) { // not an empty map
-            gapTable = static_cast<int8_t*>(p_malloc(gapSize));
-            if (gapTable) for (size_t i = 0; i < gapSize; i++) {
-              gapTable[i] = constrain(map[i], -1, 1);
+        // read the gap array directly from the file, a file with fewer entries than matrix positions is ignored
+        // the array is similar to ledmap, except it has only 3 values:
+        // -1 ... missing pixel (do not increase pixel count)
+        //  0 ... inactive pixel (it does count, but should be mapped out (-1))
+        //  1 ... active pixel (it will count and will be mapped)
+        File f = WLED_FS.open(fileName, "r");
+        if (f) {
+          gapTable = static_cast<int8_t*>(p_malloc(matrixSize));
+          if (gapTable) {
+            int value;
+            unsigned count = 0;
+            while (count < matrixSize && readNextIntFromFile(f, value)) {
+              gapTable[count++] = (int8_t)constrain(value, -1, 1);
+            }
+            if (count < matrixSize) { // incomplete gap file, ignore it so below loop does not read OOB
+              p_free(gapTable);
+              gapTable = nullptr;
             }
           }
+          f.close();
         }
         DEBUG_PRINTLN(F("Gaps loaded."));
-        releaseJSONBufferLock();
       }
 
       unsigned x, y, pix=0; //pixel
