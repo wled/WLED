@@ -253,6 +253,7 @@ class BusDigital : public Bus {
     void show() override;
     bool canShow() const override;
     void setStatusPixel(uint32_t c) override;
+    void setBrightness(uint8_t b) override;
     [[gnu::hot]] void setPixelColor(unsigned pix, uint32_t c) override;
     void setColorOrder(uint8_t colorOrder) override;
     [[gnu::hot]] uint32_t getPixelColor(unsigned pix) const override;
