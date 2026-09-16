@@ -852,6 +852,7 @@ input[type=range]::-moz-range-thumb {
 	margin: -4px 4px -1px 0;
 	vertical-align: middle;
 	display: inline-block;
+	pointer-events: none;
 }
 .btn-n {
 	width: 230px;
