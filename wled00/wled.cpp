@@ -25,14 +25,6 @@
 #endif
 extern "C" void usePWMFixedNMI();
 
-// Optional usermod bus re-init gate.
-// The weak default preserves standard WLED behavior. CoreS3_Power provides
-// the strong implementation used to protect old LED output before bus rebuild.
-extern "C" bool __attribute__((weak)) coreS3PowerShouldDeferBusReinit()
-{
-  return false;
-}
-
 // millis()-rollover counter (millis() wraps every ~50 days) - previously
 // WLED_GLOBAL. json.cpp and usermods only ever read it for uptime reporting,
 // so it gets a by-value getter rather than a mutable reference: an accidental
@@ -245,9 +237,10 @@ void WLED::loop()
   //LED settings have been saved, re-init busses
   //This code block causes severe FPS drop on ESP32 with the original "if (busConfigs[0] != nullptr)" conditional. Investigate!
   if (doInitBusses) {
-    // Allow a usermod to defer this rebuild until the old LED output is safe.
-    // The weak default returns false, preserving standard WLED behavior.
-    if (!coreS3PowerShouldDeferBusReinit()) {
+    // Usermods may defer the rebuild while they prepare the existing LED
+    // output. A deferring usermod must eventually release the gate so config
+    // writes and any queued reboot can continue.
+    if (!UsermodManager::deferBusReinit()) {
       doInitBusses = false;
       DEBUG_PRINTLN(F("Re-init busses."));
       bool aligned = strip.checkSegmentAlignment(); //see if old segments match old bus(ses)
