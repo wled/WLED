@@ -1284,6 +1284,9 @@ TD .checkmark, TD .radiomark {
 	-webkit-filter: grayscale(100%); /* Safari 6.0 - 9.0 */
 	filter: grayscale(100%);
 }
+.filter .fchkl *, .option .ochkl * {
+	pointer-events: none;
+}
 .filter .fchkl {
 	margin: 0 4px;
 	min-width: 20px;
