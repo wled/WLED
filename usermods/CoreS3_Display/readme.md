@@ -454,7 +454,7 @@ Battery status is updated periodically instead of continuously polling I2C.
 
 ## Project Structure
 
-The main CoreS3-specific files are:
+The main files involved in CoreS3 support are:
 
 ```text
 WLED/
