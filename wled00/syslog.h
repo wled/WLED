@@ -14,10 +14,19 @@
 // Syslog protocol formats - commented out but preserved
 #define SYSLOG_PROTO_BSD       0  // Legacy BSD format (RFC 3164)
 
+// Minimum time between blocking hostByName() retries while resolution keeps
+// failing, so a misconfigured/unreachable syslog host doesn't stall the main
+// loop on every single debug line.
+#ifndef SYSLOG_RESOLVE_RETRY_MS
+  #define SYSLOG_RESOLVE_RETRY_MS 10000UL
+#endif
+
 class SyslogPrinter : public Print {
   private:
     WiFiUDP syslogUdp; // needs to be here otherwise UDP messages get truncated upon destruction
     IPAddress syslogHostIP;
+    unsigned long _lastResolveAttempt = 0; // backoff so a failing DNS lookup isn't retried on every log line
+    bool _hasAttemptedResolve = false;     // ensures the very first attempt isn't delayed by the backoff above
     bool resolveHostname();
     bool _lastOperationSucceeded;
     String _lastErrorMessage;
@@ -27,6 +36,13 @@ class SyslogPrinter : public Print {
     uint8_t _severity;  // Internal copy of syslogSeverity (from wled.h), fixed to SYSLOG_DEBUG
     uint8_t _protocol;  // Internal copy of syslogProtocol (from wled.h), fixed to SYSLOG_PROTO_BSD
     String _appName;
+
+    // Cache of the space-to-underscore-cleaned serverDescription, so every
+    // single packet send doesn't need a fresh heap allocation - only
+    // recomputed when serverDescription actually changes.
+    String _cachedHostname;
+    String _cachedSourceDescription;
+    const String& cleanedHostname();
 
     char _buffer[SYSLOG_BUFFER_SIZE]; // Buffer for collecting characters
 

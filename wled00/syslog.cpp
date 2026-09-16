@@ -42,7 +42,19 @@ bool SyslogPrinter::resolveHostname() {
   if (syslogHostIP || syslogHostIP.fromString(syslogHost)) {
     return true;
   }
-  
+
+  // Avoid hammering the (blocking) DNS resolver on every single log line
+  // when resolution keeps failing (misconfigured/unreachable host) - this
+  // is the hot path for the entire firmware's debug output, and repeated
+  // blocking calls here can stall the main loop badly enough to trip the
+  // watchdog.
+  unsigned long now = millis();
+  if (_hasAttemptedResolve && (now - _lastResolveAttempt < SYSLOG_RESOLVE_RETRY_MS)) {
+    return false;
+  }
+  _hasAttemptedResolve = true;
+  _lastResolveAttempt = now;
+
   // Otherwise resolve the hostname
   #ifdef ESP8266
     WiFi.hostByName(syslogHost, syslogHostIP, 750);
@@ -55,6 +67,15 @@ bool SyslogPrinter::resolveHostname() {
   #endif
   
   return syslogHostIP != IPAddress(0, 0, 0, 0);
+}
+
+const String& SyslogPrinter::cleanedHostname() {
+  if (_cachedSourceDescription != serverDescription) {
+    _cachedSourceDescription = serverDescription;
+    _cachedHostname = _cachedSourceDescription;
+    _cachedHostname.replace(' ', '_');
+  }
+  return _cachedHostname;
 }
 
 void SyslogPrinter::flushBuffer() {
@@ -150,8 +171,10 @@ size_t SyslogPrinter::write(const uint8_t *buf, size_t size, uint8_t severity) {
     return 0;
   }
 
-  // Check for special case - literal "#015" string
-  if (size >= 4 && buf[0] == '#' && buf[1] == '0' && buf[2] == '1' && buf[3] == '5') {
+  // Check for special case - literal "#015" artifact line (exact match only,
+  // matching flushBuffer()'s check - a longer message that merely starts
+  // with these 4 bytes is real content and must not be dropped).
+  if (size == 4 && buf[0] == '#' && buf[1] == '0' && buf[2] == '1' && buf[3] == '5') {
     return size; // Skip sending this message
   }
 
@@ -183,10 +206,6 @@ size_t SyslogPrinter::write(const uint8_t *buf, size_t size, uint8_t severity) {
   // Calculate priority value
   uint8_t pri = (_facility << 3) | severity;
 
-  // Add hostname (replacing spaces with underscores) and app name
-  String cleanHostname = String(serverDescription);
-  cleanHostname.replace(' ', '_');
-
   // Note: Only BSD protocol is currently implemented
   syslogUdp.printf("<%d>", pri);
   
@@ -209,7 +228,7 @@ size_t SyslogPrinter::write(const uint8_t *buf, size_t size, uint8_t severity) {
   }
   
   // Add hostname and app name
-  syslogUdp.print(cleanHostname);
+  syslogUdp.print(cleanedHostname());
   syslogUdp.print(" ");
   syslogUdp.print(_appName);
   syslogUdp.print(": ");
