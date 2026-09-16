@@ -181,8 +181,13 @@ class UsermodSSDR : public Usermod {
     void _publishMQTTint_P(const char *subTopic, int value);
     void _publishMQTTstr_P(const char *subTopic, String Value);
 
+    // minVal/maxVal are optional bounds (inclusive) applied to the parsed
+    // payload before it's stored - without this, e.g. a negative payload for
+    // a uint16_t setting (auto-brightness/lux min/max) wraps to 65535 via the
+    // static_cast, which then silently pins the display at full brightness.
     template<typename T>
-    bool _cmpIntSetting_P(char *topic, char *payload, const char *setting, T *value) {
+    bool _cmpIntSetting_P(char *topic, char *payload, const char *setting, T *value,
+                           long minVal = -2147483647L, long maxVal = 2147483647L) {
 	  char settingBuffer[30];
 	  strlcpy(settingBuffer, setting, sizeof(settingBuffer));
 
@@ -190,8 +195,12 @@ class UsermodSSDR : public Usermod {
 
 	  if (strcmp(topic, settingBuffer) != 0) return false;
 
+	  long parsed = strtol(payload, nullptr, 10);
+	  if (parsed < minVal) parsed = minVal;
+	  if (parsed > maxVal) parsed = maxVal;
+
 	  T oldValue = *value;
-	  *value = static_cast<T>(strtol(payload, nullptr, 10));
+	  *value = static_cast<T>(parsed);
 	  _publishMQTTint_P(setting, static_cast<int>(*value));
 	  _logUsermodSSDR("Setting '%s' updated from %d to %d", setting, static_cast<int>(oldValue), static_cast<int>(*value));
 	  return true;

@@ -282,19 +282,24 @@
       _logUsermodSSDR("Updated leadingZero");
       return true;
     }
-    if (_cmpIntSetting_P(topic, payload, _str_minBrightness, &umSSDRBrightnessMin)) {
+    // Bounded to WLED's 0-255 brightness scale - without this, e.g. a
+    // negative payload wraps to 65535 via the uint16_t cast and silently
+    // pins the display at full brightness (see loop()'s spanBright).
+    if (_cmpIntSetting_P(topic, payload, _str_minBrightness, &umSSDRBrightnessMin, 0, 255)) {
       _logUsermodSSDR("Updated minBrightness");
       return true;
     }
-    if (_cmpIntSetting_P(topic, payload, _str_maxBrightness, &umSSDRBrightnessMax)) {
+    if (_cmpIntSetting_P(topic, payload, _str_maxBrightness, &umSSDRBrightnessMax, 0, 255)) {
       _logUsermodSSDR("Updated maxBrightness");
       return true;
     }
-    if (_cmpIntSetting_P(topic, payload, _str_luxMin, &umSSDRLuxMin)) {
+    // Bounded to the full uint16_t range so a negative payload can't wrap
+    // around instead of clamping to 0.
+    if (_cmpIntSetting_P(topic, payload, _str_luxMin, &umSSDRLuxMin, 0, 65535)) {
       _logUsermodSSDR("Updated luxMin");
       return true;
     }
-    if (_cmpIntSetting_P(topic, payload, _str_luxMax, &umSSDRLuxMax)) {
+    if (_cmpIntSetting_P(topic, payload, _str_luxMax, &umSSDRLuxMax, 0, 65535)) {
       _logUsermodSSDR("Updated luxMax");
       return true;
     }
@@ -435,8 +440,9 @@
           // float linear interpolation to preserve full 0–255 resolution
           float spanLux = umSSDRLuxMax - umSSDRLuxMin;
           float spanBright = umSSDRBrightnessMax - umSSDRBrightnessMin;
-          if (spanLux <= 0.0f) {
-            _logUsermodSSDR("Invalid lux range (%d..%d). Using min brightness.", umSSDRLuxMin, umSSDRLuxMax);
+          if (spanLux <= 0.0f || spanBright < 0.0f) {
+            _logUsermodSSDR("Invalid lux/brightness range (lux %d..%d, bri %d..%d). Using min brightness.",
+                            umSSDRLuxMin, umSSDRLuxMax, umSSDRBrightnessMin, umSSDRBrightnessMax);
             brightness = umSSDRBrightnessMin;
           } else {
             float ratio = (constrainedLux - umSSDRLuxMin) / spanLux;
