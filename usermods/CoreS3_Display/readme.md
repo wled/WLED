@@ -389,8 +389,6 @@ MCLK           GPIO0
 DIN            GPIO14
 ```
 
-Codec initialization is deferred slightly during startup and retried multiple times if necessary.
-
 Audio status can be checked from WLED Info.
 
 ---

@@ -389,8 +389,6 @@ MCLK           GPIO0
 DIN            GPIO14
 ```
 
-起動時に Codec 初期化を少し遅延し、失敗時は複数回 Retry する構成です。
-
 WLED Info から Audio の状態を確認できます。
 
 ---
