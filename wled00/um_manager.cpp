@@ -73,6 +73,7 @@ bool UsermodManager::onUdpPacket(uint8_t* payload, size_t len) {
 }
 void UsermodManager::onUpdateBegin(bool init) { for (auto mod = DYNARRAY_BEGIN(usermods); mod < DYNARRAY_END(usermods); ++mod) (*mod)->onUpdateBegin(init); } // notify usermods that update is to begin
 void UsermodManager::onStateChange(uint8_t mode) { for (auto mod = DYNARRAY_BEGIN(usermods); mod < DYNARRAY_END(usermods); ++mod) (*mod)->onStateChange(mode); } // notify usermods that WLED state changed
+void UsermodManager::addUIInjectCode(Print &dest) { for (auto mod = DYNARRAY_BEGIN(usermods); mod < DYNARRAY_END(usermods); ++mod) (*mod)->addUIInjectCode(dest); } // collect usermod UI inject JS (served at /um.js)
 
 /*
  * Enables usermods to lookup another Usermod.
