@@ -36,6 +36,8 @@ struct LedTiming {
   }
 };
 
+static constexpr uint32_t WLEDPB_TRANSFER_TIMEOUT_MS = 1000; // max allowed time for a full transfer, recovery is triggered if exceeded
+
 // ---------------------------------------------------------------------------
 // 4-step cadence helpers for parallel buses (I2S, Parallel SPI, PARLIO, ESP8266)
 // ---------------------------------------------------------------------------

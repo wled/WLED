@@ -132,7 +132,7 @@ bool SpiBusContext::isIdle() const {
   }
 
   // timeout in case the state-machine breaks due to missed ISR (should not happen, this is a safety net)
-  if ((uint32_t)(millis() - _lastTransmitMs) > SPI_TRANSFER_TIMEOUT_MS) {
+  if ((uint32_t)(millis() - _lastTransmitMs) > WLEDPB_TRANSFER_TIMEOUT_MS) {
     forceIdle();
     return true;
   }
