@@ -652,7 +652,7 @@ static_assert(WLED_MAX_BUSSES <= 32, "WLED_MAX_BUSSES exceeds hard limit");
 #define TOUCH_THRESHOLD 32 // limit to recognize a touch, higher value means more sensitive
 
 #define WLED_DEBOUNCE_THRESHOLD      50 // default: only consider button input of at least 50ms as valid (debouncing)
-#define WLED_LONG_PRESS             600 // default: long press if button is released after held for at least 600ms
+#define WLED_LONG_PRESS             600 // default: trigger long press after the button remains pressed for 600ms
 #define WLED_DOUBLE_PRESS           350 // default: double press if another press within 350ms after a short press
 
 // Size of buffer for API JSON object (increase for more segments)

@@ -454,6 +454,9 @@ bool deserializeConfig(JsonObject doc, bool fromFS) {
   CJSON(buttonDebounceMs, btn_obj[F("dbnc")]);
   CJSON(buttonLongPressMs, btn_obj[F("lp")]);
   CJSON(buttonDoublePressMs, btn_obj[F("dp")]);
+  buttonDebounceMs = constrain(buttonDebounceMs, 0, 100);
+  buttonLongPressMs = constrain(buttonLongPressMs, 200, 4000); // floor kept above the debounce max (100) so long press can never be shorter than debounce
+  buttonDoublePressMs = constrain(buttonDoublePressMs, 100, 1000);
 
   #ifndef WLED_DISABLE_INFRARED
   int hw_ir_pin = hw["ir"]["pin"] | -2; // 4
