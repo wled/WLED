@@ -247,7 +247,7 @@ bool deserializeConfig(JsonObject doc, bool fromFS) {
       uint16_t freqkHz = elm[F("freq")] | 0;  // will be in kHz for DotStar and Hz for PWM
       uint8_t AWmode = elm[F("rgbwm")] | RGBW_MODE_MANUAL_ONLY;
       uint8_t maPerLed = elm[F("ledma")] | LED_MILLIAMPS_DEFAULT;
-      uint16_t maMax = elm[F("maxpwr")] | (ablMilliampsMax * length) / total; // rough (incorrect?) per strip ABL calculation when no config exists
+      uint16_t maMax = elm[F("maxpwr")] | (total > 0 ? (ablMilliampsMax * length) / total : ablMilliampsMax); // rough (incorrect?) per strip ABL calculation when no config exists
       // To disable brightness limiter we either set output max current to 0 or single LED current to 0 (we choose output max current)
       if (Bus::isPWM(ledType) || Bus::isOnOff(ledType) || Bus::isVirtual(ledType)) { // analog and virtual
         maPerLed = 0;
@@ -669,12 +669,6 @@ bool deserializeConfig(JsonObject doc, bool fromFS) {
 
   JsonObject if_ntp = interfaces[F("ntp")];
   CJSON(ntpEnabled, if_ntp["en"]);
-#ifdef CONFIG_IDF_TARGET_ESP32C5 // ToDO: esp32-c5 crashes on NTP requests, see https://github.com/wled/WLED/pull/5048/changes#r3003182550
-  if (ntpEnabled) { DEBUG_PRINTLN("NTP disabled on -C5, as it leads to crashes"); }
-                                 // assert failed: udp_new_ip_type /IDF/components/lwip/lwip/src/core/udp.c:1278 (Required to lock TCPIP core functionality!)
-  ntpEnabled = false;            // --> disable NTP support, until the crash is resolved
-  #warning "enabling NTP lead to crashes on -C5. NTP disabled"
-#endif
   getStringFromJson(ntpServerName, if_ntp[F("host")], 33); // "1.wled.pool.ntp.org"
   CJSON(currentTimezone, if_ntp[F("tz")]);
   CJSON(utcOffsetSecs, if_ntp[F("offset")]);

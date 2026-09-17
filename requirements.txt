@@ -32,7 +32,7 @@ marshmallow==3.26.1
     # via platformio
 packaging==25.0
     # via marshmallow
-platformio==6.1.18
+platformio==6.1.19
     # via -r requirements.in
 pyelftools==0.32
     # via platformio

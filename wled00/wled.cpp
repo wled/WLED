@@ -420,7 +420,12 @@ void WLED::setup()
   #else
     DEBUG_PRINTLN(F("arduino-esp32 v1.0.x\n"));  // we can't say in more detail.
   #endif
-  DEBUG_PRINTF_P(PSTR("\nCPU:   %s rev.%d, %d core(s), %d MHz.\n"), ESP.getChipModel(), (int)ESP.getChipRevision(), ESP.getChipCores(), ESP.getCpuFreqMHz());
+  #if ESP_IDF_VERSION_MAJOR > 4
+    // chip revision uses a new format in V5
+    DEBUG_PRINTF_P(PSTR("\nCPU:   %s v%d.%d, %d core(s), %d MHz.\n"), ESP.getChipModel(), (int)ESP.getChipRevision() / 100, (int)ESP.getChipRevision()% 100 , ESP.getChipCores(), ESP.getCpuFreqMHz());
+  #else
+    DEBUG_PRINTF_P(PSTR("\nCPU:   %s rev.%d, %d core(s), %d MHz.\n"), ESP.getChipModel(), (int)ESP.getChipRevision(), ESP.getChipCores(), ESP.getCpuFreqMHz());
+  #endif
   DEBUG_PRINTF_P(PSTR("FLASH: %d MB, Mode %d "), (ESP.getFlashChipSize()/1024)/1024, (int)ESP.getFlashChipMode());
   #ifdef WLED_DEBUG
   switch (ESP.getFlashChipMode()) {
