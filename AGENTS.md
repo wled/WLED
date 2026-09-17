@@ -67,8 +67,7 @@ docs/                # Coding convention docs
 ### Branch / Release Structure
 
 ```text
-main                # Main development trunk (daily/nightly) 17.0.0-dev. Target branch for PRs.
-  ├── V5            # special branch: code rework for esp-idf 5.5.x and new MCU types: esp32-c5, esp32-c6, esp32-p4 (unstable)
+main                # Main development trunk (daily/nightly) 17.0.0-devV5. Target branch for PRs.
 16_x                # maintenance for release 16.0.x
 0_15_x              # maintenance (bugfixes only) for previous release 0.15.x
 (tag) v0.14.4       # old version 0.14.4 (no maintenance)

@@ -47,8 +47,7 @@ For detailed build timeouts, development workflows, troubleshooting, and validat
 <!-- HUMAN_ONLY_START -->
 
 ```text
-main                # Main development trunk (daily/nightly) 17.0.0-dev
-  ├── V5            # special branch: code rework for esp-idf 5.5.x and new MCU types: esp32-c5, esp32-c6, esp32-p4 (unstable)
+main                # Main development trunk (daily/nightly) 17.0.0-devV5
 16_x                # maintenance for release 16.x.y
 0_15_x              # maintenance (bugfixes only) for current release 0.15.4
 (tag) v0.14.4       # previous version 0.14.4 (no maintenance)
