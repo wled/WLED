@@ -261,10 +261,6 @@ bool SpiBus::show() {
   return true;
 }
 
-void SpiBus::setColorOrder(uint8_t co) {
-  _encoder = ColorEncoder(co, _encoder.getColorChannels(), _ledType);
-}
-
 bool SpiBus::canShow() const {
   return true;
 }

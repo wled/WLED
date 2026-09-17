@@ -173,11 +173,6 @@ bool BitBangBus::begin() {
   return true;
 }
 
-// invert output signal, must be set before begin()
-void BitBangBus::setInverted(bool inv) {
-  _inverted = inv;
-}
-
 void BitBangBus::end() {
   if (_initialized) {
     // Find our slot by scanning _BBs->pins (no stored index needed).

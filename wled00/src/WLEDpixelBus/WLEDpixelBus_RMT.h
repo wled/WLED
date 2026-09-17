@@ -54,9 +54,6 @@ public:
   const char* getTypeStr() const override { return "RMT"; }
 #endif
 
-  void setInverted(bool inv) override;
-  void setColorOrder(uint8_t co);
-
   // Reset the auto-allocation counter (call before re-creating buses)
   static void setExpectedChannels(uint8_t expected) { expectedChannels = (expected > 0) ? expected : 1; }
   static void resetAutoChannel() {
@@ -68,7 +65,6 @@ public:
 private:
   int8_t _pin;
   int8_t _channel;
-  bool _inverted;
   bool _initialized;
   LedTiming _timing;
 

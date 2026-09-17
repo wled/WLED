@@ -99,9 +99,7 @@ struct CctPixel {
 
 enum class DriverState : uint8_t {
   Idle = 0,
-  Sending = 1,
-  SendingLast = 2,   // Last data buffer was filled; wait for current buffer to finish so last-data buffer plays  TODO: check if this is still used, otherwise, remove
-  WaitingReset = 3   // Last data buffer played; zero buffer playing as reset signal
+  Sending = 1
 };
 
 //==============================================================================
@@ -330,6 +328,7 @@ protected:
   uint8_t  _ledType   = 0;            // LED chip type (e.g. 31=TM1814); 0 = generic
   uint8_t* _pixelData = nullptr;      // _encodeBuffer + _prefixLen, cached to avoid per-call addition
   uint8_t  _suffixLen = 0;            // byte length of chip suffix appended after pixel data
+  bool     _inverted  = false;        // physical output signal inversion (polarity)
   uint8_t  _busBri = 255;  // brightness for color_fade() in setPixelColor(): _bri for 8-bit types,
                            // fine residual for TM1814/TM1815, 255 (no-op) for 16-bit types
   uint8_t  _encBri = 255;  // encoder brightness for 16-bit types (SM16825/UCS8903/UCS8904):
@@ -384,7 +383,15 @@ public:
    * physical output signal inversion (polarity).
    * must be implemented on bus driver level
    */
-  virtual void setInverted(bool /*inv*/) { }
+  virtual void setInverted(bool inv) { _inverted = inv; }
+  bool isInverted() const { return _inverted; }
+
+  /**
+   * update color order on active encoder
+   */
+  virtual void setColorOrder(uint8_t co) {
+    _encoder = ColorEncoder(co, _encoder.getColorChannels(), _ledType);
+  }
 
   /**
    * Replace the color encoder (e.g. for curstom bus types after bus creation).
@@ -504,7 +511,6 @@ public:
 
   /**
    * Allocate encode buffer. Called from begin() after hardware init.
-   * Default uses plain malloc; DMA buses override to use heap_caps_malloc.
    * @param numPixels  hardware pixel count (may include skipped pixels)
    * @param numChannels bytes per pixel in the encoded stream
    */
@@ -514,7 +520,11 @@ public:
     if (_encodeBuffer && _encodeBufferSize >= needed) return true;
     if (_encodeBuffer) { free(_encodeBuffer); _encodeBuffer = nullptr; }
     if (needed == 0) return true;
+#if defined(ARDUINO_ARCH_ESP32)
+    _encodeBuffer = (uint8_t*)heap_caps_malloc(needed, MALLOC_CAP_INTERNAL | MALLOC_CAP_8BIT); // _encodeBuffer is accessed from ISR (but not from DMA), do not use PSRAM
+#else
     _encodeBuffer = (uint8_t*)malloc(needed);
+#endif
     if (!_encodeBuffer) { _encodeBufferSize = 0; return false; }
     memset(_encodeBuffer, 0, needed);
     _encodeBufferSize = needed;

@@ -77,6 +77,7 @@ ParlioBusContext::ParlioBusContext(uint8_t /*busNum*/)
   , _unitEnabled(false)
   , _unitStale(false)
   , _state(DriverState::Idle)
+  , _txStartMillis(0)
   , _initialized(false)
   , _bufferSize(0)
   , _maxSrcBytes(0)
@@ -98,7 +99,7 @@ ParlioBusContext::ParlioBusContext(uint8_t /*busNum*/)
   , _maxDataLen(0)
 {
   for (int i = 0; i < WLEDPB_PARLIO_MAX_CHANNELS; i++) {
-    _channels[i] = {nullptr, -1, nullptr, 0, 0, false};
+    _channels[i] = {-1, nullptr, 0, 0, false};
   }
 
   for (int i = 0; i < WLEDPB_PARLIO_DMA_BUFFER_COUNT; i++) {
@@ -121,11 +122,9 @@ bool ParlioBusContext::init(const LedTiming& timing) {
   // Note: the PARLIO driver only has an INTEGER clock divider from the source clock,
   // so arbitrary custom timings are less accurate than with the fractional I2S divider.
   // Standard timings are fine: 1.25us bit period -> 3.2MHz, exact integer division.
-  uint32_t bitPeriodNs = timing.bitPeriod();
-  if (bitPeriodNs == 0) return false;
-  uint64_t clkHz = (4ULL * 1000000000ULL) / bitPeriodNs;
-  if (clkHz > 40000000ULL) return false; // above PARLIO TX max clock on C6/H2
-  _outClockHz = (uint32_t)clkHz;
+  uint32_t clkHz = calc4StepClockHz(timing);
+  if (clkHz > 40000000UL) return false; // above PARLIO TX max clock on C6/H2
+  _outClockHz = clkHz;
 
   // NOTE: the PARLIO unit is NOT created here. Pins are fixed at unit creation time and
   // channels register after init(), so creation is deferred to the first startTransmit().
@@ -230,7 +229,7 @@ void ParlioBusContext::hwDeinit() {
 }
 
 void IRAM_ATTR ParlioBusContext::hwStopTransfer() {
-  // only called from deinit() (waits for idle first)
+  // only called from deinit() (waits for idle first) and abortTransmit() (watchdog recovery)
 #if WLEDPB_PARLIO_SEAMLESS_DMA
   if (_dmaChan) gdma_stop(_dmaChan);
 #endif
@@ -238,6 +237,13 @@ void IRAM_ATTR ParlioBusContext::hwStopTransfer() {
     parlio_tx_unit_disable(_txUnit);
     _unitEnabled = false;
   }
+}
+
+// Watchdog recovery for a stalled transmission: stop the unit/DMA and return to idle, hardware is re-enabled by hwStartTransfer()
+void ParlioBusContext::abortTransmit() {
+  hwStopTransfer();
+  _state = DriverState::Idle;
+  _stagedMask = 0;
 }
 
 #if WLEDPB_PARLIO_SEAMLESS_DMA
@@ -391,12 +397,8 @@ bool ParlioBusContext::_allocDmaBuffers() {
   if (_dmaBuffer[0] != nullptr) return true;
 
 #if WLEDPB_PARLIO_SEAMLESS_DMA
-  _bufferSize = (WLEDPB_PARLIO_DMABYTES * _maxSrcBytes) / WLEDPB_PARLIO_DMA_BUFFER_COUNT;
-  _bufferSize = (_bufferSize + 3) & ~3;                               // align to 4 bytes
-  if (_bufferSize > DEFAULT_DMA_BUFFER_SIZE) _bufferSize = DEFAULT_DMA_BUFFER_SIZE;
-  // GDMA descriptors have 12-bit size/length fields (max 4095, 4-byte aligned -> 4092)
-  if (_bufferSize > DMA_DESCRIPTOR_BUFFER_MAX_SIZE_4B_ALIGNED) _bufferSize = DMA_DESCRIPTOR_BUFFER_MAX_SIZE_4B_ALIGNED;
-  if (_bufferSize < MIN_DMA_BUFFER_SIZE)     _bufferSize = MIN_DMA_BUFFER_SIZE;
+  // note: DEFAULT_DMA_BUFFER_SIZE is statically asserted to fit the GDMA descriptor
+  _bufferSize = calc4StepBufferSize(_maxSrcBytes, WLEDPB_PARLIO_DMABYTES, WLEDPB_PARLIO_DMA_BUFFER_COUNT, MIN_DMA_BUFFER_SIZE, DEFAULT_DMA_BUFFER_SIZE);
 
   // allocate the descriptor-ring buffers (4-byte aligned for the GDMA engine)
   for (int i = 0; i < WLEDPB_PARLIO_DMA_BUFFER_COUNT; i++) {
@@ -433,7 +435,7 @@ bool ParlioBusContext::_allocDmaBuffers() {
   return true;
 }
 
-int8_t ParlioBusContext::registerChannel(int8_t pin, ParlioBus* bus, size_t srcBytes, bool inverted) {
+int8_t ParlioBusContext::registerChannel(int8_t pin, size_t srcBytes, bool inverted) {
   // Find free slot
   int8_t idx = -1;
   for (int i = 0; i < WLEDPB_PARLIO_MAX_CHANNELS; i++) {
@@ -445,7 +447,6 @@ int8_t ParlioBusContext::registerChannel(int8_t pin, ParlioBus* bus, size_t srcB
 
   if (idx < 0) return -1;
 
-  _channels[idx].bus = bus;
   _channels[idx].pin = pin;
   _channels[idx].active = true;
   _channelCount++;
@@ -465,7 +466,7 @@ void ParlioBusContext::unregisterChannel(int8_t channelIdx) {
   if (channelIdx < 0 || channelIdx >= WLEDPB_PARLIO_MAX_CHANNELS) return;
   if (!_channels[channelIdx].active) return;
 
-  _channels[channelIdx] = {nullptr, -1, nullptr, 0, 0, false};
+  _channels[channelIdx] = {-1, nullptr, 0, 0, false};
   _channelCount--;
   _channelMask &= ~(1 << channelIdx);
   _invertMask &= ~(1 << channelIdx);
@@ -539,10 +540,8 @@ void IRAM_ATTR ParlioBusContext::encode4Step(uint8_t* dest, size_t destLen, uint
 
 // bytes of reset period appended at the end of a frame
 uint32_t IRAM_ATTR ParlioBusContext::_calcResetBytes() const {
-  uint32_t resetNs = _timing.reset_us * 1000;
-  uint32_t bitPeriodNs = _timing.bitPeriod() + 1; // +1 to ensure no division by zero and slightly over-estimate the reset cycle
-  uint32_t zeroCycles = resetNs / bitPeriodNs;
-  return zeroCycles * (WLEDPB_PARLIO_DMABYTES / 8); // one LED bit cycle is 4 clocks, 1 buffer byte per clock
+  // one LED bit cycle is 4 clocks, 1 buffer byte per clock
+  return (uint32_t)calc4StepResetDmaBytes(_timing, WLEDPB_PARLIO_DMABYTES / 8);
 }
 
 void IRAM_ATTR ParlioBusContext::fillBuffer(uint8_t bufIdx) {
@@ -617,6 +616,7 @@ bool ParlioBusContext::startTransmit() {
   }
 
   _resetBytesLeft = 0;
+  _txStartMillis = millis();
 
   if (!_dmaAllocated) {
     if (!_allocDmaBuffers()) return false;
@@ -631,8 +631,7 @@ bool ParlioBusContext::startTransmit() {
 #if !WLEDPB_PARLIO_SEAMLESS_DMA
   _state = DriverState::Sending; // fallback: EOF callbacks do not gate on the state
 #endif
-  // seamless: _state is set to Sending at the end of hwStartTransfer(), after the ring
-  // is fully built and the engine is running - until then EOF callbacks stay disabled
+  // seamless: _state is set to Sending at the end of hwStartTransfer(), after the ring/ is fully built and the engine is running - until then EOF callbacks stay disabled
 
   if (!hwStartTransfer()) {
     _state = DriverState::Idle;
@@ -718,7 +717,6 @@ IRAM_ATTR bool ParlioBusContext::dmaCallback(parlio_tx_unit_handle_t tx_unit,
 ParlioBus::ParlioBus(int8_t pin, const LedTiming& timing, uint8_t colorOrder, uint8_t numChannels, uint8_t busNum, uint8_t ledType, size_t numPixels)
   : _pin(pin)
   , _timing(timing)
-  , _inverted(false)
   , _initialized(false)
   , _busNum(busNum)
   , _channelIdx(-1)
@@ -747,7 +745,7 @@ bool ParlioBus::begin() {
 
   // pass our encoded byte count so the context can size DMA buffers for the largest bus
   const size_t srcBytes = (size_t)_numPixels * _encoder.getPixelBytes();
-  _channelIdx = _ctx->registerChannel(_pin, this, srcBytes, _inverted);
+  _channelIdx = _ctx->registerChannel(_pin, srcBytes, _inverted);
   if (_channelIdx < 0) {
     ParlioBusContext::release(_busNum);
     _ctx = nullptr;
@@ -757,11 +755,6 @@ bool ParlioBus::begin() {
   _initialized = true;
   if (!allocateEncodeBuffer(_numPixels, _encoder.getPixelBytes())) { end(); return false; }
   return true;
-}
-
-// invert output signal, must be set before begin()
-void ParlioBus::setInverted(bool inv) {
-  _inverted = inv;
 }
 
 void ParlioBus::end() {
@@ -784,27 +777,11 @@ void ParlioBus::end() {
   _initialized = false;
 }
 
-bool ParlioBus::allocateEncodeBuffer(uint16_t numPixels, uint8_t numChannels) {
-  const size_t pixelBytes = padPixelBytesForSuffix((size_t)numPixels * numChannels, _ledType);
-  size_t needed = _prefixLen + pixelBytes + _suffixLen;
-  if (_encodeBuffer && _encodeBufferSize >= needed) return true;
-  if (_encodeBuffer) { heap_caps_free(_encodeBuffer); _encodeBuffer = nullptr; }
-  if (needed == 0) return true;
-  _encodeBuffer = (uint8_t*)heap_caps_malloc(needed, MALLOC_CAP_DMA);
-  if (!_encodeBuffer) { _encodeBufferSize = 0; return false; }
-  memset(_encodeBuffer, 0, needed);
-  _encodeBufferSize = needed;
-  _pixelData  = _encodeBuffer + _prefixLen;
-  if (_suffixLen == sizeof(SM16825_SUFFIX) && _ledType == TYPE_SM16825)
-    memcpy(_pixelData + pixelBytes, SM16825_SUFFIX, sizeof(SM16825_SUFFIX));
-  return true;
-}
-
 bool ParlioBus::show() {
   if (!_initialized || !_ctx || !_encodeBuffer || _numPixels == 0) return false;
 
-  // Wait for previous transmission to complete
-  while (!_ctx->isIdle()) {
+  // Wait for previous transmission to complete, timeout should not happen, it is a fallback to guarantee driver wont get stuck
+  while (!_ctx->isIdle() && (millis() - _ctx->getTxStartMillis()) < WLEDPB_TRANSFER_TIMEOUT_MS) {
     vTaskDelay(1);
   }
 
@@ -815,11 +792,13 @@ bool ParlioBus::show() {
 
 bool ParlioBus::canShow() const {
   if (!_ctx) return true;
-  return _ctx->isIdle();
-}
-
-void ParlioBus::setColorOrder(uint8_t co) {
-  _encoder = ColorEncoder(co, _encoder.getColorChannels(), _ledType);
+  if (_ctx->isIdle()) return true;
+  // safety watchdog if the driver ever gets stuck (e.g. a lost EOF interrupt)
+  if ((uint32_t)(millis() - _ctx->getTxStartMillis()) > WLEDPB_TRANSFER_TIMEOUT_MS) {
+    _ctx->abortTransmit();
+    return true;
+  }
+  return false;
 }
 
 } // namespace WLEDpixelBus

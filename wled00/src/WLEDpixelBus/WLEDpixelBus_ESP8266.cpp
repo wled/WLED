@@ -36,7 +36,6 @@ Esp8266UartBus* Esp8266UartBus::s_instances[2] = {nullptr, nullptr};
 Esp8266UartBus::Esp8266UartBus(int8_t pin, const LedTiming& timing, uint8_t colorOrder, uint8_t numChannels, uint8_t ledType)
   : _pin(pin)
   , _timing(timing)
-  , _inverted(false)
   , _initialized(false)
   , _asyncBuf(nullptr)
   , _asyncBufEnd(nullptr)
@@ -165,14 +164,6 @@ bool Esp8266UartBus::show() {
   return true;
 }
 
-void Esp8266UartBus::setColorOrder(uint8_t co) {
-  _encoder = ColorEncoder(co, _encoder.getColorChannels(), _ledType);
-}
-
-void Esp8266UartBus::setInverted(bool inv) {
-  _inverted = inv;
-}
-
 bool Esp8266UartBus::canShow() const {
   if (!_initialized) return false;
   // Ready if we have no more data to send
@@ -212,7 +203,6 @@ Esp8266DmaBus* Esp8266DmaBus::s_this = nullptr;
 Esp8266DmaBus::Esp8266DmaBus(int8_t pin, const LedTiming& timing, uint8_t colorOrder, uint8_t numChannels, uint8_t ledType)
   :  _pin(pin)
   , _timing(timing)
-  , _inverted(false)
   , _initialized(false)
   , _sending(false)
   , _dmaDesc(nullptr)
@@ -598,14 +588,6 @@ void Esp8266DmaBus::updateSuffix(const uint8_t* data, uint8_t len) {
     }
     dst[i] = word;
   }
-}
-
-void Esp8266DmaBus::setColorOrder(uint8_t co) {
-  _encoder = ColorEncoder(co, _encoder.getColorChannels(), _ledType);
-}
-
-void Esp8266DmaBus::setInverted(bool inv) {
-  _inverted = inv;
 }
 
 // ---------------------------------------------------------------------------

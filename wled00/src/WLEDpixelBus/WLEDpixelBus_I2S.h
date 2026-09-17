@@ -83,7 +83,7 @@ public:
   void deinit();
 
   // Channel management
-  int8_t registerChannel(int8_t pin, I2sBus* bus, size_t srcBytes, bool inverted = false);
+  int8_t registerChannel(int8_t pin, size_t srcBytes, bool inverted = false);
   void unregisterChannel(int8_t channelIdx);
   uint8_t getChannelCount() const { return _channelCount; }
 
@@ -165,11 +165,9 @@ private:
 
   // Timing
   LedTiming _timing;
-  uint32_t _clockDiv;
 
   // Channel data
   struct ChannelData {
-    I2sBus* bus;
     int8_t pin;
     const uint8_t* srcData;
     size_t srcLen;
@@ -180,7 +178,6 @@ private:
   uint8_t _channelCount;
   uint16_t _channelMask;
   uint16_t _stagedMask;
-  size_t _maxDataLen;
 
   // Singleton instances
   static I2sBusContext* _instances[WLEDPB_I2S_BUS_COUNT];
@@ -214,16 +211,9 @@ public:
   const char* getTypeStr() const override { return "I2S"; }
 #endif
 
-  void setInverted(bool inv) override;
-  void setColorOrder(uint8_t co);
-
-  // Override to use DMA-capable allocator for I2S
-  bool allocateEncodeBuffer(uint16_t numPixels, uint8_t numChannels) override;
-
 private:
   int8_t _pin;
   LedTiming _timing;
-  bool _inverted;
   bool _initialized;
   uint8_t _busNum;
   int8_t _channelIdx;

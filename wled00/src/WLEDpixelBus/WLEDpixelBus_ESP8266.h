@@ -30,16 +30,12 @@ public:
 #ifdef WLED_DEBUG_BUS
   const char* getTypeStr() const override { return "ESP8266_UART"; }
 #endif
-  void setColorOrder(uint8_t co);
-  void setInverted(bool inv) override;
-
   static void UartIsr(void* arg, void* exceptionFrame);
   static Esp8266UartBus* s_instances[2];
 
 private:
   int8_t _pin;
   LedTiming _timing;
-  bool _inverted; // invert output signal
   bool _initialized;
   volatile uint8_t* _asyncBuf    = nullptr;
   volatile uint8_t* _asyncBufEnd = nullptr;
@@ -77,8 +73,6 @@ public:
   const char* getTypeStr() const override { return "ESP8266_DMA"; }
 #endif
 
-  void setColorOrder(uint8_t co);
-  void setInverted(bool inv) override;
   IRAM_ATTR bool setPixelColor(uint16_t pos, uint32_t c, uint16_t wwcw) override;
   IRAM_ATTR uint32_t getPixelColor(uint16_t pix) const override;
   bool allocateEncodeBuffer(uint16_t numPixels, uint8_t numChannels) override;
@@ -94,7 +88,6 @@ private:
 
   int8_t _pin; // Only GPIO3 supported for I2S DMA on ESP8266
   LedTiming _timing;
-  bool _inverted; // invert output signal
   bool _initialized;
   volatile bool _sending;
 

@@ -72,14 +72,12 @@ I2sBusContext::I2sBusContext(uint8_t busNum)
   , _resetBytesLeft(0)
   , _txStartMillis(0)
   , _timing{0, 0, 0, 0, 0}
-  , _clockDiv(1)
   , _channelCount(0)
   , _channelMask(0)
   , _stagedMask(0)
-  , _maxDataLen(0)
 {
   for (int i = 0; i < WLEDPB_I2S_MAX_CHANNELS; i++) {
-    _channels[i] = {nullptr, -1, nullptr, 0, 0, false};
+    _channels[i] = {-1, nullptr, 0, 0, false};
   }
 
   for (int i = 0; i < WLEDPB_I2S_DMA_BUFFER_COUNT; i++) {
@@ -135,8 +133,6 @@ void I2sBusContext::deinit() {
 #ifdef CONFIG_IDF_TARGET_ESP32S3
 
 bool I2sBusContext::hwInit(const LedTiming& timing) {
-  uint32_t bitPeriodNs = timing.bitPeriod();
-
   // Enable LCD_CAM peripheral
   periph_module_enable(PERIPH_LCD_CAM_MODULE);
   periph_module_reset(PERIPH_LCD_CAM_MODULE);
@@ -147,8 +143,8 @@ bool I2sBusContext::hwInit(const LedTiming& timing) {
   LCD_CAM.lcd_user.lcd_reset = 0;
   esp_rom_delay_us(100);
 
-  // Calculate clock divider for 4-step cadence
-  double clkm_div = (double)bitPeriodNs / 4.0 / 1000.0 * 240.0;
+  // Calculate clock divider for 4-step cadence (240 MHz LCD base clock)
+  double clkm_div = 240000000.0 / (double)calc4StepClockHz(timing);
   if (clkm_div > LCD_LL_CLK_FRAC_DIV_N_MAX || clkm_div < 2.0) {
     return false;
   }
@@ -345,24 +341,23 @@ bool I2sBusContext::hwInit(const LedTiming& timing) {
   // Calculate clock divider for 4-step cadence
   // bck_div_num must be >= 2 on ESP32 hardware
   // step_time = clkm_div * bck_div / base_clock_MHz * 1000 ns
-  // clkm_div = step_time_ns * base_clock_MHz / (bck_div * 1000)
+  // clkm_div = base_clock_Hz / (4-step cadence clock * bck_div)
   const uint8_t bckDiv = 4;  // must be >= 2
-  uint32_t bitPeriodNs = timing.bitPeriod();
+  const uint32_t clkHz = calc4StepClockHz(timing); // 4 clock cycles per LED bit period
 
 #if defined(CONFIG_IDF_TARGET_ESP32)
   #ifndef WLED_PIXELBUS_16PARALLEL
   // 8-bit mode: lcd_tx_wrx2_en=1 halves the effective output rate (WR pulses at BCK/2).
   // Use 2x clock constant so the divider is doubled, yielding the correct BCK after the factor-of-2.
-  const double baseClockMhz = 160.0;
+  const double baseClockHz = 160000000.0;
   #else
-  const double baseClockMhz = 80.0; // 16-bit mode: APB clock, lcd_tx_wrx2_en=0 has no rate halving
+  const double baseClockHz = 80000000.0; // 16-bit mode: APB clock, lcd_tx_wrx2_en=0 has no rate halving
   #endif
 #else
-  const double baseClockMhz = 80.0; // S2: 80MHz I2S base clock (wrx2 on S2 does not halve the rate)
+  const double baseClockHz = 80000000.0; // S2: 80MHz I2S base clock (wrx2 on S2 does not halve the rate)
 #endif
 
-  // For parallel 8-bit, bytesPerSample=1, dmaBitPerDataBit=4
-  double clkmdiv = (double)bitPeriodNs / 1.0 / 4.0 / (double)bckDiv / 1000.0 * baseClockMhz;
+  double clkmdiv = baseClockHz / (double)clkHz / (double)bckDiv;
   if (clkmdiv < 2.0) clkmdiv = 2.0;
   if (clkmdiv > 255.0) clkmdiv = 255.0;
 
@@ -377,8 +372,6 @@ bool I2sBusContext::hwInit(const LedTiming& timing) {
     divB = (uint8_t)(clkmFraction * 63.0 + 0.5);
     if (divB >= divA) divB = divA - 1;
   }
-
-  _clockDiv = clkmInteger;
 
   // Set clock (with fractional divider for accurate timing)
   _i2sDev->clkm_conf.val = 0;
@@ -514,10 +507,7 @@ void I2sBusContext::hwRoutePin(int8_t pin, int8_t idx, bool inverted) {
 bool I2sBusContext::_allocDmaBuffers() {
   if (_dmaBuffer[0] != nullptr) return true;
 
-  _bufferSize = (WLEDPB_I2S_DMABYTES * _maxSrcBytes) / WLEDPB_I2S_DMA_BUFFER_COUNT;
-  _bufferSize = (_bufferSize + 3) & ~3;                               // align to 4 bytes
-  if (_bufferSize > DEFAULT_DMA_BUFFER_SIZE) _bufferSize = DEFAULT_DMA_BUFFER_SIZE;
-  if (_bufferSize < MIN_DMA_BUFFER_SIZE)     _bufferSize = MIN_DMA_BUFFER_SIZE;
+  _bufferSize = calc4StepBufferSize(_maxSrcBytes, WLEDPB_I2S_DMABYTES, WLEDPB_I2S_DMA_BUFFER_COUNT, MIN_DMA_BUFFER_SIZE, DEFAULT_DMA_BUFFER_SIZE);
 
   // allocate DMA-capable buffers (4-byte aligned for hardware DMA engine)
   for (int i = 0; i < WLEDPB_I2S_DMA_BUFFER_COUNT; i++) {
@@ -543,7 +533,7 @@ bool I2sBusContext::_allocDmaBuffers() {
   return true;
 }
 
-int8_t I2sBusContext::registerChannel(int8_t pin, I2sBus* bus, size_t srcBytes, bool inverted) {
+int8_t I2sBusContext::registerChannel(int8_t pin, size_t srcBytes, bool inverted) {
   // Find free slot
   int8_t idx = -1;
   for (int i = 0; i < WLEDPB_I2S_MAX_CHANNELS; i++) {
@@ -555,7 +545,6 @@ int8_t I2sBusContext::registerChannel(int8_t pin, I2sBus* bus, size_t srcBytes, 
 
   if (idx < 0) return -1;
 
-  _channels[idx].bus = bus;
   _channels[idx].pin = pin;
   _channels[idx].active = true;
   _channelCount++;
@@ -577,7 +566,7 @@ void I2sBusContext::unregisterChannel(int8_t channelIdx) {
     gpio_reset_pin((gpio_num_t)_channels[channelIdx].pin);
   }
 
-  _channels[channelIdx] = {nullptr, -1, nullptr, 0, 0, false};
+  _channels[channelIdx] = {-1, nullptr, 0, 0, false};
   _channelCount--;
   _channelMask &= ~(1 << channelIdx);
 }
@@ -588,10 +577,6 @@ void I2sBusContext::setChannelData(int8_t channelIdx, const uint8_t* data, size_
   _channels[channelIdx].srcData = data;
   _channels[channelIdx].srcLen = len;
   _channels[channelIdx].srcPos = 0;
-
-  if (len > _maxDataLen) {
-    _maxDataLen = len;
-  }
 
   // Safety: If this channel was already staged, it means we somehow missed triggering startTransmit()
   if (_stagedMask & (1 << channelIdx)) {
@@ -724,10 +709,7 @@ void IRAM_ATTR __attribute__((noinline)) I2sBusContext::fillBuffer(uint8_t bufId
 
   if (translatedbytes < _bufferSize) {
     // Data ran out before the buffer was full (i.e. we are done), compute the minimum reset period we must send as zero cycles
-    uint32_t resetNs = _timing.reset_us * 1000;
-    uint32_t bitPeriodNs = _timing.bitPeriod() + 1; // +1 to ensure no division by zero and slightly over-estimate the reset cycle
-    uint32_t zeroCycles = resetNs / bitPeriodNs;
-    size_t resetBytes = zeroCycles * (WLEDPB_I2S_DMABYTES / 8); // one cycle is 4 clocks, on each clock two/one buffer byte(s) sent out in parallel
+    size_t resetBytes = calc4StepResetDmaBytes(_timing, WLEDPB_I2S_DMABYTES / 8);
 
     size_t newLen = translatedbytes + resetBytes;
     if (newLen > _bufferSize) {
@@ -750,13 +732,9 @@ bool I2sBusContext::startTransmit() {
   if (_stagedMask != _channelMask) return true;
   _stagedMask = 0; // Reset for next frame
 
-  _maxDataLen = 0;
   for (int ch = 0; ch < WLEDPB_I2S_MAX_CHANNELS; ch++) {
     if (_channels[ch].active) {
       _channels[ch].srcPos = 0;
-      if (_channels[ch].srcLen > _maxDataLen) {
-        _maxDataLen = _channels[ch].srcLen;
-      }
     }
   }
 
@@ -873,7 +851,6 @@ void I2sBusContext::abortTransmit() {
 I2sBus::I2sBus(int8_t pin, const LedTiming& timing, uint8_t colorOrder, uint8_t numChannels, uint8_t busNum, uint8_t ledType, size_t numPixels)
   : _pin(pin)
   , _timing(timing)
-  , _inverted(false)
   , _initialized(false)
   , _busNum(busNum)
   , _channelIdx(-1)
@@ -902,7 +879,7 @@ bool I2sBus::begin() {
 
   // pass our encoded byte count so the context can size DMA buffers for the largest bus
   const size_t srcBytes = (size_t)_numPixels * _encoder.getPixelBytes();
-  _channelIdx = _ctx->registerChannel(_pin, this, srcBytes, _inverted);
+  _channelIdx = _ctx->registerChannel(_pin, srcBytes, _inverted);
   if (_channelIdx < 0) {
     //DEBUG_PRINTF_P(PSTR("[I2S] registerChannel failed for pin %d\n"), _pin);
     I2sBusContext::release(_busNum);
@@ -914,11 +891,6 @@ bool I2sBus::begin() {
   if (!allocateEncodeBuffer(_numPixels, _encoder.getPixelBytes())) { end(); return false; }
   //DEBUG_PRINTF_P(PSTR("[I2S] I2sBus::begin() OK: pin=%d, bus=%u, channel=%d\n"), _pin, _busNum, _channelIdx);
   return true;
-}
-
-// invert output signal, must be set before begin()
-void I2sBus::setInverted(bool inv) {
-  _inverted = inv;
 }
 
 void I2sBus::end() {
@@ -941,27 +913,11 @@ void I2sBus::end() {
   _initialized = false;
 }
 
-bool I2sBus::allocateEncodeBuffer(uint16_t numPixels, uint8_t numChannels) {
-  const size_t pixelBytes = padPixelBytesForSuffix((size_t)numPixels * numChannels, _ledType);
-  size_t needed = _prefixLen + pixelBytes + _suffixLen;
-  if (_encodeBuffer && _encodeBufferSize >= needed) return true;
-  if (_encodeBuffer) { heap_caps_free(_encodeBuffer); _encodeBuffer = nullptr; }
-  if (needed == 0) return true;
-  _encodeBuffer = (uint8_t*)heap_caps_malloc(needed, MALLOC_CAP_DMA);
-  if (!_encodeBuffer) { _encodeBufferSize = 0; return false; }
-  memset(_encodeBuffer, 0, needed);
-  _encodeBufferSize = needed;
-  _pixelData  = _encodeBuffer + _prefixLen;
-  if (_suffixLen == sizeof(SM16825_SUFFIX) && _ledType == TYPE_SM16825)
-    memcpy(_pixelData + pixelBytes, SM16825_SUFFIX, sizeof(SM16825_SUFFIX));
-  return true;
-}
-
 bool I2sBus::show() {
   if (!_initialized || !_ctx || !_encodeBuffer || _numPixels == 0) return false;
 
   // Wait for previous transmission to complete, timeout should not happen, it is a fallback to guarantee driver wont get stuck
-  while (!_ctx->isIdle() && (millis() - _ctx->getTxStartMillis()) < 500) {
+  while (!_ctx->isIdle() && (millis() - _ctx->getTxStartMillis()) < WLEDPB_TRANSFER_TIMEOUT_MS) {
     vTaskDelay(1);
   }
 
@@ -974,15 +930,11 @@ bool I2sBus::canShow() const {
   if (!_ctx) return true;
   if (_ctx->isIdle()) return true;
   // safety watchdog if the driver ever gets stuck (e.g. a missed/overwritten terminating descriptor)
-  if ((uint32_t)(millis() - _ctx->getTxStartMillis()) > 500) {
+  if ((uint32_t)(millis() - _ctx->getTxStartMillis()) > WLEDPB_TRANSFER_TIMEOUT_MS) {
     _ctx->abortTransmit();
     return true;
   }
   return false;
-}
-
-void I2sBus::setColorOrder(uint8_t co) {
-  _encoder = ColorEncoder(co, _encoder.getColorChannels(), _ledType);
 }
 
 } // namespace WLEDpixelBus

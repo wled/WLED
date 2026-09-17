@@ -27,35 +27,13 @@ namespace WLEDpixelBus {
 
 #define WLEDPB_SPI_MAX_CHANNELS 4   // SPI quad mode = 4 data lines
 #define WLEDPB_SPI_DMA_DESC_COUNT 2   // number of DMA buffers, increase to 3 if there are flickering issues
-//#define WLEDPB_SPI_GDMA_CHANNEL 1 // TODO: how to manage the DMA channels to avoid conflicts with other peripherals? for now we just assume channel 1 is free and used exclusively by this driver
-#define WLEDPB_SPI_GDMA_INTR_SOURCE ETS_DMA_CH1_INTR_SOURCE // must match dma channel (otherwise it just loops the two DMA descriptors and will eventually time-out)
-
-// TODO: use more modern GMDA channel reservation to get rid of hard ceded GDMA_CHANNEL, something like this:
-/*
-// in init(), replacing the hardcoded WLEDPB_SPI_GDMA_CHANNEL
-gdma_channel_alloc_config_t allocCfg = {};
-allocCfg.direction = GDMA_CHANNEL_DIRECTION_TX;
-esp_err_t err = gdma_new_ahb_channel(&allocCfg, &_gdmaChan); // new member: gdma_channel_handle_t _gdmaChan
-if (err != ESP_OK) {
-  deinit();
-  return false; // no free TX channel (RMT/I2S/... took them all) -> clean failure instead of silent corruption
-}
-gdma_get_channel_id(_gdmaChan, &_dmaChan); // new member: int _dmaChan
-*/
-
-
-class ParallelSpiBus;
 
 /**
  * SPI driver state machine states.
- * Error state is used for recovery from FIFO underrun or other hardware errors.
  */
 enum class SpiState : uint8_t {
   Idle = 0,         // Ready for new frame
-  Sending = 1,      // Data phase active, DMA running
-  SendingLast = 2,  // Last data buffer was filled; waiting for current buffer to finish
-  WaitingReset = 3, // Reset pulse being sent (zero-filled buffers)
-  Error = 4         // Error recovery needed (FIFO underrun, timeout, etc.)
+  Sending = 1       // Data phase active, DMA running
 };
 
 /**
@@ -63,9 +41,8 @@ enum class SpiState : uint8_t {
  * Uses GDMA with circular linked-list and ISR-driven buffer refill
 
  * Error handling:
- *   If outfifo_empty_err fires, transition to Error state.
- *   Pins are disconnected and driven low to prevent glitches.
- *   A 100ms timeout in isIdle() will eventually clear Error state.
+ *   If outfifo_empty_err fires, the transfer is stopped and recovered immediately.
+ *   isIdle() recovers transfers that stop without delivering their completion ISR.
  */
 class SpiBusContext {
 public:
@@ -75,7 +52,7 @@ public:
   bool init(const LedTiming& timing);
   void deinit();
 
-  int8_t registerChannel(int8_t pin, ParallelSpiBus* bus, bool inverted = false);
+  int8_t registerChannel(int8_t pin, bool inverted = false);
   void unregisterChannel(int8_t channelIdx);
   uint8_t getChannelCount() const { return _channelCount; }
 
@@ -91,12 +68,10 @@ private:
   void IRAM_ATTR encodeSpiChunk(uint8_t bufIdx);
   static bool IRAM_ATTR gdmaISR(gdma_channel_handle_t dma_chan, gdma_event_data_t* event_data, void* user_data);
   static void IRAM_ATTR spiISR(void* arg);
-  // Hardware control
-  void hwStopTransfer();
-  void hwResetFifo();
   // State machine
   mutable volatile SpiState _state;
   bool _initialized;
+  bool _peripheralsEnabled;
   volatile uint8_t _activeBuffer;   // buffer currently being sent by DMA (like I2S _activeBuffer)
   // DMA
   uint8_t* _dmaBuffer[WLEDPB_SPI_DMA_DESC_COUNT];
@@ -108,7 +83,6 @@ private:
   spi_dev_t* _hw; // SPI device
   // Source data per channel
   struct ChannelData {
-    ParallelSpiBus* bus;
     const uint8_t* srcData;
     size_t srcLen;
     int8_t pin;
@@ -120,9 +94,9 @@ private:
   volatile size_t _framePos;   // current source byte position
   volatile size_t _numBytes;   // total source bytes to send
   volatile int32_t _bitsLeft;  // bits still to send in chained segments (0 = last segment)
-  mutable uint32_t _lastTransmitMs;
-  // Staging: tracks which channels have provided data for the next frame
-  mutable uint8_t _stagedMask;
+  uint32_t _resetBits;         // reset pulse length in transfer bits, derived from LED timing
+  uint32_t _lastTransmitMs;    // millis() when the current transfer started, used by isIdle() watchdog
+  mutable uint8_t _stagedMask; // Staging: tracks which channels have provided data for the next frame
   uint8_t _channelMask;
 
   static SpiBusContext* _instance;
@@ -139,22 +113,15 @@ public:
 
   bool begin() override;
   void end() override;
-
   bool show() override;
   bool canShow() const override;
 #ifdef WLED_DEBUG_BUS
   const char* getTypeStr() const override { return "SPI"; }
 #endif
 
-  void setInverted(bool inv) override;
-  void setColorOrder(uint8_t co);
-
-  bool allocateEncodeBuffer(uint16_t numPixels, uint8_t numChannels) override;
-
 private:
   int8_t _pin;
   LedTiming _timing;
-  bool _inverted = false;
   bool _initialized;
 
   int8_t _channelIdx;

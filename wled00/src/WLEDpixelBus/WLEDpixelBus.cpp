@@ -36,10 +36,12 @@ TODO List
 - SPI 2-wire bus types need testing on all platforms (tested working in the past but not recently)
 - SPI 2-wire types do not support signal inversion
 - ESP32_DATA_IDLE_HIGH flag is a hack to fix bad hardware design and uses the legacy RMT driver, we should drop support for that
-- parallel SPI driver: the reset pulse handling needs some improvement, currently SPI_RESET_BITS is fixed
+- parallel SPI driver: the reset pulse is now derived from the LED timing (calc4StepResetDmaBytes); needs testing on hardware
+- parallel SPI driver still uses fixed DMA buffer size, if possible also use calc4StepBufferSize() like PARLIO and I2S
 - PARLIO bus needs an in depth review to check for any AI slop
 - use chip capabilities instead of individual target ifdefs in buswrapper
 - ESP8266 UART and I2S buses show() return false instead of waiting which is inconsistent
+- SM16825_SUFFIX should be made dynamic to increase color range at lower brightness (scale with global brightness)
 */
 
 
@@ -281,11 +283,6 @@ PixelBus* createBus(BusDriver driver, int8_t pin, const LedTiming& timing, uint8
     case BusDriver::DMA:
       bus = new Esp8266DmaBus(pin, timing, colorOrder, numChannels, ledType);
       break;
-    case BusDriver::BitBang:
-      bus = new BitBangBus(pin, timing, colorOrder, numChannels, ledType);
-      break;
-#elif (WLED_MAX_BB_CHANNELS > 0)
-    // remaining ESP32 variants (C5/C6/C61/P4): BitBang is the only supported driver so far
     case BusDriver::BitBang:
       bus = new BitBangBus(pin, timing, colorOrder, numChannels, ledType);
       break;

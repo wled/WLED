@@ -39,7 +39,6 @@ public:
 #ifdef WLED_DEBUG_BUS
   const char* getTypeStr() const override { return _useHardware ? "HW_SPI" : "SW_SPI"; }
 #endif
-  void setColorOrder(uint8_t co);
 
   /**
    * Set the APA102 per-pixel 5-bit hardware brightness step (0–31).

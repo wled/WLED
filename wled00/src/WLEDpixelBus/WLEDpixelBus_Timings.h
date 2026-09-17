@@ -7,6 +7,7 @@ written by Damian Schneider @dedehai 2026
 #pragma once
 
 #include <stdint.h>
+#include <stddef.h>
 #include "../../const.h"
 
 namespace WLEDpixelBus {
@@ -34,6 +35,36 @@ struct LedTiming {
     return t0h_ns * 4;
   }
 };
+
+// ---------------------------------------------------------------------------
+// 4-step cadence helpers for parallel buses (I2S, Parallel SPI, PARLIO, ESP8266)
+// ---------------------------------------------------------------------------
+
+// Compute target clock frequency in Hz for 4-step cadence (4 clock cycles per bit period).
+inline uint32_t calc4StepClockHz(const LedTiming& timing) {
+  uint32_t period = timing.bitPeriod();
+  if (period == 0) period = 1250;
+  return 4000000000UL / period;
+}
+
+// Compute number of DMA bytes for the reset period appended to a frame.
+// dmaBytesPerLedBit = bytes consumed in DMA for one full 4-step LED bit i.e. one bitPeriod
+inline size_t calc4StepResetDmaBytes(const LedTiming& timing, uint8_t dmaBytesPerLedBit) {
+  uint32_t resetNs = timing.reset_us * 1000;
+  uint32_t bitPeriodNs = timing.bitPeriod() + 1; // +1 to prevent div by zero
+  uint32_t zeroCycles = resetNs / bitPeriodNs;
+  return (size_t)zeroCycles * dmaBytesPerLedBit;
+}
+
+// Compute DMA buffer size aligned to 4 bytes and clamped to bounds.
+inline size_t calc4StepBufferSize(size_t maxSrcBytes, uint8_t dmaBytesPerSrcByte, uint8_t bufCount, size_t minSize, size_t maxSize) {
+  if (bufCount == 0) bufCount = 1;
+  size_t sz = (dmaBytesPerSrcByte * maxSrcBytes) / bufCount;
+  sz = (sz + 3) & ~3; // 4-byte align
+  if (sz > maxSize) sz = maxSize;
+  if (sz < minSize) sz = minSize;
+  return sz;
+}
 
 /**
  * Scale LED timing parameters by a floating point factor (percent expressed as factor, e.g. 1.2 for +20%)

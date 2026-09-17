@@ -150,8 +150,6 @@ namespace WLEDpixelBus {
 #define WLEDPB_PARLIO_DMABYTES 32     // 32 bytes per pixel byte (4 clocks per bit, 1 byte per clock)
 #define WLEDPB_PARLIO_XFER_DONE_FLAG 3 // flag to indicate end of transfer, must NOT be a multiple of 4
 
-class ParlioBus;
-
 /**
  * PARLIO bus context - manages the shared PARLIO TX unit for parallel output
  * Seamless mode: one transaction per frame over our own GDMA descriptor ring.
@@ -166,13 +164,15 @@ public:
   void deinit();
 
   // Channel management
-  int8_t registerChannel(int8_t pin, ParlioBus* bus, size_t srcBytes, bool inverted = false);
+  int8_t registerChannel(int8_t pin, size_t srcBytes, bool inverted = false);
   void unregisterChannel(int8_t channelIdx);
   uint8_t getChannelCount() const { return _channelCount; }
 
   // Transmission
   bool startTransmit();
   bool isIdle() const { return _state == DriverState::Idle; }
+  uint32_t getTxStartMillis() const { return _txStartMillis; }
+  void abortTransmit(); // watchdog recovery: stop unit and DMA, return to idle
 
   // Data access for channels
   void setChannelData(int8_t channelIdx, const uint8_t* data, size_t len);
@@ -208,6 +208,7 @@ private:
   bool _unitStale;        // channels changed after unit creation, recreate on next transmit
 
   volatile DriverState _state;
+  volatile uint32_t _txStartMillis; // millis() at frame start, used by the stall watchdog in show()/canShow()
   bool _initialized;
 
   // DMA buffers
@@ -235,7 +236,6 @@ private:
 
   // Channel data
   struct ChannelData {
-    ParlioBus* bus;
     int8_t pin;
     const uint8_t* srcData;
     size_t srcLen;
@@ -281,16 +281,9 @@ public:
   const char* getTypeStr() const override { return "PARLIO"; }
 #endif
 
-  void setInverted(bool inv) override;
-  void setColorOrder(uint8_t co);
-
-  // Override to use DMA-capable allocator for PARLIO
-  bool allocateEncodeBuffer(uint16_t numPixels, uint8_t numChannels) override;
-
 private:
   int8_t _pin;
   LedTiming _timing;
-  bool _inverted;
   bool _initialized;
   uint8_t _busNum;
   int8_t _channelIdx;

@@ -49,15 +49,12 @@ public:
   const char* getTypeStr() const override { return "BitBang"; }
 #endif
 
-  void setInverted(bool inv) override; // invert output signal
-
   // Reset the shared static channel registryc, alled by PixelBusAllocator::resetChannelTracking() when all buses are destroyed
   static void resetChannels();
 
 private:
   int8_t    _pin         = -1;
   LedTiming _timing;       // saved at construction, converted to cycles in begin()
-  bool      _inverted    = false; // invert output signal
   bool      _initialized = false;
 
   // -----------------------------------------------------------------------
