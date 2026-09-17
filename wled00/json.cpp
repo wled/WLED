@@ -540,9 +540,10 @@ bool deserializeState(JsonObject root, byte callMode, byte presetId)
 
   JsonObject playlist = root[F("playlist")];
   if (!playlist.isNull() && loadPlaylist(playlist, presetId)) {
-    //do not notify here, because the first playlist entry will do
+    //do not notify here, the first playlist entry will call stateUpdated(CALL_MODE_DIRECT_CHANGE)
     if (root["on"].isNull()) callMode = CALL_MODE_NO_NOTIFY;
     else callMode = CALL_MODE_DIRECT_CHANGE;  // possible bugfix for playlist only containing HTTP API preset FX=~
+    if (!onBefore && bri > 0) stateChanged = false; // when off, defer the state update to avoid glitches, see #5200. note: if bri == 0, playlists are skipped so we can not defer.
   }
 
   if (root.containsKey(F("rmcpal"))) {
