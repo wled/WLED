@@ -378,10 +378,7 @@ bool deserializeState(JsonObject root, byte callMode, byte presetId)
   bool onBefore = bri;
   byte briBefore = bri;
   getVal(root["bri"], bri);
-  // compare against the value this request started with, not briOld: briOld is the origin of an in-flight
-  // brightness transition and differs from bri for the whole transition, which would flag an unrelated
-  // request (e.g. {"ps":N} for the already active preset) as a state change and clear currentPreset
-  if (bri != briBefore) stateChanged = true;
+  if (bri != briBefore) stateChanged = true; // compare to request start, not briOld (transition origin)
 
   bool on = root["on"] | (bri > 0);
   if (!on != !bri) toggleOnOff();
