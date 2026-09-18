@@ -937,6 +937,11 @@ void serializeInfo(JsonObject root)
     sprintf(s, "%d.%d.%d.%d", localIP[0], localIP[1], localIP[2], localIP[3]);
   }
   root["ip"] = s;
+
+#if defined(LWIP_IPV6) && ESP_IDF_VERSION_MAJOR >= 5
+  if (WLEDNetwork.hasLinkLocalIPv6()) root[F("ip6")]       = WLEDNetwork.localIPv6LinkLocal().toString();
+  if (WLEDNetwork.hasGlobalIPv6())    root[F("ip6global")] = WLEDNetwork.localIPv6Global().toString();
+#endif
 }
 
 static void setPaletteColors(JsonArray json, CRGBPalette16 palette)
