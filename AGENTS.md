@@ -318,7 +318,7 @@ These apply to any coding agent (Copilot or otherwise) acting on a contributor's
 
 - **Confirm before you commit.** Make sure the human understands and can explain the change - especially root-cause claims or refactors - before you open a PR.
 - **Stay scoped.** Touch only what the task requires. Flag broader fixes to the human instead of silently expanding the change.
-- **Never overstate root causes.** Verified fact vs. hypothesis - say which. Don't present a guess as settled truth in issues, PRs, or commits.
+- **Warning: avoid overconfident root-cause claims.** When drafting issue tickets or PR descriptions, don't state a root cause with confidence unless you've actually traced the code path or reproduced the failure. A plausible-sounding explanation is not the same as a verified one - overconfident claims that later "dissolve into nothing" under review waste maintainer time and damage trust in the whole PR. When in doubt, say so explicitly.
 - **State what's tested.** Distinguish "verified" from "should work based on reading the code" in the PR description.
 - **Disclose AI involvement.** Use `// AI: ... // AI: end` markers and declare AI assistance in the PR description, per `CONTRIBUTING.md`.
 
