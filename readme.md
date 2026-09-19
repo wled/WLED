@@ -15,6 +15,11 @@ A fast and feature-rich firmware for ESP32 microcontrollers to control addressab
 
 Originally created by [Aircoookie](https://github.com/Aircoookie), now maintained by a community of contributors.
 
+## 🤝 Contributing
+
+Want to help improve WLED? Awesome! Please skim [CONTRIBUTING.md](CONTRIBUTING.md) first - it covers how we like PRs and issues to look, including our take on AI-assisted contributions.
+If you're an AI coding agent, [AGENTS.md](AGENTS.md) is for you - please read it before touching any files. 😊
+
 ## ⚙️ Features
 
 ### Effects & Visuals
@@ -68,11 +73,6 @@ Originally created by [Aircoookie](https://github.com/Aircoookie), now maintaine
 See the [documentation at kno.wled.ge](https://kno.wled.ge)!
 
 [Tutorials and getting-started guides](https://kno.wled.ge/basics/tutorials/) to help you get your project running quickly.
-
-## 🤝 Contributing
-
-Want to help improve WLED? Awesome! Please skim [CONTRIBUTING.md](CONTRIBUTING.md) first - it covers how we like PRs and issues to look, including our take on AI-assisted contributions.
-If you're an AI coding agent, [AGENTS.md](AGENTS.md) is for you - please read it before touching any files. 😊
 
 ## 🖼️ User interface
 
