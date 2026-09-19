@@ -459,7 +459,15 @@ BusPwm::BusPwm(const BusConfig &bc)
       uint8_t group = (channel / 8), timer = ((channel / 2) % 4); // same fromula as in ledcSetup()
       ledc_timer_rst((ledc_mode_t)group, (ledc_timer_t)timer); // reset timer so all timers are (almost) in sync (for phase shift)
       #else
-      ledcAttachChannel(_pins[i], _frequency,  _depth - (dithering*4), channel); // reduce to 8bit when using dithering
+      if (!ledcAttachChannel(_pins[i], _frequency,  _depth - (dithering*4), channel)) { // reduce to 8bit when using dithering
+        // clean up on failure
+        for (unsigned j = 0; j < i; j++) {
+          if (PinManager::isPinOk(_pins[j])) ledcDetach(_pins[j]);
+        }
+        PinManager::deallocateMultiplePins(pins, numPins, PinOwner::BusPwm);
+        PinManager::deallocateLedc(_ledcStart, numPins);
+        return;
+      }
       uint8_t group = channel / SOC_LEDC_CHANNEL_NUM;
       uint8_t ch    = channel % SOC_LEDC_CHANNEL_NUM;
       uint8_t timer = LEDC.channel_group[group].channel[ch].conf0.timer_sel;
@@ -572,7 +580,7 @@ void BusPwm::show() {
     unsigned duty = (_data[i] * pwmBri) / 255;
     unsigned deadTime = 0;
     constexpr unsigned DEADTIME_NS = 500; // 500ns should be safe for most drivers that do not have internal shoot-through protection, with dithering this is a min value
-    if (_type == TYPE_ANALOG_2CH && Bus::_cctBlend <= 0) {
+    if (_type == TYPE_ANALOG_2CH && Bus::_cctBlend <= 0 && !cctICused) {
       // add dead time between signals to prevent shoot-through +2 ensures proper spacing in dithering as the signal jitters by 1 (8bit) tick
       // a tick when dithering can be higher than 500ns (1/4.8kHz/256 = 800ns), the +2 adds less than 50ns when not dithering
       deadTime = (2 << bitShift) + (uint64_t(DEADTIME_NS) * _frequency * maxBri) / 1000000000ULL; // _frequency * maxBri is 1/pwmtick,
