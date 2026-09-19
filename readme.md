@@ -69,6 +69,11 @@ See the [documentation at kno.wled.ge](https://kno.wled.ge)!
 
 [Tutorials and getting-started guides](https://kno.wled.ge/basics/tutorials/) to help you get your project running quickly.
 
+## 🤝 Contributing
+
+Want to help improve WLED? Awesome! Please skim [CONTRIBUTING.md](CONTRIBUTING.md) first - it covers how we like PRs and issues to look, including our take on AI-assisted contributions.
+If you're an AI coding agent, [AGENTS.md](AGENTS.md) is for you - please read it before touching any files. 😊
+
 ## 🖼️ User interface
 
 <img src="/images/macbook-pro-space-gray-on-the-wooden-table.jpg" width="50%"><img src="/images/walking-with-iphone-x.jpg" width="50%">
