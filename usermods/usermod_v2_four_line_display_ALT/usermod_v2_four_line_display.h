@@ -17,14 +17,22 @@
     #define FLD_PIN_DC 19
   #endif
   #ifndef FLD_PIN_RESET
-    #define FLD_PIN_RESET 26
+    #ifdef FLD_SPI_DEFAULT
+      #define FLD_PIN_RESET 26
+    #else
+      #define FLD_PIN_RESET U8X8_PIN_NONE  // I2C: driver skips reset unless the board sets a reset pin
+    #endif
   #endif
 #else
   #ifndef FLD_PIN_DC
     #define FLD_PIN_DC 12
   #endif
   #ifndef FLD_PIN_RESET
-    #define FLD_PIN_RESET 16
+    #ifdef FLD_SPI_DEFAULT
+      #define FLD_PIN_RESET 16
+    #else
+      #define FLD_PIN_RESET U8X8_PIN_NONE  // I2C: driver skips reset unless the board sets a reset pin
+    #endif
   #endif
 #endif
 
