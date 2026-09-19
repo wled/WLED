@@ -461,6 +461,9 @@ void getSettingsJS(byte subPage, Print& settingsScript)
     }
     printSetFormCheckbox(settingsScript,PSTR("IP"),disablePullUp);
     printSetFormValue(settingsScript,PSTR("TT"),touchThreshold);
+    printSetFormValue(settingsScript,PSTR("DB"),buttonDebounceMs);
+    printSetFormValue(settingsScript,PSTR("LP"),buttonLongPressMs);
+    printSetFormValue(settingsScript,PSTR("DP"),buttonDoublePressMs);
 #ifndef WLED_DISABLE_INFRARED
     printSetFormValue(settingsScript,PSTR("IR"),irPin);
     printSetFormValue(settingsScript,PSTR("IT"),irEnabled);

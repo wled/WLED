@@ -800,6 +800,9 @@ Swap: <select id="xw${s}" name="XW${s}">
 							addBtn(i,v.pin[0],v.type);
 						});
 						d.getElementsByName("TT")[0].value = b.tt;
+						if (b.dbnc !== undefined) d.getElementsByName("DB")[0].value = b.dbnc;
+						if (b.lp !== undefined) d.getElementsByName("LP")[0].value = b.lp;
+						if (b.dp !== undefined) d.getElementsByName("DP")[0].value = b.dp;
 					}
 					let ir = c.hw.ir;
 					if (ir) {
@@ -1093,7 +1096,13 @@ Swap: <select id="xw${s}" name="XW${s}">
 			<button type="button" id="btn_rem" onclick="remBtn()">-</button>
 		</div>
 		Disable internal pull-up/down: <input type="checkbox" name="IP"><br>
-		Touch threshold: <input type="number" class="s" min="0" max="100" name="TT" required><br><br>
+		Touch threshold: <input type="number" class="s" min="0" max="100" name="TT" required><br>
+		Debounce time: <input type="number" class="s" min="0" max="100" name="DB" required> ms (0-100)<br>
+		<small>Ignores presses shorter than this (filters switch/contact noise)<br></small>
+		Long press time: <input type="number" class="s" min="200" max="4000" name="LP" required> ms (200-4000)<br>
+		<small>How long to hold before a long press triggers<br></small>
+		Double press time: <input type="number" class="s" min="100" max="1000" name="DP" required> ms (100-1000)<br>
+		<small>Max gap between two clicks to count as a double press<br></small><br>
 	</div>
 	<div class="sec">
 		<h3>IR Remote</h3>
