@@ -53,8 +53,8 @@ A good description helps us to review and understand your proposed changes. For 
 
 > [!TIP]
 > **Say what you actually know, not what sounds reassuring**
-> Phrases like "tested on my board", "I steered the whole process", "the design decisions are mine", or "I've validated the changes with my hardware" are meant to reassure reviewers - but they can quietly become weasel words that paper over "I don't fully understand this part of the WLED codebase". 
-> If that's the honest situation, please just say so directly, e.g. "I'm not fully sure why this fixes it, but it resolved the flicker on my ESP32 + WS2812B setup, and here's what I *do* understand about the change: ...". 
+> Phrases like "I steered the whole process", "the design decisions are mine", or "I've validated the changes with my hardware" are meant to reassure reviewers - but they can quietly become weasel words that paper over "I don't fully understand this part of the WLED codebase".
+> If that's the honest situation, please just say so directly, e.g. "I'm not fully sure why this fixes it, but it resolved the flicker on my ESP32 + WS2812B setup, and here's what I *do* understand about the change: ...".  
 > We'd much rather hear that than a confident-sounding reassurance - it tells us exactly how much scrutiny to apply, and saves everyone time.
 
 ### Testing Your Changes
@@ -174,7 +174,7 @@ Your contribution will be in the next WLED release - thank you! 🎉
 Why we ask for this: our maintainers are volunteers with limited time. A PR where the author can't explain their own code, or a bug fix whose "root cause" turns out to be wrong once someone actually looks, costs real review time - and it's genuinely no fun to reject after you (or your agent) put in the effort. These guidelines exist to help your contribution succeed on the first pass, not to gatekeep AI use.
 
 > [!CAUTION]
-> Purely "vibe-coded" PRs - where the author hasn't reviewed, tested, or doesn't understand the changes - **can and will be rejected** by maintainers. This isn't about being unfriendly to AI use; it's that nobody, including a well-meaning maintainer, can safely merge and maintain code that its own author can't explain or vouch for. Please take the time to review and understand what you're submitting, so we don't have to say no.
+> Purely "vibe-coded" PRs - where the author hasn't reviewed, tested, or doesn't understand the source code changes - **can and will be rejected** by maintainers. This isn't about being unfriendly to AI use; it's that nobody, including a well-meaning maintainer, can safely merge and maintain code that its own author can't explain or vouch for. Please take the time to review and understand what you're submitting, so we don't have to say no.
 
 * Make sure you really understand the AI-generated code, don't just accept it because it "seems to work".
 * Don't let the AI change existing code without double-checking by you as the contributor. Often, the result will not be complete. For example, previous source code comments may be lost.
@@ -192,7 +192,7 @@ This applies especially to root-cause claims. Before writing "the bug is caused 
 
 #### Keep PRs scoped
 
-Large, multi-subsystem "refactor" or "architecture" PRs - especially unsolicited ones - are hard to review and easy to get wrong, whether AI-assisted or not. If you (or your AI agent) find that fixing something seems to require touching many unrelated files or restructuring a subsystem, please open an issue or start a [discussion](https://github.com/wled/WLED/discussions) first so maintainers can weigh in on direction before a lot of work goes into it. This isn't a hard rule - small, well-explained refactors are always welcome - it's just to avoid a large PR falling apart under review because the direction wasn't agreed on first.
+Large, multi-subsystem "refactor" or "architecture" PRs - especially unsolicited ones - are hard to review and easy to get wrong, whether AI-assisted or not. If you (or your AI agent) find that fixing something seems to require touching many unrelated files or restructuring a subsystem, please open an issue or start a discussion ([discord](https://discord.gg/QAh7wJHrRM) or [discourse](https://wled.discourse.group)) first, so maintainers can weigh in on direction before a lot of work goes into it. This isn't a hard rule - small, well-explained refactors are always welcome - it's just to avoid a large PR falling apart under review because the direction wasn't agreed on first.
 
 > [!NOTE]
 > "Keep it scoped" cuts both ways. It's not a license to dodge a needed core-level discussion by bolting a board- or usermod-specific workaround onto the side instead - weak hooks, monkey-patched dependencies, or pre-build script patches can look "minimal" in lines-changed while actually avoiding the harder conversation about where a feature belongs. If your use case genuinely needs a new core capability or interface, please say so and propose it openly, rather than working around the core to keep the diff small.
@@ -207,9 +207,9 @@ AI tools are powerful but "often wrong" - your judgment is essential! 😊
 - ✅ **Use AI for translation** - AI is great for translating comments to English (but verify technical terms!)
 - ✅ **Keep it scoped** - Don't let an agent "helpfully" expand a small fix into a big refactor without asking you first
 
-#### Optional: AI disclosure block for your PR description
+#### AI disclosure block for your PR description
 
-For AI-assisted changes, feel free to paste a short block like this into your PR description. It's optional, but it helps reviewers set the right expectations quickly - no need to write more than a few lines:
+For AI-assisted changes, feel free to paste a short block like this into your PR description. This helps reviewers to set the right expectations quickly - no need to write more than a few lines:
 
 ```text
 AI assistance: yes

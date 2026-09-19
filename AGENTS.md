@@ -320,7 +320,7 @@ These apply to any coding agent (Copilot or otherwise) acting on a contributor's
 - **Stay scoped, but don't dodge architecture.** Touch only what the task requires, and flag broader fixes to the human instead of silently expanding the change. But don't use "keep it minimal" as an excuse to avoid a needed core-level discussion - if the clean fix requires a new core capability or interface, say so and propose it, rather than bolting on a weak hook, monkey-patch, or board-specific workaround just to keep the diff small.
 - **Warning: avoid overconfident root-cause claims.** When drafting issue tickets or PR descriptions, don't state a root cause with confidence unless you've actually traced the code path or reproduced the failure. A plausible-sounding explanation is not the same as a verified one - overconfident claims that later "dissolve into nothing" under review waste maintainer time and damage trust in the whole PR. When in doubt, say so explicitly.
 - **State what's tested.** Distinguish "verified" from "should work based on reading the code" in the PR description.
-- **Disclose AI involvement.** Use `// AI: ... // AI: end` markers and declare AI assistance in the PR description, per `CONTRIBUTING.md`.
+- **Disclose AI involvement.** Declare AI assistance in the PR description.
 - **Let issues start non-technical.** When helping draft an issue or feature request, elicit the human's objective or observation in plain language first - don't lead with a proposed code path or fix. Maintainers are better positioned than you to map that objective onto a technical solution.
 
 ### Supporting Reviews and Discussions
