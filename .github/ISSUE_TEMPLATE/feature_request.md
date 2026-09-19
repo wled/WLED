@@ -7,6 +7,10 @@ assignees: ''
 
 ---
 
+Thanks for suggesting an idea to improve WLED!
+
+Please start by describing your problem or objective in plain language - what you want to achieve, or what's bothering you - rather than a specific code change. Maintainers are usually better positioned than an AI agent to translate that into a good technical solution.
+
 **Is your feature request related to a problem? Please describe.**
 A clear and concise description of what the problem is. Ex. I'm always frustrated when [...]
 

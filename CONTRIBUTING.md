@@ -5,6 +5,12 @@ WLED is a community-driven project, and every contribution matters! We appreciat
 Our maintainers are here for two things: **helping you** improve your code, and **keeping WLED** lean, efficient, and maintainable. 
 We'll work with you to refine your contribution, but we'll also push back if something might create technical debt or add features without clear value. Don't take it personally - we're just protecting WLED's architecture while helping your contribution succeed!
 
+## Opening Issues & Feature Requests
+
+Whether you're reporting a bug or suggesting a new feature, please lead with **what you want to achieve or what's bothering you, in plain language** - not with a specific code path, root cause, or proposed source change. For example, "the LEDs flicker when I use transition X at low brightness" or "I'd like to control WLED without needing an app" tells us what matters, before any technical detail.
+
+Maintainers are usually in a better position than an AI agent to map your objective onto a good technical solution and weigh the trade-offs (memory, performance, maintainability). If you already have a technical idea or a fix in mind, that's welcome too - just add it as additional context after describing the underlying goal, so we understand *why* before we evaluate *how*.
+
 ## Getting Started
 
 Here are a few suggestions to make it easier for you to contribute:
