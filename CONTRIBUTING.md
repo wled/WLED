@@ -194,6 +194,9 @@ This applies especially to root-cause claims. Before writing "the bug is caused 
 
 Large, multi-subsystem "refactor" or "architecture" PRs - especially unsolicited ones - are hard to review and easy to get wrong, whether AI-assisted or not. If you (or your AI agent) find that fixing something seems to require touching many unrelated files or restructuring a subsystem, please open an issue or start a [discussion](https://github.com/wled/WLED/discussions) first so maintainers can weigh in on direction before a lot of work goes into it. This isn't a hard rule - small, well-explained refactors are always welcome - it's just to avoid a large PR falling apart under review because the direction wasn't agreed on first.
 
+> [!NOTE]
+> "Keep it scoped" cuts both ways. It's not a license to dodge a needed core-level discussion by bolting a board- or usermod-specific workaround onto the side instead - weak hooks, monkey-patched dependencies, or pre-build script patches can look "minimal" in lines-changed while actually avoiding the harder conversation about where a feature belongs. If your use case genuinely needs a new core capability or interface, please say so and propose it openly, rather than working around the core to keep the diff small.
+
 #### Best Practice with AI
 
 AI tools are powerful but "often wrong" - your judgment is essential! 😊
