@@ -51,6 +51,12 @@ A good description helps us to review and understand your proposed changes. For 
 * Testing you performed, known limitations, anything you couldn't quite solve.
 * Let us know if you'd like guidance from a maintainer (WLED is a big project 😉)
 
+> [!TIP]
+> **Say what you actually know, not what sounds reassuring**
+> Phrases like "tested on my board", "I steered the whole process", "the design decisions are mine", or "I've validated the changes with my hardware" are meant to reassure reviewers - but they can quietly become weasel words that paper over "I don't fully understand this part of the WLED codebase". 
+> If that's the honest situation, please just say so directly, e.g. "I'm not fully sure why this fixes it, but it resolved the flicker on my ESP32 + WS2812B setup, and here's what I *do* understand about the change: ...". 
+> We'd much rather hear that than a confident-sounding reassurance - it tells us exactly how much scrutiny to apply, and saves everyone time.
+
 ### Testing Your Changes
 
 Before submitting:
