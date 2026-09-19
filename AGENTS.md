@@ -11,6 +11,8 @@ Always reference these instructions - including coding guidelines in `docs/` - f
 
 ## Build Commands
 
+Note: also read `AGENTS.local.md` if present (gitignored personal learnings file; it supplements this document).
+
 | Command | Purpose | Timeout |
 |---|---|---|
 | `npm ci` | Install Node.js deps (required first) | 30s |
