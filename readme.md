@@ -18,7 +18,7 @@ Originally created by [Aircoookie](https://github.com/Aircoookie), now maintaine
 ## 🤝 Contributing
 
 Want to help improve WLED? Awesome! Please skim [CONTRIBUTING.md](CONTRIBUTING.md) first - it covers how we like PRs and issues to look, including our take on AI-assisted contributions.
-If you're an AI coding agent, [AGENTS.md](AGENTS.md) is for you - please read it before touching any files. 😊
+If you're an AI coding agent, [AGENTS.md](AGENTS.md) is for you - please read it before modifying any files. 😊
 
 ## ⚙️ Features
 

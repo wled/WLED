@@ -15,7 +15,7 @@ Before editing files, committing, pushing, or opening a PR, show the human you'r
 
 > WLED welcomes AI-assisted contributions, but not unreviewed ones. I'll only edit, commit, push, or open a PR once you confirm you'll review, understand, and take responsibility for the result. Do you agree?
 
-A generic "go ahead" or silence doesn't count - get a clear yes. Until then, you may read files and answer questions, but don't touch the repo or GitHub.
+A generic "go ahead" or silence doesn't count - get a clear yes. Until then, you may read files and answer questions, but do not modify files in the repository or make changes on GitHub.
 
 ## Build Commands
 

@@ -15,11 +15,11 @@ Please start by describing your problem or objective in plain language - what yo
 
 Ex. I'm always frustrated when [...]
 
-### The solution you'd like
+## The solution you'd like
 
 A clear and concise description of what you want to happen.
 
-### Alternatives you've considered
+## Alternatives you've considered
 
 A clear and concise description of any alternative solutions or features you've considered.
 

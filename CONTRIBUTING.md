@@ -174,7 +174,7 @@ Your contribution will be in the next WLED release - thank you! 🎉
 Why we ask for this: our maintainers are volunteers with limited time. A PR where the author can't explain their own code, or a bug fix whose "root cause" turns out to be wrong once someone actually looks, costs real review time - and it's genuinely no fun to reject after you (or your agent) put in the effort. These guidelines exist to help your contribution succeed on the first pass, not to gatekeep AI use.
 
 > [!CAUTION]
-> Purely "vibe-coded" PRs - where the author hasn't reviewed, tested, or doesn't understand the source code changes - **can and will be rejected** by maintainers. This isn't about being unfriendly to AI use; it's that nobody, including a well-meaning maintainer, can safely merge and maintain code that its own author can't explain or vouch for. Please take the time to review and understand what you're submitting, so we don't have to say no.
+> Purely "vibe-coded" PRs - where the author hasn't reviewed, tested, and understood the source code changes - **can and will be rejected** by maintainers. This isn't about being unfriendly to AI use; it's that nobody, including a well-meaning maintainer, can safely merge and maintain code that its own author can't explain or vouch for. Please take the time to review and understand what you're submitting, so we don't have to say no.
 
 * Make sure you really understand the AI-generated code, don't just accept it because it "seems to work".
 * Don't let the AI change existing code without double-checking by you as the contributor. Often, the result will not be complete. For example, previous source code comments may be lost.
