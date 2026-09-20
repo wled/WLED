@@ -1,4 +1,7 @@
 #include "wled.h"
+
+#if defined(WLED_M5STACK_CORES3) && defined(CONFIG_IDF_TARGET_ESP32S3)
+
 #include <Wire.h>
 #include <M5GFX.h>
 #include <driver/i2c.h>
@@ -1278,3 +1281,24 @@ public:
 
 static CoreS3PowerUsermod coreS3PowerUsermod;
 REGISTER_USERMOD(coreS3PowerUsermod);
+
+#else
+
+/*
+ * CoreS3_Power is hardware-specific.
+ *
+ * Generic usermod CI compiles each usermod on several ESP32 targets.
+ * Keep a minimal registered module on non-CoreS3 targets so the build and
+ * module validation can run without compiling CoreS3-only M5GFX/I2C1 code.
+ */
+class CoreS3PowerUsermod : public Usermod
+{
+public:
+  void setup() override {}
+  void loop() override {}
+};
+
+static CoreS3PowerUsermod coreS3PowerUsermod;
+REGISTER_USERMOD(coreS3PowerUsermod);
+
+#endif // WLED_M5STACK_CORES3 && CONFIG_IDF_TARGET_ESP32S3
