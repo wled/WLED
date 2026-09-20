@@ -57,9 +57,9 @@ static const char CORES3_DISPLAY_CONFIG_NAME[] PROGMEM = "CoreS3_Display";
 // CoreS3_Power publishes read-only runtime health state.
 // Display consumes these signals only for user-facing warning UX; it does
 // not own or modify the power-control implementation.
-extern "C" bool coreS3PowerInitializationComplete();
-extern "C" bool coreS3PowerExternal5VReady();
-extern "C" bool coreS3PowerSafeShutdownMonitorReady();
+bool coreS3PowerInitializationComplete();
+bool coreS3PowerExternal5VReady();
+bool coreS3PowerSafeShutdownMonitorReady();
 
 
 class CoreS3DisplayUsermod : public Usermod {

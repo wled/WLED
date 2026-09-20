@@ -31,17 +31,17 @@ static volatile bool coreS3PowerInitializationCompleteState = false;
 static volatile bool coreS3PowerExternal5VReadyState = false;
 static volatile bool coreS3PowerSafeShutdownMonitorReadyState = false;
 
-extern "C" bool coreS3PowerInitializationComplete()
+bool coreS3PowerInitializationComplete()
 {
   return coreS3PowerInitializationCompleteState;
 }
 
-extern "C" bool coreS3PowerExternal5VReady()
+bool coreS3PowerExternal5VReady()
 {
   return coreS3PowerExternal5VReadyState;
 }
 
-extern "C" bool coreS3PowerSafeShutdownMonitorReady()
+bool coreS3PowerSafeShutdownMonitorReady()
 {
   return coreS3PowerSafeShutdownMonitorReadyState;
 }
