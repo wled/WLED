@@ -8,12 +8,27 @@
 #else
 #include <Update.h>
 #if ESP_IDF_VERSION >= ESP_IDF_VERSION_VAL(4, 4, 0)
-  #include "esp32/rtc.h"    // for bootloop detection
+  // for rtc_get_reset_reason()
+  #include "rom/rtc.h"
+  #if CONFIG_IDF_TARGET_ESP32P4
+    #define RTCWDT_BROWN_OUT_RESET RESET_REASON::BROWN_OUT_RESET    // P4 has BROWN_OUT_RESET instead of RTCWDT_BROWN_OUT_RESET
+  #endif
+  // for bootloop detection
+  #if ESP_IDF_VERSION >= ESP_IDF_VERSION_VAL(5, 5, 0)
+    #include "esp_rtc_time.h"
+  #else
+    #include "esp32/rtc.h"
+  #endif
 #elif ESP_IDF_VERSION >= ESP_IDF_VERSION_VAL(3, 3, 0)
   #include "soc/rtc.h"
 #endif
 #include "mbedtls/sha1.h"   // for SHA1 on ESP32
 #include "esp_efuse.h"
+#include "esp_chip_info.h"
+#if ESP_IDF_VERSION >= ESP_IDF_VERSION_VAL(5, 0, 0)
+  #include "SHA1Builder.h"
+  #include <esp_mac.h>      // V5 requirement
+#endif
 #endif
 
 
@@ -246,6 +261,13 @@ size_t utf8_strlen(const char *s)
   }
   return len;
 }
+
+// Runtime state private to this file - previously WLED_GLOBAL, a leftover from
+// when all state lived in one big extern block regardless of who used it.
+#if defined(ARDUINO_ARCH_ESP32)
+static SemaphoreHandle_t jsonBufferLockMutex = xSemaphoreCreateRecursiveMutex();
+#endif
+static volatile uint8_t jsonBufferLock = 0;
 
 //threading/network callback details: https://github.com/wled-dev/WLED/pull/2336#discussion_r762276994
 bool requestJSONBufferLock(uint8_t moduleID)
@@ -763,17 +785,17 @@ int32_t hw_random(int32_t lowerlimit, int32_t upperlimit) {
 
 // PSRAM compile time checks to provide info for misconfigured env
 #if defined(BOARD_HAS_PSRAM)
-  #if defined(IDF_TARGET_ESP32C3) || defined(ESP8266)
-    #error "ESP32-C3 and ESP8266 with PSRAM is not supported, please remove BOARD_HAS_PSRAM definition"
+#if defined(CONFIG_IDF_TARGET_ESP32C3) || defined(CONFIG_IDF_TARGET_ESP32C6) || defined(ESP8266)
+    #error "ESP32-C3/C6 and ESP8266 with PSRAM is not supported, please remove BOARD_HAS_PSRAM definition"
   #else
-  #if defined(ARDUINO_ARCH_ESP32) && !defined(CONFIG_IDF_TARGET_ESP32S2) && !defined(CONFIG_IDF_TARGET_ESP32S3) // PSRAM fix only needed for classic esp32
+  #if defined(ARDUINO_ARCH_ESP32) && defined(CONFIG_IDF_TARGET_ESP32) // PSRAM fix only needed for classic esp32
     // BOARD_HAS_PSRAM also means that compiler flag "-mfix-esp32-psram-cache-issue" has to be used for old "rev.1" esp32
     #warning "BOARD_HAS_PSRAM defined, make sure to use -mfix-esp32-psram-cache-issue to prevent issues on rev.1 ESP32 boards \
               see https://docs.espressif.com/projects/esp-idf/en/stable/esp32/api-guides/external-ram.html#esp32-rev-v1-0"
   #endif
   #endif
 #else
-  #if !defined(IDF_TARGET_ESP32C3) && !defined(ESP8266)
+  #if !defined(CONFIG_IDF_TARGET_ESP32C3) && !defined(CONFIG_IDF_TARGET_ESP32C6) && !defined(ESP8266)
     #pragma message("BOARD_HAS_PSRAM not defined, not using PSRAM.")
   #endif
 #endif
@@ -830,7 +852,7 @@ static void *validateFreeHeap(void *buffer) {
 
 void *d_malloc(size_t size) {
   void *buffer = nullptr;
-  #if defined(CONFIG_IDF_TARGET_ESP32C3) || defined(CONFIG_IDF_TARGET_ESP32S2) || defined(CONFIG_IDF_TARGET_ESP32S3)
+  #if defined(WLED_HAVE_RTC_MEMORY_HEAP)
   // the newer ESP32 variants have byte-accessible fast RTC memory that can be used as heap, access speed is on-par with DRAM
   // the system does prefer normal DRAM until full, since free RTC memory is ~7.5k only, its below the minimum heap threshold and needs to be allocated explicitly
   // use RTC RAM for small allocations or if DRAM is running low to improve fragmentation
@@ -998,6 +1020,11 @@ RTC_NOINIT_ATTR static uint32_t bl_crashcounter;
 RTC_NOINIT_ATTR static uint32_t bl_actiontracker;
 
 static inline ResetReason rebootReason() {
+  // check RTC restart reason first - brownout is not reliably reported by esp_reset_reason()
+  if (rtc_get_reset_reason(0) == RTCWDT_BROWN_OUT_RESET) return ResetReason::Brownout; // core0 brownout
+  #if SOC_CPU_CORES_NUM > 1
+  if (rtc_get_reset_reason(1) == RTCWDT_BROWN_OUT_RESET) return ResetReason::Brownout; // core1 brownout
+  #endif
   esp_reset_reason_t reason = esp_reset_reason();
   if (reason == ESP_RST_BROWNOUT) return ResetReason::Brownout;
   if (reason == ESP_RST_SW) return ResetReason::Software;
@@ -1032,6 +1059,7 @@ static bool detectBootLoop() {
     case ResetReason::Crash:
     {
       DEBUG_PRINTLN(F("crash detected!"));
+      errorFlag = ERR_SYS_REBOOT;
       uint32_t rebootinterval = rtctime - bl_last_boottime;
       if (rebootinterval < BOOTLOOP_INTERVAL_MILLIS) {
         bl_crashcounter++;
@@ -1052,6 +1080,7 @@ static bool detectBootLoop() {
     case ResetReason::Brownout:
       // crash due to brownout can't be detected unless using flash memory to store bootloop variables
       DEBUG_PRINTLN(F("brownout detected"));
+      errorFlag = ERR_SYS_BROWNOUT;
       //restoreConfig(); // TODO: blindly restoring config if brownout detected is a bad idea, need a better way (if at all)
       break;
   }
@@ -1268,6 +1297,8 @@ uint8_t perlin8(uint16_t x, uint16_t y, uint16_t z) {
   return (((perlin3D_raw((uint32_t)x << 8, (uint32_t)y << 8, (uint32_t)z << 8, true) * 2015) >> 10) + 33168) >> 8; //scale to 16 bit, offset, then scale to 8bit
 }
 
+#if !defined(ARDUINO_ARCH_ESP32) || (ESP_IDF_VERSION < ESP_IDF_VERSION_VAL(6, 0, 0))    // ToDO: validate behaviour in V5
+
 // Platform-agnostic SHA1 computation from String input
 String computeSHA1(const String& input) {
   #ifdef ESP8266
@@ -1277,11 +1308,19 @@ String computeSHA1(const String& input) {
     unsigned char shaResult[20]; // SHA1 produces 20 bytes
     mbedtls_sha1_context ctx;
 
+#if ESP_IDF_VERSION < ESP_IDF_VERSION_VAL(5, 0, 0)
     mbedtls_sha1_init(&ctx);
     mbedtls_sha1_starts_ret(&ctx);
     mbedtls_sha1_update_ret(&ctx, (const unsigned char*)input.c_str(), input.length());
     mbedtls_sha1_finish_ret(&ctx, shaResult);
     mbedtls_sha1_free(&ctx);
+#else
+    mbedtls_sha1_init(&ctx);
+    mbedtls_sha1_starts(&ctx);
+    mbedtls_sha1_update(&ctx, (const unsigned char*)input.c_str(), input.length());
+    mbedtls_sha1_finish(&ctx, shaResult);
+    mbedtls_sha1_free(&ctx);
+#endif
 
     // Convert to hexadecimal string
     char hexString[41];
@@ -1295,24 +1334,171 @@ String computeSHA1(const String& input) {
 }
 
 #ifdef ESP32
+#if ESP_IDF_VERSION < ESP_IDF_VERSION_VAL(5, 0, 0)
 #include "esp_adc_cal.h"
+#if ESP_IDF_VERSION < ESP_IDF_VERSION_VAL(4,4,7) // backwards compatibility patch
+  #define ADC_ATTEN_DB_12 ADC_ATTEN_DB_11
+#endif
+#else // IDF V5
+#if CONFIG_IDF_TARGET_ESP32 || CONFIG_IDF_TARGET_ESP32S2 || CONFIG_IDF_TARGET_ESP32C3 || CONFIG_IDF_TARGET_ESP32S3
+// Functions to reproduce the legacy ADC calibration factors to be used as "salt" for device ID
+// AI: below section was (mostly) generated by an AI, tested and confirmed working as intended on all targets
+#if CONFIG_IDF_TARGET_ESP32
+// ESP32 legacy ADC calibration factors Line Fitting + LUT (LUT is consolidated into a single value)
+#include "soc/soc.h"
+#include "soc/efuse_reg.h"
+#define VREF_REG          EFUSE_BLK0_RDATA4_REG
+#define VREF_MASK         0x1F
+#define VREF_STEP_SIZE    7
+#define VREF_OFFSET       1100
+#define TP_REG            EFUSE_BLK3_RDATA3_REG
+#define BLK3_RESERVED_REG EFUSE_BLK0_RDATA3_REG
+#define TP_LOW1_OFFSET    278
+#define TP_LOW_MASK       0x7F
+#define TP_LOW_VOLTAGE    150
+#define TP_HIGH1_OFFSET   3265
+#define TP_HIGH_MASK      0x1FF
+#define TP_HIGH_VOLTAGE   850
+#define TP_STEP_SIZE      4
+#define ADC_12_BIT_RES    4096
+// Hardcoded legacy constants for ADC_ATTEN_DB_12 (Index 3)
+constexpr uint32_t TP_ATTEN_SCALE_DB12    = 224310;
+constexpr uint32_t TP_ATTEN_OFFSET_DB12   = 54;
+constexpr uint32_t VREF_ATTEN_SCALE_DB12  = 196602;
+constexpr uint32_t VREF_ATTEN_OFFSET_DB12 = 142;
+// Compile-time pre-calculated XOR sums of the first 8 elements of the legacy 20-point LUTs (replaces the V4 XOR for-loop)
+constexpr uint32_t LUT_ADC1_LOW_XOR_8  = 2240 ^ 2297 ^ 2352 ^ 2405 ^ 2457 ^ 2512 ^ 2564 ^ 2616;
+constexpr uint32_t LUT_ADC1_HIGH_XOR_8 = 2667 ^ 2706 ^ 2745 ^ 2780 ^ 2813 ^ 2844 ^ 2873 ^ 2901;
+
+static inline int32_t decodeBits(uint32_t bits, uint32_t mask, bool twosComplement) {
+  if (bits & (~(mask >> 1) & mask)) {
+    return twosComplement ? -(int32_t)(((~bits) + 1) & (mask >> 1)) : -(int32_t)(bits & (mask >> 1));
+  }
+  return (int32_t)(bits & (mask >> 1));
+}
+
+static void getLegacyAdcCoeffs(uint32_t *coeff_a, uint32_t *coeff_b) {
+  bool tpBurned = (REG_GET_FIELD(BLK3_RESERVED_REG, EFUSE_RD_BLK3_PART_RESERVE) != 0) &&
+                  (REG_GET_FIELD(TP_REG, EFUSE_RD_ADC1_TP_LOW) != 0) &&
+                  (REG_GET_FIELD(TP_REG, EFUSE_RD_ADC1_TP_HIGH) != 0);
+
+  if (tpBurned) {
+    uint32_t lowBits  = REG_GET_FIELD(TP_REG, EFUSE_RD_ADC1_TP_LOW);
+    uint32_t highBits = REG_GET_FIELD(TP_REG, EFUSE_RD_ADC1_TP_HIGH);
+
+    uint32_t low  = TP_LOW1_OFFSET + decodeBits(lowBits, TP_LOW_MASK, true) * TP_STEP_SIZE;
+    uint32_t high = TP_HIGH1_OFFSET + decodeBits(highBits, TP_HIGH_MASK, true) * TP_STEP_SIZE;
+
+    uint32_t delta_x = high - low;
+    uint32_t delta_v = TP_HIGH_VOLTAGE - TP_LOW_VOLTAGE;
+
+    *coeff_a = (delta_v * TP_ATTEN_SCALE_DB12 + delta_x / 2) / delta_x;
+    *coeff_b = TP_HIGH_VOLTAGE - ((delta_v * high + delta_x / 2) / delta_x) + TP_ATTEN_OFFSET_DB12;
+  } else {
+    bool vrefBurned = (REG_GET_FIELD(VREF_REG, EFUSE_RD_ADC_VREF) != 0);
+    uint32_t vrefBits = REG_GET_FIELD(VREF_REG, EFUSE_ADC_VREF);
+    uint32_t vref = vrefBurned ? (VREF_OFFSET + decodeBits(vrefBits, VREF_MASK, false) * VREF_STEP_SIZE) : 1100;
+
+    *coeff_a = (vref * VREF_ATTEN_SCALE_DB12) / ADC_12_BIT_RES;
+    *coeff_b = VREF_ATTEN_OFFSET_DB12;
+  }
+}
+#endif
+
+#if CONFIG_IDF_TARGET_ESP32S2
+#include "hal/adc_types.h"
+#include "esp_efuse_rtc_table.h"
+// note: this is confirmed working on v2 calib S2 chips, had no v1 S2 to test
+static void getLegacyAdcCoeffs(uint32_t *coeff_a, uint32_t *coeff_b) {
+  *coeff_a = 0;
+  *coeff_b = 0;
+  static const uint32_t v_high = 2000; // Hardcoded legacy constant for ADC_ATTEN_DB_12
+  const uint32_t v_low = 250;
+  const int atten = ADC_ATTEN_DB_12;  // 3
+
+  int version = esp_efuse_rtc_table_read_calib_version();
+  if (version == 1) {
+    int tag_l = esp_efuse_rtc_table_get_tag(1, ADC_UNIT_1, atten, RTCCALIB_V1_PARAM_VLOW);
+    int tag_h = esp_efuse_rtc_table_get_tag(1, ADC_UNIT_1, atten, RTCCALIB_V1_PARAM_VHIGH);
+    uint32_t low  = (uint32_t)esp_efuse_rtc_table_get_parsed_efuse_value(tag_l, false);
+    uint32_t high = (uint32_t)esp_efuse_rtc_table_get_parsed_efuse_value(tag_h, false);
+    uint32_t delta = high - low;
+    if (delta == 0) return;
+    // identical operand types/order to v4.4 characterize_using_two_point()
+    *coeff_a = 65536u * (v_high - v_low) / delta;
+    *coeff_b = 1024u * (v_low * high - v_high * low) / delta;  // non-zero on v1 chips!
+  } else if (version == 2) {
+    int tag = esp_efuse_rtc_table_get_tag(2, ADC_UNIT_1, atten, RTCCALIB_V2_PARAM_VHIGH);
+    uint32_t high = (uint32_t)esp_efuse_rtc_table_get_parsed_efuse_value(tag, false);
+    if (high != 0) *coeff_a = 65536u * v_high / high;
+    // v4.4: coeff_b = 0
+  }
+}
+#endif
+// ESP32-S3 & ESP32-C3 coefficient extraction matching IDF V4
+#if CONFIG_IDF_TARGET_ESP32S3 || CONFIG_IDF_TARGET_ESP32C3
+#include "hal/adc_types.h"
+#include "esp_efuse_rtc_calib.h"
+
+static void getLegacyAdcCoeffs(uint32_t *coeff_a, uint32_t *coeff_b) {
+  *coeff_a = 0;
+  *coeff_b = 0;  // v4.4: coeff_b = 0 on both targets
+  int ver = esp_efuse_rtc_calib_get_ver();
+  if (ver != 1) return;  // v4.4: ESP_ADC_CAL_VAL_NOT_SUPPORTED
+
+  uint32_t digi = 0, voltage = 0;
+  // C3 ignores the unit arg (V1 calib exists only for ADC1); S3 uses it
+  esp_err_t ret = esp_efuse_rtc_calib_get_cal_voltage(ver, ADC_UNIT_1, ADC_ATTEN_DB_12, &digi, &voltage);
+  if (ret != ESP_OK || digi == 0) return;
+
+  #if CONFIG_IDF_TARGET_ESP32S3
+  *coeff_a = 1000000u * voltage / digi;  // v4.4 S3: coeff_a_scaling = 1000000
+  #else
+  *coeff_a = 65536u * voltage / digi;    // v4.4 C3: coeff_a_scaling = 65536
+  #endif
+}
+#endif // S3 or C3
+#else // not ESP32, S2, C3 or S3 and V5: read data from efuse BLOCK2 as salt
+#include "esp_efuse.h"
+uint32_t get_calib_entropy(void) {
+  // Bytes 0-15 are OPTIONAL_UNIQUE_ID, which may be all-zero (undocumented feature)
+  // Bytes 16+ fall in the calibration-trim region (temp calib, ADC init codes, etc.),
+  // which IS reliably burned on every chip and varies die-to-die due to manufacturing variance.
+  uint8_t sys_data[32] = {0};
+  esp_efuse_read_block(EFUSE_BLK2, sys_data, 0, sizeof(sys_data) * 8); // size is in bits
+  uint32_t entropy = 0;
+  for (int i = 16; i < 32; i++) entropy = entropy * 16777619u ^ sys_data[i];
+  return entropy;
+}
+#endif // ESP32, S2, C3, S3
+#endif // IDF V5
+// AI: end
+
 String generateDeviceFingerprint() {
   uint32_t fp[2] = {0, 0}; // create 64 bit fingerprint
   esp_chip_info_t chip_info;
   esp_chip_info(&chip_info);
   esp_efuse_mac_get_default((uint8_t*)fp);
   fp[1] ^= ESP.getFlashChipSize();
+  #if ESP_IDF_VERSION < ESP_IDF_VERSION_VAL(5, 0, 0)
   fp[0] ^= chip_info.full_revision | (chip_info.model << 16);
-  // mix in ADC calibration data:
+  #else
+  fp[0] ^= chip_info.revision | (chip_info.model << 16);
+  #endif
+
+  #if CONFIG_IDF_TARGET_ESP32 || CONFIG_IDF_TARGET_ESP32S2 || CONFIG_IDF_TARGET_ESP32C3 || CONFIG_IDF_TARGET_ESP32S3
+  #if ESP_IDF_VERSION < ESP_IDF_VERSION_VAL(5, 0, 0)
+ // mix in ADC calibration data - legacy adc calibration API is not supported on new MCUs (-C5, -C6, -C61, -P4)
   esp_adc_cal_characteristics_t ch;
-  #if SOC_ADC_MAX_BITWIDTH == 13 // S2 has 13 bit ADC
+  #if (SOC_ADC_MAX_BITWIDTH == 13) || (CONFIG_SOC_ADC_RTC_MAX_BITWIDTH == 13) // S2 has 13 bit ADC
   constexpr auto myBIT_WIDTH = ADC_WIDTH_BIT_13;
   #else
   constexpr auto myBIT_WIDTH = ADC_WIDTH_BIT_12;
   #endif
-  esp_adc_cal_characterize(ADC_UNIT_1, ADC_ATTEN_DB_12, myBIT_WIDTH, 1100, &ch);
+  esp_adc_cal_characterize(ADC_UNIT_1, ADC_ATTEN_DB_12, myBIT_WIDTH, 1100, &ch); // note: deprecated in IDF V5 hence the complicated workaround
   fp[0] ^= ch.coeff_a;
   fp[1] ^= ch.coeff_b;
+  // note: these curves are LUT, hardcoded and only on ESP32
   if (ch.low_curve) {
     for (int i = 0; i < 8; i++) {
       fp[0] ^= ch.low_curve[i];
@@ -1323,6 +1509,24 @@ String generateDeviceFingerprint() {
       fp[1] ^= ch.high_curve[i];
     }
   }
+  #else // V5
+  uint32_t coeff_a = 0, coeff_b = 0;
+  // get equivalent to V4 adc coefficients without using the deprecated esp_adc_cal_characterize()
+  getLegacyAdcCoeffs(&coeff_a, &coeff_b); // use ADC calibration coefficients
+  fp[0] ^= coeff_a;
+  fp[1] ^= coeff_b; // note: is zero on S3 and C3 as well as S2 "v2"
+  #if CONFIG_IDF_TARGET_ESP32
+  // Mix in the pre-calculated LUT XOR sums to match pre 17.0 fingerprint
+  fp[0] ^= LUT_ADC1_LOW_XOR_8;
+  fp[1] ^= LUT_ADC1_HIGH_XOR_8;
+  #endif // ESP32
+  #endif // V4 or V5
+
+  #else  // ESP32 family but not classic ESP32, S2, S3 or C3
+  fp[0] ^= get_calib_entropy(); // add BLOCK2 efuse values containing calibration data
+  fp[0] ^= chip_info.features | chip_info.cores << 16; // some extra salt
+  fp[1] ^= ESP.getFlashSourceFrequencyMHz() | ESP.getFlashClockDivider() << 8 ;
+  #endif
   char fp_string[17];  // 16 hex chars + null terminator
   sprintf(fp_string, "%08X%08X", fp[1], fp[0]);
   return String(fp_string);
@@ -1360,4 +1564,5 @@ String getDeviceId() {
 
   return cachedDeviceId;
 }
+#endif // V5/V6 workaround
 

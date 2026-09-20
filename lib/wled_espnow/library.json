@@ -1,4 +1,4 @@
 {
-  "name": "wizlights",
+  "name": "wled-espnow",
   "build": { "libArchive": false }
 }
