@@ -134,6 +134,17 @@ void WLED::loop()
       delay(1); //required to make sure ESP enters modem sleep (see #1184)
     #endif
   }
+  else if (realtimeAllowPresets) {
+    // Realtime (live) data is active and no live override is set: keep presets and playlists working like in
+    // normal operation. A preset with LO=1/2 takes over the strip, a preset that leaves the override alone
+    // (e.g. brightness only) is applied without interrupting the stream.
+    if (!presetNeedsSaving()) {
+      handlePlaylist();
+      yield();
+    }
+    handlePresets();
+    yield();
+  }
   #ifdef WLED_DEBUG
   stripMillis = millis() - stripMillis;
   avgStripMillis += stripMillis;
