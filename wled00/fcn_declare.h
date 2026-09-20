@@ -365,12 +365,6 @@ class Usermod {
     virtual ~Usermod() { if (um_data) delete um_data; }
     virtual void setup() = 0; // pure virtual, has to be overriden
     virtual void loop() = 0;  // pure virtual, has to be overriden
-
-    // Return true to keep a pending LED bus re-init deferred. Implementations
-    // that defer must eventually return false so the core can rebuild buses,
-    // write configuration, and continue any queued reboot.
-    virtual bool deferBusReinit() { return false; }
-
     virtual void handleOverlayDraw() {}                                      // called after all effects have been processed, just before strip.show()
     virtual bool handleButton(uint8_t b) { return false; }                   // button overrides are possible here
     virtual bool getUMData(um_data_t **data) { if (data) *data = nullptr; return false; }; // usermod data exchange [see examples for audio effects]
@@ -406,7 +400,6 @@ class Usermod {
 
 namespace UsermodManager {
   void loop();
-  bool deferBusReinit();
   void handleOverlayDraw();
   bool handleButton(uint8_t b);
   bool getUMData(um_data_t **um_data, uint8_t mod_id = USERMOD_ID_RESERVED); // USERMOD_ID_RESERVED will poll all usermods

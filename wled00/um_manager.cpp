@@ -21,14 +21,6 @@ static size_t getCount() {
 void UsermodManager::setup()             { for (auto mod = DYNARRAY_BEGIN(usermods); mod < DYNARRAY_END(usermods); ++mod) (*mod)->setup(); }
 void UsermodManager::connected()         { for (auto mod = DYNARRAY_BEGIN(usermods); mod < DYNARRAY_END(usermods); ++mod) (*mod)->connected(); }
 void UsermodManager::loop()              { for (auto mod = DYNARRAY_BEGIN(usermods); mod < DYNARRAY_END(usermods); ++mod) (*mod)->loop();  }
-
-bool UsermodManager::deferBusReinit() {
-  for (auto mod = DYNARRAY_BEGIN(usermods); mod < DYNARRAY_END(usermods); ++mod) {
-    if ((*mod)->deferBusReinit()) return true;
-  }
-  return false;
-}
-
 void UsermodManager::handleOverlayDraw() { for (auto mod = DYNARRAY_BEGIN(usermods); mod < DYNARRAY_END(usermods); ++mod) (*mod)->handleOverlayDraw(); }
 void UsermodManager::appendConfigData(Print& dest)  { for (auto mod = DYNARRAY_BEGIN(usermods); mod < DYNARRAY_END(usermods); ++mod) (*mod)->appendConfigData(dest); }
 bool UsermodManager::handleButton(uint8_t b) {

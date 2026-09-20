@@ -237,19 +237,14 @@ void WLED::loop()
   //LED settings have been saved, re-init busses
   //This code block causes severe FPS drop on ESP32 with the original "if (busConfigs[0] != nullptr)" conditional. Investigate!
   if (doInitBusses) {
-    // Usermods may defer the rebuild while they prepare the existing LED
-    // output. A deferring usermod must eventually release the gate so config
-    // writes and any queued reboot can continue.
-    if (!UsermodManager::deferBusReinit()) {
-      doInitBusses = false;
-      DEBUG_PRINTLN(F("Re-init busses."));
-      bool aligned = strip.checkSegmentAlignment(); //see if old segments match old bus(ses)
-      strip.finalizeInit(); // will create buses and also load default ledmap if present
-      if (aligned) strip.makeAutoSegments();
-      else strip.fixInvalidSegments();
-      BusManager::setBrightness(scaledBri(bri)); // fix re-initialised bus' brightness #4005 and #4824
-      configNeedsWrite = true;
-    }
+    doInitBusses = false;
+    DEBUG_PRINTLN(F("Re-init busses."));
+    bool aligned = strip.checkSegmentAlignment(); //see if old segments match old bus(ses)
+    strip.finalizeInit(); // will create buses and also load default ledmap if present
+    if (aligned) strip.makeAutoSegments();
+    else strip.fixInvalidSegments();
+    BusManager::setBrightness(scaledBri(bri)); // fix re-initialised bus' brightness #4005 and #4824
+    configNeedsWrite = true;
   }
   if (loadLedmap >= 0) {
     strip.deserializeMap(loadLedmap);

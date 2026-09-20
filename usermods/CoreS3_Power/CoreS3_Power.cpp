@@ -10,16 +10,7 @@
 /*
  * CoreS3 Power Production Baseline
  *
- * Production baseline for M5Stack CoreS3 power and LED-bus runtime handling.
- *
- * LED runtime re-init protection:
- *   - The generic WLED usermod bus re-init gate lets this usermod inspect each
- *     pending bus configuration before strip.finalizeInit() replaces old buses.
- *   - Physical digital buses are compared per primary data pin.
- *   - If any existing output shrinks or disappears, the complete old LED range
- *     is turned OFF and explicitly rendered BLACK before the bus rebuild.
- *   - WLED ON/OFF state is restored after re-init; an already-OFF state remains OFF.
- *   - Pure growth / unchanged configurations pass through without OFF/ON cycling.
+ * Production baseline for M5Stack CoreS3 power handling.
  *
  * Preserved validated power behavior:
  *   - AW9523B external-5V enable writes (BOOST then BUS).
@@ -103,17 +94,6 @@ private:
   static constexpr unsigned long SAFE_SHUTDOWN_SHOW_WAIT_MS = 150;
   static constexpr unsigned long RUNTIME_POWER_HEALTH_POLL_MS = 10000;
 
-  // Runtime LED-bus shrink protection timing.
-  static constexpr unsigned long LED_REINIT_OFF_CONFIRM_TIMEOUT_MS = 3000;
-  static constexpr unsigned long LED_REINIT_OFF_SETTLE_MS = 500;
-  static constexpr unsigned long LED_REINIT_OUTPUT_WAIT_MS = 500;
-
-  // Require multiple actual overlay/show frames that explicitly overwrite
-  // the complete OLD logical range with BLACK before allowing finalizeInit().
-  static constexpr uint8_t LED_REINIT_REQUIRED_BLACK_FRAMES = 3;
-  static constexpr unsigned long LED_REINIT_BLACK_FRAME_TRIGGER_MS = 50;
-  static constexpr unsigned long LED_REINIT_POST_BLACK_GUARD_MS = 20;
-
   static constexpr uint8_t REG_OUTPUT_P0 = 0x02;
   static constexpr uint8_t REG_OUTPUT_P1 = 0x03;
   static constexpr uint8_t REG_CONFIG_P0 = 0x04;
@@ -180,35 +160,6 @@ private:
   uint8_t dcdcModeBefore = 0;
   uint8_t dcdcModeAfter = 0;
 
-
-  // Runtime LED shrink state machine.
-  //
-  // The generic usermod gate keeps doInitBusses pending until either loop(),
-  // handleOverlayDraw(), or the final gate query classifies the new bus
-  // configuration. A real shrink then runs OFF -> confirmed BLACK -> rebuild
-  // -> state restore.
-  enum class LedShrinkSaveState : uint8_t {
-    IDLE = 0,
-    OFF_REQUEST_PENDING,
-    WAIT_OFF,
-    WAIT_REINIT_COMPLETE
-  };
-
-  LedShrinkSaveState ledShrinkSaveState = LedShrinkSaveState::IDLE;
-
-  bool ledShrinkWasOn = false;
-  uint8_t ledShrinkOriginalBrightness = 0;
-  uint8_t ledShrinkOriginalBriLast = 0;
-
-  uint16_t ledShrinkOldPhysical = 0;
-  uint16_t ledShrinkTargetPhysical = 0;
-
-  unsigned long ledShrinkOffRequestedAt = 0;
-  unsigned long ledShrinkOffConfirmedAt = 0;
-
-  // Actual BLACK frame confirmation.
-  uint8_t ledShrinkBlackOverlayFrames = 0;
-  unsigned long ledShrinkLastBlackTriggerAt = 0;
 
   const char* resetReasonText(esp_reset_reason_t reason)
   {
@@ -656,297 +607,6 @@ private:
     Serial.printf("[CoreS3_Power] Safe shutdown canceled: restored bri=%u\n", restoreBrightness);
   }
 
-  uint16_t getPendingPhysicalLedCount() const
-  {
-    uint32_t total = 0;
-
-    for (const auto &bc : busConfigs) {
-      if (Bus::isVirtual(bc.type)) continue;
-      total += bc.count;
-    }
-
-    if (total > 65535UL) total = 65535UL;
-    return (uint16_t)total;
-  }
-
-  // ------------------------------------------------------------
-  // Per-physical-bus shrink detection.
-  //
-  // Match each existing physical digital Bus to the pending BusConfig by
-  // primary data pin. Any output that becomes shorter or disappears requires
-  // old-range BLACK preparation before finalizeInit().
-  // ------------------------------------------------------------
-  bool pendingConfigShrinksAnyPhysicalBus()
-  {
-    const size_t oldBusCount = BusManager::getNumBusses();
-
-    for (size_t oldIndex = 0; oldIndex < oldBusCount; ++oldIndex) {
-      Bus* oldBus = BusManager::getBus(oldIndex);
-      if (oldBus == nullptr) continue;
-      if (!oldBus->isDigital() || oldBus->isVirtual() || oldBus->isPlaceholder()) continue;
-
-      uint8_t oldPins[OUTPUT_MAX_PINS] = {255, 255, 255, 255, 255};
-      const size_t oldPinCount = oldBus->getPins(oldPins);
-      if (oldPinCount == 0 || oldPins[0] == 255) continue;
-
-      const uint8_t oldPrimaryPin = oldPins[0];
-      const uint16_t oldLength = oldBus->getLength();
-
-      bool matchingPendingBusFound = false;
-      uint16_t pendingLength = 0;
-
-      for (const auto &bc : busConfigs) {
-        if (Bus::isVirtual(bc.type)) continue;
-        if (!Bus::isDigital(bc.type)) continue;
-        if (bc.pins[0] != oldPrimaryPin) continue;
-
-        matchingPendingBusFound = true;
-        pendingLength = bc.count;
-        break;
-      }
-
-      if (!matchingPendingBusFound) {
-        Serial.printf(
-          "[CoreS3_Power][LED] Bus shrink detected: pin=%u %u->removed\n",
-          oldPrimaryPin,
-          oldLength
-        );
-        return true;
-      }
-
-      if (pendingLength < oldLength) {
-        Serial.printf(
-          "[CoreS3_Power][LED] Bus shrink detected: pin=%u %u->%u\n",
-          oldPrimaryPin,
-          oldLength,
-          pendingLength
-        );
-        return true;
-      }
-    }
-
-    return false;
-  }
-
-  void captureLedShrinkReinitRequest()
-  {
-    if (ledShrinkSaveState != LedShrinkSaveState::IDLE) return;
-    if (!doInitBusses) return;
-
-    // Safe-shutdown owns LED output. Do not start the shrink OFF/ON sequence;
-    // simply let normal WLED re-init proceed if a settings request arrives.
-    if (safeShutdownBlankActive) return;
-
-    const uint16_t oldPhysical = strip.getLengthPhysical();
-    const uint16_t targetPhysical = getPendingPhysicalLedCount();
-
-    // Keep an explicit safe pass-through for initialization / an empty pending
-    // configuration. The normal LED Hardware UI used in this CoreS3 build has
-    // real physical buses and non-zero counts, so this is only a guardrail.
-    if (
-      BusManager::getNumBusses() == 0 ||
-      oldPhysical == 0 ||
-      targetPhysical == 0
-    ) {
-      return;
-    }
-
-    // The decision is now PER OLD PHYSICAL BUS, not aggregate total length.
-    // This correctly catches e.g. 5/10/15 -> 15/10/5 (total 30 -> 30).
-    const bool anyPhysicalBusShrinks = pendingConfigShrinksAnyPhysicalBus();
-
-    if (!anyPhysicalBusShrinks) return;
-
-    ledShrinkOldPhysical = oldPhysical;
-    ledShrinkTargetPhysical = targetPhysical;
-    ledShrinkWasOn = (bri > 0);
-    ledShrinkOriginalBrightness = bri;
-    ledShrinkOriginalBriLast = briLast;
-    ledShrinkBlackOverlayFrames = 0;
-    ledShrinkLastBlackTriggerAt = 0;
-
-    // doInitBusses stays owned by WLED core. The generic deferBusReinit()
-    // lifecycle keeps it asserted until the old LED range is safely BLACK.
-    ledShrinkSaveState = LedShrinkSaveState::OFF_REQUEST_PENDING;
-
-    Serial.printf(
-      "[CoreS3_Power][LED] Safe bus re-init start: %u->%u state=%s\n",
-      ledShrinkOldPhysical,
-      ledShrinkTargetPhysical,
-      ledShrinkWasOn ? "ON" : "OFF"
-    );
-  }
-
-  bool waitForLedOutputIdle(unsigned long timeoutMs)
-  {
-    const unsigned long startedAt = millis();
-
-    while (!BusManager::canAllShow()) {
-      if (millis() - startedAt >= timeoutMs) return false;
-      delay(1);
-    }
-
-    return true;
-  }
-
-  void serviceLedShrinkSaveOffCycle()
-  {
-    const unsigned long now = millis();
-
-    switch (ledShrinkSaveState) {
-      case LedShrinkSaveState::IDLE:
-        return;
-
-      case LedShrinkSaveState::OFF_REQUEST_PENDING:
-      {
-        ledShrinkOffRequestedAt = now;
-        ledShrinkOffConfirmedAt = 0;
-
-        if (ledShrinkWasOn) {
-          // Use the exact WLED power path proven manually 5/5.
-          toggleOnOff();
-          stateUpdated(CALL_MODE_BUTTON);
-          strip.trigger();
-        } else {
-          ledShrinkOffConfirmedAt = now;
-        }
-
-        // Do NOT suspend yet. Normal strip.service() must render the OFF state
-        // across the complete OLD LED range.
-        ledShrinkSaveState = LedShrinkSaveState::WAIT_OFF;
-        return;
-      }
-
-      case LedShrinkSaveState::WAIT_OFF:
-      {
-        if (ledShrinkOffConfirmedAt == 0) {
-          if (bri == 0 && strip.getBrightness() == 0) {
-            ledShrinkOffConfirmedAt = now;
-
-          } else if (now - ledShrinkOffRequestedAt >= LED_REINIT_OFF_CONFIRM_TIMEOUT_MS) {
-            // Do not deadlock configuration forever. Keep rendering OFF and
-            // start the conservative settle window even if the runtime
-            // brightness report did not reach zero as expected.
-            ledShrinkOffConfirmedAt = now;
-            strip.trigger();
-
-            Serial.printf(
-              "[CoreS3_Power][LED] WARNING: bus re-init OFF timeout bri=%u strip=%u\n",
-              bri,
-              strip.getBrightness()
-            );
-          }
-
-          return;
-        }
-
-        // Time alone is not enough. Earlier testing showed internal
-        // brightness=0 did not prove that a complete OLD-range BLACK frame
-        // had actually passed through WLED's final show path.
-        //
-        // handleOverlayDraw() explicitly replaces the full OLD logical
-        // range with BLACK immediately before WLED paints the frame to
-        // BusManager and calls show(). Require several such frames, but keep
-        // the confirmation bounded so a failed render path cannot leave the
-        // generic bus re-init gate asserted forever.
-        if (ledShrinkBlackOverlayFrames < LED_REINIT_REQUIRED_BLACK_FRAMES) {
-          if (now - ledShrinkLastBlackTriggerAt >= LED_REINIT_BLACK_FRAME_TRIGGER_MS) {
-            ledShrinkLastBlackTriggerAt = now;
-            strip.trigger();
-          }
-
-          if (now - ledShrinkOffConfirmedAt < LED_REINIT_OFF_CONFIRM_TIMEOUT_MS) {
-            return;
-          }
-
-          Serial.printf(
-            "[CoreS3_Power][LED] WARNING: BLACK frame confirmation timeout %u/%u; continuing bus re-init\n",
-            ledShrinkBlackOverlayFrames,
-            LED_REINIT_REQUIRED_BLACK_FRAMES
-          );
-
-          // Release this stage after the bounded fallback so the warning is
-          // emitted only once if a later output-idle check needs another loop.
-          ledShrinkBlackOverlayFrames = LED_REINIT_REQUIRED_BLACK_FRAMES;
-        }
-
-        // Keep a conservative OFF settle window in addition to actual
-        // overlay/show-frame evidence.
-        if (now - ledShrinkOffConfirmedAt < LED_REINIT_OFF_SETTLE_MS) return;
-
-        strip.waitForIt();
-
-        if (!waitForLedOutputIdle(LED_REINIT_OUTPUT_WAIT_MS)) {
-          Serial.println(F("[CoreS3_Power][LED] WARNING: old LED output busy; bus re-init deferred"));
-          return;
-        }
-
-        // NeoPixelBus/LCD output is asynchronous; preserve old buses briefly
-        // after the final confirmed BLACK show before destroying them.
-        delay(LED_REINIT_POST_BLACK_GUARD_MS);
-
-        // The complete OLD range has now been explicitly BLACK in multiple
-        // real WLED show frames, or the bounded confirmation fallback expired.
-        // Freeze drawing, then release the generic rebuild gate.
-        strip.suspend();
-        strip.waitForIt();
-
-        // Transitioning to WAIT_REINIT_COMPLETE makes deferBusReinit() return
-        // false. WLED core will consume doInitBusses and call finalizeInit().
-        ledShrinkSaveState = LedShrinkSaveState::WAIT_REINIT_COMPLETE;
-
-        return;
-      }
-
-      case LedShrinkSaveState::WAIT_REINIT_COMPLETE:
-      {
-        // WLED clears doInitBusses immediately before strip.finalizeInit().
-        // false here means the previous main-loop iteration completed rebuild.
-        if (doInitBusses) return;
-
-        strip.resume();
-
-        if (ledShrinkWasOn) {
-          if (bri == 0) {
-            toggleOnOff();
-            stateUpdated(CALL_MODE_BUTTON);
-          } else {
-            // Defensive fallback if another component changed WLED state.
-            bri = ledShrinkOriginalBrightness;
-            briLast = ledShrinkOriginalBriLast;
-            stateUpdated(CALL_MODE_BUTTON);
-          }
-        } else {
-          // Preserve original OFF state.
-          bri = 0;
-          briLast = ledShrinkOriginalBriLast;
-          stateUpdated(CALL_MODE_BUTTON);
-        }
-
-        strip.trigger();
-
-        Serial.printf(
-          "[CoreS3_Power][LED] Safe bus re-init complete: %u->%u state=%s\n",
-          ledShrinkOldPhysical,
-          strip.getLengthPhysical(),
-          bri > 0 ? "ON" : "OFF"
-        );
-
-        ledShrinkSaveState = LedShrinkSaveState::IDLE;
-        ledShrinkWasOn = false;
-        ledShrinkOriginalBrightness = 0;
-        ledShrinkOriginalBriLast = 0;
-        ledShrinkOldPhysical = 0;
-        ledShrinkTargetPhysical = 0;
-        ledShrinkOffRequestedAt = 0;
-        ledShrinkOffConfirmedAt = 0;
-        ledShrinkBlackOverlayFrames = 0;
-        ledShrinkLastBlackTriggerAt = 0;
-        return;
-      }
-    }
-  }
-
   void servicePhysicalPowerKey()
   {
     unsigned long now = millis();
@@ -1081,58 +741,16 @@ public:
 
     coreS3PowerInitializationCompleteState = true;
 
-    Serial.println(F("[CoreS3_Power] LED runtime re-init: READY - per-bus shrink guard"));
     Serial.println(F("[CoreS3_Power] Initialization complete"));
     Serial.println();
   }
 
-  bool deferBusReinit() override
-  {
-    // Preserve normal WLED behavior before this usermod completes setup.
-    if (!coreS3PowerInitializationCompleteState) return false;
-
-    // Classify here as well as from loop()/handleOverlayDraw(). This guarantees
-    // that a request arriving later in the same main-loop iteration cannot
-    // bypass old-range BLACK preparation.
-    captureLedShrinkReinitRequest();
-
-    // WLED core keeps ownership of doInitBusses. We only hold the generic gate
-    // while preparing the old output, then release it for finalizeInit().
-    return
-      ledShrinkSaveState == LedShrinkSaveState::OFF_REQUEST_PENDING ||
-      ledShrinkSaveState == LedShrinkSaveState::WAIT_OFF;
-  }
-
   void loop() override
   {
-    captureLedShrinkReinitRequest();
-    serviceLedShrinkSaveOffCycle();
-
     servicePhysicalPowerKey();
     serviceRuntimeExternal5VEnable();
     serviceDcdc3StabilityMode();
     serviceRuntimePowerHealth();
-  }
-
-  // WLED calls this after effects render and immediately before the frame
-  // is painted to BusManager/show(). This is both the second re-init capture
-  // point and the final BLACK override for the complete old logical range.
-  void handleOverlayDraw() override
-  {
-    captureLedShrinkReinitRequest();
-    if (
-      ledShrinkSaveState == LedShrinkSaveState::WAIT_OFF &&
-      bri == 0 &&
-      strip.getBrightness() == 0 &&
-      ledShrinkOldPhysical > 0
-    ) {
-      strip.setRange(0, ledShrinkOldPhysical - 1, 0);
-
-      if (ledShrinkBlackOverlayFrames < 255) {
-        ledShrinkBlackOverlayFrames++;
-      }
-
-    }
   }
 
   void addToJsonInfo(JsonObject& root) override
@@ -1151,22 +769,6 @@ public:
 
     JsonArray stabilityInfo = user.createNestedArray("CoreS3 Power Stability");
     stabilityInfo.add("DCDC3 Always-PWM");
-
-    JsonArray ledReinitInfo = user.createNestedArray("CoreS3 LED Runtime Reinit");
-    switch (ledShrinkSaveState) {
-      case LedShrinkSaveState::IDLE:
-        ledReinitInfo.add("READY - per-bus shrink guard");
-        break;
-      case LedShrinkSaveState::OFF_REQUEST_PENDING:
-        ledReinitInfo.add("Bus shrink detected - preparing OFF");
-        break;
-      case LedShrinkSaveState::WAIT_OFF:
-        ledReinitInfo.add("Clearing old LED range");
-        break;
-      case LedShrinkSaveState::WAIT_REINIT_COMPLETE:
-        ledReinitInfo.add("Rebuilding LED buses");
-        break;
-    }
 
     JsonArray pwmInfo = user.createNestedArray("CoreS3 DCDC3 Mode");
     if (!dcdc3StabilityAttempted) {
