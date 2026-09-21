@@ -1264,14 +1264,8 @@ class AudioReactive : public Usermod {
       // membership times out, which silently breaks sound sync for every receiver.
       // UDP broadcast does not use group membership, so it keeps working on such networks.
       int success;
-      if (audioSyncTransport == 1) {
-        // same way the state notifier builds its broadcast address (udp.cpp), so this also
-        // works on boards using Ethernet instead of WiFi
-        IPAddress broadcastIp = ~uint32_t(WLEDNetwork.subnetMask()) | uint32_t(WLEDNetwork.gatewayIP());
-        success = fftUdp.beginPacket(broadcastIp, audioSyncPort);
-      } else {
-        success = fftUdp.beginMulticastPacket(); // returns 0 in case of error
-      }
+      if (audioSyncTransport == 1) success = fftUdp.beginPacket(WLEDNetwork.broadcastIP(), audioSyncPort);
+      else                         success = fftUdp.beginMulticastPacket(); // returns 0 in case of error
 
       if (success != 0) {
         fftUdp.write(reinterpret_cast<uint8_t *>(&transmitData), sizeof(transmitData));
