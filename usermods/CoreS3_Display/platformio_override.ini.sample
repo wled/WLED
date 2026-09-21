@@ -16,7 +16,6 @@
 ; This example preserves:
 ;   - the validated CoreS3 Quad PSRAM configuration
 ;   - CoreS3 Power / Display / Audio / AudioReactive integration
-;   - the validated ESP32-S3 NeoPixelBus RMT DMA1024 and LCD/GDMA patches
 ;
 ; IMPORTANT:
 ;   Do NOT set lib_archive=yes in this custom environment.
@@ -40,11 +39,8 @@ platform = ${esp32_idf_V5.platform_pioarduino}
 platform_packages = ${esp32_idf_V5.platform_packages_pioarduino}
 
 ; Preserve normal WLED build scripts.
-;
-; Apply the validated NeoPixelBus ESP32-S3 RMT DMA1024 and LCD/GDMA patches.
 extra_scripts =
     ${scripts_defaults.extra_scripts}
-    pre:pio-scripts/cores3_v17_neopixelbus_patch.py
 
 custom_usermods =
     CoreS3_Power

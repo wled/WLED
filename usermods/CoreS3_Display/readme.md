@@ -28,7 +28,6 @@ This project runs the WLED v17 series natively on M5Stack CoreS3 and combines<br
 - Safe Shutdown using the AXP2101 Power Key
 - LED BLACK frame before hard power-off
 - Restore of the previous LED state when Safe Shutdown is canceled
-- ESP32-S3 / NeoPixelBus RMT DMA1024 and LCD/GDMA runtime-rebuild stabilization
 - Browser capture of the current LCD as a BMP image
 
 ---
@@ -240,7 +239,7 @@ Copy it to the WLED repository root and rename it to:
 platformio_override.ini
 ```
 
-The example includes the CoreS3 environment, Quad PSRAM settings, CoreS3 usermods, Audio Reactive definitions, and the NeoPixelBus patch pre-script.
+The example includes the CoreS3 environment, Quad PSRAM settings, CoreS3 usermods, and Audio Reactive definitions.
 
 ## Build
 
@@ -279,56 +278,6 @@ Upload the `m5stack_cores3` environment from PlatformIO.
 
 If another serial monitor or program is holding the COM port open, close it before Upload.
 
-
----
-
-## NeoPixelBus / RMT DMA1024 + LCD/GDMA Patches
-
-With ESP32-S3 + NeoPixelBus RMT output, hardware testing found an intermittent condition where pixels beyond the configured LED Count could light unexpectedly.
-
-The CoreS3 build applies the following stabilization:
-
-```text
-RMT DMA             enabled
-mem_block_symbols   1024
-```
-
-The patch does not rely on manually editing files under `.pio/libdeps`.
-
-```text
-pio-scripts/cores3_v17_neopixelbus_patch.py
-```
-
-runs as a PlatformIO pre-script and automatically applies the DMA1024 patch even after NeoPixelBus is downloaded again.
-
-Example when the patch is applied:
-
-```text
-[CoreS3 RMT DMA1024] applied ESP32-S3 DMA / 1024-symbol patch: ...
-```
-
-When already present:
-
-```text
-[CoreS3 RMT DMA1024] patch already present: NeoEsp32RmtXMethod.h
-```
-
-The same pre-script also applies the validated LCD/GDMA teardown fix used during runtime LED-bus rebuilds.<br>
-When the last LCD mux bus is destroyed, the GDMA channel is stopped, reset, disconnected, and deleted so stale LCD peripheral ownership is not carried into the next bus initialization.
-
-Example when the LCD/GDMA patch is applied:
-
-```text
-[CoreS3 LCD GDMA] applied full GDMA teardown production patch: ...
-```
-
-When already present:
-
-```text
-[CoreS3 LCD GDMA] patch already present: NeoEsp32LcdXMethod.h
-```
-
-Both patches are idempotent. Their reproducibility has been validated by deleting the NeoPixelBus dependency and rebuilding from a clean dependency state.
 
 ---
 
@@ -459,8 +408,6 @@ The main files involved in CoreS3 support are:
 ```text
 WLED/
 ├─ platformio_override.ini
-├─ pio-scripts/
-│  └─ cores3_v17_neopixelbus_patch.py
 └─ usermods/
    ├─ CoreS3_Power/
    ├─ CoreS3_Display/
@@ -523,7 +470,7 @@ Please refer to the upstream repository for WLED documentation, supported LED ty
 ## Licensing
 
 WLED source in this repository follows the upstream **EUPL v1.2** license.<br>
-NeoPixelBus remains licensed under **LGPL-3.0-or-later**. The CoreS3 build-time patch script modifies the PlatformIO-downloaded NeoPixelBus source while preserving the upstream library license header.
+NeoPixelBus remains licensed under **LGPL-3.0-or-later**.
 
 Refer to the repository `LICENSE` file and the respective upstream projects for complete license terms.
 

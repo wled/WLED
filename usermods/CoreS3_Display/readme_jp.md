@@ -28,7 +28,6 @@ M5Stack CoreS3 上で WLED v17 系をネイティブ動作させ、<br>
 - AXP2101 Power Key を使った Safe Shutdown
 - 電源OFF前に LED BLACK frame を送信
 - Safe Shutdown のキャンセル時は直前の LED 状態を復元
-- ESP32-S3 / NeoPixelBus 向け RMT DMA1024 および LCD/GDMA runtime-rebuild 安定化
 - ブラウザから現在の LCD 画面を BMP で取得
 
 ---
@@ -240,7 +239,7 @@ usermods/CoreS3_Display/platformio_override.ini.sample
 platformio_override.ini
 ```
 
-このサンプルには、CoreS3 Environment、Quad PSRAM 設定、CoreS3 Usermod、Audio Reactive 定義、および NeoPixelBus patch 用 pre-script が含まれています。
+このサンプルには、CoreS3 Environment、Quad PSRAM 設定、CoreS3 Usermod、および Audio Reactive 定義が含まれています。
 
 ## Build
 
@@ -279,56 +278,6 @@ PlatformIO から `m5stack_cores3` を Upload します。
 
 シリアルモニタなどのプログラムが COM ポートを開いている場合は、Upload 前に閉じてください。
 
-
----
-
-## NeoPixelBus / RMT DMA1024 + LCD/GDMA Patch
-
-ESP32-S3 + NeoPixelBus の RMT 出力では、LED Count より後ろのピクセルが不定期に点灯する問題を実機で確認しました。
-
-CoreS3 向けには次の安定化を適用しています。
-
-```text
-RMT DMA             enabled
-mem_block_symbols   1024
-```
-
-パッチは `.pio/libdeps` のライブラリを手作業で変更する方式ではありません。
-
-```text
-pio-scripts/cores3_v17_neopixelbus_patch.py
-```
-
-が PlatformIO の pre-script として動作し、NeoPixelBus を新規取得した場合でも自動的に DMA1024 patch を適用します。
-
-Build 時の例:
-
-```text
-[CoreS3 RMT DMA1024] applied ESP32-S3 DMA / 1024-symbol patch: ...
-```
-
-すでに適用済みの場合:
-
-```text
-[CoreS3 RMT DMA1024] patch already present: NeoEsp32RmtXMethod.h
-```
-
-同じ pre-script では、runtime の LED Bus 再構築時に使用する LCD/GDMA teardown 修正も適用します。<br>
-最後の LCD mux bus を破棄する際に GDMA channel を stop / reset / disconnect / delete し、次回の Bus 初期化へ古い LCD peripheral ownership が残らないようにします。
-
-LCD/GDMA patch 適用時の例:
-
-```text
-[CoreS3 LCD GDMA] applied full GDMA teardown production patch: ...
-```
-
-すでに適用済みの場合:
-
-```text
-[CoreS3 LCD GDMA] patch already present: NeoEsp32LcdXMethod.h
-```
-
-2つの patch はどちらも idempotent です。NeoPixelBus dependency を削除したクリーンな状態からの再 Build でも再適用性を確認済みです。
 
 ---
 
@@ -459,8 +408,6 @@ CoreS3 対応の中心は次のファイルです。
 ```text
 WLED/
 ├─ platformio_override.ini
-├─ pio-scripts/
-│  └─ cores3_v17_neopixelbus_patch.py
 └─ usermods/
    ├─ CoreS3_Power/
    ├─ CoreS3_Display/
@@ -523,7 +470,7 @@ Please also refer to the upstream repository for WLED documentation, supported L
 ## Licensing
 
 このリポジトリの WLED ソースは、upstream と同じ **EUPL v1.2** に従います。<br>
-NeoPixelBus は **LGPL-3.0-or-later** のままです。CoreS3 の build-time patch script は PlatformIO が取得した NeoPixelBus ソースへ修正を適用しますが、upstream library のライセンスヘッダーは保持します。
+NeoPixelBus は **LGPL-3.0-or-later** のままです。
 
 完全なライセンス条件については、リポジトリの `LICENSE` と各 upstream project を参照してください。
 
