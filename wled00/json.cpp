@@ -399,7 +399,7 @@ bool deserializeState(JsonObject root, byte callMode, byte presetId)
   if (!presetId || currentPlaylist < 0) { //do not apply transition time from preset if playlist active, as it would override playlist transition times
     tr = root[F("transition")] | -1;
     if (tr >= 0) {
-      transitionDelay = tr * 100;
+      transitionDelay = (uint32_t)MIN(tr, (long)TRANSITION_MAX_DUR_100MS) * 100; // value is in 100ms units
       strip.setTransition(transitionDelay);
     }
   }
@@ -411,7 +411,7 @@ bool deserializeState(JsonObject root, byte callMode, byte presetId)
   tr = root[F("tt")] | -1;
   if (tr >= 0) {
     jsonTransitionOnce = true;
-    strip.setTransition(tr * 100);
+    strip.setTransition((uint32_t)MIN(tr, (long)TRANSITION_MAX_DUR_100MS) * 100); // value is in 100ms units
   }
 
   tr = root[F("tb")] | -1;

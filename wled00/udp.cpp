@@ -64,8 +64,10 @@ void notify(byte callMode, bool followUp)
   udpOut[14] = B(col);
   udpOut[15] = W(col);
   udpOut[16] = mainseg.intensity;
-  udpOut[17] = (transitionDelay >> 0) & 0xFF;
-  udpOut[18] = (transitionDelay >> 8) & 0xFF;
+  // the sync protocol carries the transition time as 16 bit value, so longer transitions are capped for receivers
+  uint16_t udpTransitionDelay = MIN(transitionDelay, (uint32_t)0xFFFF);
+  udpOut[17] = (udpTransitionDelay >> 0) & 0xFF;
+  udpOut[18] = (udpTransitionDelay >> 8) & 0xFF;
   udpOut[19] = mainseg.palette;
   col = mainseg.colors[2];
   udpOut[20] = R(col);

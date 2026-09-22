@@ -541,8 +541,8 @@ bool deserializeConfig(JsonObject doc, bool fromFS) {
   NeoGammaWLEDMethod::calcGammaTable(gammaCorrectVal); // fill look-up tables
 
   JsonObject light_tr = light["tr"];
-  int tdd = light_tr["dur"] | -1;
-  if (tdd >= 0) transitionDelay = transitionDelayDefault = tdd * 100;
+  long tdd = light_tr["dur"] | -1;
+  if (tdd >= 0) transitionDelay = transitionDelayDefault = (uint32_t)MIN(tdd, (long)TRANSITION_MAX_DUR_100MS) * 100; // value is in 100ms units
   strip.setTransition(transitionDelayDefault);
   CJSON(randomPaletteChangeTime, light_tr[F("rpc")]);
   CJSON(useHarmonicRandomPalette, light_tr[F("hrp")]);

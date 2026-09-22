@@ -290,7 +290,7 @@ void Segment::loadPalette(CRGBPalette16 &targetPalette, uint8_t pal) {
 // starting a transition has to occur before change so we get current values 1st
 // note: _t is the temporary segment that holds the values transitioned from (palette, colors, brightness,...) and the current segment holds the "to" values
 //       if this is a non FADE transition or an FX change, the _oldSegment is created which is a full copy of the segment before the change
-void Segment::startTransition(uint16_t dur, bool segmentCopy) {
+void Segment::startTransition(uint32_t dur, bool segmentCopy) {
   if (dur == 0 || !isActive()) {
     if (isInTransition()) _t->_dur = 0;
     return;
@@ -366,11 +366,7 @@ void Segment::stopTransition() {
 
 // sets transition progress variable (0-65535) based on time passed since transition start
 void Segment::updateTransitionProgress() const {
-  if (isInTransition()) {
-    _t->_progress = 0xFFFF;
-    unsigned diff = millis() - _t->_start;
-    if (_t->_dur > 0 && diff < _t->_dur) _t->_progress = diff * 0xFFFFU / _t->_dur;
-  }
+  if (isInTransition()) _t->_progress = transitionProgress(millis() - _t->_start, _t->_dur);
 }
 
 // will return segment's CCT during a transition
@@ -411,7 +407,7 @@ void Segment::beginDraw(uint16_t prog) {
     for (unsigned i = 0; i < NUM_COLORS; i++) _currentColors[i] = color_blend16(_t->_colors[i], colors[i], prog);
     // blend palettes
     // there are about 255 blend passes of 48 "blends" to completely blend two palettes (in _dur time)
-    // minimum blend time is 100ms maximum is 65535ms
+    // minimum blend time is 100ms, maximum is TRANSITION_MAX_DUR
     unsigned noOfBlends = ((255U * prog) / 0xFFFFU) - _t->_prevPaletteBlends;
     if (noOfBlends > 255) noOfBlends = 255; // safety check
     for (unsigned i = 0; i < noOfBlends; i++, _t->_prevPaletteBlends++) nblendPaletteTowardPalette(_t->_palT, Segment::_currentPalette, 48);
@@ -434,7 +430,7 @@ void Segment::handleRandomPalette() {
   // there are about 255 blend passes of 48 "blends" to completely blend two palettes (in strip.getTransition() time)
   // if randomPaletteChangeTime is shorter than strip.getTransition() palette will never fully blend
   unsigned frameTime = strip.getFrameTime();  // in ms [8-1000]
-  unsigned transitionTime = strip.getTransition(); // in ms [100-65535]
+  unsigned transitionTime = strip.getTransition(); // in ms [100-TRANSITION_MAX_DUR]
   if ((uint16_t)now < Segment::_nextPaletteBlend || now > ((Segment::_lastPaletteChange*1000) + transitionTime + 2*frameTime)) return; // not yet time or past transition time, no need to blend
   unsigned transitionFrames = frameTime > transitionTime ? 1 : transitionTime / frameTime; // i.e. 700ms/23ms = 30 or 20000ms/8ms = 2500 or 100ms/1000ms = 0 -> 1
   unsigned noOfBlends = transitionFrames > 255 ? 1 : (255 + (transitionFrames>>1)) / transitionFrames;  // we do some rounding here

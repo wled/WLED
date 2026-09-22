@@ -164,9 +164,9 @@ void handleTransitions() {
   updateInterfaces(interfaceUpdateCallMode);
 
   if (transitionActive && strip.getTransition() > 0) {
-    int ti = millis() - transitionStartTime;
-    int tr = strip.getTransition();
-    if (ti/tr) {
+    unsigned ti = millis() - transitionStartTime;
+    unsigned tr = strip.getTransition();
+    if (ti >= tr) {
       strip.setTransitionMode(false); // stop all transitions
       // restore (global) transition time if not called from UDP notifier or single/temporary transition from JSON (also playlist)
       if (jsonTransitionOnce) strip.setTransition(transitionDelay);
@@ -177,7 +177,8 @@ void handleTransitions() {
     }
     byte briTO = briT;
     int deltaBri = (int)bri - (int)briOld;
-    briT = briOld + (deltaBri * ti / tr);
+    // "deltaBri * ti / tr" would overflow 32 bit for long transitions, so the pre-scaled progress fraction is used instead
+    briT = briOld + (deltaBri * (int)(transitionProgress(ti, tr) + 1)) / 0x10000; // +1: progress is a 0..0xFFFF fraction of 0x10000
     if (briTO != briT) applyBri();
   }
 }
@@ -231,7 +232,7 @@ void handleNightlight() {
       {
         for (unsigned i=0; i<4; i++) colPri[i] = colNlT[i]+ ((colSec[i] - colNlT[i])*nper);   // fading from actual color to secondary color
       }
-      uint16_t transitionduration = strip.getTransition();
+      uint32_t transitionduration = strip.getTransition();
       strip.setTransition(0); // temporary disable transition and set color & brightness directly, (hacky fix for #5620)
       colorUpdated(CALL_MODE_NO_NOTIFY);
       strip.setTransition(transitionduration); // restore transition time to previous value. Note: this needs proper fixing by disabling transitions completely in nightlight mode, reference implementation https://github.com/blazoncek/WLED/commit/c01a6b774969b652c30e383073958302042fd1f9

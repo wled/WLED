@@ -6,7 +6,7 @@
 
 typedef struct PlaylistEntry {
   uint8_t preset; //ID of the preset to apply
-  uint16_t tr;    //Duration of the transition TO this entry (in tenths of seconds)
+  uint32_t tr;    //Duration of the transition TO this entry (in tenths of seconds)
   uint32_t dur;   //Duration of the entry (in milliseconds)
 } ple;
 
@@ -100,12 +100,13 @@ int16_t loadPlaylist(JsonObject playlistObj, byte presetId) {
   it = 0;
   JsonArray tr = playlistObj[F("transition")];
   if (tr.isNull()) {
-    playlistEntries[0].tr = playlistObj[F("transition")] | (transitionDelay / 100);
+    long transition = playlistObj[F("transition")] | (long)(transitionDelay / 100);
+    playlistEntries[0].tr = constrain(transition, 0L, (long)TRANSITION_MAX_DUR_100MS); // limit to max value (tenths)
     it = 1;
   } else {
-    for (int transition : tr) {
+    for (long transition : tr) {
       if (it >= playlistLen) break;
-      playlistEntries[it].tr = transition;
+      playlistEntries[it].tr = constrain(transition, 0L, (long)TRANSITION_MAX_DUR_100MS); // limit to max value (tenths)
       it++;
     }
   }
@@ -174,7 +175,7 @@ void handlePlaylist() {
     }
 
     jsonTransitionOnce = true;
-    strip.setTransition(playlistEntries[playlistIndex].tr * 100);
+    strip.setTransition(playlistEntries[playlistIndex].tr * 100UL); // convert tenths of seconds to ms
     playlistEntryDur = playlistEntries[playlistIndex].dur > 0 ? playlistEntries[playlistIndex].dur : UINT32_MAX; // UINT32_MAX means infinite
     applyPresetFromPlaylist(playlistEntries[playlistIndex].preset);
     doAdvancePlaylist = false;

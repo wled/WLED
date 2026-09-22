@@ -406,7 +406,7 @@ void handleSettingsSet(AsyncWebServerRequest *request, byte subPage)
     NeoGammaWLEDMethod::calcGammaTable(gammaCorrectVal); // fill look-up tables
 
     t = request->arg(F("TD")).toInt();
-    if (t >= 0) transitionDelayDefault = t;
+    if (t >= 0) transitionDelayDefault = MIN((uint32_t)t, TRANSITION_MAX_DUR); // value is in ms
     t = request->arg(F("TP")).toInt();
     randomPaletteChangeTime = MIN(255,MAX(1,t));
     useHarmonicRandomPalette = request->hasArg(F("TH"));
@@ -1245,7 +1245,10 @@ bool handleSet(AsyncWebServerRequest *request, const String& req, bool apply)
   if (nightlightMode > NL_MODE_SUN) nightlightMode = NL_MODE_SUN;
 
   pos = req.indexOf(F("TT="));
-  if (pos > 0) transitionDelay = getNumVal(req, pos);
+  if (pos > 0) {
+    int tt = getNumVal(req, pos); // value is in ms
+    transitionDelay = tt < 0 ? 0 : MIN((uint32_t)tt, TRANSITION_MAX_DUR);
+  }
   strip.setTransition(transitionDelay);
 
   //set time (unix timestamp)
