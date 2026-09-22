@@ -649,7 +649,7 @@ void serializeState(JsonObject root, bool forPreset, bool includeBri, bool segme
   if (includeBri) {
     root["on"] = (bri > 0);
     root["bri"] = briLast;
-    root[F("transition")] = transitionDelay/100; //in 100ms
+    root[F("transition")] = transitionDelay/100; //in 100ms (range 0-TRANSITION_MAX_DUR_100MS, no longer limited to 16 bit)
     root[F("bs")] = blendingStyle;
   }
 

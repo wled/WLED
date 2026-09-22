@@ -194,6 +194,6 @@ void serializePlaylist(JsonObject sObj) {
   for (int i=0; i<playlistLen; i++) {
     ps.add(playlistEntries[i].preset);
     dur.add((playlistEntries[i].dur) / 100); // convert ms back to tenths of seconds (backwards compatibility)
-    transition.add(playlistEntries[i].tr);
+    transition.add(playlistEntries[i].tr); // already in tenths of seconds (range 0-TRANSITION_MAX_DUR_100MS, no longer limited to 16 bit)
   }
 }
