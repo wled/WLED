@@ -12,6 +12,13 @@
  *
  * Production baseline for M5Stack CoreS3 power handling.
  *
+ * CoreS3 LED settings save guard:
+ *   - Intercepts POST /settings/leds before WLED registers its generic handler.
+ *   - Defers the request so BLACK is rendered from the normal WLED loop context.
+ *   - Keeps the old bus suspended after BLACK while WLED parses the new settings.
+ *   - Lets the standard WLED bus rebuild/config serialization path run unchanged.
+ *   - Arms a standard WLED software reboot from the following loop iteration.
+ *
  * Preserved validated power behavior:
  *   - AW9523B external-5V enable writes (BOOST then BUS).
  *   - Runtime External 5V re-assert after M5GFX initialization.
@@ -159,6 +166,23 @@ private:
   bool dcdc3StabilityApplied = false;
   uint8_t dcdcModeBefore = 0;
   uint8_t dcdcModeAfter = 0;
+
+  // LED & Hardware settings save guard.
+  //
+  // The HTTP callback only changes this small state machine and delegates back
+  // to WLED. Physical LED I/O is kept in the normal WLED loop context.
+  enum class LedSettingsSaveState : uint8_t {
+    IDLE = 0,
+    BLACK_PENDING,
+    BLACK_READY,
+    REBOOT_ARM_PENDING,
+    WAIT_REBOOT,
+    RESTORE_PENDING
+  };
+
+  volatile LedSettingsSaveState ledSettingsSaveState = LedSettingsSaveState::IDLE;
+  uint8_t ledSettingsSavedStripBrightness = 0;
+  bool ledSettingsHandlerRegistered = false;
 
 
   const char* resetReasonText(esp_reset_reason_t reason)
@@ -538,6 +562,147 @@ private:
     }
   }
 
+  // Process the LED settings save guard only from WLED's normal loop context.
+  // This keeps physical strip I/O out of the AsyncWebServer callback context.
+  void serviceLedSettingsSaveGuard()
+  {
+    switch (ledSettingsSaveState) {
+      case LedSettingsSaveState::IDLE:
+      case LedSettingsSaveState::BLACK_READY:
+      case LedSettingsSaveState::WAIT_REBOOT:
+        return;
+
+      case LedSettingsSaveState::BLACK_PENDING:
+      {
+        // Physical shutdown already owns the LED output. If this ever overlaps
+        // with a settings save, keep the request deferred until that sequence
+        // has finished or the device powers off.
+        if (safeShutdownBlankActive) return;
+
+        ledSettingsSavedStripBrightness = strip.getBrightness();
+
+        Serial.printf(
+          "[CoreS3_Power][LED] Settings save: BLACK old bus before re-init (len=%u, bri=%u)\n",
+          strip.getLengthPhysical(),
+          ledSettingsSavedStripBrightness
+        );
+
+        // Use the same physical BLACK path already validated by Safe Shutdown.
+        // Keep WLED's logical bri untouched; only the physical strip brightness
+        // is forced to zero for this final old-bus frame.
+        strip.waitForIt();
+        strip.setBrightness(0, true);
+        strip.show();
+        waitForLedOutputComplete();
+        strip.suspend();
+        strip.waitForIt();
+
+        ledSettingsSaveState = LedSettingsSaveState::BLACK_READY;
+        Serial.println(F("[CoreS3_Power][LED] Settings save: old bus BLACK and suspended"));
+        return;
+      }
+
+      case LedSettingsSaveState::REBOOT_ARM_PENDING:
+        // Do not set doReboot in the AsyncWebServer callback. Arming it here
+        // guarantees WLED's main loop gets a chance to consume doInitBusses and
+        // serialize the new bus configuration before the standard reset check.
+        doReboot = true;
+        ledSettingsSaveState = LedSettingsSaveState::WAIT_REBOOT;
+        Serial.println(F("[CoreS3_Power][LED] Bus re-init detected; safe reboot armed for post-save reset"));
+        return;
+
+      case LedSettingsSaveState::RESTORE_PENDING:
+        // A valid LED settings POST normally creates pending bus configs. If it
+        // did not, no re-init/reboot is needed, so restore the old physical
+        // output that was blanked while the request was deferred.
+        strip.resume();
+        strip.setBrightness(ledSettingsSavedStripBrightness, true);
+        strip.show();
+        waitForLedOutputComplete();
+        strip.trigger();
+
+        ledSettingsSaveState = LedSettingsSaveState::IDLE;
+        Serial.println(F("[CoreS3_Power][LED] Settings save: no bus re-init; old output restored"));
+        return;
+    }
+  }
+
+  // Local copy of WLED's settings-origin check. The upstream helpers live as
+  // static functions in wled_server.cpp, so a separately compiled usermod
+  // cannot call them directly. Keep this scoped to the LED settings guard.
+  bool isLocalLedSettingsClient(const IPAddress& client)
+  {
+    auto inSubnetLocal = [](const IPAddress& ip, const IPAddress& subnet, const IPAddress& mask) {
+      return (((uint32_t)ip & (uint32_t)mask) == ((uint32_t)subnet & (uint32_t)mask));
+    };
+
+    return
+      inSubnetLocal(client, IPAddress(10, 0, 0, 0), IPAddress(255, 0, 0, 0)) ||
+      inSubnetLocal(client, IPAddress(192, 168, 0, 0), IPAddress(255, 255, 0, 0)) ||
+      inSubnetLocal(client, IPAddress(172, 16, 0, 0), IPAddress(255, 240, 0, 0)) ||
+      (inSubnetLocal(client, IPAddress(4, 3, 2, 0), IPAddress(255, 255, 255, 0)) && apActive) ||
+      inSubnetLocal(client, WLEDNetwork.localIP(), WLEDNetwork.subnetMask());
+  }
+
+  // Register before WLED::initServer(). UsermodManager::setup() runs earlier in
+  // WLED::setup(), so this exact /settings/leds POST handler gets first chance
+  // to safely blank the old CoreS3 LED bus. WLED's own serveSettings() remains
+  // the single parser/validator for the actual settings request.
+  void registerLedSettingsSaveHandler()
+  {
+    if (ledSettingsHandlerRegistered) return;
+    ledSettingsHandlerRegistered = true;
+
+    server.on(F("/settings/leds"), HTTP_POST, [this](AsyncWebServerRequest* request) {
+      // Preserve WLED's normal access-control/PIN behavior. Do not blank LEDs
+      // for a request that cannot yet be treated as a real LED settings save.
+      if (
+        !isLocalLedSettingsClient(request->client()->remoteIP()) ||
+        (!correctPIN && strlen(settingsPIN) > 0)
+      ) {
+        serveSettings(request, true);
+        return;
+      }
+
+      switch (ledSettingsSaveState) {
+        case LedSettingsSaveState::IDLE:
+          ledSettingsSaveState = LedSettingsSaveState::BLACK_PENDING;
+          Serial.println(F("[CoreS3_Power][LED] LED settings POST detected; deferring for old-bus BLACK"));
+          request->deferResponse();
+          return;
+
+        case LedSettingsSaveState::BLACK_PENDING:
+          request->deferResponse();
+          return;
+
+        case LedSettingsSaveState::BLACK_READY:
+          // The old physical bus is now BLACK and suspended. Delegate parsing
+          // and validation to the unchanged WLED settings implementation.
+          serveSettings(request, true);
+
+          if (doInitBusses) {
+            // Arm reboot from Usermod::loop(), never from this callback. This
+            // avoids racing WLED's doInitBusses/configNeedsWrite main-loop path.
+            ledSettingsSaveState = LedSettingsSaveState::REBOOT_ARM_PENDING;
+            Serial.println(F("[CoreS3_Power][LED] LED settings accepted; standard bus re-init pending"));
+          } else {
+            ledSettingsSaveState = LedSettingsSaveState::RESTORE_PENDING;
+          }
+          return;
+
+        case LedSettingsSaveState::REBOOT_ARM_PENDING:
+        case LedSettingsSaveState::WAIT_REBOOT:
+        case LedSettingsSaveState::RESTORE_PENDING:
+          // A previous save is still being completed. Keep any duplicate POST
+          // deferred rather than allowing overlapping bus lifecycle operations.
+          request->deferResponse();
+          return;
+      }
+    });
+
+    Serial.println(F("[CoreS3_Power][LED] Settings save guard: ARMED"));
+  }
+
   void beginSafeShutdownBlank(uint8_t triggerStatus)
   {
     if (safeShutdownBlankActive) return;
@@ -739,6 +904,8 @@ public:
     Serial.printf("[CoreS3_Power] Safe shutdown: PRESS fallback >= %lu ms\n", SAFE_SHUTDOWN_FALLBACK_HOLD_MS);
     Serial.printf("[CoreS3_Power] External 5V: %s\n", external5VEnableSuccess ? "ENABLED" : "FAILED");
 
+    registerLedSettingsSaveHandler();
+
     coreS3PowerInitializationCompleteState = true;
 
     Serial.println(F("[CoreS3_Power] Initialization complete"));
@@ -747,6 +914,7 @@ public:
 
   void loop() override
   {
+    serviceLedSettingsSaveGuard();
     servicePhysicalPowerKey();
     serviceRuntimeExternal5VEnable();
     serviceDcdc3StabilityMode();
