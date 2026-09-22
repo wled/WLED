@@ -46,7 +46,7 @@ CRGBPalette16 Segment::_currentPalette    = CRGBPalette16();
 CRGBPalette16 Segment::_randomPalette     = generateRandomPalette();  // was CRGBPalette16(DEFAULT_COLOR);
 CRGBPalette16 Segment::_newRandomPalette  = generateRandomPalette();  // was CRGBPalette16(DEFAULT_COLOR);
 uint16_t      Segment::_lastPaletteChange = 0; // in seconds; perhaps it should be per segment
-uint16_t      Segment::_nextPaletteBlend  = 0; // in millis
+uint32_t      Segment::_nextPaletteBlend  = 0; // in millis
 
 bool     Segment::_modeBlend = false;
 uint16_t Segment::_clipStart = 0;
@@ -420,7 +420,10 @@ void Segment::handleRandomPalette() {
   unsigned long now = millis();
   uint16_t now_s = now / 1000; // we only need seconds (and @dedehai hated shift >> 10)
   now = (now_s)*1000 + (now % 1000); // ignore days (now is limited to 18 hours as now_s can only store 65535s ~ 18h 12min)
-  if (now_s < Segment::_lastPaletteChange) Segment::_lastPaletteChange = 0; // handle overflow (will cause 2*randomPaletteChangeTime glitch at most)
+  if (now_s < Segment::_lastPaletteChange) { // handle overflow (will cause 2*randomPaletteChangeTime glitch at most)
+    Segment::_lastPaletteChange = 0;
+    Segment::_nextPaletteBlend  = 0; // "now" restarted from 0 as well, so a stale (future) value would block blending until the next palette change
+  }
   // is it time to generate a new palette?
   if (now_s > Segment::_lastPaletteChange + randomPaletteChangeTime) {
     Segment::_newRandomPalette  = useHarmonicRandomPalette ? generateHarmonicRandomPalette(Segment::_randomPalette) : generateRandomPalette();
@@ -431,11 +434,11 @@ void Segment::handleRandomPalette() {
   // if randomPaletteChangeTime is shorter than strip.getTransition() palette will never fully blend
   unsigned frameTime = strip.getFrameTime();  // in ms [8-1000]
   unsigned transitionTime = strip.getTransition(); // in ms [100-TRANSITION_MAX_DUR]
-  if ((uint16_t)now < Segment::_nextPaletteBlend || now > ((Segment::_lastPaletteChange*1000) + transitionTime + 2*frameTime)) return; // not yet time or past transition time, no need to blend
+  if (now < Segment::_nextPaletteBlend || now > ((Segment::_lastPaletteChange*1000) + transitionTime + 2*frameTime)) return; // not yet time or past transition time, no need to blend
   unsigned transitionFrames = frameTime > transitionTime ? 1 : transitionTime / frameTime; // i.e. 700ms/23ms = 30 or 20000ms/8ms = 2500 or 100ms/1000ms = 0 -> 1
   unsigned noOfBlends = transitionFrames > 255 ? 1 : (255 + (transitionFrames>>1)) / transitionFrames;  // we do some rounding here
   for (unsigned i = 0; i < noOfBlends; i++) nblendPaletteTowardPalette(Segment::_randomPalette, Segment::_newRandomPalette, 48);
-  Segment::_nextPaletteBlend = now + ((transitionFrames >> 8) * frameTime); // postpone next blend if necessary
+  Segment::_nextPaletteBlend = now + ((transitionFrames >> 8) * frameTime); // postpone next blend if necessary (needs 32 bit: long transitions postpone by minutes, not milliseconds)
 }
 
 // sets Segment geometry (length or width/height and grouping, spacing and offset as well as 2D mapping)
