@@ -452,6 +452,8 @@ Adds ES7210 support for the CoreS3 built-in microphone through the standard WLED
 - The standard WLED Brightness default of 128 is not modified.
 - A starting Brightness around 64 is recommended for CoreS3.
 - Browser Screenshot returns a still BMP image; it is not a live stream.
+- On M5Stack CoreS3, saving changes to the LED bus configuration under **LED & Hardware** may temporarily report a GDMA/LCD peripheral conflict during runtime bus reinitialization.<br>
+  The CoreS3 Power usermod blanks the existing LED output, lets WLED save the new configuration, and then performs a software reboot. The saved configuration is applied normally after reboot; no additional user action is required.
 - DCDC OVP protection is not disabled.
 
 ---

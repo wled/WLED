@@ -452,6 +452,8 @@ CoreS3 内蔵マイクの ES7210 対応を、WLED 標準の Audio Reactive I2S �
 - WLED 標準 Brightness 128 は変更していません。
 - CoreS3 では Brightness 64 前後からの使用を推奨します。
 - Browser Screenshot は BMP の静止画です。ライブストリームではありません。
+- M5Stack CoreS3 では、**LED & Hardware** で LED バス構成を変更して保存すると、ランタイムでの LED バス再初期化中に GDMA/LCD peripheral conflict のログが一時的に出力される場合があります。<br>
+  CoreS3 Power Usermod は旧 LED 出力を消灯して WLED に新しい構成を保存させた後、Software Reboot を実行します。再起動後は保存した構成が正常に適用され、追加操作は不要です。
 - DCDC OVP 保護は無効化していません。
 
 ---
