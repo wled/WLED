@@ -846,8 +846,8 @@ Swap: <select id="xw${s}" name="XW${s}">
 							{
 								const wkChkEl = gId("wke"+i);
 								const wkEl = d.getElementsByName("WK"+i)[0];
-								const raw = parseInt(v.wk, 10) | 0;
-								const wkv = (raw >= 1000 && raw <= 10000) ? raw : 0;
+								const raw = Number(v.wk); // no |0: that wraps at 2^32 before the range check
+								const wkv = (Number.isInteger(raw) && raw >= 1000 && raw <= 10000) ? raw : 0;
 								if (wkChkEl) wkChkEl.checked = wkv > 0;
 								if (wkEl) wkEl.value = wkv;
 							}

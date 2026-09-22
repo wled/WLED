@@ -129,6 +129,9 @@ class Bus {
     , _reversed(reversed)
     , _valid(false)
     , _needsRefresh(refresh)
+    , _hasRgb(false)   // derived constructors set the real capabilities;
+    , _hasWhite(false) // defaults keep setWhiteKelvin() well-defined for buses
+    , _hasCCT(false)   // that don't set all three (BusPlaceholder, BusHub75Matrix)
     {
       _autoWhiteMode = Bus::hasWhite(type) ? aw : RGBW_MODE_MANUAL_ONLY;
     };
