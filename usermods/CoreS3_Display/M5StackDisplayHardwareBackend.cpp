@@ -238,7 +238,7 @@ void M5StackDisplayHardwareBackend::classifyCore2HardwareProbe( TwoWire& wire ) 
   }
 
 void M5StackDisplayHardwareBackend::printCore2HardwareProbeResult() {
-    Serial.printf(
+    DEBUG_PRINTF(
       "[CoreS3_Display] Hardware probe: %s, Variant=%s, PMU=%s, IMU=%s",
       probeStateName(),
       detectedVariantName(),
@@ -247,17 +247,17 @@ void M5StackDisplayHardwareBackend::printCore2HardwareProbeResult() {
     );
 
     if ( hardwareProbe.imuChipId > 0 ) {
-      Serial.printf( " (ID=0x%02X)", hardwareProbe.imuChipId );
+      DEBUG_PRINTF( " (ID=0x%02X)", hardwareProbe.imuChipId );
     }
 
-    Serial.println();
+    DEBUG_PRINTLN("");
 
-    Serial.printf(
+    DEBUG_PRINTF(
       "[CoreS3_Display] Detected revision: %s\n",
       detectedRevisionName()
     );
 
-    Serial.printf(
+    DEBUG_PRINTF(
       "[CoreS3_Display] Core2 I2C signature: "
       "34=%s 35=%s 38=%s 40=%s 51=%s 68=%s\n",
       hardwareProbe.address34 ? "YES" : "NO",
@@ -450,7 +450,7 @@ void M5StackDisplayHardwareBackend::runDiagnostics() {
     if ( !probeWire.begin( CORE2_INTERNAL_I2C_SDA, CORE2_INTERNAL_I2C_SCL, CORE2_INTERNAL_I2C_FREQUENCY ) ) {
       hardwareProbe.state = M5STACK_HARDWARE_PROBE_FAILED;
 
-      Serial.println( F( "[CoreS3_Display] ERROR: Core2 diagnostic I2C start failed" ) );
+      DEBUG_PRINTLN( F( "[CoreS3_Display] ERROR: Core2 diagnostic I2C start failed" ) );
 
       return;
     }
@@ -475,7 +475,7 @@ void M5StackDisplayHardwareBackend::runDiagnostics() {
 
 bool M5StackDisplayHardwareBackend::initializeDisplay( int16_t& screenWidth, int16_t& screenHeight, bool& touchReady ) {
     if ( !isDisplayRuntimeEnabled() ) {
-      Serial.printf(
+      DEBUG_PRINTF(
         "[CoreS3_Display] Hardware profile not enabled for Display runtime: %s (%s)\n",
         profileName(),
         revisionName()
@@ -491,17 +491,17 @@ bool M5StackDisplayHardwareBackend::initializeDisplay( int16_t& screenWidth, int
     screenWidth = display.width();
     screenHeight = display.height();
 
-    Serial.printf( "[CoreS3_Display] " "Display size: %d x %d\n", screenWidth, screenHeight );
+    DEBUG_PRINTF( "[CoreS3_Display] " "Display size: %d x %d\n", screenWidth, screenHeight );
 
     if ( screenWidth <= 0 || screenHeight <= 0 ) {
-      Serial.println( F( "[CoreS3_Display] " "ERROR: Display not detected" ) );
+      DEBUG_PRINTLN( F( "[CoreS3_Display] " "ERROR: Display not detected" ) );
 
       return false;
     }
 
     touchReady = ( display.touch() != nullptr );
 
-    Serial.printf( "[CoreS3_Display] " "Touch: %s\n", touchReady ? "READY" : "NOT FOUND" );
+    DEBUG_PRINTF( "[CoreS3_Display] " "Touch: %s\n", touchReady ? "READY" : "NOT FOUND" );
 
     return true;
   }

@@ -957,7 +957,7 @@ class CoreS3DisplayUsermod : public Usermod {
 
     presetCacheBuildSourceModifiedTime = presetsModifiedTime;
 
-    Serial.printf( "[CoreS3_Display] " "Preset cache rebuild start " "(modified=%lu)\n", presetCacheBuildSourceModifiedTime );
+    DEBUG_PRINTF( "[CoreS3_Display] " "Preset cache rebuild start " "(modified=%lu)\n", presetCacheBuildSourceModifiedTime );
   }
 
   // =========================================================
@@ -977,10 +977,10 @@ class CoreS3DisplayUsermod : public Usermod {
 
     syncPresetNavigationCursorFromCurrentPreset();
 
-    Serial.printf( "[CoreS3_Display] " "Preset cache ready: %u preset(s)\n", (unsigned)presetCacheCount );
+    DEBUG_PRINTF( "[CoreS3_Display] " "Preset cache ready: %u preset(s)\n", (unsigned)presetCacheCount );
 
     if ( presetsModifiedTime != presetCacheSourceModifiedTime ) {
-      Serial.println( F( "[CoreS3_Display] " "Preset changed during cache build. Rebuilding." ) );
+      DEBUG_PRINTLN( F( "[CoreS3_Display] " "Preset changed during cache build. Rebuilding." ) );
 
       startPresetCacheRebuild();
 
@@ -1372,7 +1372,7 @@ class CoreS3DisplayUsermod : public Usermod {
 
       drawPresetSaveOperationStatus();
 
-      Serial.println( F( "[CoreS3_Display] " "Preset save request rejected" ) );
+      DEBUG_PRINTLN( F( "[CoreS3_Display] " "Preset save request rejected" ) );
 
       return false;
     }
@@ -1386,7 +1386,7 @@ class CoreS3DisplayUsermod : public Usermod {
 
       drawPresetSaveOperationStatus();
 
-      Serial.println( F( "[CoreS3_Display] " "Preset save could not be queued" ) );
+      DEBUG_PRINTLN( F( "[CoreS3_Display] " "Preset save could not be queued" ) );
 
       return false;
     }
@@ -1399,7 +1399,7 @@ class CoreS3DisplayUsermod : public Usermod {
 
     drawPresetSaveOperationStatus();
 
-    Serial.printf( "[CoreS3_Display] " "Preset save request: %u (%s)\n", presetSaveCandidateId, presetSaveCandidateName.c_str() );
+    DEBUG_PRINTF( "[CoreS3_Display] " "Preset save request: %u (%s)\n", presetSaveCandidateId, presetSaveCandidateName.c_str() );
 
     return true;
   }
@@ -1418,7 +1418,7 @@ class CoreS3DisplayUsermod : public Usermod {
 
       drawPresetSaveOperationStatus();
 
-      Serial.println( F( "[CoreS3_Display] " "Preset overwrite request rejected" ) );
+      DEBUG_PRINTLN( F( "[CoreS3_Display] " "Preset overwrite request rejected" ) );
 
       return false;
     }
@@ -1432,7 +1432,7 @@ class CoreS3DisplayUsermod : public Usermod {
 
       drawPresetSaveOperationStatus();
 
-      Serial.println( F( "[CoreS3_Display] " "Preset overwrite could not be queued" ) );
+      DEBUG_PRINTLN( F( "[CoreS3_Display] " "Preset overwrite could not be queued" ) );
 
       return false;
     }
@@ -1445,7 +1445,7 @@ class CoreS3DisplayUsermod : public Usermod {
 
     drawPresetSaveOperationStatus();
 
-    Serial.printf( "[CoreS3_Display] " "Preset overwrite request: %u (%s)\n", presetSaveCandidateId, presetSaveCandidateName.c_str() );
+    DEBUG_PRINTF( "[CoreS3_Display] " "Preset overwrite request: %u (%s)\n", presetSaveCandidateId, presetSaveCandidateName.c_str() );
 
     return true;
   }
@@ -1458,7 +1458,7 @@ class CoreS3DisplayUsermod : public Usermod {
 
       drawPresetDeleteOperationStatus();
 
-      Serial.println( F( "[CoreS3_Display] " "Preset delete request rejected" ) );
+      DEBUG_PRINTLN( F( "[CoreS3_Display] " "Preset delete request rejected" ) );
 
       return false;
     }
@@ -1480,7 +1480,7 @@ class CoreS3DisplayUsermod : public Usermod {
 
     drawPresetDeleteOperationStatus();
 
-    Serial.printf( "[CoreS3_Display] " "Preset delete request: %u (%s)\n", presetDeleteTargetId, presetDeleteTargetName.c_str() );
+    DEBUG_PRINTF( "[CoreS3_Display] " "Preset delete request: %u (%s)\n", presetDeleteTargetId, presetDeleteTargetName.c_str() );
 
     return true;
   }
@@ -1502,7 +1502,7 @@ class CoreS3DisplayUsermod : public Usermod {
 
       drawPresetBootOperationStatus();
 
-      Serial.println( F( "[CoreS3_Display] " "Boot Preset request rejected" ) );
+      DEBUG_PRINTLN( F( "[CoreS3_Display] " "Boot Preset request rejected" ) );
 
       return false;
     }
@@ -1517,10 +1517,10 @@ class CoreS3DisplayUsermod : public Usermod {
     drawPresetBootOperationStatus();
 
     if ( presetBootTargetId == 0 ) {
-      Serial.println( F( "[CoreS3_Display] " "Boot Preset clear request" ) );
+      DEBUG_PRINTLN( F( "[CoreS3_Display] " "Boot Preset clear request" ) );
     }
     else {
-      Serial.printf( "[CoreS3_Display] " "Boot Preset request: %u (%s)\n", presetBootTargetId, presetBootTargetName.c_str() );
+      DEBUG_PRINTF( "[CoreS3_Display] " "Boot Preset request: %u (%s)\n", presetBootTargetId, presetBootTargetName.c_str() );
     }
 
     return true;
@@ -1573,12 +1573,12 @@ class CoreS3DisplayUsermod : public Usermod {
         // position without necessarily changing WLED's active Preset.
         lastObservedCurrentPreset = currentPreset;
 
-        Serial.printf( "[CoreS3_Display] " "%s verified: %u (%s)\n", presetSaveOperationIsOverwrite ? "Preset overwrite" : "Preset save", presetSaveCandidateId, presetSaveCandidateName.c_str() );
+        DEBUG_PRINTF( "[CoreS3_Display] " "%s verified: %u (%s)\n", presetSaveOperationIsOverwrite ? "Preset overwrite" : "Preset save", presetSaveCandidateId, presetSaveCandidateName.c_str() );
       }
       else {
         presetSaveOperationState = PRESET_SAVE_OP_FAILED;
 
-        Serial.printf( "[CoreS3_Display] " "%s verification failed: %u\n", presetSaveOperationIsOverwrite ? "Preset overwrite" : "Preset save", presetSaveCandidateId );
+        DEBUG_PRINTF( "[CoreS3_Display] " "%s verification failed: %u\n", presetSaveOperationIsOverwrite ? "Preset overwrite" : "Preset save", presetSaveCandidateId );
       }
 
       presetSaveResultStartMs = now;
@@ -1667,17 +1667,17 @@ class CoreS3DisplayUsermod : public Usermod {
           configNeedsWrite = true;
           lastBootPresetValue = -1;
 
-          Serial.println( F( "[CoreS3_Display] " "Deleted Boot Preset cleared" ) );
+          DEBUG_PRINTLN( F( "[CoreS3_Display] " "Deleted Boot Preset cleared" ) );
         }
 
         presetDeleteOperationState = PRESET_DELETE_OP_SUCCESS;
 
-        Serial.printf( "[CoreS3_Display] " "Preset delete verified: %u (%s)\n", presetDeleteTargetId, presetDeleteTargetName.c_str() );
+        DEBUG_PRINTF( "[CoreS3_Display] " "Preset delete verified: %u (%s)\n", presetDeleteTargetId, presetDeleteTargetName.c_str() );
       }
       else {
         presetDeleteOperationState = PRESET_DELETE_OP_FAILED;
 
-        Serial.printf( "[CoreS3_Display] " "Preset delete verification failed: %u\n", presetDeleteTargetId );
+        DEBUG_PRINTF( "[CoreS3_Display] " "Preset delete verification failed: %u\n", presetDeleteTargetId );
       }
 
       presetDeleteResultStartMs = now;
@@ -1745,16 +1745,16 @@ class CoreS3DisplayUsermod : public Usermod {
         presetBootOperationState = PRESET_BOOT_OP_SUCCESS;
 
         if ( presetBootTargetId == 0 ) {
-          Serial.println( F( "[CoreS3_Display] " "Boot Preset clear verified" ) );
+          DEBUG_PRINTLN( F( "[CoreS3_Display] " "Boot Preset clear verified" ) );
         }
         else {
-          Serial.printf( "[CoreS3_Display] " "Boot Preset verified: %u (%s)\n", presetBootTargetId, presetBootTargetName.c_str() );
+          DEBUG_PRINTF( "[CoreS3_Display] " "Boot Preset verified: %u (%s)\n", presetBootTargetId, presetBootTargetName.c_str() );
         }
       }
       else {
         presetBootOperationState = PRESET_BOOT_OP_FAILED;
 
-        Serial.printf( "[CoreS3_Display] " "Boot Preset verification failed: target=%u actual=%u\n", presetBootTargetId, bootPreset );
+        DEBUG_PRINTF( "[CoreS3_Display] " "Boot Preset verification failed: target=%u actual=%u\n", presetBootTargetId, bootPreset );
       }
 
       presetBootResultStartMs = now;
@@ -2066,7 +2066,7 @@ class CoreS3DisplayUsermod : public Usermod {
     resetTouchGesture();
     drawRuntimeHealthWarning( nextWarning );
 
-    Serial.printf(
+    DEBUG_PRINTF(
       "[CoreS3_Display] Runtime health warning: %u\n",
       (unsigned)nextWarning
     );
@@ -2092,7 +2092,7 @@ class CoreS3DisplayUsermod : public Usermod {
 
       display.drawString( "WLED M5Stack CoreS3", screenWidth / 2, 68 );
 
-      Serial.println( F( "[CoreS3_Display] " "WARNING: startup PNG draw failed" ) );
+      DEBUG_PRINTLN( F( "[CoreS3_Display] " "WARNING: startup PNG draw failed" ) );
     }
   }
 
@@ -2283,7 +2283,7 @@ class CoreS3DisplayUsermod : public Usermod {
 
         displayPowerState = DISPLAY_POWER_ACTIVE;
 
-        Serial.println( F( "[CoreS3_Display] " "Startup animation complete" ) );
+        DEBUG_PRINTLN( F( "[CoreS3_Display] " "Startup animation complete" ) );
       }
 
       return;
@@ -2447,7 +2447,7 @@ class CoreS3DisplayUsermod : public Usermod {
 
         setDisplayBrightness( 0 );
 
-        Serial.println( F( "[CoreS3_Display] " "Display sleeping" ) );
+        DEBUG_PRINTLN( F( "[CoreS3_Display] " "Display sleeping" ) );
       }
 
       return true;
@@ -2500,7 +2500,7 @@ class CoreS3DisplayUsermod : public Usermod {
 
         resetTouchGesture();
 
-        Serial.println( F( "[CoreS3_Display] " "Display active" ) );
+        DEBUG_PRINTLN( F( "[CoreS3_Display] " "Display active" ) );
       }
 
       return true;
@@ -6303,7 +6303,7 @@ class CoreS3DisplayUsermod : public Usermod {
         drawPresetNavigation( M5STACK_TOUCH_TARGET_NONE );
       }
 
-      Serial.println( F( "[CoreS3_Display] " "Preset cache not ready" ) );
+      DEBUG_PRINTLN( F( "[CoreS3_Display] " "Preset cache not ready" ) );
 
       return false;
     }
@@ -6357,7 +6357,7 @@ class CoreS3DisplayUsermod : public Usermod {
 
     lastPresetValue = newPreset;
 
-    Serial.printf( "[CoreS3_Display] " "Preset cache request: %u (%s)\n", newPreset, presetName.c_str() );
+    DEBUG_PRINTF( "[CoreS3_Display] " "Preset cache request: %u (%s)\n", newPreset, presetName.c_str() );
 
     return true;
   }
@@ -6971,7 +6971,7 @@ class CoreS3DisplayUsermod : public Usermod {
     if ( !buildScreenshotBmp( bmpData, bmpSize ) ) {
       screenshotCaptureInProgress = false;
 
-      Serial.println(
+      DEBUG_PRINTLN(
         F( "[CoreS3_Display] Screenshot: capture/buffer allocation failed" )
       );
 
@@ -7052,7 +7052,7 @@ class CoreS3DisplayUsermod : public Usermod {
 
     request->send( response );
 
-    Serial.printf(
+    DEBUG_PRINTF(
       "[CoreS3_Display] Screenshot: %d x %d BMP (%u bytes)\n",
       screenWidth,
       screenHeight,
@@ -7069,7 +7069,7 @@ class CoreS3DisplayUsermod : public Usermod {
       }
     );
 
-    Serial.println(
+    DEBUG_PRINTLN(
       F( "[CoreS3_Display] Screenshot endpoint: /cores3/screenshot.bmp" )
     );
   }
@@ -7096,7 +7096,7 @@ class CoreS3DisplayUsermod : public Usermod {
     JsonObject top = root[ FPSTR( CORES3_DISPLAY_CONFIG_NAME ) ];
 
     if ( top.isNull() ) {
-      Serial.println( F( "[CoreS3_Display] " "No display config found. Using defaults." ) );
+      DEBUG_PRINTLN( F( "[CoreS3_Display] " "No display config found. Using defaults." ) );
 
       return false;
     }
@@ -7134,7 +7134,7 @@ class CoreS3DisplayUsermod : public Usermod {
     fadeDurationMs = (uint16_t)newFadeDuration;
 
     if ( initDone ) {
-      Serial.printf(
+      DEBUG_PRINTF(
         "[CoreS3_Display] "
         "Config updated: "
         "Sleep=%u sec, "
@@ -7182,36 +7182,36 @@ class CoreS3DisplayUsermod : public Usermod {
   }
 
   void setup() override {
-    Serial.println();
+    DEBUG_PRINTLN("");
 
-    Serial.println( F( "[CoreS3_Display][BUILD] CoreS3 Display v0.1.0" ) );
-    Serial.println( F( "[CoreS3_Display] Initialization start" ) );
+    DEBUG_PRINTLN( F( "[CoreS3_Display][BUILD] CoreS3 Display v0.1.0" ) );
+    DEBUG_PRINTLN( F( "[CoreS3_Display] Initialization start" ) );
 
     registerScreenshotEndpoint();
 
-    Serial.printf(
+    DEBUG_PRINTF(
       "[CoreS3_Display] " "Hardware: %s, Revision=%s, Runtime=%s\n",
       getHardwareProfileName(),
       getHardwareRevisionName(),
       getHardwareRuntimeModeName()
     );
 
-    Serial.printf(
+    DEBUG_PRINTF(
       "[CoreS3_Display] " "Port status: %s\n",
       getHardwarePortStatusName()
     );
 
-    Serial.printf( "[CoreS3_Display] " "Settings: " "Sleep=%u sec, " "LCD=%u, " "Fade=%s, " "FadeDuration=%u ms\n", sleepTimeoutSec, lcdBrightness, fadeEnabled ? "ON" : "OFF", fadeDurationMs );
+    DEBUG_PRINTF( "[CoreS3_Display] " "Settings: " "Sleep=%u sec, " "LCD=%u, " "Fade=%s, " "FadeDuration=%u ms\n", sleepTimeoutSec, lcdBrightness, fadeEnabled ? "ON" : "OFF", fadeDurationMs );
 
     runHardwareDiagnostics();
 
     if ( isCore2DiagnosticOnlyMode() ) {
       initDone = true;
 
-      Serial.println( F( "[CoreS3_Display] Core2 diagnostic-only runtime complete" ) );
-      Serial.println( F( "[CoreS3_Display] Display/Touch/LCD brightness initialization intentionally skipped" ) );
-      Serial.println( F( "[CoreS3_Display] Capture the hardware probe result before enabling Core2 UI/Power support" ) );
-      Serial.println();
+      DEBUG_PRINTLN( F( "[CoreS3_Display] Core2 diagnostic-only runtime complete" ) );
+      DEBUG_PRINTLN( F( "[CoreS3_Display] Display/Touch/LCD brightness initialization intentionally skipped" ) );
+      DEBUG_PRINTLN( F( "[CoreS3_Display] Capture the hardware probe result before enabling Core2 UI/Power support" ) );
+      DEBUG_PRINTLN("");
 
       return;
     }
@@ -7258,9 +7258,9 @@ class CoreS3DisplayUsermod : public Usermod {
 
     initDone = true;
 
-    Serial.println( F( "[CoreS3_Display] Initialization complete" ) );
+    DEBUG_PRINTLN( F( "[CoreS3_Display] Initialization complete" ) );
 
-    Serial.println();
+    DEBUG_PRINTLN("");
   }
 
   void loop() override {

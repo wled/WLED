@@ -205,29 +205,29 @@ private:
 
   void printPowerOffSource(uint8_t status)
   {
-    Serial.printf("[CoreS3_Power][BOOT] AXP2101 PWROFF_STATUS=0x%02X\n", status);
+    DEBUG_PRINTF("[CoreS3_Power][BOOT] AXP2101 PWROFF_STATUS=0x%02X\n", status);
 
     if (status == 0) {
-      Serial.println(F("[CoreS3_Power][BOOT] Power-off cause: NONE LATCHED / UNKNOWN"));
+      DEBUG_PRINTLN(F("[CoreS3_Power][BOOT] Power-off cause: NONE LATCHED / UNKNOWN"));
       return;
     }
 
     if (status & AXP2101_PWROFF_OVER_TEMP_MASK)
-      Serial.println(F("[CoreS3_Power][BOOT] Power-off cause: PMIC DIE OVER TEMPERATURE"));
+      DEBUG_PRINTLN(F("[CoreS3_Power][BOOT] Power-off cause: PMIC DIE OVER TEMPERATURE"));
     if (status & AXP2101_PWROFF_DCDC_OV_MASK)
-      Serial.println(F("[CoreS3_Power][BOOT] Power-off cause: DCDC OVER VOLTAGE"));
+      DEBUG_PRINTLN(F("[CoreS3_Power][BOOT] Power-off cause: DCDC OVER VOLTAGE"));
     if (status & AXP2101_PWROFF_DCDC_UV_MASK)
-      Serial.println(F("[CoreS3_Power][BOOT] Power-off cause: DCDC UNDER VOLTAGE"));
+      DEBUG_PRINTLN(F("[CoreS3_Power][BOOT] Power-off cause: DCDC UNDER VOLTAGE"));
     if (status & AXP2101_PWROFF_VBUS_OV_MASK)
-      Serial.println(F("[CoreS3_Power][BOOT] Power-off cause: VBUS OVER VOLTAGE"));
+      DEBUG_PRINTLN(F("[CoreS3_Power][BOOT] Power-off cause: VBUS OVER VOLTAGE"));
     if (status & AXP2101_PWROFF_VSYS_UV_MASK)
-      Serial.println(F("[CoreS3_Power][BOOT] Power-off cause: VSYS UNDER VOLTAGE"));
+      DEBUG_PRINTLN(F("[CoreS3_Power][BOOT] Power-off cause: VSYS UNDER VOLTAGE"));
     if (status & AXP2101_PWROFF_PWRON_LOW_MASK)
-      Serial.println(F("[CoreS3_Power][BOOT] Power-off cause: PWRON HELD LOW / EN MODE"));
+      DEBUG_PRINTLN(F("[CoreS3_Power][BOOT] Power-off cause: PWRON HELD LOW / EN MODE"));
     if (status & AXP2101_PWROFF_SOFTWARE_MASK)
-      Serial.println(F("[CoreS3_Power][BOOT] Power-off cause: SOFTWARE POWER OFF"));
+      DEBUG_PRINTLN(F("[CoreS3_Power][BOOT] Power-off cause: SOFTWARE POWER OFF"));
     if (status & AXP2101_PWROFF_PWRON_PULLDOWN_MASK)
-      Serial.println(F("[CoreS3_Power][BOOT] Power-off cause: PWRON / POWER KEY PULL-DOWN"));
+      DEBUG_PRINTLN(F("[CoreS3_Power][BOOT] Power-off cause: PWRON / POWER KEY PULL-DOWN"));
   }
 
   bool probeI2C(uint8_t address)
@@ -292,17 +292,17 @@ private:
       readRegister(AXP2101_ADDR, AXP2101_REG_PWROFF_STATUS, bootPowerOffStatus);
 
     if (bootPowerOnStatusValid) {
-      Serial.printf("[CoreS3_Power][BOOT] AXP2101 PWRON_STATUS=0x%02X\n", bootPowerOnStatus);
+      DEBUG_PRINTF("[CoreS3_Power][BOOT] AXP2101 PWRON_STATUS=0x%02X\n", bootPowerOnStatus);
     }
     else {
-      Serial.println(F("[CoreS3_Power][BOOT] AXP2101 PWRON_STATUS read FAILED"));
+      DEBUG_PRINTLN(F("[CoreS3_Power][BOOT] AXP2101 PWRON_STATUS read FAILED"));
     }
 
     if (bootPowerOffStatusValid) {
       printPowerOffSource(bootPowerOffStatus);
     }
     else {
-      Serial.println(F("[CoreS3_Power][BOOT] AXP2101 PWROFF_STATUS read FAILED"));
+      DEBUG_PRINTLN(F("[CoreS3_Power][BOOT] AXP2101 PWROFF_STATUS read FAILED"));
     }
   }
 
@@ -397,7 +397,7 @@ private:
     runtimeExternal5VEnableSuccess = applyRuntimeExternal5VEnable();
     coreS3PowerExternal5VReadyState = runtimeExternal5VEnableSuccess;
 
-    Serial.printf(
+    DEBUG_PRINTF(
       "[CoreS3_Power][EXT5V] Runtime External 5V enable: %s BUS_EN=%s BOOST_EN=%s P0=0x%02X P1=0x%02X\n",
       runtimeExternal5VEnableSuccess ? "APPLIED" : "FAILED",
       busEnabled ? "ON" : "OFF",
@@ -413,18 +413,18 @@ private:
     uint8_t chipId = 0;
 
     if (!readRuntimeRegister(AXP2101_ADDR, AXP2101_REG_CHIP_ID, chipId)) {
-      Serial.println(F("[CoreS3_Power] Runtime power key: M5GFX I2C1 AXP2101 read FAILED"));
+      DEBUG_PRINTLN(F("[CoreS3_Power] Runtime power key: M5GFX I2C1 AXP2101 read FAILED"));
       return false;
     }
 
     if (chipId != 0x4A) {
-      Serial.printf("[CoreS3_Power] Runtime power key: unexpected AXP2101 chip ID 0x%02X\n", chipId);
+      DEBUG_PRINTF("[CoreS3_Power] Runtime power key: unexpected AXP2101 chip ID 0x%02X\n", chipId);
       return false;
     }
 
     if (!runtimePowerKeyBusReadyLogged) {
       runtimePowerKeyBusReadyLogged = true;
-      Serial.printf("[CoreS3_Power] Runtime I2C: M5GFX I2C_NUM_1 AXP2101 READY (ID=0x%02X)\n", chipId);
+      DEBUG_PRINTF("[CoreS3_Power] Runtime I2C: M5GFX I2C_NUM_1 AXP2101 READY (ID=0x%02X)\n", chipId);
     }
 
     if (!readRuntimeRegister(AXP2101_ADDR, AXP2101_REG_IRQ_ENABLE_1, axpIrqEnableBefore)) return false;
@@ -440,7 +440,7 @@ private:
       uint8_t stalePowerKeyFlags = staleStatus & AXP2101_PKEY_EVENT_MASK;
 
       if (stalePowerKeyFlags != 0) {
-        Serial.printf(
+        DEBUG_PRINTF(
           "[CoreS3_Power][BOOT] Stale PKEY IRQ before clear: 0x%02X%s%s%s%s\n",
           stalePowerKeyFlags,
           (stalePowerKeyFlags & AXP2101_PKEY_POSITIVE_MASK) ? " RELEASE" : "",
@@ -457,8 +457,8 @@ private:
     powerKeyPressedAt = 0;
     lastPowerKeyPoll = millis();
 
-    Serial.printf("[CoreS3_Power] Runtime PKEY IRQEN1: 0x%02X -> 0x%02X\n", axpIrqEnableBefore, axpIrqEnableAfter);
-    Serial.println(F("[CoreS3_Power] Runtime power key monitor: ARMED on M5GFX I2C1"));
+    DEBUG_PRINTF("[CoreS3_Power] Runtime PKEY IRQEN1: 0x%02X -> 0x%02X\n", axpIrqEnableBefore, axpIrqEnableAfter);
+    DEBUG_PRINTLN(F("[CoreS3_Power] Runtime power key monitor: ARMED on M5GFX I2C1"));
     return true;
   }
 
@@ -477,7 +477,7 @@ private:
     dcdc3StabilityAttempted = true;
 
     if (!readRuntimeRegister(AXP2101_ADDR, AXP2101_REG_DCDC_FORCE_PWM, dcdcModeBefore)) {
-      Serial.println(F("[CoreS3_Power][DCDC3] REG81 read FAILED - mode unchanged"));
+      DEBUG_PRINTLN(F("[CoreS3_Power][DCDC3] REG81 read FAILED - mode unchanged"));
       return;
     }
 
@@ -486,19 +486,19 @@ private:
     const uint8_t target = dcdcModeBefore | AXP2101_DCDC3_ALWAYS_PWM_MASK;
 
     if (!writeRuntimeRegister(AXP2101_ADDR, AXP2101_REG_DCDC_FORCE_PWM, target)) {
-      Serial.println(F("[CoreS3_Power][DCDC3] REG81 write FAILED"));
+      DEBUG_PRINTLN(F("[CoreS3_Power][DCDC3] REG81 write FAILED"));
       return;
     }
 
     if (!readRuntimeRegister(AXP2101_ADDR, AXP2101_REG_DCDC_FORCE_PWM, dcdcModeAfter)) {
-      Serial.println(F("[CoreS3_Power][DCDC3] REG81 verify read FAILED"));
+      DEBUG_PRINTLN(F("[CoreS3_Power][DCDC3] REG81 verify read FAILED"));
       return;
     }
 
     dcdc3StabilityApplied =
       (dcdcModeAfter & AXP2101_DCDC3_ALWAYS_PWM_MASK) != 0;
 
-    Serial.printf(
+    DEBUG_PRINTF(
       "[CoreS3_Power][DCDC3] REG81 0x%02X -> 0x%02X result=%s DCDC1=%s DCDC3=%s OVP_PROTECTION=UNCHANGED\n",
       dcdcModeBefore,
       dcdcModeAfter,
@@ -529,7 +529,7 @@ private:
       coreS3PowerExternal5VReadyState = false;
       if (!runtimeExternal5VViolationLogged) {
         runtimeExternal5VViolationLogged = true;
-        Serial.println(F("[CoreS3_Power][EXT5V] WARNING: runtime state read failed"));
+        DEBUG_PRINTLN(F("[CoreS3_Power][EXT5V] WARNING: runtime state read failed"));
       }
       return;
     }
@@ -541,7 +541,7 @@ private:
 
     if (!healthy && !runtimeExternal5VViolationLogged) {
       runtimeExternal5VViolationLogged = true;
-      Serial.printf(
+      DEBUG_PRINTF(
         "[CoreS3_Power][EXT5V] WARNING: runtime path changed BUS_EN=%s BOOST_EN=%s P0=0x%02X P1=0x%02X\n",
         busEnabled ? "ON" : "OFF",
         boostEnabled ? "ON" : "OFF",
@@ -581,7 +581,7 @@ private:
 
         ledSettingsSavedStripBrightness = strip.getBrightness();
 
-        Serial.printf(
+        DEBUG_PRINTF(
           "[CoreS3_Power][LED] Settings save: BLACK old bus before re-init (len=%u, bri=%u)\n",
           strip.getLengthPhysical(),
           ledSettingsSavedStripBrightness
@@ -598,7 +598,7 @@ private:
         strip.waitForIt();
 
         ledSettingsSaveState = LedSettingsSaveState::BLACK_READY;
-        Serial.println(F("[CoreS3_Power][LED] Settings save: old bus BLACK and suspended"));
+        DEBUG_PRINTLN(F("[CoreS3_Power][LED] Settings save: old bus BLACK and suspended"));
         return;
       }
 
@@ -608,7 +608,7 @@ private:
         // serialize the new bus configuration before the standard reset check.
         doReboot = true;
         ledSettingsSaveState = LedSettingsSaveState::WAIT_REBOOT;
-        Serial.println(F("[CoreS3_Power][LED] Bus re-init detected; safe reboot armed for post-save reset"));
+        DEBUG_PRINTLN(F("[CoreS3_Power][LED] Bus re-init detected; safe reboot armed for post-save reset"));
         return;
 
       case LedSettingsSaveState::RESTORE_PENDING:
@@ -622,7 +622,7 @@ private:
         strip.trigger();
 
         ledSettingsSaveState = LedSettingsSaveState::IDLE;
-        Serial.println(F("[CoreS3_Power][LED] Settings save: no bus re-init; old output restored"));
+        DEBUG_PRINTLN(F("[CoreS3_Power][LED] Settings save: no bus re-init; old output restored"));
         return;
     }
   }
@@ -667,7 +667,7 @@ private:
       switch (ledSettingsSaveState) {
         case LedSettingsSaveState::IDLE:
           ledSettingsSaveState = LedSettingsSaveState::BLACK_PENDING;
-          Serial.println(F("[CoreS3_Power][LED] LED settings POST detected; deferring for old-bus BLACK"));
+          DEBUG_PRINTLN(F("[CoreS3_Power][LED] LED settings POST detected; deferring for old-bus BLACK"));
           request->deferResponse();
           return;
 
@@ -684,7 +684,7 @@ private:
             // Arm reboot from Usermod::loop(), never from this callback. This
             // avoids racing WLED's doInitBusses/configNeedsWrite main-loop path.
             ledSettingsSaveState = LedSettingsSaveState::REBOOT_ARM_PENDING;
-            Serial.println(F("[CoreS3_Power][LED] LED settings accepted; standard bus re-init pending"));
+            DEBUG_PRINTLN(F("[CoreS3_Power][LED] LED settings accepted; standard bus re-init pending"));
           } else {
             ledSettingsSaveState = LedSettingsSaveState::RESTORE_PENDING;
           }
@@ -700,7 +700,7 @@ private:
       }
     });
 
-    Serial.println(F("[CoreS3_Power][LED] Settings save guard: ARMED"));
+    DEBUG_PRINTLN(F("[CoreS3_Power][LED] Settings save guard: ARMED"));
   }
 
   void beginSafeShutdownBlank(uint8_t triggerStatus)
@@ -712,14 +712,14 @@ private:
     lastSafeShutdownTriggerStatus = triggerStatus;
     savedLogicalBrightness = bri;
 
-    Serial.printf(
+    DEBUG_PRINTF(
       "[CoreS3_Power] Safe shutdown trigger: IRQ=0x%02X%s%s\n",
       triggerStatus,
       (triggerStatus & AXP2101_PKEY_LONG_MASK) ? " LONG" : "",
       (triggerStatus & AXP2101_PKEY_NEGATIVE_MASK) ? " PRESS" : ""
     );
 
-    Serial.printf(
+    DEBUG_PRINTF(
       "[CoreS3_Power] Safe shutdown: WLED bri=%u, strip=%u -> physical 0\n",
       savedLogicalBrightness,
       strip.getBrightness()
@@ -735,7 +735,7 @@ private:
     safeShutdownBlankActive = true;
     lastShutdownBlackRefresh = millis();
 
-    Serial.println(F("[CoreS3_Power] Safe shutdown: BLACK frame sent and strip suspended"));
+    DEBUG_PRINTLN(F("[CoreS3_Power] Safe shutdown: BLACK frame sent and strip suspended"));
   }
 
   void maintainSafeShutdownBlank(unsigned long now)
@@ -753,7 +753,7 @@ private:
   {
     if (!safeShutdownBlankActive) return;
 
-    Serial.println(F("[CoreS3_Power] Safe shutdown canceled: restoring LED output"));
+    DEBUG_PRINTLN(F("[CoreS3_Power] Safe shutdown canceled: restoring LED output"));
     strip.resume();
 
     uint8_t restoreBrightness = bri;
@@ -769,7 +769,7 @@ private:
     safeShutdownLastCanceled = true;
     strip.trigger();
 
-    Serial.printf("[CoreS3_Power] Safe shutdown canceled: restored bri=%u\n", restoreBrightness);
+    DEBUG_PRINTF("[CoreS3_Power] Safe shutdown canceled: restored bri=%u\n", restoreBrightness);
   }
 
   void servicePhysicalPowerKey()
@@ -800,7 +800,7 @@ private:
     if (!readRuntimeRegister(AXP2101_ADDR, AXP2101_REG_IRQ_STATUS_1, status)) {
       if (now - lastRuntimeI2CFailureLog >= 1000) {
         lastRuntimeI2CFailureLog = now;
-        Serial.println(F("[CoreS3_Power] Runtime PKEY status read FAILED on M5GFX I2C1"));
+        DEBUG_PRINTLN(F("[CoreS3_Power] Runtime PKEY status read FAILED on M5GFX I2C1"));
       }
       maintainSafeShutdownBlank(now);
       return;
@@ -811,7 +811,7 @@ private:
     if (powerKeyStatus != 0) {
       lastPowerKeyStatus = powerKeyStatus;
 
-      Serial.printf(
+      DEBUG_PRINTF(
         "[CoreS3_Power] PKEY IRQ: 0x%02X%s%s%s%s\n",
         powerKeyStatus,
         (powerKeyStatus & AXP2101_PKEY_POSITIVE_MASK) ? " RELEASE" : "",
@@ -840,7 +840,7 @@ private:
       powerKeyPressedAt > 0 &&
       now - powerKeyPressedAt >= SAFE_SHUTDOWN_FALLBACK_HOLD_MS
     ) {
-      Serial.println(F("[CoreS3_Power] Safe shutdown: PRESS timer fallback"));
+      DEBUG_PRINTLN(F("[CoreS3_Power] Safe shutdown: PRESS timer fallback"));
       beginSafeShutdownBlank(AXP2101_PKEY_NEGATIVE_MASK);
     }
 
@@ -863,18 +863,18 @@ public:
 
     bootResetReason = esp_reset_reason();
 
-    Serial.println();
-    Serial.println(F("[CoreS3_Power][BUILD] CoreS3 Power v0.1.0"));
-    Serial.println(F("[CoreS3_Power] Initialization start"));
-    Serial.printf("[CoreS3_Power] I2C SDA=%d SCL=%d\n", i2c_sda, i2c_scl);
-    Serial.printf(
+    DEBUG_PRINTLN("");
+    DEBUG_PRINTLN(F("[CoreS3_Power][BUILD] CoreS3 Power v0.1.0"));
+    DEBUG_PRINTLN(F("[CoreS3_Power] Initialization start"));
+    DEBUG_PRINTF("[CoreS3_Power] I2C SDA=%d SCL=%d\n", i2c_sda, i2c_scl);
+    DEBUG_PRINTF(
       "[CoreS3_Power][BOOT] ESP reset reason: %s (%d)\n",
       resetReasonText(bootResetReason),
       (int)bootResetReason
     );
 
     if (i2c_sda != 12 || i2c_scl != 11) {
-      Serial.println(F("[CoreS3_Power] ERROR: Invalid CoreS3 I2C pins"));
+      DEBUG_PRINTLN(F("[CoreS3_Power] ERROR: Invalid CoreS3 I2C pins"));
       coreS3PowerInitializationCompleteState = true;
       return;
     }
@@ -882,11 +882,11 @@ public:
     aw9523Found = probeI2C(AW9523B_ADDR);
     axp2101Found = probeI2C(AXP2101_ADDR);
 
-    Serial.printf("[CoreS3_Power] AW9523B (0x58): %s\n", aw9523Found ? "FOUND" : "NOT FOUND");
-    Serial.printf("[CoreS3_Power] AXP2101 (0x34): %s\n", axp2101Found ? "FOUND" : "NOT FOUND");
+    DEBUG_PRINTF("[CoreS3_Power] AW9523B (0x58): %s\n", aw9523Found ? "FOUND" : "NOT FOUND");
+    DEBUG_PRINTF("[CoreS3_Power] AXP2101 (0x34): %s\n", axp2101Found ? "FOUND" : "NOT FOUND");
 
     if (!aw9523Found || !axp2101Found) {
-      Serial.println(F("[CoreS3_Power] External 5V enable canceled"));
+      DEBUG_PRINTLN(F("[CoreS3_Power] External 5V enable canceled"));
       coreS3PowerInitializationCompleteState = true;
       return;
     }
@@ -899,17 +899,17 @@ public:
     powerKeyMonitorReady = false;
     runtimePowerKeyMonitorAttempted = false;
 
-    Serial.println(F("[CoreS3_Power] Power key monitor: DEFERRED until M5GFX I2C1 is active"));
-    Serial.println(F("[CoreS3_Power] Safe shutdown: AXP2101 LONG IRQ primary trigger"));
-    Serial.printf("[CoreS3_Power] Safe shutdown: PRESS fallback >= %lu ms\n", SAFE_SHUTDOWN_FALLBACK_HOLD_MS);
-    Serial.printf("[CoreS3_Power] External 5V: %s\n", external5VEnableSuccess ? "ENABLED" : "FAILED");
+    DEBUG_PRINTLN(F("[CoreS3_Power] Power key monitor: DEFERRED until M5GFX I2C1 is active"));
+    DEBUG_PRINTLN(F("[CoreS3_Power] Safe shutdown: AXP2101 LONG IRQ primary trigger"));
+    DEBUG_PRINTF("[CoreS3_Power] Safe shutdown: PRESS fallback >= %lu ms\n", SAFE_SHUTDOWN_FALLBACK_HOLD_MS);
+    DEBUG_PRINTF("[CoreS3_Power] External 5V: %s\n", external5VEnableSuccess ? "ENABLED" : "FAILED");
 
     registerLedSettingsSaveHandler();
 
     coreS3PowerInitializationCompleteState = true;
 
-    Serial.println(F("[CoreS3_Power] Initialization complete"));
-    Serial.println();
+    DEBUG_PRINTLN(F("[CoreS3_Power] Initialization complete"));
+    DEBUG_PRINTLN("");
   }
 
   void loop() override
