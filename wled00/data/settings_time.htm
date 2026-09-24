@@ -8,8 +8,7 @@
 	<script>
 	var el=false;
 	var ms=["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
-	var timerCount = 0;
-	var maxTimers;
+	var maxTimers; // injected from WLED_MAX_TIMERS
 	var presets = {};
 	var sortedPresetOptions = '';
 	const TIMER_SUNRISE = 255;
@@ -90,12 +89,14 @@
 	function Cs() { gId("cac").style.display=(gN("OL").checked)?"block":"none"; }
 	function BTa()
 	{
-		timerCount = 0;
 		gId("TMT").innerHTML = "<thead><tr><th>En.</th><th>Type</th><th>Hour</th><th>Minute</th><th></th><th></th></tr></thead>";
 	}
 	function addTimerRow(hour, minute, preset, weekdays, monthStart, dayStart, monthEnd, dayEnd) {
-		if (gId("TMT").querySelectorAll('tbody[id^="TG"]').length >= maxTimers) return;
-		var i = timerCount++;
+		var timerLimit = Number(maxTimers);
+		if (!timerLimit) return;
+		var i = 0;
+		while (i < timerLimit && gId("TG"+i)) i++;
+		if (i >= timerLimit) return;
 		var isSunrise = (hour === TIMER_SUNRISE);
 		var isSunset = (hour === TIMER_SUNSET);
 		var isSpecial = isSunrise || isSunset;
@@ -126,7 +127,7 @@
 		var timerMain = `
 			<tr>
 				<td>
-					<input name="W${i}" id="W${i}" type="hidden">
+					<input name="W${i}" id="WV${i}" type="hidden">
 					<input id="W${i}0" type="checkbox" ${enabled ? "checked" : ""}>
 				</td><td>
 					<select id="TS${i}" class="s" onchange="TT(${i})">
@@ -219,7 +220,9 @@
 	}
 	function rTOPO() { // refreshTimerPresetOptions
 		var presetOpts = '<option value="0">Select preset</option>' + sortedPresetOptions;
-		for (var i=0; i<timerCount; i++) {
+		var timerGroups = gId("TMT").querySelectorAll('tbody[id^="TG"]');
+		for (var tg of timerGroups) {
+			var i = tg.id.slice(2);
 			var sel = gId("T"+i);
 			if (!sel) continue;
 			rPS(sel, presetOpts, "data-preset");
@@ -265,7 +268,7 @@
 			var i = tg.id.slice(2);
 			var m=1, val=0;
 			for(j=0;j<8;j++) { val+=gId(("W"+i)+j).checked*m; m*=2;}
-			gId("W"+i).value=val;
+			gId("WV"+i).value=val;
 			var sel = gId("TS"+i);
 			var hour = gId("H"+i);
 			if (sel && sel.value != 0) {
@@ -452,7 +455,7 @@
 		<h3>Time-Controlled Presets</h3>
 		<div style="display: inline-block">
 			<table id="TMT" style="min-width:330px;"></table>
-			<button type="button" onclick="addTimerRow()">Add Timer</button>
+			<button type="button" onclick="addTimerRow()">+</button>
 		</div>
 	</div>
 	<hr>
