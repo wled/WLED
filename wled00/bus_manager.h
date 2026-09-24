@@ -14,6 +14,7 @@
  */
 
 #include "const.h"
+#include "colors.h"
 #include "pin_manager.h"
 #include <vector>
 #include <memory>
@@ -291,7 +292,7 @@ class BusDigital : public Bus {
     static uint16_t _milliAmpsTotal; // is overwitten/recalculated on each show()
 
     inline uint32_t restoreColorLossy(uint32_t c, uint8_t restoreBri) const {
-      gamma32inv(c); // note: if ABL is used, this can skew colors (chain is scale->gamma->scaleABL)
+      c = gamma32inv(c); // note: if ABL is used, this can skew colors (chain is scale->gamma->scaleABL)
       if (restoreBri < 255) {
         uint8_t* chan = (uint8_t*) &c;
         for (uint_fast8_t i=0; i<4; i++) {
