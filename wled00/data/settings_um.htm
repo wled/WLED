@@ -161,6 +161,7 @@
 	}
 	function UI(e) {
 		// update changed select options across all usermods
+		if (!e.classList.contains("pin")) return; // not a pin select, ignore. fix for #5759
 		let oldV = parseInt(e.dataset.val);
 		e.dataset.val = e.value;
 		let txt = e.name.split(":")[e.name.split(":").length-2];

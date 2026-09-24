@@ -1,3 +1,6 @@
+# CI sample override file: this usermod has dependencies.
+# Based on the CI standard but adds the Temperature usermod too.
+
 [platformio]
 default_envs = usermods_esp32, usermods_esp32c3, usermods_esp32s2, usermods_esp32s3
 
@@ -30,6 +33,6 @@ board_build.partitions = ${esp32.extreme_partitions}  ; We're gonna need a bigge
 build_flags = ${env:esp32s3dev_16MB_opi.build_flags} -D WLED_DEBUG
 
 
-
 [usermods]
-# Added in CI
+custom_usermods = PWM_fan
+    Temperature
