@@ -19,6 +19,8 @@ A generic "go ahead" or silence doesn't count - get a clear yes. Until then, you
 
 ## Build Commands
 
+Note: also read `AGENTS.local.md` if present (gitignored personal learnings file; it supplements this document).
+
 | Command | Purpose | Timeout |
 |---|---|---|
 | `npm ci` | Install Node.js deps (required first) | 30s |
