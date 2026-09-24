@@ -363,7 +363,7 @@ uint32_t BusDigital::restoreColorLossy(uint32_t c, uint8_t restoreBri) const {
       chan[i] = ((val << 8) + restoreBri) / (restoreBri + 1);
     }
   }
-  return gamma32inv(c);
+  return c;
 }
 
 void BusDigital::setColorOrder(uint8_t colorOrder) {
