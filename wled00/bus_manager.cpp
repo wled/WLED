@@ -471,7 +471,14 @@ BusPwm::BusPwm(const BusConfig &bc)
       uint8_t group = channel / SOC_LEDC_CHANNEL_NUM;
       uint8_t ch    = channel % SOC_LEDC_CHANNEL_NUM;
       uint8_t timer = LEDC.channel_group[group].channel[ch].conf0.timer_sel;
-      ledc_timer_rst((ledc_mode_t)group, (ledc_timer_t)timer); // reset timer so all timers are (almost) in sync (for phase shift)
+      ledc_timer_rst((ledc_mode_t)group, (ledc_timer_t)timer);   // reset timer so all timers are (almost) in sync (for phase shift)
+      // reset duty to avoid garbage output during setup
+      #if defined(CONFIG_IDF_TARGET_ESP32C5) || defined(CONFIG_IDF_TARGET_ESP32C61) || defined(CONFIG_IDF_TARGET_ESP32P4)
+      LEDC.channel_group[group].channel[ch].duty_init.duty = 0;
+      #else
+      LEDC.channel_group[group].channel[ch].duty.duty = 0;
+      #endif
+      ledc_update_duty((ledc_mode_t)group, (ledc_channel_t)ch);
       #endif
       #endif
     }
@@ -554,7 +561,7 @@ void BusPwm::show() {
 #else
   // if _needsRefresh is true (UI hack) we are using dithering (credit @dedehai & @zalatnaicsongor)
   // https://github.com/wled/WLED/pull/4115 and https://github.com/zalatnaicsongor/WLED/pull/1)
-  const bool     dithering = _needsRefresh; // avoid working with bitfield
+  const bool     dithering = _needsRefresh; // dithering uses "pulse spreading" with longer pulses for better low duty cycle resolution on slow hardware
   const unsigned maxBri = (1<<_depth);      // possible values: 16384 (14), 8192 (13), 4096 (12), 2048 (11), 1024 (10), 512 (9) and 256 (8)
   const unsigned bitShift = dithering * 4;  // if dithering, _depth is 12 bit but LEDC channel is set to 8 bit (using 4 fractional bits)
 #endif
@@ -569,51 +576,81 @@ void BusPwm::show() {
     pwmBri = (unsigned)temp;                           // pwmBri is in range [0-maxBri] C
   }
 
-  [[maybe_unused]] unsigned phaseShift = 0;  // signal offset written to hpoint (0 - maxBri)
-  // we will be phase shifting every channel by previous pulse length (plus dead time if required)
-  // CCT (2 wire) LED type require phase shifting, for other cases it helps spread the load on the PSU
-  // CCT additive blending must be 0 so WW & CW can never overlap (mendatory for 2 wire CCT LEDs)
-  // Phase shifting requires that LEDC timers are synchronised (see setup()). For PWM CCT (and H-bridge) it is
-  // also mandatory that both channels use the same timer (pinManager takes care of that).
   // TODO: different PWM buses are not shifted towards each other, i.e. 2 PWM white channels run in sync (no load spreading)
+  // we will be phase shifting every channel to distribute pulses as evenly as possible across the PWM cycle
+  // CCT (2 wire) LED type absolutely require phase shifting, for other cases it helps spread the load on the PSU
+  // CCT additive blending must be 0 so WW & CW can never overlap (mendatory for 2 wire CCT LEDs)
+  // Accurate phase shifting requires that LEDC timers are synchronised (see setup()). For PWM CCT (and H-bridge) it is
+  // also mandatory that both channels use the same timer to make it clock-accurate (pinManager takes care of that)
+  // newer LEDC hardware does not support duty wraparound at maxBri i.e. duty+phaseShift must be less than maxBri or duty is reduced by hardware
+  // for 2-pin CCT add dead time between signals to prevent shoot-through in case the hardware does not prevent it internally
+
+  unsigned duty[numPins]; // duty cycle at channel resolution
+  int pulseGap = 0; // gap added between pulses, positive: spread apart, negative: overlap
+  unsigned totalDuty = 0; // sum of all channel duties
+  unsigned runningDuty = 0; // sum of all previous channel duties (+gaps if dutySum < maxBri)
+
   for (unsigned i = 0; i < numPins; i++) {
-    unsigned duty = (_data[i] * pwmBri) / 255;
-    unsigned deadTime = 0;
+    duty[i] = (_data[i] * pwmBri) / 255;
+    if (_reversed) duty[i] = maxBri - duty[i]; // note: inverted signals use the same "positive pulse" spreading logic
+    totalDuty += duty[i];
+  }
+  int undershoot = maxBri - totalDuty;   // >=0 means signals will fit within one period, <0 means they will overlap
+  pulseGap = undershoot / (int)numPins;  // if smaller than 0, distribution formula is used, runningDuty + gap otherwise
+
+  for (unsigned i = 0; i < numPins; i++) {
     constexpr unsigned DEADTIME_NS = 500; // 500ns should be safe for most drivers that do not have internal shoot-through protection, with dithering this is a min value
     if (_type == TYPE_ANALOG_2CH && Bus::_cctBlend <= 0 && !cctICused) {
-      // add dead time between signals to prevent shoot-through +2 ensures proper spacing in dithering as the signal jitters by 1 (8bit) tick
-      // a tick when dithering can be higher than 500ns (1/4.8kHz/256 = 800ns), the +2 adds less than 50ns when not dithering
+      unsigned deadTime = 0; // dead time prevents both signals being "high" at the same time (even if signal is inverted), intended for discrete h-bridge drivers
+      // add dead time between "high" signals to prevent shoot-through +2 ensures proper spacing in dithering as the signal jitters by 1 (8bit) tick
+      // a tick when dithering can be higher than 500ns (1/4.8kHz/256 = 800ns), the +2 adds less than 50ns when not dithering, we add it as a safety
       deadTime = (2 << bitShift) + (uint64_t(DEADTIME_NS) * _frequency * maxBri) / 1000000000ULL; // _frequency * maxBri is 1/pwmtick,
-      int dutyOvershoot = (pwmBri + (deadTime * 2)) - maxBri;
+      int dutyOvershoot = (totalDuty + (deadTime * 2)) - maxBri;
       // if total pwmBri plus two dead-time zones exceed maxBri, shorten the duty proportionally except if one is at 0%
-      if (duty < maxBri && dutyOvershoot > 0 && _data[0] > 0 && _data[1] > 0) {
-        const unsigned totalDuty = ((_data[0] + _data[1]) * pwmBri) / 255; //duty[0] + duty[1];
-        if (totalDuty > 0) duty -= (dutyOvershoot * duty) / totalDuty; // subtract overshoot proportionally to signals contribution
+      if (duty[i] < maxBri && dutyOvershoot > 0 && _data[0] > 0 && _data[1] > 0) {
+        int dutyAdjust = (dutyOvershoot * duty[i]) / totalDuty; // adjust proportionally to signals contribution
+        if (dutyAdjust < duty[i]) duty[i] -= dutyAdjust; // subtract overshoot, guard against negative values (should never happen)
+        pulseGap = deadTime; // we changed duty, now exactly two deadTime gaps fit
       }
+      // warning: on ESP8266 dead time is not 100% safe, it has lots of jitter. DO NOT use drivers without internal dead time
     }
-    if (_reversed) {
-      if (i) phaseShift += duty;  // align start at time zero
-      duty = maxBri - duty;
+    // phase shift the signals to spread the pulses: spreads the load and ensures deadTime gaps
+    // formulas ensure that there are no maxBri boundary crossings as it is not supported by newer LEDC hardware (C5, C61, P4)
+    // note: perceptually load spreading can cause "rainbow tearing" if the frequency is low (<6kHz), we use 5kHz or more
+    unsigned phaseShift = 0;
+    if( pulseGap < 0) // signals do not fit one period and will overlap
+      phaseShift = (duty[i] < maxBri) ? (uint32_t)((uint64_t)(maxBri - duty[i]) * runningDuty / (totalDuty - duty[i])) : 0;
+      // note: phaseShift + duty[i] <= maxBri because runningDuty/(totalDuty - duty[i]) <= 1 so pulses always fit
+      // phase shift is proportional to running duty, scaled by "off" duration duty[i] (i.e. shorter pulses get shifted more)
+    else
+      phaseShift = runningDuty; // previous duties + gaps for an even distribution
+
+    // dithering requires a gap of one pulse at the "top": hardware adds "1 << bitShift" to duty for dithering
+    if (dithering && phaseShift > 0) {
+      int ditherJitter = 1 << bitShift;
+      if (phaseShift + duty[i] >= maxBri - ditherJitter) phaseShift -= ditherJitter;
+      if (phaseShift > maxBri) phaseShift = 0; // safeguard if "negative", should not happen
     }
+
     #ifdef ESP8266
     //stopWaveform(_pins[i]);  // can cause the waveform to miss a cycle. instead we risk crossovers.
-    startWaveformClockCycles(_pins[i], duty, analogPeriod - duty, 0, i ? _pins[0] : -1, phaseShift, false);
+    startWaveformClockCycles(_pins[i], duty[i], analogPeriod - duty[i], 0, i ? _pins[0] : -1, phaseShift, false);
     #else
     unsigned channel = _ledcStart + i;
-    unsigned gr = channel/8;  // high/low speed group
-    unsigned ch = channel%8;  // group channel
+    unsigned gr = channel / SOC_LEDC_CHANNEL_NUM;  // high/low speed group
+    unsigned ch = channel % SOC_LEDC_CHANNEL_NUM;  // group channel
     // directly write to LEDC struct as there is no HAL exposed function for dithering, lowest four duty bits are used for dithering if set
     #if defined(CONFIG_IDF_TARGET_ESP32C5) || defined(CONFIG_IDF_TARGET_ESP32C61) || defined(CONFIG_IDF_TARGET_ESP32P4)
-    LEDC.channel_group[gr].channel[ch].duty_init.duty = duty << ((!dithering)*4); // C5/C61/P4 name the duty register "duty_init"
+    LEDC.channel_group[gr].channel[ch].duty_init.duty = duty[i] << ((!dithering)*4); // C5/C61/P4 name the duty register "duty_init"
     #else
-    LEDC.channel_group[gr].channel[ch].duty.duty = duty << ((!dithering)*4);   // lowest 4 bits are used for dithering, shift by 4 bits if not using dithering
+    LEDC.channel_group[gr].channel[ch].duty.duty = duty[i] << ((!dithering)*4);   // lowest 4 bits are used for dithering, shift by 4 bits if not using dithering
     #endif
-    LEDC.channel_group[gr].channel[ch].hpoint.hpoint = phaseShift >> bitShift; // phaseShift is at _depth resolution, needs shifting if dithering
+    unsigned hpoint = duty[i] < maxBri ? phaseShift >> bitShift : 0; // do not shift if fully on (causes duty reduction in LEDC without duty wraparound support)
+    LEDC.channel_group[gr].channel[ch].hpoint.hpoint = hpoint; // phaseShift is at _depth resolution, needs shifting if dithering
     ledc_update_duty((ledc_mode_t)gr, (ledc_channel_t)ch);
     #endif // 8266
-    if (!_reversed) phaseShift += duty;
-    phaseShift += deadTime; // offset to cascade the signals
-    if (phaseShift >= maxBri) phaseShift -= maxBri; // offset is out of bounds, reset
+    runningDuty += duty[i];
+    if (pulseGap > 0) runningDuty += pulseGap; // note: calulation of pulseGap ensures runningDuty+duty[i] <= maxBri
   }
 }
 
@@ -1579,7 +1616,7 @@ uint8_t PolyBus::_2PchannelsAssigned = 0;
 #endif
 // Bus static member definition
 int16_t Bus::_cct = -1;     // -1 means use approximateKelvinFromRGB(), 0-255 is standard, >1900 use colorBalanceFromKelvin()
-int8_t  Bus::_cctBlend = 0; // -128 to +127
+int8_t  Bus::_cctBlend = 0; // -128 to +127 mapped from UI input of -100 to + 100 (percent)
 uint8_t Bus::_gAWM = 255;
 
 uint16_t BusDigital::_milliAmpsTotal = 0;
