@@ -354,6 +354,18 @@ size_t BusDigital::getBusSize() const {
   return sizeof(BusDigital) + (isOk() ? PolyBus::getDataSize(_busPtr, _iType) : 0); // does not include common I2S DMA buffer
 }
 
+uint32_t BusDigital::restoreColorLossy(uint32_t c, uint8_t restoreBri) const {
+  c = gamma32inv(c); // note: if ABL is used, this can skew colors (chain is scale->gamma->scaleABL)
+  if (restoreBri < 255) {
+    uint8_t* chan = (uint8_t*) &c;
+    for (uint_fast8_t i = 0; i < 4; i++) {
+      uint_fast16_t val = chan[i];
+      chan[i] = ((val << 8) + restoreBri) / (restoreBri + 1);
+    }
+  }
+  return gamma32inv(c);
+}
+
 void BusDigital::setColorOrder(uint8_t colorOrder) {
   // upper nibble contains W swap information
   if ((colorOrder & 0x0F) > 5) return;
