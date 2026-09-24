@@ -382,8 +382,8 @@ void handleSettingsSet(AsyncWebServerRequest *request, byte subPage)
       gammaCorrectBri = false;
       gammaCorrectCol = false;
     }
-    applyGamma = gammaCorrectCol && !(realtimeMode && arlsDisableGammaCorrection && !realtimeOverride); // update gamma use (disable if needed)
     NeoGammaWLEDMethod::calcGammaTable(gammaCorrectVal); // fill look-up tables
+    BusManager::updateGammaUse();
 
     t = request->arg(F("TD")).toInt();
     if (t >= 0) transitionDelayDefault = t;

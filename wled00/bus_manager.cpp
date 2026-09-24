@@ -267,6 +267,7 @@ void BusDigital::setStatusPixel(uint32_t c) {
 }
 
 void BusDigital::setBrightness(uint8_t b) {
+  BusManager::updateGammaUse();
   _bri = b;
   if (_bri > 0 && _bri < 255 && applyGamma)
     _bri = gamma8inv(_bri + 1); // limit min brightness so gamma does not dim to black
@@ -731,7 +732,7 @@ BusNetwork::BusNetwork(const BusConfig &bc)
 void BusNetwork::setPixelColor(unsigned pix, uint32_t c) {
   if (!_valid || pix >= _len) return;
   uint8_t ww, cw; // dummy, unused
-  // TODO: should gamma be applied here or better leave it to the receiver?
+  // note: gamma correction is done by the receiver
   if (_hasWhite) c = autoWhiteCalc(c, ww, cw);
   if (Bus::_cct >= 1900) c = colorBalanceFromKelvin(Bus::_cct, c); //color correction from CCT
   unsigned offset = pix * _UDPchannels;
@@ -1424,6 +1425,10 @@ void BusManager::off() {
   esp32RMTInvertIdle();
   #endif
   _gMilliAmpsUsed = 0; // reset, assume no LED idle current if relay is off
+}
+
+void BusManager::updateGammaUse() {
+  applyGamma = gammaCorrectCol && !(realtimeMode && arlsDisableGammaCorrection && !realtimeOverride);
 }
 
 void BusManager::show() {
