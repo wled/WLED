@@ -4,12 +4,14 @@
  * Physical IO
  */
 
-#define WLED_LONG_REPEATED_ACTION   400 // how often a repeated action (e.g. dimming) is fired on long press on button IDs >0
+#define WLED_LONG_REPEATED_ACTION   200 // how often a repeated action (e.g. dimming) is fired on long press on button IDs >0
+#define WLED_LONG_REPEAT_DELAY      600 // pause after the first long press action before repeating starts on button IDs >0
 #define WLED_LONG_AP               5000 // how long button 0 needs to be held to activate WLED-AP
 #define WLED_LONG_FACTORY_RESET   10000 // how long button 0 needs to be held to trigger a factory reset
 #define WLED_LONG_BRI_STEPS          16 // how much to increase/decrease the brightness with each long press repetition
 
 static_assert(WLED_LONG_PRESS_MAX < WLED_LONG_AP, "long press must not reach the AP-mode/factory-reset hold time of button 0");
+static_assert(WLED_LONG_REPEAT_DELAY > WLED_LONG_REPEATED_ACTION, "repeat delay must be longer than the repeated action interval");
 
 static const char _mqtt_topic_button[] PROGMEM = "%s/button/%d";  // optimize flash usage
 
@@ -303,15 +305,17 @@ void handleButton()
       if (!buttons[b].pressedBefore) buttons[b].pressedTime = now;
       buttons[b].pressedBefore = true;
 
-      if (now - buttons[b].pressedTime > buttonLongPressMs) { //long press
-        if (!buttons[b].longPressed) {
+      // first long press fires after buttonLongPressMs, repeats are timed from the last action
+      if (!buttons[b].longPressed) {
+        if (now - buttons[b].pressedTime > buttonLongPressMs) { //long press
           buttonBriDirection = !buttonBriDirection; //toggle brightness direction on long press
           longPressAction(b);
-        } else if (b) { //repeatable action (~5 times per s) on button > 0
-          longPressAction(b);
-          buttons[b].pressedTime = now - WLED_LONG_REPEATED_ACTION; //200ms
+          if (b) buttons[b].pressedTime = now; // pause before first repeat; button 0 keeps press start for AP timing
+          buttons[b].longPressed = true;
         }
-        buttons[b].longPressed = true;
+      } else if (b && now - buttons[b].pressedTime > WLED_LONG_REPEAT_DELAY) { //repeatable action (~5 times per s) on button > 0
+        longPressAction(b);
+        buttons[b].pressedTime = now - (WLED_LONG_REPEAT_DELAY - WLED_LONG_REPEATED_ACTION); // next repeat after WLED_LONG_REPEATED_ACTION
       }
 
     } else if (buttons[b].pressedBefore) { //released
@@ -323,7 +327,7 @@ void handleButton()
         continue;
       }
 
-      if (dur < buttonDebounceMs) {buttons[b].pressedBefore = false; continue;} // too short "press", debounce
+      if (dur < buttonDebounceMs && !buttons[b].longPressed) {buttons[b].pressedBefore = false; continue;} // too short "press", debounce
       bool doublePress = buttons[b].waitTime; //did we have a short press before?
       buttons[b].waitTime = 0;
 
