@@ -1,0 +1,164 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+	<meta charset="UTF-8">
+	<meta content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" name="viewport">
+	<meta name="theme-color" content="#222222">
+	<title>WLED Log Viewer</title>
+	<script>
+		// load common.js with retry on error
+		(function loadCommon() {
+			const l = document.createElement('script');
+			l.src = 'common.js';
+			l.onload = init;
+			l.onerror = () => setTimeout(loadCommon, 100);
+			document.head.appendChild(l);
+		})();
+
+		var autoRefresh = null;
+
+		function init() {
+			getLoc();
+			fetchLog();
+		}
+
+		function fetchLog() {
+			fetch(getURL('/json/log'))
+				.then(r => {
+					if (!r.ok) {
+						if (r.status === 501) {
+							setStatus('Log buffer not available on this device (no PSRAM build).');
+						} else if (r.status === 503) {
+							setStatus('Log buffer not ready \u2014 PSRAM not detected at runtime.');
+						} else {
+							setStatus('Error fetching log: HTTP ' + r.status);
+						}
+						return null;
+					}
+					return r.text();
+				})
+				.then(txt => {
+					if (txt === null) return;
+					const ta = document.getElementById('log');
+					ta.value = txt;
+					// Scroll to bottom so latest entries are visible
+					ta.scrollTop = ta.scrollHeight;
+					document.getElementById('sz').textContent = (txt.length / 1024).toFixed(1) + ' KB';
+				})
+				.catch(e => setStatus('Fetch error: ' + e));
+		}
+
+		function clearLog() {
+			fetch(getURL('/json/log?clear'))
+				.then(r => r.text())
+				.then(() => {
+					document.getElementById('log').value = '';
+					document.getElementById('sz').textContent = '0 KB';
+					setStatus('Log cleared.');
+				})
+				.catch(e => setStatus('Clear error: ' + e));
+		}
+
+		function copyLog() {
+			const ta = document.getElementById('log');
+			if (navigator.clipboard) {
+				navigator.clipboard.writeText(ta.value).then(() => setStatus('Copied to clipboard.'));
+			} else {
+				ta.select();
+				document.execCommand('copy');
+				setStatus('Copied to clipboard.');
+			}
+		}
+
+		function toggleAuto() {
+			const btn = document.getElementById('autobtn');
+			if (autoRefresh) {
+				clearInterval(autoRefresh);
+				autoRefresh = null;
+				btn.textContent = 'Auto-refresh: Off';
+				btn.classList.remove('active');
+			} else {
+				fetchLog();
+				autoRefresh = setInterval(fetchLog, 5000);
+				btn.textContent = 'Auto-refresh: On';
+				btn.classList.add('active');
+			}
+		}
+
+		function setStatus(msg) {
+			document.getElementById('status').textContent = msg;
+			setTimeout(() => { document.getElementById('status').textContent = ''; }, 4000);
+		}
+	</script>
+	<style>
+		@import url("style.css");
+		body {
+			margin: 0 auto;
+			max-width: 900px;
+			padding: 0 8px 8px;
+			box-sizing: border-box;
+		}
+		h2 {
+			margin: 8px 0 4px;
+			font-size: 1.2rem;
+		}
+		.toolbar {
+			display: flex;
+			flex-wrap: wrap;
+			gap: 6px;
+			margin-bottom: 6px;
+			align-items: center;
+		}
+		.toolbar button {
+			padding: 4px 12px;
+			border-radius: 4px;
+			font-size: 0.9rem;
+			cursor: pointer;
+			border: none;
+			background: var(--c-3, #444);
+			color: var(--c-f, #fff);
+		}
+		.toolbar button.active {
+			background: var(--c-6, #888);
+		}
+		#status {
+			font-size: 0.85rem;
+			color: var(--c-6, #aaa);
+			flex: 1;
+			text-align: right;
+		}
+		#sz {
+			font-size: 0.85rem;
+			color: var(--c-6, #aaa);
+		}
+		#log {
+			width: 100%;
+			height: calc(100vh - 120px);
+			min-height: 200px;
+			box-sizing: border-box;
+			font-family: monospace;
+			font-size: 0.8rem;
+			background: #111;
+			color: #cfc;
+			border: 1px solid #444;
+			border-radius: 4px;
+			resize: vertical;
+			padding: 6px;
+			white-space: pre;
+		}
+	</style>
+</head>
+<body>
+	<h2>WLED Log Viewer</h2>
+	<div class="toolbar">
+		<button onclick="fetchLog()">Refresh</button>
+		<button id="autobtn" onclick="toggleAuto()">Auto-refresh: Off</button>
+		<button onclick="copyLog()">Copy</button>
+		<button onclick="clearLog()">Clear</button>
+		<button onclick="window.location=getURL('/')">Back</button>
+		<span id="sz">-- KB</span>
+		<span id="status"></span>
+	</div>
+	<textarea id="log" readonly spellcheck="false" placeholder="Loading log\u2026"></textarea>
+</body>
+</html>
