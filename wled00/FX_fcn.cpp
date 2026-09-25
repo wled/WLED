@@ -2257,7 +2257,7 @@ bool WS2812FX::deserializeMap(unsigned n) {
       memset(customMappingTable, 0xFF, sizeof(uint16_t) * mapSize); // pre-fill with "-1" i.e. unmapped pixel
       DEBUG_PRINTF_P(PSTR("ledmap allocated: %uB\n"), sizeof(uint16_t)*mapSize);
       File f = WLED_FS.open(fileName, "r");
-      if (f && f.find("\"map\":[")) {
+      if (f && f.find("\"map\"")) { // advance to "map", readNextIntFromFile discards any chars up to the first number
         int value;
         unsigned mapindex = 0;
         while (mapindex < mapSize && readNextIntFromFile(f, value)) {
