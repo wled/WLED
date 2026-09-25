@@ -56,7 +56,7 @@
   float    *fftBin = nullptr;
   um_data_t *um_data = getAudioData();
   volumeSmth    = *(float*)   um_data->u_data[0];
-  volumeRaw     = *(float*)   um_data->u_data[1];
+  volumeRaw     = *(int16_t*)   um_data->u_data[1];
   fftResult     =  (uint8_t*) um_data->u_data[2];
   samplePeak    = *(uint8_t*) um_data->u_data[3];
   FFT_MajorPeak = *(float*)   um_data->u_data[4];
