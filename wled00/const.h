@@ -653,6 +653,16 @@ static_assert(WLED_MAX_BUSSES <= 32, "WLED_MAX_BUSSES exceeds hard limit");
 
 #define TOUCH_THRESHOLD 32 // limit to recognize a touch, higher value means more sensitive
 
+#define WLED_DEBOUNCE_THRESHOLD      50 // default: only consider button input of at least 50ms as valid (debouncing)
+#define WLED_LONG_PRESS             600 // default: trigger long press after the button remains pressed for 600ms
+#define WLED_DOUBLE_PRESS           350 // default: double press if another press within 350ms after a short press
+#define WLED_DEBOUNCE_MAX           100 // settings limits for the button timings above
+#define WLED_LONG_PRESS_MIN         200
+#define WLED_LONG_PRESS_MAX        4000 // must stay below WLED_LONG_AP (button.cpp)
+#define WLED_DOUBLE_PRESS_MIN       100
+#define WLED_DOUBLE_PRESS_MAX      1000
+static_assert(WLED_LONG_PRESS_MIN > WLED_DEBOUNCE_MAX, "long press must be longer than the debounce time");
+
 // Size of buffer for API JSON object (increase for more segments)
 #ifdef ESP8266
   #define JSON_BUFFER_SIZE 10240

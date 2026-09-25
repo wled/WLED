@@ -333,6 +333,9 @@ void handleSettingsSet(AsyncWebServerRequest *request, byte subPage)
 
     disablePullUp = (bool)request->hasArg(F("IP"));
     touchThreshold = request->arg(F("TT")).toInt();
+    if (request->hasArg(F("DB"))) buttonDebounceMs = constrain(request->arg(F("DB")).toInt(), 0, WLED_DEBOUNCE_MAX);
+    if (request->hasArg(F("LP"))) buttonLongPressMs = constrain(request->arg(F("LP")).toInt(), WLED_LONG_PRESS_MIN, WLED_LONG_PRESS_MAX);
+    if (request->hasArg(F("DP"))) buttonDoublePressMs = constrain(request->arg(F("DP")).toInt(), WLED_DOUBLE_PRESS_MIN, WLED_DOUBLE_PRESS_MAX);
     for (int i = 0; i < WLED_MAX_BUTTONS; i++) {
       int offset = i < 10 ? '0' : 'A' - 10;
       char bt[4] = "BT"; bt[2] = offset+i; bt[3] = 0; // button pin (use A,B,C,... if WLED_MAX_BUTTONS>10)

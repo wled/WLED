@@ -451,6 +451,13 @@ bool deserializeConfig(JsonObject doc, bool fromFS) {
   }
 
   CJSON(buttonPublishMqtt, btn_obj["mqtt"]);
+  // CJSON keeps the previous value if the JSON value doesn't fit uint16_t (e.g. negative), so no wraparound before the clamps
+  CJSON(buttonDebounceMs, btn_obj[F("dbnc")]);
+  CJSON(buttonLongPressMs, btn_obj[F("lp")]);
+  CJSON(buttonDoublePressMs, btn_obj[F("dp")]);
+  buttonDebounceMs = min(buttonDebounceMs, (uint16_t)WLED_DEBOUNCE_MAX);
+  buttonLongPressMs = constrain(buttonLongPressMs, WLED_LONG_PRESS_MIN, WLED_LONG_PRESS_MAX);
+  buttonDoublePressMs = constrain(buttonDoublePressMs, WLED_DOUBLE_PRESS_MIN, WLED_DOUBLE_PRESS_MAX);
 
   #ifndef WLED_DISABLE_INFRARED
   int hw_ir_pin = hw["ir"]["pin"] | -2; // 4
@@ -1049,6 +1056,9 @@ void serializeConfig(JsonObject root) {
 
   hw_btn[F("tt")] = touchThreshold;
   hw_btn["mqtt"] = buttonPublishMqtt;
+  hw_btn[F("dbnc")] = buttonDebounceMs;
+  hw_btn[F("lp")] = buttonLongPressMs;
+  hw_btn[F("dp")] = buttonDoublePressMs;
 
   JsonObject hw_ir = hw.createNestedObject("ir");
   #ifndef WLED_DISABLE_INFRARED

@@ -4,13 +4,14 @@
  * Physical IO
  */
 
-#define WLED_DEBOUNCE_THRESHOLD      50 // only consider button input of at least 50ms as valid (debouncing)
-#define WLED_LONG_PRESS             600 // long press if button is released after held for at least 600ms
-#define WLED_DOUBLE_PRESS           350 // double press if another press within 350ms after a short press
-#define WLED_LONG_REPEATED_ACTION   400 // how often a repeated action (e.g. dimming) is fired on long press on button IDs >0
+#define WLED_LONG_REPEATED_ACTION   200 // how often a repeated action (e.g. dimming) is fired on long press on button IDs >0
+#define WLED_LONG_REPEAT_DELAY      600 // pause after the first long press action before repeating starts on button IDs >0
 #define WLED_LONG_AP               5000 // how long button 0 needs to be held to activate WLED-AP
 #define WLED_LONG_FACTORY_RESET   10000 // how long button 0 needs to be held to trigger a factory reset
 #define WLED_LONG_BRI_STEPS          16 // how much to increase/decrease the brightness with each long press repetition
+
+static_assert(WLED_LONG_PRESS_MAX < WLED_LONG_AP, "long press must not reach the AP-mode/factory-reset hold time of button 0");
+static_assert(WLED_LONG_REPEAT_DELAY > WLED_LONG_REPEATED_ACTION, "repeat delay must be longer than the repeated action interval");
 
 static const char _mqtt_topic_button[] PROGMEM = "%s/button/%d";  // optimize flash usage
 
@@ -136,7 +137,7 @@ void handleSwitch(uint8_t b)
 
   if (buttons[b].longPressed == buttons[b].pressedBefore) return;
 
-  if (millis() - buttons[b].pressedTime > WLED_DEBOUNCE_THRESHOLD) { //fire edge event only after 50ms without change (debounce)
+  if (millis() - buttons[b].pressedTime > buttonDebounceMs) { //fire edge event only after debounce threshold without change
     DEBUG_PRINTF_P(PSTR("Switch: Activating  %u\n"), b);
     if (!buttons[b].pressedBefore) { // on -> off
       DEBUG_PRINTF_P(PSTR("Switch: On -> Off (%u)\n"), b);
@@ -304,15 +305,17 @@ void handleButton()
       if (!buttons[b].pressedBefore) buttons[b].pressedTime = now;
       buttons[b].pressedBefore = true;
 
-      if (now - buttons[b].pressedTime > WLED_LONG_PRESS) { //long press
-        if (!buttons[b].longPressed) {
+      // first long press fires after buttonLongPressMs, repeats are timed from the last action
+      if (!buttons[b].longPressed) {
+        if (now - buttons[b].pressedTime > buttonLongPressMs) { //long press
           buttonBriDirection = !buttonBriDirection; //toggle brightness direction on long press
           longPressAction(b);
-        } else if (b) { //repeatable action (~5 times per s) on button > 0
-          longPressAction(b);
-          buttons[b].pressedTime = now - WLED_LONG_REPEATED_ACTION; //200ms
+          if (b) buttons[b].pressedTime = now; // pause before first repeat; button 0 keeps press start for AP timing
+          buttons[b].longPressed = true;
         }
-        buttons[b].longPressed = true;
+      } else if (b && now - buttons[b].pressedTime > WLED_LONG_REPEAT_DELAY) { //repeatable action (~5 times per s) on button > 0
+        longPressAction(b);
+        buttons[b].pressedTime = now - (WLED_LONG_REPEAT_DELAY - WLED_LONG_REPEATED_ACTION); // next repeat after WLED_LONG_REPEATED_ACTION
       }
 
     } else if (buttons[b].pressedBefore) { //released
@@ -320,11 +323,11 @@ void handleButton()
 
       // released after rising-edge short press action
       if (buttons[b].macroButton && buttons[b].macroButton == buttons[b].macroLongPress && buttons[b].macroButton == buttons[b].macroDoublePress) {
-        if (dur > WLED_DEBOUNCE_THRESHOLD) buttons[b].pressedBefore = false; // debounce, blocks button for 50 ms once it has been released
+        if (dur > buttonDebounceMs) buttons[b].pressedBefore = false; // debounce, blocks button once it has been released
         continue;
       }
 
-      if (dur < WLED_DEBOUNCE_THRESHOLD) {buttons[b].pressedBefore = false; continue;} // too short "press", debounce
+      if (dur < buttonDebounceMs && !buttons[b].longPressed) {buttons[b].pressedBefore = false; continue;} // too short "press", debounce
       bool doublePress = buttons[b].waitTime; //did we have a short press before?
       buttons[b].waitTime = 0;
 
@@ -339,7 +342,7 @@ void handleButton()
         //NOTE: this interferes with double click handling in usermods so usermod needs to implement full button handling
         if (b != 1 && !buttons[b].macroDoublePress) { //don't wait for double press on buttons without a default action if no double press macro set
           shortPressAction(b);
-        } else { //double press if less than 350 ms between current press and previous short press release (buttonWaitTime!=0)
+        } else { //double press if within double press window of current press and previous short press release (buttonWaitTime!=0)
           if (doublePress) {
             doublePressAction(b);
           } else {
@@ -351,8 +354,8 @@ void handleButton()
       buttons[b].longPressed = false;
     }
 
-    //if 350ms elapsed since last short press release it is a short press
-    if (buttons[b].waitTime && now - buttons[b].waitTime > WLED_DOUBLE_PRESS && !buttons[b].pressedBefore) {
+    //if double press window elapsed since last short press release it is a short press
+    if (buttons[b].waitTime && now - buttons[b].waitTime > buttonDoublePressMs && !buttons[b].pressedBefore) {
       buttons[b].waitTime = 0;
       shortPressAction(b);
     }
