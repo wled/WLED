@@ -110,7 +110,7 @@ void handleSettingsSet(AsyncWebServerRequest *request, byte subPage)
     apBehavior = request->arg(F("AB")).toInt();
     char oldSSID[33]; strcpy(oldSSID, apSSID);
     strlcpy(apSSID, request->arg(F("AS")).c_str(), 33);
-    if (!strcmp(oldSSID, apSSID) && apActive) forceReconnect = true;
+    if ((strcmp(oldSSID, apSSID) != 0) && apActive) forceReconnect = true; // AP SSID changed
     apHide = request->hasArg(F("AH"));
     int passlen = request->arg(F("AP")).length();
     if (passlen == 0 || (passlen > 7 && !isAsterisksOnly(request->arg(F("AP")).c_str(), 65))) {
