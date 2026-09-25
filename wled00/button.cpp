@@ -9,6 +9,8 @@
 #define WLED_LONG_FACTORY_RESET   10000 // how long button 0 needs to be held to trigger a factory reset
 #define WLED_LONG_BRI_STEPS          16 // how much to increase/decrease the brightness with each long press repetition
 
+static_assert(WLED_LONG_PRESS_MAX < WLED_LONG_AP, "long press must not reach the AP-mode/factory-reset hold time of button 0");
+
 static const char _mqtt_topic_button[] PROGMEM = "%s/button/%d";  // optimize flash usage
 
 // Runtime state private to this file - previously WLED_GLOBAL, a leftover from

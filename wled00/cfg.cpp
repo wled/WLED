@@ -451,12 +451,13 @@ bool deserializeConfig(JsonObject doc, bool fromFS) {
   }
 
   CJSON(buttonPublishMqtt, btn_obj["mqtt"]);
+  // CJSON keeps the previous value if the JSON value doesn't fit uint16_t (e.g. negative), so no wraparound before the clamps
   CJSON(buttonDebounceMs, btn_obj[F("dbnc")]);
   CJSON(buttonLongPressMs, btn_obj[F("lp")]);
   CJSON(buttonDoublePressMs, btn_obj[F("dp")]);
-  buttonDebounceMs = constrain(buttonDebounceMs, 0, 100);
-  buttonLongPressMs = constrain(buttonLongPressMs, 200, 4000); // floor kept above the debounce max (100) so long press can never be shorter than debounce
-  buttonDoublePressMs = constrain(buttonDoublePressMs, 100, 1000);
+  buttonDebounceMs = min(buttonDebounceMs, (uint16_t)WLED_DEBOUNCE_MAX);
+  buttonLongPressMs = constrain(buttonLongPressMs, WLED_LONG_PRESS_MIN, WLED_LONG_PRESS_MAX);
+  buttonDoublePressMs = constrain(buttonDoublePressMs, WLED_DOUBLE_PRESS_MIN, WLED_DOUBLE_PRESS_MAX);
 
   #ifndef WLED_DISABLE_INFRARED
   int hw_ir_pin = hw["ir"]["pin"] | -2; // 4

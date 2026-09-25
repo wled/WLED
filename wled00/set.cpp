@@ -332,12 +332,9 @@ void handleSettingsSet(AsyncWebServerRequest *request, byte subPage)
 
     disablePullUp = (bool)request->hasArg(F("IP"));
     touchThreshold = request->arg(F("TT")).toInt();
-    t = request->arg(F("DB")).toInt();
-    if (t >= 0   && t <= 100)   buttonDebounceMs = t;
-    t = request->arg(F("LP")).toInt();
-    if (t >= 200 && t <= 4000) buttonLongPressMs = t; // stay below WLED_LONG_AP so button 0's AP-mode/factory-reset thresholds are unaffected; floor kept above the debounce max (100) so long press can never be shorter than debounce
-    t = request->arg(F("DP")).toInt();
-    if (t >= 100 && t <= 1000)  buttonDoublePressMs = t;
+    if (request->hasArg(F("DB"))) buttonDebounceMs = constrain(request->arg(F("DB")).toInt(), 0, WLED_DEBOUNCE_MAX);
+    if (request->hasArg(F("LP"))) buttonLongPressMs = constrain(request->arg(F("LP")).toInt(), WLED_LONG_PRESS_MIN, WLED_LONG_PRESS_MAX);
+    if (request->hasArg(F("DP"))) buttonDoublePressMs = constrain(request->arg(F("DP")).toInt(), WLED_DOUBLE_PRESS_MIN, WLED_DOUBLE_PRESS_MAX);
     for (int i = 0; i < WLED_MAX_BUTTONS; i++) {
       int offset = i < 10 ? '0' : 'A' - 10;
       char bt[4] = "BT"; bt[2] = offset+i; bt[3] = 0; // button pin (use A,B,C,... if WLED_MAX_BUTTONS>10)
