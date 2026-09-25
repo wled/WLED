@@ -877,6 +877,7 @@ class AudioReactive : public Usermod {
     unsigned long lastTime = 0;   // last time of running UDP Microphone Sync
     const uint16_t delayMs = 10;  // I don't want to sample too often and overload WLED
     uint16_t audioSyncPort= 11988;// default port for UDP sound sync
+    uint8_t audioSyncTransport = 0; // 0 = multicast (default), 1 = broadcast
 
     bool updateIsRunning = false; // true during OTA.
 
@@ -1258,7 +1259,15 @@ class AudioReactive : public Usermod {
       transmitData.FFT_Magnitude = my_magnitude;
       transmitData.FFT_MajorPeak = FFT_MajorPeak;
 
-      if (fftUdp.beginMulticastPacket() != 0) { // beginMulticastPacket returns 0 in case of error
+      // Multicast depends on the network keeping our group membership alive. Access points
+      // that run IGMP snooping without an IGMP querier stop forwarding the group once the
+      // membership times out, which silently breaks sound sync for every receiver.
+      // UDP broadcast does not use group membership, so it keeps working on such networks.
+      int success;
+      if (audioSyncTransport == 1) success = fftUdp.beginPacket(WLEDNetwork.broadcastIP(), audioSyncPort);
+      else                         success = fftUdp.beginMulticastPacket(); // returns 0 in case of error
+
+      if (success != 0) {
         fftUdp.write(reinterpret_cast<uint8_t *>(&transmitData), sizeof(transmitData));
         fftUdp.endPacket();
       }
@@ -2087,6 +2096,7 @@ class AudioReactive : public Usermod {
       JsonObject sync = top.createNestedObject("sync");
       sync["port"] = audioSyncPort;
       sync["mode"] = audioSyncEnabled;
+      sync["transport"] = audioSyncTransport;
     }
 
 
@@ -2154,6 +2164,7 @@ class AudioReactive : public Usermod {
 #endif
       configComplete &= getJsonValue(top["sync"]["port"], audioSyncPort);
       configComplete &= getJsonValue(top["sync"]["mode"], audioSyncEnabled);
+      configComplete &= getJsonValue(top["sync"]["transport"], audioSyncTransport);
 
       if (initDone) {
         // add/remove custom/audioreactive palettes
@@ -2221,6 +2232,10 @@ class AudioReactive : public Usermod {
 #endif
       uiScript.print(F("addOption(dd,'Receive',2);"));
 #ifdef ARDUINO_ARCH_ESP32
+      uiScript.print(F("dd=addDropdown(ux,'sync:transport');"));
+      uiScript.print(F("addOption(dd,'Multicast',0);"));
+      uiScript.print(F("addOption(dd,'Broadcast',1);"));
+      uiScript.print(F("addInfo(ux+':sync:transport',1,'<i>use broadcast if receivers stop after a few minutes</i>');"));
       uiScript.print(F("addInfo(ux+':digitalmic:type',1,'<i>requires reboot!</i>');"));  // 0 is field type, 1 is actual field
       uiScript.print(F("addInfo(uxp,0,'<i>sd/data/dout</i>','I2S SD');"));
       uiScript.print(F("addInfo(uxp,1,'<i>ws/clk/lrck</i>','I2S WS');"));
