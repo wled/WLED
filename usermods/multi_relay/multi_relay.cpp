@@ -35,8 +35,6 @@
   #define MULTI_RELAY_INVERTS false
 #endif
 
-#define WLED_DEBOUNCE_THRESHOLD 50 //only consider button input of at least 50ms as valid (debouncing)
-
 #define ON  true
 #define OFF false
 
@@ -590,7 +588,7 @@ bool MultiRelay::handleButton(uint8_t b) {
 
     if (buttons[b].longPressed == buttons[b].pressedBefore) return handled;
       
-    if (now - buttons[b].pressedTime > WLED_DEBOUNCE_THRESHOLD) { //fire edge event only after 50ms without change (debounce)
+    if (now - buttons[b].pressedTime > buttonDebounceMs) { //fire edge event only after debounce time without change
       for (int i=0; i<MULTI_RELAY_MAX_RELAYS; i++) {
         if (_relay[i].button == b) {
           switchRelay(i, buttons[b].pressedBefore);
@@ -607,7 +605,7 @@ bool MultiRelay::handleButton(uint8_t b) {
     if (!buttons[b].pressedBefore) buttons[b].pressedTime = now;
     buttons[b].pressedBefore = true;
 
-    if (now - buttons[b].pressedTime > 600) { //long press
+    if (now - buttons[b].pressedTime > buttonLongPressMs) { //long press
       //longPressAction(b); //not exposed
       //handled = false; //use if you want to pass to default behaviour
       buttons[b].longPressed = true;
@@ -616,7 +614,7 @@ bool MultiRelay::handleButton(uint8_t b) {
   } else if (!isButtonPressed(b) && buttons[b].pressedBefore) { //released
 
     long dur = now - buttons[b].pressedTime;
-    if (dur < WLED_DEBOUNCE_THRESHOLD) {
+    if (dur < buttonDebounceMs) {
       buttons[b].pressedBefore = false;
       return handled;
     } //too short "press", debounce
@@ -624,7 +622,7 @@ bool MultiRelay::handleButton(uint8_t b) {
     buttons[b].waitTime = 0;
 
     if (!buttons[b].longPressed) { //short press
-      // if this is second release within 350ms it is a double press (buttonWaitTime!=0)
+      // if this is second release within double press time it is a double press (buttonWaitTime!=0)
       if (doublePress) {
         //doublePressAction(b); //not exposed
         //handled = false; //use if you want to pass to default behaviour
@@ -635,8 +633,8 @@ bool MultiRelay::handleButton(uint8_t b) {
     buttons[b].pressedBefore = false;
     buttons[b].longPressed = false;
   }
-  // if 350ms elapsed since last press/release it is a short press
-  if (buttons[b].waitTime && now - buttons[b].waitTime > 350 && !buttons[b].pressedBefore) {
+  // if double press time elapsed since last press/release it is a short press
+  if (buttons[b].waitTime && now - buttons[b].waitTime > buttonDoublePressMs && !buttons[b].pressedBefore) {
     buttons[b].waitTime = 0;
     //shortPressAction(b); //not exposed
     for (int i=0; i<MULTI_RELAY_MAX_RELAYS; i++) {
