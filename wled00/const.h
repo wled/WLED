@@ -151,7 +151,9 @@ static_assert(WLED_MAX_BUSSES <= 32, "WLED_MAX_BUSSES exceeds hard limit");
   #endif
 #endif
 
-#define RELAY_DELAY 50 // delay in ms between switching on relay and sending data to LEDs
+#ifndef RELAY_DELAY
+#define RELAY_DELAY 50 // default delay in ms between switching on relay and sending data to LEDs
+#endif
 
 #if defined(ESP8266) || defined(CONFIG_IDF_TARGET_ESP32S2)
 #define WLED_MAX_COLOR_ORDER_MAPPINGS 5
@@ -219,7 +221,7 @@ static_assert(WLED_MAX_BUSSES <= 32, "WLED_MAX_BUSSES exceeds hard limit");
 #define USERMOD_ID_QUINLED_AN_PENTA      23     //Usermod "quinled-an-penta.h"
 #define USERMOD_ID_SSDR                  24     //Usermod "usermod_v2_seven_segment_display_reloaded.h"
 #define USERMOD_ID_CRONIXIE              25     //Usermod "usermod_cronixie.h"
-#define USERMOD_ID_WIZLIGHTS             26     //Usermod "wizlights.h"
+#define USERMOD_ID_WIZLIGHTS             26     //Usermod wizlights, moved out of tree to https://github.com/eibanez/wled-usermod-wizlights
 #define USERMOD_ID_WORDCLOCK             27     //Usermod "usermod_v2_word_clock.h"
 #define USERMOD_ID_MY9291                28     //Usermod "usermod_MY9291.h"
 #define USERMOD_ID_SI7021_MQTT_HA        29     //Usermod "usermod_si7021_mqtt_ha.h"
