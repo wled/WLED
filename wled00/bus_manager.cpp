@@ -397,10 +397,10 @@ void BusDigital::cleanup() {
   // 1 MHz clock
   #define CLOCK_FREQUENCY 1000000UL
 #else
-  // Use XTAL clock if possible to avoid timer frequency error when setting APB clock < 80 Mhz
-  // https://github.com/espressif/arduino-esp32/blob/2.0.2/cores/esp32/esp32-hal-ledc.c
+  // Arduino uses XTAL clock if available, otherwise defaults to "auto" which chooses the highest available
+  // they claim this is to avoid frequency inaccuracy - most (all?) hardware would support 80MHz, we loose 1 bit of resolution
   #ifdef SOC_LEDC_SUPPORT_XTAL_CLOCK
-    #define CLOCK_FREQUENCY 40000000UL
+    #define CLOCK_FREQUENCY 40000000UL // XTAL clock is 40MHz for all supported ESP32 variants
   #else
     #define CLOCK_FREQUENCY 80000000UL
   #endif
@@ -409,12 +409,10 @@ void BusDigital::cleanup() {
 #ifdef ESP8266
   #define MAX_BIT_WIDTH 10
 #else
-  #ifdef SOC_LEDC_TIMER_BIT_WIDE_NUM
-    // C6/H2/P4: 20 bit, S2/S3/C2/C3: 14 bit
-    #define MAX_BIT_WIDTH SOC_LEDC_TIMER_BIT_WIDE_NUM
+  #ifdef SOC_LEDC_TIMER_BIT_WIDTH
+    #define MAX_BIT_WIDTH SOC_LEDC_TIMER_BIT_WIDTH // ESP32/C5/C6/C61/H2/P4: 20 bit, S2/S3/C2/C3: 14 bit
   #else
-    // ESP32: 20 bit (but in reality we would never go beyond 16 bit as the frequency would be to low)
-    #define MAX_BIT_WIDTH 14
+    #define MAX_BIT_WIDTH 14 // fallback, we actually never use more than 13 bits to keep frequency high
   #endif
 #endif
 
@@ -423,8 +421,10 @@ BusPwm::BusPwm(const BusConfig &bc)
 {
   if (!isPWM(bc.type)) return;
   const unsigned numPins = numPWMPins(bc.type);
+  // note: the minimum pulse width for PWM signals can be as low as 12ns/25ns requiring very fast FET switching
+  //       dithering allows much longer minimum pulse width for "slow" setups without losing the low brightness range
   [[maybe_unused]] const bool dithering = _needsRefresh;
-  _frequency = bc.frequency ? bc.frequency : WLED_PWM_FREQ;
+  _frequency = bc.frequency ? bc.frequency : WLED_PWM_FREQ; // Note: 1.2kHz min. is recommended in "IEEE Std 1789-2015" see Fig. 18
   // duty cycle resolution (_depth) can be extracted from this formula: CLOCK_FREQUENCY > _frequency * 2^_depth
   for (_depth = MAX_BIT_WIDTH; _depth > 8; _depth--) if (((CLOCK_FREQUENCY/_frequency) >> _depth) > 0) break;
 
@@ -453,15 +453,33 @@ BusPwm::BusPwm(const BusConfig &bc)
       #else
       unsigned channel = _ledcStart + i;
       #if ESP_IDF_VERSION < ESP_IDF_VERSION_VAL(5, 0, 0)
-      ledcSetup(channel, _frequency, _depth - (dithering*4)); // with dithering _frequency doesn't really matter as resolution is 8 bit
+      ledcSetup(channel, _frequency, _depth - (dithering*4)); // reduce to 8bit when using dithering
       ledcAttachPin(_pins[i], channel);
-      #else
-      ledcAttachChannel(_pins[i], _frequency,  _depth - (dithering*4), channel);
-      // LEDC timer reset credit @dedehai
-      #endif
       // LEDC timer reset credit @dedehai
       uint8_t group = (channel / 8), timer = ((channel / 2) % 4); // same fromula as in ledcSetup()
-      ledc_timer_rst((ledc_mode_t)group, (ledc_timer_t)timer); // reset timer so all timers are almost in sync (for phase shift)
+      ledc_timer_rst((ledc_mode_t)group, (ledc_timer_t)timer); // reset timer so all timers are (almost) in sync (for phase shift)
+      #else
+      if (!ledcAttachChannel(_pins[i], _frequency,  _depth - (dithering*4), channel)) { // reduce to 8bit when using dithering
+        // clean up on failure
+        for (unsigned j = 0; j < i; j++) {
+          if (PinManager::isPinOk(_pins[j])) ledcDetach(_pins[j]);
+        }
+        PinManager::deallocateMultiplePins(pins, numPins, PinOwner::BusPwm);
+        PinManager::deallocateLedc(_ledcStart, numPins);
+        return;
+      }
+      uint8_t group = channel / SOC_LEDC_CHANNEL_NUM;
+      uint8_t ch    = channel % SOC_LEDC_CHANNEL_NUM;
+      uint8_t timer = LEDC.channel_group[group].channel[ch].conf0.timer_sel;
+      ledc_timer_rst((ledc_mode_t)group, (ledc_timer_t)timer);   // reset timer so all timers are (almost) in sync (for phase shift)
+      // reset duty to avoid garbage output during setup
+      #if defined(CONFIG_IDF_TARGET_ESP32C5) || defined(CONFIG_IDF_TARGET_ESP32C61) || defined(CONFIG_IDF_TARGET_ESP32P4)
+      LEDC.channel_group[group].channel[ch].duty_init.duty = 0;
+      #else
+      LEDC.channel_group[group].channel[ch].duty.duty = 0;
+      #endif
+      ledc_update_duty((ledc_mode_t)group, (ledc_channel_t)ch);
+      #endif
       #endif
     }
     _hasRgb = hasRGB(bc.type);
@@ -543,7 +561,7 @@ void BusPwm::show() {
 #else
   // if _needsRefresh is true (UI hack) we are using dithering (credit @dedehai & @zalatnaicsongor)
   // https://github.com/wled/WLED/pull/4115 and https://github.com/zalatnaicsongor/WLED/pull/1)
-  const bool     dithering = _needsRefresh; // avoid working with bitfield
+  const bool     dithering = _needsRefresh; // dithering uses "pulse spreading" with longer pulses for better low duty cycle resolution on slow hardware
   const unsigned maxBri = (1<<_depth);      // possible values: 16384 (14), 8192 (13), 4096 (12), 2048 (11), 1024 (10), 512 (9) and 256 (8)
   const unsigned bitShift = dithering * 4;  // if dithering, _depth is 12 bit but LEDC channel is set to 8 bit (using 4 fractional bits)
 #endif
@@ -558,59 +576,81 @@ void BusPwm::show() {
     pwmBri = (unsigned)temp;                           // pwmBri is in range [0-maxBri] C
   }
 
-  [[maybe_unused]] unsigned hPoint = 0;  // phase shift (0 - maxBri)
-  // we will be phase shifting every channel by previous pulse length (plus dead time if required)
-  // phase shifting is only mandatory when using H-bridge to drive reverse-polarity PWM CCT (2 wire) LED type
-  // CCT additive blending must be 0 (WW & CW will not overlap) otherwise signals *will* overlap
-  // for all other cases it will just try to "spread" the load on PSU
-  // Phase shifting requires that LEDC timers are synchronised (see setup()). For PWM CCT (and H-bridge) it is
-  // also mandatory that both channels use the same timer (pinManager takes care of that).
-  for (unsigned i = 0; i < numPins; i++) {
-    unsigned duty = (_data[i] * pwmBri) / 255;
-    unsigned deadTime = 0;
+  // TODO: different PWM buses are not shifted towards each other, i.e. 2 PWM white channels run in sync (no load spreading)
+  // we will be phase shifting every channel to distribute pulses as evenly as possible across the PWM cycle
+  // CCT (2 wire) LED type absolutely require phase shifting, for other cases it helps spread the load on the PSU
+  // CCT additive blending must be 0 so WW & CW can never overlap (mendatory for 2 wire CCT LEDs)
+  // Accurate phase shifting requires that LEDC timers are synchronised (see setup()). For PWM CCT (and H-bridge) it is
+  // also mandatory that both channels use the same timer to make it clock-accurate (pinManager takes care of that)
+  // newer LEDC hardware does not support duty wraparound at maxBri i.e. duty+phaseShift must be less than maxBri or duty is reduced by hardware
+  // for 2-pin CCT add dead time between signals to prevent shoot-through in case the hardware does not prevent it internally
 
-    if (_type == TYPE_ANALOG_2CH && Bus::_cctBlend <= 0) {
-      // add dead time between signals (when using dithering, two full 8bit pulses are required)
-      deadTime = (1+dithering) << bitShift;
-      // we only need to take care of shortening the signal at (almost) full brightness otherwise pulses may overlap
-      if (_bri >= 254 && duty >= maxBri / 2 && duty < maxBri) {
-        duty -= deadTime << 1; // shorten duty of larger signal except if full on
+  unsigned duty[numPins]; // duty cycle at channel resolution
+  int pulseGap = 0; // gap added between pulses, positive: spread apart, negative: overlap
+  unsigned totalDuty = 0; // sum of all channel duties
+  unsigned runningDuty = 0; // sum of all previous channel duties (+gaps if dutySum < maxBri)
+
+  for (unsigned i = 0; i < numPins; i++) {
+    duty[i] = (_data[i] * pwmBri) / 255;
+    if (_reversed) duty[i] = maxBri - duty[i]; // note: inverted signals use the same "positive pulse" spreading logic
+    totalDuty += duty[i];
+  }
+  int undershoot = maxBri - totalDuty;   // >=0 means signals will fit within one period, <0 means they will overlap
+  pulseGap = undershoot / (int)numPins;  // if smaller than 0, distribution formula is used, runningDuty + gap otherwise
+
+  for (unsigned i = 0; i < numPins; i++) {
+    constexpr unsigned DEADTIME_NS = 500; // 500ns should be safe for most drivers that do not have internal shoot-through protection, with dithering this is a min value
+    if (_type == TYPE_ANALOG_2CH && Bus::_cctBlend <= 0 && !cctICused) {
+      unsigned deadTime = 0; // dead time prevents both signals being "high" at the same time (even if signal is inverted), intended for discrete h-bridge drivers
+      // add dead time between "high" signals to prevent shoot-through +2 ensures proper spacing in dithering as the signal jitters by 1 (8bit) tick
+      // a tick when dithering can be higher than 500ns (1/4.8kHz/256 = 800ns), the +2 adds less than 50ns when not dithering, we add it as a safety
+      deadTime = (2 << bitShift) + (uint64_t(DEADTIME_NS) * _frequency * maxBri) / 1000000000ULL; // _frequency * maxBri is 1/pwmtick,
+      int dutyOvershoot = (totalDuty + (deadTime * 2)) - maxBri;
+      // if total pwmBri plus two dead-time zones exceed maxBri, shorten the duty proportionally except if one is at 0%
+      if (duty[i] < maxBri && dutyOvershoot > 0 && _data[0] > 0 && _data[1] > 0) {
+        int dutyAdjust = (dutyOvershoot * duty[i]) / totalDuty; // adjust proportionally to signals contribution
+        if (dutyAdjust < duty[i]) duty[i] -= dutyAdjust; // subtract overshoot, guard against negative values (should never happen)
+        pulseGap = deadTime; // we changed duty, now exactly two deadTime gaps fit
       }
+      // warning: on ESP8266 dead time is not 100% safe, it has lots of jitter. DO NOT use drivers without internal dead time
     }
-    if (_reversed) {
-      if (i) hPoint += duty;  // align start at time zero
-      duty = maxBri - duty;
+    // phase shift the signals to spread the pulses: spreads the load and ensures deadTime gaps
+    // formulas ensure that there are no maxBri boundary crossings as it is not supported by newer LEDC hardware (C5, C61, P4)
+    // note: perceptually load spreading can cause "rainbow tearing" if the frequency is low (<6kHz), we use 5kHz or more
+    unsigned phaseShift = 0;
+    if( pulseGap < 0) // signals do not fit one period and will overlap
+      phaseShift = (duty[i] < maxBri) ? (uint32_t)((uint64_t)(maxBri - duty[i]) * runningDuty / (totalDuty - duty[i])) : 0;
+      // note: phaseShift + duty[i] <= maxBri because runningDuty/(totalDuty - duty[i]) <= 1 so pulses always fit
+      // phase shift is proportional to running duty, scaled by "off" duration duty[i] (i.e. shorter pulses get shifted more)
+    else
+      phaseShift = runningDuty; // previous duties + gaps for an even distribution
+
+    // dithering requires a gap of one pulse at the "top": hardware adds "1 << bitShift" to duty for dithering
+    if (dithering && phaseShift > 0) {
+      int ditherJitter = 1 << bitShift;
+      if (phaseShift + duty[i] >= maxBri - ditherJitter) phaseShift -= ditherJitter;
+      if (phaseShift > maxBri) phaseShift = 0; // safeguard if "negative", should not happen
     }
+
     #ifdef ESP8266
     //stopWaveform(_pins[i]);  // can cause the waveform to miss a cycle. instead we risk crossovers.
-    startWaveformClockCycles(_pins[i], duty, analogPeriod - duty, 0, i ? _pins[0] : -1, hPoint, false);
+    startWaveformClockCycles(_pins[i], duty[i], analogPeriod - duty[i], 0, i ? _pins[0] : -1, phaseShift, false);
     #else
     unsigned channel = _ledcStart + i;
-    unsigned gr = channel/8;  // high/low speed group
-    unsigned ch = channel%8;  // group channel
-    // directly write to LEDC struct as there is no HAL exposed function for dithering
-    // duty has 20 bit resolution with 4 fractional bits (24 bits in total)
-    #if defined(CONFIG_IDF_TARGET_ESP32C5) || defined(CONFIG_IDF_TARGET_ESP32C6) || defined(CONFIG_IDF_TARGET_ESP32C61) || defined(CONFIG_IDF_TARGET_ESP32P4)
-    // TODO: we need a full rewrite of the "analog LEDs" driver!
-    //   see https://github.com/wled/WLED/pull/5048#discussion_r2794185845
-
-    // the .duty_init.duty member seems to only affect fade operations, and its necessary to also trigger an update with
-    // LEDC.channel_group[gr].channel[ch].conf0.para_up = 1;
-    // --> research latest (V5.5.x) esp-idf documentation on how to set the duty cycle registers (by API calls?).
-    //    https://docs.espressif.com/projects/esp-idf/en/v5.5.2/esp32c5/api-reference/peripherals/ledc.html#_CPPv424ledc_set_duty_and_update11ledc_mode_t14ledc_channel_t8uint32_t8uint32_t
-    //   LEDC.channel_group[gr].channel[ch].duty_init.duty = duty << ((!dithering)*4);  // C5 LEDC struct uses duty_init, but requires additional steps to activate
-    // TODO: find out if / how dithering support can be implemented on P4
-    ledc_set_duty_and_update((ledc_mode_t)gr, (ledc_channel_t)ch, duty >> bitShift, hPoint >> bitShift);
+    unsigned gr = channel / SOC_LEDC_CHANNEL_NUM;  // high/low speed group
+    unsigned ch = channel % SOC_LEDC_CHANNEL_NUM;  // group channel
+    // directly write to LEDC struct as there is no HAL exposed function for dithering, lowest four duty bits are used for dithering if set
+    #if defined(CONFIG_IDF_TARGET_ESP32C5) || defined(CONFIG_IDF_TARGET_ESP32C61) || defined(CONFIG_IDF_TARGET_ESP32P4)
+    LEDC.channel_group[gr].channel[ch].duty_init.duty = duty[i] << ((!dithering)*4); // C5/C61/P4 name the duty register "duty_init"
     #else
-    LEDC.channel_group[gr].channel[ch].duty.duty = duty << ((!dithering)*4);  // lowest 4 bits are used for dithering, shift by 4 bits if not using dithering
-    LEDC.channel_group[gr].channel[ch].hpoint.hpoint = hPoint >> bitShift;    // hPoint is at _depth resolution (needs shifting if dithering)
+    LEDC.channel_group[gr].channel[ch].duty.duty = duty[i] << ((!dithering)*4);   // lowest 4 bits are used for dithering, shift by 4 bits if not using dithering
+    #endif
+    unsigned hpoint = duty[i] < maxBri ? phaseShift >> bitShift : 0; // do not shift if fully on (causes duty reduction in LEDC without duty wraparound support)
+    LEDC.channel_group[gr].channel[ch].hpoint.hpoint = hpoint; // phaseShift is at _depth resolution, needs shifting if dithering
     ledc_update_duty((ledc_mode_t)gr, (ledc_channel_t)ch);
-    #endif // ESP32C5
     #endif // 8266
-
-    if (!_reversed) hPoint += duty;
-    hPoint += deadTime;        // offset to cascade the signals
-    if (hPoint >= maxBri) hPoint -= maxBri; // offset is out of bounds, reset
+    runningDuty += duty[i];
+    if (pulseGap > 0) runningDuty += pulseGap; // note: calulation of pulseGap ensures runningDuty+duty[i] <= maxBri
   }
 }
 
@@ -1576,7 +1616,7 @@ uint8_t PolyBus::_2PchannelsAssigned = 0;
 #endif
 // Bus static member definition
 int16_t Bus::_cct = -1;     // -1 means use approximateKelvinFromRGB(), 0-255 is standard, >1900 use colorBalanceFromKelvin()
-int8_t  Bus::_cctBlend = 0; // -128 to +127
+int8_t  Bus::_cctBlend = 0; // -128 to +127 mapped from UI input of -100 to + 100 (percent)
 uint8_t Bus::_gAWM = 255;
 
 uint16_t BusDigital::_milliAmpsTotal = 0;
