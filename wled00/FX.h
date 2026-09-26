@@ -423,6 +423,7 @@ extern byte realtimeMode;           // used in getMappedPixelIndex()
 // transition flags (scope and target state of a power transition)
 #define TRANSITION_FLAG_POWER        0x01  // power (on/off) transition
 #define TRANSITION_FLAG_POWER_ON     0x02  // target state is "on"
+#define TRANSITION_FLAG_REVERSED     0x04  // use inverse spatial transition if set (e.g. swipe left -> swipe right)
 
 
 
@@ -663,6 +664,7 @@ class Segment {
     inline bool     isPowerTransition()    const { return isInTransition() && (_t->_flags & TRANSITION_FLAG_POWER) && _t->_oldSegment != nullptr; }
     inline bool     isPowerOffTransition() const { return isPowerTransition() && !(_t->_flags & TRANSITION_FLAG_POWER_ON); } // spatial to off
     inline bool     isPowerOnTransition()  const { return isPowerTransition() && (_t->_flags & TRANSITION_FLAG_POWER_ON); }  // spatial to on
+    inline bool     isTransitionReversed() const { return isInTransition() && (_t->_flags & TRANSITION_FLAG_REVERSED); }
     inline bool     isActive()             const { return stop > start && pixels; }
     inline bool     hasRGB()               const { return _isRGB; }
     inline bool     hasWhite()             const { return _hasW; }
@@ -729,7 +731,7 @@ class Segment {
     inline void setPixelColor(float i, uint8_t r, uint8_t g, uint8_t b, uint8_t w = 0, bool aa = true) const { setPixelColor(i, RGBW32(r,g,b,w), aa); }
     inline void setPixelColor(float i, CRGB c, bool aa = true) const                                         { setPixelColor(i, RGBW32(c.r,c.g,c.b,0), aa); }
     #endif
-    [[gnu::hot]] bool isPixelClipped(int i) const;
+    [[gnu::hot]] bool isPixelClipped(int i, uint8_t style) const;
     [[gnu::hot]] uint32_t getPixelColor(int i) const;
     // 1D support functions (some implement 2D as well)
     void blur(uint8_t, bool smear = false) const;
@@ -776,7 +778,7 @@ class Segment {
     inline void setPixelColorXY(float x, float y, byte r, byte g, byte b, byte w = 0, bool aa = true) const { setPixelColorXY(x, y, RGBW32(r,g,b,w), aa); }
     inline void setPixelColorXY(float x, float y, CRGB c, bool aa = true) const                             { setPixelColorXY(x, y, RGBW32(c.r,c.g,c.b,0), aa); }
     #endif
-    [[gnu::hot]] bool isPixelXYClipped(int x, int y) const;
+    [[gnu::hot]] bool isPixelXYClipped(int x, int y, uint8_t style) const;
     [[gnu::hot]] uint32_t getPixelColorXY(int x, int y) const;
     // 2D support functions
     inline void blendPixelColorXY(uint16_t x, uint16_t y, uint32_t color, uint8_t blend) const { setPixelColorXY(x, y, color_blend(getPixelColorXY(x,y), color, blend)); }
@@ -813,7 +815,7 @@ class Segment {
     inline void setPixelColorXY(float x, float y, byte r, byte g, byte b, byte w = 0, bool aa = true) { setPixelColor(x, RGBW32(r,g,b,w), aa); }
     inline void setPixelColorXY(float x, float y, CRGB c, bool aa = true) const     { setPixelColor(x, RGBW32(c.r,c.g,c.b,0), aa); }
     #endif
-    inline bool isPixelXYClipped(int x, int y)                                    { return isPixelClipped(x); }
+    inline bool isPixelXYClipped(int x, int y, uint8_t style)                     { return isPixelClipped(x, style); }
     inline uint32_t getPixelColorXY(int x, int y)                                 { return getPixelColor(x); }
     inline void blendPixelColorXY(uint16_t x, uint16_t y, uint32_t c, uint8_t blend) { blendPixelColor(x, c, blend); }
     inline void blendPixelColorXY(uint16_t x, uint16_t y, CRGB c, uint8_t blend)  { blendPixelColor(x, RGBW32(c.r,c.g,c.b,0), blend); }
