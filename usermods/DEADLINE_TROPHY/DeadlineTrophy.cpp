@@ -37,9 +37,14 @@ namespace DeadlineTrophy {
 
     void overwriteConfig()
     {
+        bool useV2 = false;
+        #if DEADLINE_CONFIG_VERSION == 2026
+          useV2 = true;
+        #endif;
+
         // Usermods usually only care about their own stuff, but then again:
-        // "You're remembered for the rules you break" - Stockton Rush
-        DEBUG_PRINTLN(F("[USE_DEADLINE_CONFIG] Overwrite config by Deadline Trophy hard-coded values."));
+        // "You're remembered for the rules you break" - Stockton Rush, OceanGate CEO
+        DEBUG_PRINTF("[USE_DEADLINE_CONFIG] Overwrite config by hard-coded Trophy values. useV2=%d\n", useV2);
 
         strip.isMatrix = true;
 
@@ -58,7 +63,7 @@ namespace DeadlineTrophy {
             N_LEDS_LOGO,
             start,
             PIN_LOGO_DATA,
-            PIN_LOGO_CLOCK
+            useV2 ? PIN_LOGO_CLOCK_V2 : PIN_LOGO_CLOCK_V1
         ));
         start += N_LEDS_LOGO;
         busConfigs.emplace_back(createBus(

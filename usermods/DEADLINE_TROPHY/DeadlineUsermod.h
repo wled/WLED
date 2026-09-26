@@ -8,8 +8,8 @@ class DeadlineUsermod : public Usermod
 public:
 
     static const int PIN_LOGOTHERM = 35;
-    static const int PIN_INPUTVOLTAGE = 33;
-    // static const int PIN_VCAP = 32; // unused, it seems
+    static const int PIN_INPUTVOLTAGE_V1 = 33;
+    static const int PIN_INPUTVOLTAGE_V2 = 36;
 
     // for the analogRead(), average over some samples to smoothen fluctuations.
     static const int AVERAGE_SAMPLES = 10;
@@ -100,11 +100,13 @@ private:
     bool hasEnoughSamples = false;
     int sampleCursor = 0;
     float currentLogoTempKelvin = 0.;
-    float maxLogoTempKelvin = 0.;
-    float minLogoTempKelvin = 9999.;
 
     uint16_t val_inputVolt[AVERAGE_SAMPLES];
     float currentInputVoltage = 0.;
+
+    // for troubleshooting
+    float maxLogoTempKelvin = 0.;
+    float minLogoTempKelvin = 9999.;
     float maxInputVoltage = 0.;
     float minInputVoltage = 9999.;
 
@@ -148,6 +150,8 @@ private:
     float attenuateByT_attackFactorWhenCritical = 0.2;
     float attenuateByT_releasePerSecond = 0.002;
 
+    HardwareVersion hwVersion = HardwareVersion::V1;
+
 public:
 
     void setup()
@@ -175,11 +179,18 @@ public:
         attenuateFactor = 0.;
         BusManager::setMilliampsMax(static_cast<uint16_t>(maxCurrent));
 
-        // 12-bit ADC is the default, but let's go sure (do we need? no idea.)
         analogSetWidth(12);
 
-        // set InputCurrentSwitch to zero.
-        dacWrite(DAC1, 0);
+        if (digitalRead(PIN_INPUTVOLTAGE_V1) == LOW) {
+            hwVersion = HardwareVersion::V2;
+        } else {
+            hwVersion = HardwareVersion::V1;
+        }
+
+        if (hwVersion == HardwareVersion::V1) {
+            // set InputCurrentSwitch to zero.
+            dacWrite(DAC1, 0);
+        }
 
         // precalc the coordinates so their first usage doesn't totally lag
         DeadlineTrophy::logoCoordinates();
@@ -203,17 +214,15 @@ public:
         attenuateFactor = calcMaxCurrentLimiter(elapsedSec);
 
         readAnalogValues();
-        if (!hasEnoughSamples)
+        if (!hasEnoughSamples) {
             return;
+        }
 
         calcInputVoltage();
         calcLogoTherm();
 
-        if (inputVoltageWasReachedOnce) {
-            setInputCurrentSwitch(runningSec);
-        }
+        setInputCurrentSwitch_onlyV1(runningSec);
 
-        // these are for debugging
         if (currentLogoTempKelvin > maxLogoTempKelvin) {
             maxLogoTempKelvin = currentLogoTempKelvin;
         }
@@ -234,7 +243,10 @@ public:
         return static_cast<uint8_t>(static_cast<float>(brightness) * attenuateFactor);
     }
 
-    void setInputCurrentSwitch(float runningSec) {
+    void setInputCurrentSwitch_onlyV1(float runningSec) {
+        if (hwVersion != HardwareVersion::V1) {
+            return;
+        }
         if (!inputVoltageWasReachedOnce) {
             return;
         }
@@ -260,12 +272,19 @@ public:
         return avg / AVERAGE_SAMPLES;
     }
 
+    int readInputVoltage() const {
+        int pin = hwVersion == HardwareVersion::V2
+            ? PIN_INPUTVOLTAGE_V2
+            : PIN_INPUTVOLTAGE_V1;
+        return analogRead(pin);
+    }
+
     void readAnalogValues()
     {
         // read with a delay, as ppl on se internet do it - they must know =P
         val_logoTherm[sampleCursor] = analogRead(PIN_LOGOTHERM);
         delay(10);
-        val_inputVolt[sampleCursor] = analogRead(PIN_INPUTVOLTAGE);
+        val_inputVolt[sampleCursor] = readInputVoltage();
         delay(10);
 
         sampleCursor++;
@@ -300,10 +319,10 @@ public:
     }
 
     float calcMaxCurrentLimiter(float dt) {
-
         if (!hasEnoughSamples) {
             return 0;
         }
+
         if (!inputVoltageWasReachedOnce) {
             if (currentInputVoltage > limit_inputVoltageThreshold) {
                 DEBUG_PRINTF("[DEADLINE_TROPHY] reached for the first time at %.2f\n", runningSec);
