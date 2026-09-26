@@ -4,7 +4,8 @@
 #include "DeadlineTrophyAlgebra.h"
 
 const int PIN_LOGO_DATA = 21;
-const int PIN_LOGO_CLOCK = 22;
+const int PIN_LOGO_CLOCK_V1 = 22;
+const int PIN_LOGO_CLOCK_V2 = 22;
 const int PIN_BASE_DATA = 19;
 const int PIN_BASE_CLOCK = 18;
 const int PIN_BACK_SPOT = 26;
@@ -215,6 +216,11 @@ namespace DeadlineTrophy {
         CRGB& grade(CRGB& color, float exponent);
         long measureMicros();
         void fillLogoArray(const uint8_t* pixels, size_t nPixels, uint32_t color, float mixing = 1., bool debug = false);
+    }
+
+    enum class HardwareVersion {
+        V1, // Deadline 2025 Trophy
+        V2, // Deadline 2025 Trophy
     }
 
 }
