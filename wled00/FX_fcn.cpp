@@ -369,8 +369,8 @@ void Segment::startTransition(uint16_t dur, uint8_t kind) {
       if (segmentCopy && _t->_oldSegment == nullptr) {
         // no old segment means a fade transition is going on (color, palette, opacity, cct), capture current state into the old segment
         if (createOldSegment(_t->_progress)) {
-          _t->_start = millis(); // start spatial transition (fading continues on current segment)
-          _t->_dur   = dur;
+          _t->_spatialStart = millis(); // start spatial transition (fading continues on current segment)
+          _t->_spatialDur   = dur;
           DEBUGFX_PRINTF_P(PSTR("-- Updated transition with segment copy: S=%p T(%p) O[%p] OP[%p]\n"), this, _t, _t->_oldSegment, _t->_oldSegment->pixels);
         } else {
           // not enough RAM for segment copy: degrade to pure fade instead of dropping the transition
@@ -386,7 +386,7 @@ void Segment::startTransition(uint16_t dur, uint8_t kind) {
           loadPalette(_t->_palT, palette);
         }
         captureBlend(millis()); // restart fade channel from the current visual state
-        if (segmentCopy) _t->_fadeDur = (_t->_dur * _t->_progress) / 0xFFFFU; // if this is a deferred spatial request align fade time with ongoing spatial channel
+        if (segmentCopy) _t->_fadeDur = (_t->_spatialDur * _t->_progress) / 0xFFFFU; // if this is a deferred spatial request align fade time with ongoing spatial channel
       }
       return;
     }
@@ -396,8 +396,8 @@ void Segment::startTransition(uint16_t dur, uint8_t kind) {
       if (targetOn == ((_t->_flags & TRANSITION_FLAG_POWER_ON) != 0)) return; // same target re-issued, let the running transition finish
       if (blendingStyle != TRANSITION_FADE) {
         // already in a power transition reverse in place: invert the spatial timeline (20%-completed swipe continues from 80%)
-        _t->_dur = dur;
-        _t->_start = millis() - (((unsigned)(0xFFFFU - _t->_progress) * dur) / 0xFFFFU);
+        _t->_spatialDur = dur;
+        _t->_spatialStart = millis() - (((unsigned)(0xFFFFU - _t->_progress) * dur) / 0xFFFFU);
         _t->_fadeDur = 0; // disable fading (any ongoing fade completes immediately)
         createOldSegment(0xFFFFU); // create a fresh copy from the final state which is currently displayed
       } else captureBlend(millis()); // capture current fade status and restart fade when toggling
@@ -417,17 +417,17 @@ void Segment::startTransition(uint16_t dur, uint8_t kind) {
       captureBlend(millis()); // rebase transition values to current visual blend before starting the new power transition
       if (segmentCopy) {
         if (createOldSegment(0xFFFFU)) { // spatial transition, need a fresh copy (colors as-is, old side captures the current transition brightness)
-          _t->_start = millis();
-          _t->_dur   = dur;
+          _t->_spatialStart = millis();
+          _t->_spatialDur   = dur;
           _t->_fadeDur = 0; // non-fade power transition, do not fade anything but reveal the final state (same as a fresh power start)
           DEBUGFX_PRINTF_P(PSTR("-- Restarted power transition: S=%p T(%p) O[%p] OP[%p]\n"), this, _t, _t->_oldSegment, _t->_oldSegment->pixels);
         } else {
           // not enough RAM for segment copy: degrade to pure fade (restarted above) instead of dropping the transition
-          _t->_start = 0; // disables the spatial channel and uses fade instead
+          _t->_spatialStart = 0; // disables the spatial channel and uses fade instead
         }
       } else {
         // FADE blending: the fade channel (restarted above) carries the power transition
-        _t->_start = 0; // FADE blending: disables the spatial channel and uses fade instead
+        _t->_spatialStart = 0; // FADE blending: disables the spatial channel and uses fade instead
       }
       _t->_flags = TRANSITION_FLAG_POWER | (targetOn ? TRANSITION_FLAG_POWER_ON : 0);
     }
@@ -449,7 +449,7 @@ void Segment::startTransition(uint16_t dur, uint8_t kind) {
     if (_t->_oldSegment) {
       DEBUGFX_PRINTF_P(PSTR("-- Started transition: S=%p T(%p) O[%p] OP[%p]\n"), this, _t, _t->_oldSegment, _t->_oldSegment->pixels);
     } else {
-      _t->_start = 0; // disables the spatial channel and use fade i.e. enable fadeTransitionActive()
+      _t->_spatialStart = 0; // disables the spatial channel and use fade i.e. enable fadeTransitionActive()
       DEBUGFX_PRINTF_P(PSTR("-- Started transition without old segment: S=%p T(%p)\n"), this, _t);
     }
   }
@@ -466,8 +466,8 @@ void Segment::stopTransition() {
 void Segment::updateTransitionProgress() const {
   if (isInTransition()) {
     _t->_progress = _t->_fadeProgress = 0xFFFF;
-    unsigned diff = millis() - _t->_start;
-    if (_t->_dur > 0 && diff < _t->_dur) _t->_progress = diff * 0xFFFFU / _t->_dur;
+    unsigned diff = millis() - _t->_spatialStart;
+    if (_t->_spatialDur > 0 && diff < _t->_spatialDur) _t->_progress = diff * 0xFFFFU / _t->_spatialDur;
     diff = millis() - _t->_fadeStart;
     if (_t->_fadeDur > 0 && diff < _t->_fadeDur) _t->_fadeProgress = diff * 0xFFFFU / _t->_fadeDur;
   }
