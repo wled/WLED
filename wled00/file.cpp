@@ -396,18 +396,18 @@ bool readNextIntFromFile(File &f, int &value) {
       }
       break; // number complete
     } else if (c == ']') {
-      if (foundDigit) return true; // leave ']' available for the next call to terminate with "false"
+      if (foundDigit) break; // leave ']' available for the next call to terminate with "false"
       f.read();                    // consume array terminator (support multiple arrays in a file)
       return false;
     } else if (foundDigit) {
       // number followed by a char/whitespace - malformed, skip everything up to the next ',' or ']'
       while (f.available()) {
         char d = (char)f.peek();
-        if (d == ',') { f.read(); return true; } // consume the ','
-        if (d == ']') { return true; } // leave ']' for the next call to terminate the array
-        f.read();
+        if (d == ',') { f.read(); break; } // consume the ','
+        if (d == ']') { break; } // leave ']' for the next call to terminate the array
+        f.read(); // consume malformed char
       }
-      return true; // EOF but we have a number, let the next call return false
+      break; // might be EOF, but we have foundDigit, let the next call handle termination
     }
     f.read(); // consume the peeked character
   }
