@@ -346,8 +346,6 @@ void Segment::startTransition(uint16_t dur, uint8_t kind) {
     _t->_fadeDur   = dur;
     _t->_fadeStart = fadeStart;
   };
-  // isFadeBlending returns true while the fade channel is driving color/palette blending
-//  const auto isFadeBlending = [&]() { return _t->_fadeProgress < 0xFFFFU && (blendingStyle == TRANSITION_FADE || _t->_oldSegment == nullptr || fadeTransitionActive()); };
 
   // create a copy of the current segment to be used for spatial transitions (FX, palette, color, opacity, CCT)
   const auto createOldSegment = [&](uint16_t colorProgress) {
@@ -368,7 +366,7 @@ void Segment::startTransition(uint16_t dur, uint8_t kind) {
       // opacity/CCT/color/palette/FX change: rebase fades to the current visual blend and restart it (no jump). A running spatial transition continues
       if (segmentCopy && _t->_oldSegment == nullptr) {
         // no old segment means a fade transition is going on (color, palette, opacity, cct), capture current state into the old segment
-        if (createOldSegment(_t->_progress)) {
+        if (createOldSegment(_t->_fadeProgress)) {
           _t->_spatialStart = millis(); // start spatial transition (fading continues on current segment)
           _t->_spatialDur   = dur;
           DEBUGFX_PRINTF_P(PSTR("-- Updated transition with segment copy: S=%p T(%p) O[%p] OP[%p]\n"), this, _t, _t->_oldSegment, _t->_oldSegment->pixels);
@@ -378,15 +376,13 @@ void Segment::startTransition(uint16_t dur, uint8_t kind) {
         }
       }
       else if (_t->_progress > 0) {
-        // todo: isfadeblending is only used here, maybe remove it and make it explicit?
-        //if (!isFadeBlending() && _t->_oldSegment != nullptr) {
         if (!fadeTransitionActive() && _t->_oldSegment != nullptr) {
           // spatial transition with no fade running: enable fade and let the spatial transition continue. Need to capture the current "revealed" state i.e. copy segment colors to _t
           for (unsigned i = 0; i < NUM_COLORS; i++) _t->_colors[i] = colors[i]; // rebase transition colors&palette from current final state
           loadPalette(_t->_palT, palette);
         }
         captureBlend(millis()); // restart fade channel from the current visual state
-        if (segmentCopy) _t->_fadeDur = (_t->_spatialDur * _t->_progress) / 0xFFFFU; // if this is a deferred spatial request align fade time with ongoing spatial channel
+        if (segmentCopy) _t->_fadeDur = ((uint32_t)_t->_spatialDur * (0xFFFFU - _t->_progress)) / 0xFFFFU; // if this is a deferred spatial request align fade duration with ongoing spatial channel
       }
       return;
     }
