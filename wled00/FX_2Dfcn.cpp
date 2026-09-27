@@ -171,19 +171,21 @@ bool Segment::isPixelXYClipped(int x, int y, uint8_t style) const {
       const int cx   = (cStopX-cStartX+1) / 2;
       const int cy   = (cStopY-cStartY+1) / 2;
       const bool out = (style == TRANSITION_CIRCULAR_OUT);
-      const unsigned prog = out ? progress() : 0xFFFFU - progress();
+      unsigned prog = out ? progress() : 0xFFFFU - progress();
+      if (isTransitionReversed()) prog = 0xFFFFU - prog; // invert progress and invert mask -> plays animation in reverse
       int radius2    = max(cx, cy) * prog / 0xFFFF;
       radius2 = 2 * radius2 * radius2;
-      if (radius2 == 0) return out;
+      if (radius2 == 0) return isTransitionReversed() ? !out : out;
       const int dx = x - cx;
       const int dy = y - cy;
       const bool outside = dx * dx + dy * dy > radius2;
-      return out ? outside : !outside;
+      const bool clip = out ? outside : !outside;
+      return isTransitionReversed() ? !clip : clip;
     }
     bool xInside = (x >= cStartX && x < cStopX); if (invertX) xInside = !xInside;
     bool yInside = (y >= cStartY && y < cStopY); if (invertY) yInside = !yInside;
-    const bool clip = style == TRANSITION_OUTSIDE_IN ? xInside || yInside : xInside && yInside;
-    return !clip;
+    const bool notclipped = style == TRANSITION_OUTSIDE_IN ? xInside || yInside : xInside && yInside;
+    return isTransitionReversed() ? notclipped : !notclipped;
   }
   return false;
 }
