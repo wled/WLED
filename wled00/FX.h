@@ -529,7 +529,7 @@ class Segment {
       CRGBPalette16 _palT;                // temporary palette (slowly being morphed from old to new)
       uint16_t      _spatialDur;          // duration of spatial channel in ms
       uint16_t      _fadeDur;             // duration of fade channel in ms
-      uint16_t      _progress;            // spatial channel progress (0-65535); pre-calculated in updateTransitionProgress()
+      uint16_t      _spatialProgress;            // spatial channel progress (0-65535); pre-calculated in updateTransitionProgress()
       uint16_t      _fadeProgress;        // fade channel progress (0-65535)
       uint8_t       _prevPaletteBlends;   // number of previous palette blends (there are max 255 blends possible)
       uint8_t       _palette, _bri, _cct; // palette ID, brightness and CCT at the start of fade channel (brightness will be 0 if segment was off)
@@ -542,7 +542,7 @@ class Segment {
       , _palT(CRGBPalette16())
       , _spatialDur(dur)
       , _fadeDur(dur)
-      , _progress(0)
+      , _spatialProgress(0)
       , _fadeProgress(0)
       , _prevPaletteBlends(0)
       , _palette(0)
@@ -573,6 +573,7 @@ class Segment {
     void stopTransition();                  // ends transition mode by destroying transition structure (does nothing if not in transition)
     void updateTransitionProgress() const;  // sets transition progress (0-65535) based on time passed since transition start
     void handleTransition();                // handles transition progress and ends transitions when completed
+    inline static uint16_t invertProgress(uint16_t prog) { return 0xFFFFU - prog; };
     inline static void modeBlend(bool blend)  { Segment::_modeBlend = blend; }  // for isPreviousMode()
     inline static void setClippingRect(int startX, int stopX, int startY = 0, int stopY = 1) { _clipStart = startX; _clipStop = stopX; _clipStartY = startY; _clipStopY = stopY; };
     inline static bool isPreviousMode()       { return Segment::_modeBlend; }    // needed for determining CCT/opacity during non-TRANSITION_FADE transition
@@ -656,7 +657,7 @@ class Segment {
     inline bool     getOption(uint8_t n)   const { return ((options >> n) & 0x01); }
     inline bool     isSelected()           const { return selected; }
     inline bool     isInTransition()       const { return _t != nullptr; }
-    inline uint16_t progress()             const { return isInTransition() ? _t->_progress : 0xFFFFU; } // spatial channel progress, relies on handleTransition()/updateTransitionProgress()
+    inline uint16_t spatialProgress()      const { return isInTransition() ? _t->_spatialProgress : 0xFFFFU; } // spatial channel progress, relies on handleTransition()/updateTransitionProgress()
     inline uint16_t fadeProgress()         const { return isInTransition() ? _t->_fadeProgress : 0xFFFFU; } // fade channel progress, relies on handleTransition()/updateTransitionProgress()
     inline unsigned long getTransitionStart() const { return isInTransition() ? _t->_spatialStart : 0; } // spatial channel start time
     inline Segment *getOldSegment()        const { return isInTransition() ? _t->_oldSegment : nullptr; }

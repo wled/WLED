@@ -162,30 +162,26 @@ bool Segment::isPixelXYClipped(int x, int y, uint8_t style) const {
       if (len < 2) return false;
       const unsigned shuffled = hashInt(x + y * width) % len;
       const unsigned pos = (shuffled * 0xFFFFU) / len;
-      if (isTransitionReversed()) {
-        return (0xFFFFU - progress()) > pos; // invert progress and invert mask -> plays animation in reverse
-      }
-      return progress() <= pos;
+      return spatialProgress() <= pos;
     }
     if (style == TRANSITION_CIRCULAR_IN || style == TRANSITION_CIRCULAR_OUT) {
       const int cx   = (cStopX-cStartX+1) / 2;
       const int cy   = (cStopY-cStartY+1) / 2;
       const bool out = (style == TRANSITION_CIRCULAR_OUT);
-      unsigned prog = out ? progress() : 0xFFFFU - progress();
-      if (isTransitionReversed()) prog = 0xFFFFU - prog; // invert progress and invert mask -> plays animation in reverse
+      unsigned prog = out ? spatialProgress() : invertProgress(spatialProgress());
       int radius2    = max(cx, cy) * prog / 0xFFFF;
       radius2 = 2 * radius2 * radius2;
-      if (radius2 == 0) return isTransitionReversed() ? !out : out;
+      if (radius2 == 0) return out;
       const int dx = x - cx;
       const int dy = y - cy;
       const bool outside = dx * dx + dy * dy > radius2;
       const bool clip = out ? outside : !outside;
-      return isTransitionReversed() ? !clip : clip;
+      return clip;
     }
     bool xInside = (x >= cStartX && x < cStopX); if (invertX) xInside = !xInside;
     bool yInside = (y >= cStartY && y < cStopY); if (invertY) yInside = !yInside;
     const bool notclipped = style == TRANSITION_OUTSIDE_IN ? xInside || yInside : xInside && yInside;
-    return isTransitionReversed() ? notclipped : !notclipped;
+    return !notclipped;
   }
   return false;
 }
