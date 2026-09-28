@@ -158,6 +158,7 @@ See docs/cpp.instructions.md section Error Handling for more information.
 Background Info:
 
 - PSRAM access is up to 15× slower than DRAM on ESP32 (dual-SPI bus), 3–10× slower than DRAM on ESP32-S3/-S2 with quad-SPI bus. On ESP32-S3 with octal PSRAM (`CONFIG_SPIRAM_MODE_OCT`), the penalty is smaller (~2×) because the 8-line DTR bus can transfer 8 bits in parallel. On ESP32-P4 with hex PSRAM (`CONFIG_SPIRAM_MODE_HEX`), the 16-line bus runs at 200 MHz which brings it on-par with DRAM.
+- Caching files in PSRAM is usually not faster, because flash and PSRAM share the same SPI bus and often run at same speeds. Minor gains are still possible on ESP32-S3 when CONFIG_SOC_PSRAM_DMA_CAPABLE and CONFIG_SPIRAM_MODE_OCT are enabled. Better performance potential is expected on ESP32-P4 with CONFIG_SOC_MEMSPI_FLASH_PSRAM_INDEPENDENT. In special cases, file caching can still help by reducing interrupt contention (for example RMT refill pressure) and preventing visible LED flashing.
 - Consider that ESP32 often crashes when the largest available DRAM chunk gets below 10 KB.
 
 ### Preprocessor / Feature Flags
