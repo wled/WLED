@@ -6,44 +6,57 @@ static const char _data_FX_MODE_POV_IMAGE[] PROGMEM = "POV Image@!;;;;";
 static POV s_pov;
 
 void mode_pov_image(void) {
+  // This effect displays columns from a BMP image for horizontal POV
+  // All logic is handled here to ensure it only runs when this effect is selected
   Segment& mainseg = strip.getMainSegment();
   const char* segName = mainseg.name;
   if (!segName) {
-     return;
-   }
+    return;
+  }
+  
   // Only proceed for files ending with .bmp (case-insensitive)
   size_t segLen = strlen(segName);
   if (segLen < 4) return;
   const char* ext = segName + (segLen - 4);
-  // compare case-insensitive to ".bmp"
-  if (!((ext[0]=='.') &&
-        (ext[1]=='b' || ext[1]=='B') &&
-        (ext[2]=='m' || ext[2]=='M') &&
-        (ext[3]=='p' || ext[3]=='P'))) {
-    return;
+  
+  if ((ext[0] == '.') &&
+      (ext[1] == 'b' || ext[1] == 'B') &&
+      (ext[2] == 'm' || ext[2] == 'M') &&
+      (ext[3] == 'p' || ext[3] == 'P')) {
+    
+    const char* current = s_pov.getFilename();
+    
+    // If image is already loaded and matches, show next column
+    if (current && strcmp(segName, current) == 0) {
+      s_pov.showNextColumn();
+      return;
+    }
+    
+    // Image is loaded but doesn't match, or not loaded yet
+    // If we have a different image loaded, keep displaying it while trying the new one
+    if (current) {
+      s_pov.showNextColumn();
+    }
+    
+    // Try to load the new image (rate limited)
+    static unsigned long s_lastLoadAttemptMs = 0;
+    unsigned long nowMs = millis();
+    // Try to load at most twice per second
+    if (nowMs - s_lastLoadAttemptMs >= 500) {
+      s_lastLoadAttemptMs = nowMs;
+      if (s_pov.loadImage(segName)) {
+        // Successfully loaded, show first column
+        s_pov.showNextColumn();
+      }
+      // If load fails, we'll keep displaying old image and retry on next call
+    }
   }
-
-  const char* current = s_pov.getFilename();
-  if (current && strcmp(segName, current) == 0) {
-     s_pov.showNextLine();
-     return;
-   }
-
-  static unsigned long s_lastLoadAttemptMs = 0;
-  unsigned long nowMs = millis();
-  // Retry at most twice per second if the image is not yet loaded.
-  if (nowMs - s_lastLoadAttemptMs < 500) return;
-  s_lastLoadAttemptMs = nowMs;
-  s_pov.loadImage(segName);
-  return;
 }
 
 class PovDisplayUsermod : public Usermod {
 protected:
   bool enabled = false; //WLEDMM
   const char *_name; //WLEDMM
-  bool initDone = false; //WLEDMM
-  unsigned long lastTime = 0; //WLEDMM
 public:
 
   PovDisplayUsermod(const char *name, bool enabled)
@@ -51,19 +64,9 @@ public:
   
   void setup() override {
     strip.addEffect(255, &mode_pov_image, _data_FX_MODE_POV_IMAGE);
-    //initDone removed (unused)
   }
 
-
   void loop() override {
-    // if usermod is disabled or called during strip updating just exit
-    // NOTE: on very long strips strip.isUpdating() may always return true so update accordingly
-    if (!enabled || strip.isUpdating()) return;
-
-    // do your magic here
-    if (millis() - lastTime > 1000) {
-      lastTime = millis();
-    }
   }
 
   uint16_t getId() override {
