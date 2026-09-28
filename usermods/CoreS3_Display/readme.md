@@ -28,6 +28,7 @@ This project runs the WLED v17 series natively on M5Stack CoreS3 and combines<br
 - Safe Shutdown using the AXP2101 Power Key
 - LED BLACK frame before hard power-off
 - Restore of the previous LED state when Safe Shutdown is canceled
+- ESP32-S3 / NeoPixelBus RMT DMA1024, failed-channel guard, and LCD/GDMA runtime-rebuild stabilization
 - Browser capture of the current LCD as a BMP image
 
 ---
@@ -217,7 +218,7 @@ Audio Reactive definitions:
 
 ```text
 UM_AUDIOREACTIVE_ENABLE
-SR_DMTYPE=7
+SR_DMTYPE=10
 ```
 
 GPIO0 is used for the ES7210 MCLK and is therefore excluded from the WLED physical Button configuration.
@@ -239,7 +240,7 @@ Copy it to the WLED repository root and rename it to:
 platformio_override.ini
 ```
 
-The example includes the CoreS3 environment, Quad PSRAM settings, CoreS3 usermods, and Audio Reactive definitions.
+The example includes the CoreS3 environment, Quad PSRAM settings, CoreS3 usermods, Audio Reactive definitions, and the NeoPixelBus patch pre-script.
 
 ## Build
 
@@ -278,6 +279,55 @@ Upload the `m5stack_cores3` environment from PlatformIO.
 
 If another serial monitor or program is holding the COM port open, close it before Upload.
 
+
+---
+
+## NeoPixelBus / RMT DMA1024 + LCD/GDMA Patches
+
+Hardware testing with ESP32-S3 + NeoPixelBus RMT output found an intermittent condition where pixels beyond the configured LED Count could light unexpectedly.
+
+For ESP32-S3 RMT output, the CoreS3 build applies:
+
+```text
+RMT DMA             enabled
+mem_block_symbols   1024
+```
+
+The patch does not rely on manually editing files under `.pio/libdeps`.
+
+```text
+pio-scripts/cores3_v17_neopixelbus_patch.py
+```
+
+runs as a PlatformIO pre-script and automatically reapplies the required NeoPixelBus changes after the dependency is downloaded again.
+
+The RMT patch also guards the channel lifecycle when RMT channel allocation fails. On the currently validated ESP32-S3 / ESP-IDF / NeoPixelBus stack, multiple DMA-backed RMT outputs may exhaust the available RMT TX channel resources. A failed RMT output is therefore treated as safe for teardown instead of permanently blocking WLED bus reinitialization.
+
+For the validated three-output CoreS3 configuration, Port A / B / C were tested using the I2S driver.
+
+Example when the RMT patch is applied:
+
+```text
+[CoreS3 RMT DMA1024] applied ESP32-S3 DMA / 1024-symbol patch: ...
+```
+
+The same pre-script also applies the LCD/GDMA teardown fix used during runtime LED-bus rebuilds.
+
+When the last LCD mux bus is destroyed, the GDMA channel is stopped, reset, disconnected, and deleted before the next initialization. This prevents stale LCD peripheral ownership from causing:
+
+```text
+gdma: peripheral 5 is already used by another channel
+```
+
+during LED bus reconfiguration.
+
+Example when the LCD/GDMA patch is applied:
+
+```text
+[CoreS3 LCD GDMA] applied full GDMA teardown production patch: ...
+```
+
+The patches are idempotent and were validated with a clean NeoPixelBus dependency rebuild. Runtime LED bus Save / rebuild / software reboot was also hardware-tested with all three CoreS3 LED outputs configured for I2S.
 
 ---
 
@@ -408,6 +458,8 @@ The main files involved in CoreS3 support are:
 ```text
 WLED/
 ├─ platformio_override.ini
+├─ pio-scripts/
+│  └─ cores3_v17_neopixelbus_patch.py
 └─ usermods/
    ├─ CoreS3_Power/
    ├─ CoreS3_Display/
@@ -452,8 +504,7 @@ Adds ES7210 support for the CoreS3 built-in microphone through the standard WLED
 - The standard WLED Brightness default of 128 is not modified.
 - A starting Brightness around 64 is recommended for CoreS3.
 - Browser Screenshot returns a still BMP image; it is not a live stream.
-- On M5Stack CoreS3, saving changes to the LED bus configuration under **LED & Hardware** may temporarily report a GDMA/LCD peripheral conflict during runtime bus reinitialization.<br>
-  The CoreS3 Power usermod blanks the existing LED output, lets WLED save the new configuration, and then performs a software reboot. The saved configuration is applied normally after reboot; no additional user action is required.
+- For the validated three-output configuration, Port A / B / C use the I2S driver. Multiple DMA-backed RMT outputs may exhaust the available ESP32-S3 RMT TX channel resources.
 - DCDC OVP protection is not disabled.
 
 ---
@@ -472,7 +523,7 @@ Please refer to the upstream repository for WLED documentation, supported LED ty
 ## Licensing
 
 WLED source in this repository follows the upstream **EUPL v1.2** license.<br>
-NeoPixelBus remains licensed under **LGPL-3.0-or-later**.
+NeoPixelBus remains licensed under **LGPL-3.0-or-later**. The CoreS3 build-time patch script modifies the PlatformIO-downloaded NeoPixelBus source while preserving the upstream library license header.
 
 Refer to the repository `LICENSE` file and the respective upstream projects for complete license terms.
 
