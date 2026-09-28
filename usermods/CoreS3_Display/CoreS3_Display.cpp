@@ -172,7 +172,7 @@ class CoreS3DisplayUsermod : public Usermod {
   static constexpr uint8_t RUNTIME_HEALTH_SHOWN_POWER_SAFETY = 0x02;
   static constexpr uint8_t RUNTIME_HEALTH_SHOWN_TOUCH = 0x04;
 
-  // Give the deferred M5GFX I2C1 power-key monitor time to ARM before
+  // Give the deferred global Wire / I2C0 power-key monitor time to ARM before
   // declaring Safe Shutdown unavailable.
   static constexpr unsigned long POWER_SAFETY_WARNING_GRACE_MS = 5000;
   static constexpr unsigned long RUNTIME_HEALTH_WARNING_HOLD_MS = 2200;

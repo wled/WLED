@@ -2,10 +2,7 @@
 #ifdef ARDUINO_ARCH_ESP32
 #include "wled.h"
 #include <driver/i2s.h>
-#if defined(WLED_M5STACK_CORES3)
-#include <M5GFX.h>
-#include <driver/i2c.h>
-#endif
+
 #if defined(CONFIG_IDF_TARGET_ESP32) && (ESP_IDF_VERSION_MAJOR < 5)
 #include <driver/adc.h>  // legacy ADC driver causes bootloops in V5
 #endif
@@ -433,37 +430,6 @@ class ES7210Source : public I2SSource {
     };
 
     bool _es7210I2cWrite(uint8_t reg, uint8_t value) {
-#if defined(WLED_M5STACK_CORES3)
-      /*
-       * CoreS3 Display/Touch owns the internal GPIO12/GPIO11 bus through
-       * M5GFX on I2C_NUM_1 after display.begin(). Reuse that initialized
-       * bus instead of accessing the same pins through Arduino Wire.
-       */
-      static constexpr i2c_port_t CORES3_INTERNAL_I2C_PORT = I2C_NUM_1;
-      static constexpr uint32_t CORES3_INTERNAL_I2C_FREQUENCY = 400000;
-
-      const uint8_t data[2] = { reg, value };
-      auto result = lgfx::i2c::transactionWrite(
-        CORES3_INTERNAL_I2C_PORT,
-        ES7210_ADDR,
-        data,
-        sizeof(data),
-        CORES3_INTERNAL_I2C_FREQUENCY
-      );
-
-      if (!result.has_value()) {
-        DEBUGSR_PRINTF(
-          "AR: ES7210 CoreS3 I2C1 write failed "
-          "(addr=0x%X, reg=0x%X, val=0x%X).\n",
-          ES7210_ADDR,
-          reg,
-          value
-        );
-        return false;
-      }
-
-      return true;
-#else
       Wire.beginTransmission(ES7210_ADDR);
       Wire.write(reg);
       Wire.write(value);
@@ -483,7 +449,6 @@ class ES7210Source : public I2SSource {
       }
 
       return true;
-#endif
     }
 
     bool _es7210InitAdc() {

@@ -3,8 +3,6 @@
 #if defined(WLED_M5STACK_CORES3) && defined(CONFIG_IDF_TARGET_ESP32S3)
 
 #include <Wire.h>
-#include <M5GFX.h>
-#include <driver/i2c.h>
 #include <esp_system.h>
 
 /*
@@ -59,8 +57,6 @@ private:
   static constexpr uint8_t AW9523B_ADDR = 0x58;
   static constexpr uint8_t AXP2101_ADDR = 0x34;
 
-  static constexpr i2c_port_t CORES3_INTERNAL_I2C_PORT = I2C_NUM_1;
-  static constexpr uint32_t CORES3_INTERNAL_I2C_FREQUENCY = 400000;
 
   static constexpr uint8_t AXP2101_REG_CHIP_ID          = 0x03;
   static constexpr uint8_t AXP2101_REG_PWRON_STATUS     = 0x20;
@@ -259,29 +255,12 @@ private:
 
   bool readRuntimeRegister(uint8_t address, uint8_t reg, uint8_t& value)
   {
-    auto result = lgfx::i2c::transactionWriteRead(
-      CORES3_INTERNAL_I2C_PORT,
-      address,
-      &reg,
-      1,
-      &value,
-      1,
-      CORES3_INTERNAL_I2C_FREQUENCY
-    );
-    return result.has_value();
+    return readRegister(address, reg, value);
   }
 
   bool writeRuntimeRegister(uint8_t address, uint8_t reg, uint8_t value)
   {
-    const uint8_t data[2] = { reg, value };
-    auto result = lgfx::i2c::transactionWrite(
-      CORES3_INTERNAL_I2C_PORT,
-      address,
-      data,
-      sizeof(data),
-      CORES3_INTERNAL_I2C_FREQUENCY
-    );
-    return result.has_value();
+    return writeRegister(address, reg, value);
   }
 
   void captureBootAxpDiagnostics()
@@ -356,8 +335,7 @@ private:
     return busEnabled && boostEnabled;
   }
 
-  // Re-assert the intended ON state after CoreS3_Display/M5GFX has taken
-  // ownership of the internal I2C bus.
+  // Re-assert the intended ON state through WLED's global Wire / I2C0 bus.
   bool applyRuntimeExternal5VEnable()
   {
     uint8_t p0 = 0;
@@ -413,7 +391,7 @@ private:
     uint8_t chipId = 0;
 
     if (!readRuntimeRegister(AXP2101_ADDR, AXP2101_REG_CHIP_ID, chipId)) {
-      DEBUG_PRINTLN(F("[CoreS3_Power] Runtime power key: M5GFX I2C1 AXP2101 read FAILED"));
+      DEBUG_PRINTLN(F("[CoreS3_Power] Runtime power key: global Wire / I2C0 AXP2101 read FAILED"));
       return false;
     }
 
@@ -424,7 +402,7 @@ private:
 
     if (!runtimePowerKeyBusReadyLogged) {
       runtimePowerKeyBusReadyLogged = true;
-      DEBUG_PRINTF("[CoreS3_Power] Runtime I2C: M5GFX I2C_NUM_1 AXP2101 READY (ID=0x%02X)\n", chipId);
+      DEBUG_PRINTF("[CoreS3_Power] Runtime I2C: global Wire / I2C0 AXP2101 READY (ID=0x%02X)\n", chipId);
     }
 
     if (!readRuntimeRegister(AXP2101_ADDR, AXP2101_REG_IRQ_ENABLE_1, axpIrqEnableBefore)) return false;
@@ -458,7 +436,7 @@ private:
     lastPowerKeyPoll = millis();
 
     DEBUG_PRINTF("[CoreS3_Power] Runtime PKEY IRQEN1: 0x%02X -> 0x%02X\n", axpIrqEnableBefore, axpIrqEnableAfter);
-    DEBUG_PRINTLN(F("[CoreS3_Power] Runtime power key monitor: ARMED on M5GFX I2C1"));
+    DEBUG_PRINTLN(F("[CoreS3_Power] Runtime power key monitor: ARMED on global Wire / I2C0"));
     return true;
   }
 
@@ -800,7 +778,7 @@ private:
     if (!readRuntimeRegister(AXP2101_ADDR, AXP2101_REG_IRQ_STATUS_1, status)) {
       if (now - lastRuntimeI2CFailureLog >= 1000) {
         lastRuntimeI2CFailureLog = now;
-        DEBUG_PRINTLN(F("[CoreS3_Power] Runtime PKEY status read FAILED on M5GFX I2C1"));
+        DEBUG_PRINTLN(F("[CoreS3_Power] Runtime PKEY status read FAILED on global Wire / I2C0"));
       }
       maintainSafeShutdownBlank(now);
       return;
@@ -899,7 +877,7 @@ public:
     powerKeyMonitorReady = false;
     runtimePowerKeyMonitorAttempted = false;
 
-    DEBUG_PRINTLN(F("[CoreS3_Power] Power key monitor: DEFERRED until M5GFX I2C1 is active"));
+    DEBUG_PRINTLN(F("[CoreS3_Power] Power key monitor: DEFERRED to runtime loop on global Wire / I2C0"));
     DEBUG_PRINTLN(F("[CoreS3_Power] Safe shutdown: AXP2101 LONG IRQ primary trigger"));
     DEBUG_PRINTF("[CoreS3_Power] Safe shutdown: PRESS fallback >= %lu ms\n", SAFE_SHUTDOWN_FALLBACK_HOLD_MS);
     DEBUG_PRINTF("[CoreS3_Power] External 5V: %s\n", external5VEnableSuccess ? "ENABLED" : "FAILED");
@@ -953,7 +931,7 @@ public:
 
     JsonArray shutdownInfo = user.createNestedArray("CoreS3 Safe Shutdown");
     if (!powerKeyMonitorReady) {
-      shutdownInfo.add(runtimePowerKeyMonitorAttempted ? "Runtime M5GFX I2C1 monitor unavailable" : "Runtime M5GFX I2C1 monitor pending");
+      shutdownInfo.add(runtimePowerKeyMonitorAttempted ? "Runtime Wire / I2C0 monitor unavailable" : "Runtime Wire / I2C0 monitor pending");
     }
     else if (safeShutdownBlankActive) {
       shutdownInfo.add("BLACK output active - waiting for PMIC off");
@@ -1059,7 +1037,7 @@ REGISTER_USERMOD(coreS3PowerUsermod);
  *
  * Generic usermod CI compiles each usermod on several ESP32 targets.
  * Keep a minimal registered module on non-CoreS3 targets so the build and
- * module validation can run without compiling CoreS3-only M5GFX/I2C1 code.
+ * module validation can run without compiling CoreS3-only power code.
  */
 class CoreS3PowerUsermod : public Usermod
 {
