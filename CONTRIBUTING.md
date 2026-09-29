@@ -263,6 +263,32 @@ Within the condition, no space should be between the parenthesis and variables.
 Spaces between variables and operators are up to the authors discretion.
 There should be no space between function names and their argument parenthesis.
 
+Prefer compact function parameter lists and `if` conditions rather than putting each parameter or condition part on its own line. Wrap parameter lists only when they become very long.
+
+Not good:
+```cpp
+void setColor(
+  uint8_t red,
+  uint8_t green,
+  uint8_t blue
+);
+
+if (enabled &&
+    segment.isActive() &&
+    color != 0) {
+  setColor(red, green, blue);
+}
+```
+
+Good:
+```cpp
+void setColor(uint8_t red, uint8_t green, uint8_t blue);
+
+if (enabled && segment.isActive() && color != 0) {
+  setColor(red, green, blue);
+}
+```
+
 Good:  
 ```cpp
 if (a == b) {
