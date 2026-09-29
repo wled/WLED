@@ -28,7 +28,6 @@ M5Stack CoreS3 上で WLED v17 系をネイティブ動作させ、<br>
 - AXP2101 Power Key を使った Safe Shutdown
 - 電源OFF前に LED BLACK frame を送信
 - Safe Shutdown のキャンセル時は直前の LED 状態を復元
-- ESP32-S3 / NeoPixelBus 向け RMT DMA1024、failed-channel guard、および LCD/GDMA runtime-rebuild 安定化
 - ブラウザから現在の LCD 画面を BMP で取得
 
 ---
@@ -240,7 +239,7 @@ usermods/CoreS3_Display/platformio_override.ini.sample
 platformio_override.ini
 ```
 
-このサンプルには、CoreS3 Environment、Quad PSRAM 設定、CoreS3 Usermod、Audio Reactive 定義、および NeoPixelBus patch 用 pre-script が含まれています。
+このサンプルには、CoreS3 Environment、Quad PSRAM 設定、CoreS3 Usermod、および Audio Reactive 定義が含まれています。
 
 ## Build
 
@@ -279,53 +278,6 @@ PlatformIO から `m5stack_cores3` を Upload します。
 
 シリアルモニタなどのプログラムが COM ポートを開いている場合は、Upload 前に閉じてください。
 
-
----
-
-## NeoPixelBus / RMT DMA1024 + LCD/GDMA Patch
-
-ESP32-S3 + NeoPixelBus の RMT 出力では、LED Count より後ろのピクセルが不定期に点灯する問題を実機で確認しました。
-
-ESP32-S3 の RMT 出力に対して、CoreS3 Buildでは次の設定を適用します。
-
-```text
-RMT DMA             enabled
-mem_block_symbols   1024
-```
-
-パッチは `.pio/libdeps` のライブラリを手作業で変更する方式ではありません。
-
-```text
-pio-scripts/cores3_v17_neopixelbus_patch.py
-```
-
-を PlatformIO の pre-script として実行し、NeoPixelBus dependency を再取得した場合でも必要な修正を自動的に再適用します。
-
-RMT patch では、RMT channel の確保に失敗した場合の lifecycle も保護します。現在検証している ESP32-S3 / ESP-IDF / NeoPixelBus の組み合わせでは、DMA を使用する RMT 出力を複数同時に使用すると、利用可能な RMT TX channel resource が不足する場合があります。そのため、初期化に失敗した RMT Bus は WLED の Bus 再構築を永久待ちさせず、安全に破棄できる状態として扱います。
-
-CoreS3 の3出力構成では、Port A / B / C を I2S Driver に設定した状態で実機検証しています。
-
-RMT patch 適用時の例:
-
-```text
-[CoreS3 RMT DMA1024] applied ESP32-S3 DMA / 1024-symbol patch: ...
-```
-
-同じ pre-script では、runtime の LED Bus 再構築に使用する LCD/GDMA teardown 修正も適用します。
-
-最後の LCD mux bus を破棄する際、GDMA channel を stop / reset / disconnect / delete してから次の初期化へ進むことで、古い LCD peripheral ownership が残ることによる次のエラーを防止します。
-
-```text
-gdma: peripheral 5 is already used by another channel
-```
-
-LCD/GDMA patch 適用時の例:
-
-```text
-[CoreS3 LCD GDMA] applied full GDMA teardown production patch: ...
-```
-
-各 patch は idempotent であり、NeoPixelBus dependency を削除したクリーンな状態からの再 Build でも再適用性を確認しています。また、CoreS3 の3つの LED 出力をすべて I2S に設定した状態で、LED Bus 設定の Save / Bus 再構築 / Software Reboot について実機確認しています。
 
 ---
 
@@ -456,8 +408,6 @@ CoreS3 対応の中心は次のファイルです。
 ```text
 WLED/
 ├─ platformio_override.ini
-├─ pio-scripts/
-│  └─ cores3_v17_neopixelbus_patch.py
 └─ usermods/
    ├─ CoreS3_Power/
    ├─ CoreS3_Display/
@@ -502,7 +452,6 @@ CoreS3 内蔵マイクの ES7210 対応を、WLED 標準の Audio Reactive I2S �
 - WLED 標準 Brightness 128 は変更していません。
 - CoreS3 では Brightness 64 前後からの使用を推奨します。
 - Browser Screenshot は BMP の静止画です。ライブストリームではありません。
-- 検証済みの3出力構成では、Port A / B / C に I2S Driver を使用します。DMA を使用する RMT 出力を複数同時に使用すると、ESP32-S3 の利用可能な RMT TX channel resource が不足する場合があります。
 - DCDC OVP 保護は無効化していません。
 
 ---
@@ -515,15 +464,6 @@ https://github.com/wled/WLED
 
 WLED itself remains the upstream project.<br>
 Please also refer to the upstream repository for WLED documentation, supported LED types, API behavior, and licensing.
-
----
-
-## Licensing
-
-このリポジトリの WLED ソースは、upstream と同じ **EUPL v1.2** に従います。<br>
-NeoPixelBus は **LGPL-3.0-or-later** のままです。CoreS3 の build-time patch script は PlatformIO が取得した NeoPixelBus ソースへ修正を適用しますが、upstream library のライセンスヘッダーは保持します。
-
-完全なライセンス条件については、リポジトリの `LICENSE` と各 upstream project を参照してください。
 
 ---
 
