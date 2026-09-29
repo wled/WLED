@@ -20,6 +20,7 @@ See also: [CONTRIBUTING.md](../CONTRIBUTING.md) for general style guidelines tha
 - Single-statement `if` bodies may omit braces: `if (a == b) doStuff(a);`
 - Space between keyword and parenthesis: `if (...)`, `for (...)`. No space between function name and parenthesis: `doStuff(a)`
 - No enforced line-length limit; wrap when a line exceeds your editor width
+- Prefer compact function parameter lists and `if` conditions; avoid putting each parameter or part of a condition on its own line. Wrap very long parameter lists when needed.
 
 ## Naming
 
