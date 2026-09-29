@@ -280,17 +280,19 @@ if( a==b ){
 Prefer compact function parameter lists and `if` conditions rather than putting each parameter or condition part on its own line. Wrap parameter lists only when they become very long.
 
 Good:
+
 ```cpp
 void setColor(uint8_t red, uint8_t green, uint8_t blue);  // sets main segment color
 
 
-if (enabled && segment.isActive() && color != 0) { // only change color when the segment is enabled
+if (enabled && segment.isActive() && color != 0) { // check if modifications are allowed
   setColor(red, green, blue);
 }
 ```
 
 
 Not good:
+
 ```cpp
 void setColor (
   uint8_t red,
@@ -301,7 +303,9 @@ void setColor (
 if (enabled &&
     segment.isActive() &&
     color != 0) {
-  setColor(red, green, blue);
+  setColor(red, 
+          green, 
+          blue);
 }
 ```
 
