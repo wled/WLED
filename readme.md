@@ -88,6 +88,8 @@ Licensed under the [EUPL v1.2](https://raw.githubusercontent.com/wled-dev/WLED/m
 Credits to all [contributors](https://kno.wled.ge/about/contributors/)!  
 CORS proxy by [Corsfix](https://corsfix.com/).
 
+![CodeRabbit Pull Request Reviews](https://img.shields.io/coderabbit/prs/github/wled/WLED?utm_source=oss&utm_medium=github&utm_campaign=wled%2FWLED&labelColor=171717&color=FF570A&link=https%3A%2F%2Fcoderabbit.ai&label=PR+Reviews+supported+by+CodeRabbit)
+
 Join the Discord server to discuss everything about WLED!
 
 <a href="https://discord.gg/QAh7wJHrRM"><img src="https://discordapp.com/api/guilds/473448917040758787/widget.png?style=banner2" width="25%"></a>
