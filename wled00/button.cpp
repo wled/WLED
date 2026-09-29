@@ -11,6 +11,7 @@
 #define WLED_LONG_BRI_STEPS          16 // how much to increase/decrease the brightness with each long press repetition
 
 static_assert(WLED_LONG_PRESS_MAX < WLED_LONG_AP, "long press must not reach the AP-mode/factory-reset hold time of button 0");
+static_assert(WLED_LONG_AP < WLED_LONG_FACTORY_RESET, "AP mode hold must be shorter than factory reset hold");
 static_assert(WLED_LONG_REPEAT_DELAY > WLED_LONG_REPEATED_ACTION, "repeat delay must be longer than the repeated action interval");
 
 static const char _mqtt_topic_button[] PROGMEM = "%s/button/%d";  // optimize flash usage
