@@ -57,9 +57,11 @@ static const char CORES3_DISPLAY_CONFIG_NAME[] PROGMEM = "CoreS3_Display";
 // CoreS3_Power publishes read-only runtime health state.
 // Display consumes these signals only for user-facing warning UX; it does
 // not own or modify the power-control implementation.
+#if defined(WLED_M5STACK_CORES3) && defined(CONFIG_IDF_TARGET_ESP32S3)
 bool coreS3PowerInitializationComplete();
 bool coreS3PowerExternal5VReady();
 bool coreS3PowerSafeShutdownMonitorReady();
+#endif
 
 
 class CoreS3DisplayUsermod : public Usermod {
@@ -1938,6 +1940,7 @@ class CoreS3DisplayUsermod : public Usermod {
   }
 
   RuntimeHealthWarning getNextRuntimeHealthWarning( unsigned long now ) {
+#if defined(WLED_M5STACK_CORES3) && defined(CONFIG_IDF_TARGET_ESP32S3)
     const bool graceExpired =
       now - runtimeHealthStartMs >= POWER_SAFETY_WARNING_GRACE_MS;
 
@@ -1958,6 +1961,7 @@ class CoreS3DisplayUsermod : public Usermod {
     ) {
       return RUNTIME_HEALTH_WARNING_POWER_SAFETY;
     }
+#endif
 
     if (
       !( runtimeHealthWarningsShownMask & RUNTIME_HEALTH_SHOWN_TOUCH ) &&
