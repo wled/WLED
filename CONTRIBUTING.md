@@ -263,14 +263,14 @@ Within the condition, no space should be between the parenthesis and variables.
 Spaces between variables and operators are up to the authors discretion.
 There should be no space between function names and their argument parenthesis.
 
-Good:  
+Good:
 ```cpp
 if (a == b) {
   doStuff(a);
 }
 ```
 
-Not good:  
+Not good:
 ```cpp
 if( a==b ){
   doStuff ( a);
