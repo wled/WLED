@@ -99,6 +99,7 @@ main                # Main development trunk (daily/nightly) 17.0.0-devV5. Targe
 - K&R brace style preferred (opening brace on same line)
 - Single-statement `if` bodies may omit braces: `if (a == b) doStuff(a);`
 - Space after keywords (`if (...)`, `for (...)`), no space before function parens (`doStuff(a)`)
+- Prefer compact function parameter lists and `if` conditions; avoid putting each parameter or part of a condition on its own line. Wrap very long parameter lists when needed.
 - No enforced line-length limit
 
 ### Comments
