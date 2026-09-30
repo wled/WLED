@@ -39,7 +39,7 @@ M5Stack CoreS3 上で WLED v17 系をネイティブ動作させ、<br>
 ### Main
 
 <p align="center">
-  <img src="screenshots/main.png" width="320">
+  <img src="screenshots/main.png" alt="CoreS3 メイン操作画面" width="320">
 </p>
 
 MAIN 画面では、LED Power、Brightness、Effect、Color、Preset、およびネットワーク / バッテリー状態を確認できます。
@@ -48,8 +48,8 @@ MAIN 画面では、LED Power、Brightness、Effect、Color、Preset、および
 
 <table>
   <tr>
-    <td><img src="screenshots/effect-solid.png" width="320"></td>
-    <td><img src="screenshots/effect-rocktaves.png" width="320"></td>
+    <td><img src="screenshots/effect-solid.png" alt="CoreS3 標準エフェクト画面" width="320"></td>
+    <td><img src="screenshots/effect-rocktaves.png" alt="CoreS3 Audio Reactive エフェクト画面" width="320"></td>
   </tr>
   <tr>
     <td align="center">Standard Effect</td>
@@ -64,9 +64,9 @@ Audio Reactive Effect では、通常 Effect と異なるパラメータ構成�
 
 <table>
   <tr>
-    <td><img src="screenshots/color-c1.png" width="320"></td>
-    <td><img src="screenshots/color-c1-c2.png" width="320"></td>
-    <td><img src="screenshots/color-unused.png" width="320"></td>
+    <td><img src="screenshots/color-c1.png" alt="CoreS3 C1 カラー編集画面" width="320"></td>
+    <td><img src="screenshots/color-c1-c2.png" alt="CoreS3 C1・C2 カラー編集画面" width="320"></td>
+    <td><img src="screenshots/color-unused.png" alt="CoreS3 Color Not Used 画面" width="320"></td>
   </tr>
   <tr>
     <td align="center">C1 Edit</td>
@@ -82,9 +82,9 @@ Effect が Color Slot を使用しない場合は `COLOR NOT USED` と表示し�
 
 <table>
   <tr>
-    <td><img src="screenshots/preset.png" width="320"></td>
-    <td><img src="screenshots/preset-manage.png" width="320"></td>
-    <td><img src="screenshots/preset-save.png" width="320"></td>
+    <td><img src="screenshots/preset.png" alt="CoreS3 Preset 選択画面" width="320"></td>
+    <td><img src="screenshots/preset-manage.png" alt="CoreS3 Preset 管理画面" width="320"></td>
+    <td><img src="screenshots/preset-save.png" alt="CoreS3 新規 Preset 保存画面" width="320"></td>
   </tr>
   <tr>
     <td align="center">Preset</td>
@@ -92,8 +92,8 @@ Effect が Color Slot を使用しない場合は `COLOR NOT USED` と表示し�
     <td align="center">Save New</td>
   </tr>
   <tr>
-    <td><img src="screenshots/preset-delete.png" width="320"></td>
-    <td><img src="screenshots/preset-boot.png" width="320"></td>
+    <td><img src="screenshots/preset-delete.png" alt="CoreS3 Preset 削除画面" width="320"></td>
+    <td><img src="screenshots/preset-boot.png" alt="CoreS3 Boot Preset 設定画面" width="320"></td>
     <td></td>
   </tr>
   <tr>
@@ -210,8 +210,9 @@ CoreS3 固有 Usermod:
 ```text
 CoreS3_Power
 CoreS3_Display
-audioreactive
 ```
+
+WLED 標準の汎用 `audioreactive` Usermod も有効化し、CoreS3 内蔵マイクの ES7210 対応に使用します。
 
 Audio Reactive 用:
 
@@ -403,7 +404,8 @@ Battery status は定期更新され、常時 I2C polling し続けないよう�
 
 ## Project Structure
 
-CoreS3 対応の中心は次のファイルです。
+CoreS3 固有 Usermod は `CoreS3_Power` と `CoreS3_Display` です。
+WLED 標準の汎用 `audioreactive` Usermod には、CoreS3 構成で使用する ES7210 source も含まれます。
 
 ```text
 WLED/
@@ -440,7 +442,7 @@ WLED/
 
 ### audioreactive
 
-CoreS3 内蔵マイクの ES7210 対応を、WLED 標準の Audio Reactive I2S 経路へ追加しています。
+WLED 標準の汎用 Audio Reactive Usermod に含まれる ES7210 対応を、CoreS3 内蔵マイクで使用します。
 
 ---
 
@@ -453,17 +455,6 @@ CoreS3 内蔵マイクの ES7210 対応を、WLED 標準の Audio Reactive I2S �
 - CoreS3 では Brightness 64 前後からの使用を推奨します。
 - Browser Screenshot は BMP の静止画です。ライブストリームではありません。
 - DCDC OVP 保護は無効化していません。
-
----
-
-## Upstream
-
-This project is based on WLED:
-
-https://github.com/wled/WLED
-
-WLED itself remains the upstream project.<br>
-Please also refer to the upstream repository for WLED documentation, supported LED types, API behavior, and licensing.
 
 ---
 

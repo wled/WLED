@@ -39,7 +39,7 @@ The following images were captured directly from the CoreS3 LCD using the Browse
 ### Main
 
 <p align="center">
-  <img src="screenshots/main.png" width="320">
+  <img src="screenshots/main.png" alt="CoreS3 main control screen" width="320">
 </p>
 
 The MAIN screen provides LED Power, Brightness, Effect, Color, Preset, network status, and battery status.
@@ -48,8 +48,8 @@ The MAIN screen provides LED Power, Brightness, Effect, Color, Preset, network s
 
 <table>
   <tr>
-    <td><img src="screenshots/effect-solid.png" width="320"></td>
-    <td><img src="screenshots/effect-rocktaves.png" width="320"></td>
+    <td><img src="screenshots/effect-solid.png" alt="CoreS3 standard effect screen" width="320"></td>
+    <td><img src="screenshots/effect-rocktaves.png" alt="CoreS3 Audio Reactive effect screen" width="320"></td>
   </tr>
   <tr>
     <td align="center">Standard Effect</td>
@@ -64,9 +64,9 @@ Audio Reactive Effects can expose a different parameter set from standard Effect
 
 <table>
   <tr>
-    <td><img src="screenshots/color-c1.png" width="320"></td>
-    <td><img src="screenshots/color-c1-c2.png" width="320"></td>
-    <td><img src="screenshots/color-unused.png" width="320"></td>
+    <td><img src="screenshots/color-c1.png" alt="CoreS3 C1 color editing screen" width="320"></td>
+    <td><img src="screenshots/color-c1-c2.png" alt="CoreS3 C1 and C2 color editing screen" width="320"></td>
+    <td><img src="screenshots/color-unused.png" alt="CoreS3 color not used screen" width="320"></td>
   </tr>
   <tr>
     <td align="center">C1 Edit</td>
@@ -82,9 +82,9 @@ When the current Effect does not use a Color Slot, the UI shows `COLOR NOT USED`
 
 <table>
   <tr>
-    <td><img src="screenshots/preset.png" width="320"></td>
-    <td><img src="screenshots/preset-manage.png" width="320"></td>
-    <td><img src="screenshots/preset-save.png" width="320"></td>
+    <td><img src="screenshots/preset.png" alt="CoreS3 preset selection screen" width="320"></td>
+    <td><img src="screenshots/preset-manage.png" alt="CoreS3 preset management screen" width="320"></td>
+    <td><img src="screenshots/preset-save.png" alt="CoreS3 save new preset screen" width="320"></td>
   </tr>
   <tr>
     <td align="center">Preset</td>
@@ -92,8 +92,8 @@ When the current Effect does not use a Color Slot, the UI shows `COLOR NOT USED`
     <td align="center">Save New</td>
   </tr>
   <tr>
-    <td><img src="screenshots/preset-delete.png" width="320"></td>
-    <td><img src="screenshots/preset-boot.png" width="320"></td>
+    <td><img src="screenshots/preset-delete.png" alt="CoreS3 delete preset screen" width="320"></td>
+    <td><img src="screenshots/preset-boot.png" alt="CoreS3 boot preset screen" width="320"></td>
     <td></td>
   </tr>
   <tr>
@@ -210,8 +210,9 @@ CoreS3-specific usermods:
 ```text
 CoreS3_Power
 CoreS3_Display
-audioreactive
 ```
+
+The generic WLED `audioreactive` usermod is also enabled to provide ES7210 support for the CoreS3 built-in microphones.
 
 Audio Reactive definitions:
 
@@ -403,7 +404,8 @@ Battery status is updated periodically instead of continuously polling I2C.
 
 ## Project Structure
 
-The main files involved in CoreS3 support are:
+The CoreS3-specific usermods are `CoreS3_Power` and `CoreS3_Display`.
+The generic WLED `audioreactive` usermod also contains the ES7210 source used by the CoreS3 configuration.
 
 ```text
 WLED/
@@ -440,7 +442,7 @@ Responsibilities:
 
 ### audioreactive
 
-Adds ES7210 support for the CoreS3 built-in microphone through the standard WLED Audio Reactive I2S path.
+The generic WLED Audio Reactive usermod includes ES7210 support used by the CoreS3 built-in microphones through the standard WLED Audio Reactive I2S path.
 
 ---
 
@@ -453,17 +455,6 @@ Adds ES7210 support for the CoreS3 built-in microphone through the standard WLED
 - A starting Brightness around 64 is recommended for CoreS3.
 - Browser Screenshot returns a still BMP image; it is not a live stream.
 - DCDC OVP protection is not disabled.
-
----
-
-## Upstream
-
-This project is based on WLED:
-
-https://github.com/wled/WLED
-
-WLED itself remains the upstream project.<br>
-Please refer to the upstream repository for WLED documentation, supported LED types, API behavior, and licensing.
 
 ---
 
