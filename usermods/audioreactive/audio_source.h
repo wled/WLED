@@ -2,7 +2,6 @@
 #ifdef ARDUINO_ARCH_ESP32
 #include "wled.h"
 #include <driver/i2s.h>
-
 #if defined(CONFIG_IDF_TARGET_ESP32) && (ESP_IDF_VERSION_MAJOR < 5)
 #include <driver/adc.h>  // legacy ADC driver causes bootloops in V5
 #endif
@@ -254,8 +253,8 @@ class I2SSource : public AudioSource {
       // Reserve the master clock pin if provided
       _mclkPin = mclkPin;
       if (mclkPin != I2S_PIN_NO_CHANGE) {
-        if(!PinManager::allocatePin(mclkPin, true, PinOwner::UM_Audioreactive)) {
-          DEBUGSR_PRINTF("\nAR: Failed to allocate I2S pin: MCLK=%d\n",  mclkPin);
+        if(!PinManager::allocatePin(mclkPin, true, PinOwner::UM_Audioreactive)) { 
+          DEBUGSR_PRINTF("\nAR: Failed to allocate I2S pin: MCLK=%d\n",  mclkPin); 
           return;
         } else
         _routeMclk(mclkPin);
@@ -437,14 +436,8 @@ class ES7210Source : public I2SSource {
       uint8_t i2cErr = Wire.endTransmission();
 
       if (i2cErr != 0) {
-        DEBUGSR_PRINTF(
-          "AR: ES7210 I2C write failed with error=%d "
-          "(addr=0x%X, reg=0x%X, val=0x%X).\n",
-          i2cErr,
-          ES7210_ADDR,
-          reg,
-          value
-        );
+        DEBUGSR_PRINTF("AR: ES7210 I2C write failed with error=%d (addr=0x%X, reg=0x%X, val=0x%X).\n",
+                       i2cErr, ES7210_ADDR, reg, value);
         return false;
       }
 
@@ -453,10 +446,7 @@ class ES7210Source : public I2SSource {
 
     bool _es7210InitAdc() {
       if (_sampleRate != 22050) {
-        DEBUGSR_PRINTF(
-          "AR: ES7210 requires 22050 Hz sampling; requested %u Hz.\n",
-          (unsigned)_sampleRate
-        );
+        DEBUGSR_PRINTF("AR: ES7210 requires 22050 Hz sampling; requested %u Hz.\n", (unsigned)_sampleRate);
         return false;
       }
 
@@ -543,12 +533,7 @@ class ES7210Source : public I2SSource {
     }
 
   public:
-    ES7210Source(
-      SRate_t sampleRate,
-      int blockSize,
-      float sampleScale = 1.0f
-    ) :
-      I2SSource(sampleRate, blockSize, sampleScale) {
+    ES7210Source(SRate_t sampleRate, int blockSize, float sampleScale = 1.0f) : I2SSource(sampleRate, blockSize, sampleScale) {
 
       /*
        * ES7210 22.05 kHz uses an 11.2896 MHz master clock.
@@ -560,20 +545,11 @@ class ES7210Source : public I2SSource {
       _config.mclk_multiple = I2S_MCLK_MULTIPLE_512;
     }
 
-    void initialize(
-      int8_t i2swsPin,
-      int8_t i2ssdPin,
-      int8_t i2sckPin,
-      int8_t mclkPin
-    ) override {
+    void initialize(int8_t i2swsPin, int8_t i2ssdPin, int8_t i2sckPin, int8_t mclkPin) override {
       DEBUGSR_PRINTLN(F("ES7210Source:: initialize();"));
 
       if ((i2sckPin < 0) || (mclkPin < 0)) {
-        DEBUGSR_PRINTF(
-          "\nAR: invalid ES7210 I2S pin: SCK=%d, MCLK=%d\n",
-          i2sckPin,
-          mclkPin
-        );
+        DEBUGSR_PRINTF("\nAR: invalid ES7210 I2S pin: SCK=%d, MCLK=%d\n", i2sckPin, mclkPin);
         return;
       }
 
@@ -589,12 +565,7 @@ class ES7210Source : public I2SSource {
        *   - I2S driver lifecycle
        *   - standard sample acquisition
        */
-      I2SSource::initialize(
-        i2swsPin,
-        i2ssdPin,
-        i2sckPin,
-        mclkPin
-      );
+      I2SSource::initialize(i2swsPin, i2ssdPin, i2sckPin, mclkPin);
     }
 };
 // AI: end
