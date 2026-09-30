@@ -511,6 +511,8 @@
 			gId('psu2').innerHTML = s2;
 			gId("json").style.display = d.Sf.IT.value==8 ? "" : "none";
 			// advanced button settings only when enabled, or if invalid (a hidden invalid field would silently block saving)
+			// long-press repeat delay must be at least the repeat interval (blocks saving an invalid pair)
+			d.Sf.BRPD.setCustomValidity(parseInt(d.Sf.BRPD.value) < parseInt(d.Sf.BRPI.value) ? "Must not be shorter than the long-press repeat interval" : "");
 			let btInv = [...gId("btnAdv").querySelectorAll("input")].some(e => !e.checkValidity());
 			gId("btnAdv").style.display = (gId("btnAS").checked || btInv) ? "" : "none";
 
@@ -807,6 +809,8 @@ Swap: <select id="xw${s}" name="XW${s}">
 						if (b.dbnc !== undefined) d.getElementsByName("DB")[0].value = b.dbnc;
 						if (b.lp !== undefined) d.getElementsByName("LP")[0].value = b.lp;
 						if (b.dp !== undefined) d.getElementsByName("DP")[0].value = b.dp;
+						if (b.brpd !== undefined) d.getElementsByName("BRPD")[0].value = b.brpd;
+						if (b.brpi !== undefined) d.getElementsByName("BRPI")[0].value = b.brpi;
 					}
 					let ir = c.hw.ir;
 					if (ir) {
@@ -1105,8 +1109,10 @@ Swap: <select id="xw${s}" name="XW${s}">
 		Show Advanced Button Settings <input type="checkbox" id="btnAS" onchange="localStorage.setItem('btnASc',this.checked);UI()"><br>
 		<div id="btnAdv" style="display:none">
 			Debounce time: <input type="number" class="s" min="0" max="100" name="DB" required> ms<br>
-			Long press time: <input type="number" class="s" min="200" max="4000" name="LP" required> ms<br>
-			Double press time: <input type="number" class="s" min="100" max="1000" name="DP" required> ms<br>
+			Long-press time: <input type="number" class="s" min="200" max="4000" name="LP" required> ms<br>
+			Double-press time: <input type="number" class="s" min="100" max="1000" name="DP" required> ms<br>
+			Long-press repeat delay: <input type="number" class="s" min="100" max="4000" name="BRPD" oninput="UI()" required> ms<br>
+			Long-press repeat interval: <input type="number" class="s" min="100" max="4000" name="BRPI" oninput="UI()" required> ms<br>
 		</div><br>
 	</div>
 	<div class="sec">

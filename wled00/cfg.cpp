@@ -455,9 +455,14 @@ bool deserializeConfig(JsonObject doc, bool fromFS) {
   CJSON(buttonDebounceMs, btn_obj[F("dbnc")]);
   CJSON(buttonLongPressMs, btn_obj[F("lp")]);
   CJSON(buttonDoublePressMs, btn_obj[F("dp")]);
+  CJSON(buttonRepeatDelayMs, btn_obj[F("brpd")]);
+  CJSON(buttonRepeatIntervalMs, btn_obj[F("brpi")]);
   buttonDebounceMs = min(buttonDebounceMs, (uint16_t)WLED_DEBOUNCE_MAX);
   buttonLongPressMs = constrain(buttonLongPressMs, WLED_LONG_PRESS_MIN, WLED_LONG_PRESS_MAX);
   buttonDoublePressMs = constrain(buttonDoublePressMs, WLED_DOUBLE_PRESS_MIN, WLED_DOUBLE_PRESS_MAX);
+  buttonRepeatIntervalMs = constrain(buttonRepeatIntervalMs, WLED_LONG_REPEAT_INTERVAL_MIN, WLED_LONG_REPEAT_INTERVAL_MAX);
+  buttonRepeatDelayMs = constrain(buttonRepeatDelayMs, WLED_LONG_REPEAT_DELAY_MIN, WLED_LONG_REPEAT_DELAY_MAX);
+  buttonRepeatDelayMs = max(buttonRepeatDelayMs, buttonRepeatIntervalMs); // repeat delay must be at least the repeat interval
 
   #ifndef WLED_DISABLE_INFRARED
   int hw_ir_pin = hw["ir"]["pin"] | -2; // 4
@@ -1058,6 +1063,8 @@ void serializeConfig(JsonObject root) {
   hw_btn[F("dbnc")] = buttonDebounceMs;
   hw_btn[F("lp")] = buttonLongPressMs;
   hw_btn[F("dp")] = buttonDoublePressMs;
+  hw_btn[F("brpd")] = buttonRepeatDelayMs;
+  hw_btn[F("brpi")] = buttonRepeatIntervalMs;
 
   JsonObject hw_ir = hw.createNestedObject("ir");
   #ifndef WLED_DISABLE_INFRARED

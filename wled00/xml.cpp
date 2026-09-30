@@ -464,6 +464,8 @@ void getSettingsJS(byte subPage, Print& settingsScript)
     printSetFormValue(settingsScript,PSTR("DB"),buttonDebounceMs);
     printSetFormValue(settingsScript,PSTR("LP"),buttonLongPressMs);
     printSetFormValue(settingsScript,PSTR("DP"),buttonDoublePressMs);
+    printSetFormValue(settingsScript,PSTR("BRPD"),buttonRepeatDelayMs);
+    printSetFormValue(settingsScript,PSTR("BRPI"),buttonRepeatIntervalMs);
 #ifndef WLED_DISABLE_INFRARED
     printSetFormValue(settingsScript,PSTR("IR"),irPin);
     printSetFormValue(settingsScript,PSTR("IT"),irEnabled);

@@ -4,15 +4,12 @@
  * Physical IO
  */
 
-#define WLED_LONG_REPEAT_INTERVAL   200 // interval between repeated actions (e.g. dimming) on long press on button IDs >0
-#define WLED_LONG_REPEAT_DELAY      600 // pause after the first long press action before repeating starts on button IDs >0
 #define WLED_LONG_AP               5000 // how long button 0 needs to be held to activate WLED-AP
 #define WLED_LONG_FACTORY_RESET   10000 // how long button 0 needs to be held to trigger a factory reset
 #define WLED_LONG_BRI_STEPS          16 // how much to increase/decrease the brightness with each long press repetition
 
 static_assert(WLED_LONG_PRESS_MAX < WLED_LONG_AP, "long press must not reach the AP-mode/factory-reset hold time of button 0");
 static_assert(WLED_LONG_AP < WLED_LONG_FACTORY_RESET, "AP mode hold must be shorter than factory reset hold");
-static_assert(WLED_LONG_REPEAT_DELAY > WLED_LONG_REPEAT_INTERVAL, "repeat delay must be longer than the repeat interval");
 
 static const char _mqtt_topic_button[] PROGMEM = "%s/button/%d";  // optimize flash usage
 
@@ -314,9 +311,9 @@ void handleButton()
           if (b) buttons[b].pressedTime = now; // pause before first repeat; button 0 keeps press start for AP timing
           buttons[b].longPressed = true;
         }
-      } else if (b && now - buttons[b].pressedTime > WLED_LONG_REPEAT_DELAY) { //repeatable action (~5 times per s) on button > 0
+      } else if (b && now - buttons[b].pressedTime > buttonRepeatDelayMs) { //repeatable action on button > 0
         longPressAction(b);
-        buttons[b].pressedTime = now - (WLED_LONG_REPEAT_DELAY - WLED_LONG_REPEAT_INTERVAL); // next repeat after WLED_LONG_REPEAT_INTERVAL
+        buttons[b].pressedTime = now - (buttonRepeatDelayMs - buttonRepeatIntervalMs); // next repeat after buttonRepeatIntervalMs (delay >= interval is enforced where settings are read)
       }
 
     } else if (buttons[b].pressedBefore) { //released

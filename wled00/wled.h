@@ -650,6 +650,8 @@ WLED_GLOBAL byte touchThreshold                               _INIT(TOUCH_THRESH
 WLED_GLOBAL uint16_t buttonDebounceMs                         _INIT(50);  // only consider button input of at least this long as valid (debouncing)
 WLED_GLOBAL uint16_t buttonLongPressMs                        _INIT(600); // long press if button is held for at least this long
 WLED_GLOBAL uint16_t buttonDoublePressMs                      _INIT(350); // double press if another press follows a short press within this time
+WLED_GLOBAL uint16_t buttonRepeatDelayMs                      _INIT(600); // pause after the first long-press action before it repeats (buttons >0)
+WLED_GLOBAL uint16_t buttonRepeatIntervalMs                   _INIT(200); // interval between repeated long-press actions (buttons >0)
 
 // notifications
 WLED_GLOBAL bool sendNotifications    _INIT(false);           // master notification switch
