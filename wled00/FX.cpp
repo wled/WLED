@@ -56,7 +56,7 @@
   float    *fftBin = nullptr;
   um_data_t *um_data = getAudioData();
   volumeSmth    = *(float*)   um_data->u_data[0];
-  volumeRaw     = *(float*)   um_data->u_data[1];
+  volumeRaw     = *(int16_t*)   um_data->u_data[1];
   fftResult     =  (uint8_t*) um_data->u_data[2];
   samplePeak    = *(uint8_t*) um_data->u_data[3];
   FFT_MajorPeak = *(float*)   um_data->u_data[4];
@@ -1179,7 +1179,7 @@ void mode_running_random(void) {
   uint16_t PRNG16 = SEGENV.aux0;
 
   unsigned z = it % zoneSize;
-  bool nzone = (!z && it != SEGENV.aux1);
+  bool nzone = (!z && (it & 0xFFFF) != SEGENV.aux1);
   for (int i=SEGLEN-1; i >= 0; i--) {
     if (nzone || z >= zoneSize) {
       unsigned lastrand = PRNG16 >> 8;
@@ -1198,7 +1198,7 @@ void mode_running_random(void) {
     z++;
   }
 
-  SEGENV.aux1 = it;
+  SEGENV.aux1 = it & 0xFFFF;
 }
 static const char _data_FX_MODE_RUNNING_RANDOM[] PROGMEM = "Stream@!,Zone size;;!";
 
@@ -10965,6 +10965,8 @@ uint8_t WS2812FX::addEffect(uint8_t id, mode_ptr mode_fn, const char *mode_name)
     if (_modeCount < _mode.size()) _modeCount++;
     return _mode.size() - 1;
   } else {
+    DEBUG_PRINT(F("WARNING: effect list full, could not add effect: "));
+    DEBUG_PRINTLN(FPSTR(mode_name));
     return 255; // The vector is full so return 255
   }
 }
