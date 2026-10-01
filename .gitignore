@@ -15,6 +15,7 @@ __pycache__/
 
 esp01-update.sh
 platformio_override.ini
+AGENTS.local.md
 platformio_release.ini
 replace_fs.py
 wled-update.sh
