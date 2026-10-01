@@ -13,21 +13,13 @@
 #include "CoreS3_WLED_Logo.h"
 
 // ===========================================================
-// M5Stack Display Controller Usermod
+// M5Stack CoreS3 Display Controller Usermod
 //
 // Current verified runtime
 //   - M5Stack CoreS3
 //   - 320 x 240 display
 //   - Touch input
 //   - LCD brightness control
-//
-// Prepared hardware profiles
-//   - M5Stack Core2
-//   - M5Stack Core2 for AWS
-//
-// The Core2-family profiles remain diagnostic-only until their
-// Display / Touch / Power paths are implemented and verified on
-// real hardware.
 //
 // Responsibilities
 //   - WLED power / brightness control
@@ -42,9 +34,7 @@
 //
 // Architecture
 //   UI and WLED-state logic are kept separate from the thin
-//   Display / Touch / brightness hardware-access boundary so the
-//   same controller behavior can later be reused by Core2-family
-//   hardware profiles.
+//   CoreS3 Display / Touch / brightness hardware-access boundary.
 //
 // Compatibility
 //   The existing "CoreS3_Display" configuration key and usermod
@@ -820,58 +810,6 @@ class CoreS3DisplayUsermod : public Usermod {
   // preserving the existing usermod call sites. This minimizes the
   // regression surface for the hardware-verified CoreS3 UI.
   // =========================================================
-
-  const char* getHardwareProbeStateName() {
-    return hardwareBackend.probeStateName();
-  }
-
-  const char* getDetectedPmuName() {
-    return hardwareBackend.detectedPmuName();
-  }
-
-  const char* getDetectedImuName() {
-    return hardwareBackend.detectedImuName();
-  }
-
-  const char* getDetectedVariantName() {
-    return hardwareBackend.detectedVariantName();
-  }
-
-  bool isCore2FamilyProfile() {
-    return hardwareBackend.isCore2FamilyProfile();
-  }
-
-  bool isCore2DiagnosticOnlyMode() {
-    return hardwareBackend.isCore2DiagnosticOnlyMode();
-  }
-
-  const char* getHardwareRuntimeModeName() {
-    return hardwareBackend.runtimeModeName();
-  }
-
-  const char* getHardwarePortStatusName() {
-    return hardwareBackend.portStatusName();
-  }
-
-  const char* getDetectedRevisionName() {
-    return hardwareBackend.detectedRevisionName();
-  }
-
-  void runHardwareDiagnostics() {
-    hardwareBackend.runDiagnostics();
-  }
-
-  const char* getHardwareProfileName() {
-    return hardwareBackend.profileName();
-  }
-
-  const char* getHardwareRevisionName() {
-    return hardwareBackend.revisionName();
-  }
-
-  bool isHardwareDisplayRuntimeEnabled() {
-    return hardwareBackend.isDisplayRuntimeEnabled();
-  }
 
   bool initializeDisplayHardware() {
     return hardwareBackend.initializeDisplay( screenWidth, screenHeight, touchReady );
@@ -6602,8 +6540,7 @@ class CoreS3DisplayUsermod : public Usermod {
   // Page-specific runtime display synchronization
   //
   // These helpers contain only UI/WLED state synchronization.
-  // Hardware-specific display/touch access remains outside this layer
-  // so the same page logic can be reused for Core2 variants later.
+  // Hardware-specific display/touch access remains isolated in the backend.
   // =========================================================
 
   bool updateMainPageState( uint8_t effectMode, uint8_t currentSpeed, uint8_t currentIntensity, uint8_t currentPalette, uint32_t primaryColor, bool primaryColorChanged ) {
@@ -6942,7 +6879,6 @@ class CoreS3DisplayUsermod : public Usermod {
     }
 
     if (
-      isCore2DiagnosticOnlyMode() ||
       !displayReady ||
       screenWidth <= 0 ||
       screenHeight <= 0
@@ -7193,32 +7129,9 @@ class CoreS3DisplayUsermod : public Usermod {
 
     registerScreenshotEndpoint();
 
-    DEBUG_PRINTF(
-      "[CoreS3_Display] " "Hardware: %s, Revision=%s, Runtime=%s\n",
-      getHardwareProfileName(),
-      getHardwareRevisionName(),
-      getHardwareRuntimeModeName()
-    );
-
-    DEBUG_PRINTF(
-      "[CoreS3_Display] " "Port status: %s\n",
-      getHardwarePortStatusName()
-    );
+    DEBUG_PRINTLN( F( "[CoreS3_Display] Hardware: M5Stack CoreS3" ) );
 
     DEBUG_PRINTF( "[CoreS3_Display] " "Settings: " "Sleep=%u sec, " "LCD=%u, " "Fade=%s, " "FadeDuration=%u ms\n", sleepTimeoutSec, lcdBrightness, fadeEnabled ? "ON" : "OFF", fadeDurationMs );
-
-    runHardwareDiagnostics();
-
-    if ( isCore2DiagnosticOnlyMode() ) {
-      initDone = true;
-
-      DEBUG_PRINTLN( F( "[CoreS3_Display] Core2 diagnostic-only runtime complete" ) );
-      DEBUG_PRINTLN( F( "[CoreS3_Display] Display/Touch/LCD brightness initialization intentionally skipped" ) );
-      DEBUG_PRINTLN( F( "[CoreS3_Display] Capture the hardware probe result before enabling Core2 UI/Power support" ) );
-      DEBUG_PRINTLN("");
-
-      return;
-    }
 
     if ( !initializeDisplayHardware() ) {
       return;
@@ -7436,71 +7349,9 @@ class CoreS3DisplayUsermod : public Usermod {
       user = root.createNestedObject( "u" );
     }
 
-    JsonArray hardwareProfileInfo = user.createNestedArray( "M5Stack Hardware Profile" );
-
-    hardwareProfileInfo.add( getHardwareProfileName() );
-
-    JsonArray hardwareRevisionInfo = user.createNestedArray( "M5Stack Hardware Revision" );
-
-    hardwareRevisionInfo.add( getHardwareRevisionName() );
-
-    JsonArray hardwareRuntimeInfo = user.createNestedArray( "M5Stack Runtime Mode" );
-
-    hardwareRuntimeInfo.add( getHardwareRuntimeModeName() );
-
-    JsonArray hardwarePortStatusInfo = user.createNestedArray( "M5Stack Porting Status" );
-
-    hardwarePortStatusInfo.add( getHardwarePortStatusName() );
-
-    JsonArray hardwareProbeInfo = user.createNestedArray( "M5Stack Hardware Probe" );
-
-    hardwareProbeInfo.add( getHardwareProbeStateName() );
-
-    JsonArray hardwareVariantInfo = user.createNestedArray( "M5Stack Detected Variant" );
-
-    hardwareVariantInfo.add( getDetectedVariantName() );
-
-    JsonArray hardwareDetectedRevisionInfo = user.createNestedArray( "M5Stack Detected Revision" );
-
-    hardwareDetectedRevisionInfo.add( getDetectedRevisionName() );
-
-    JsonArray hardwarePmuInfo = user.createNestedArray( "M5Stack Detected PMU" );
-
-    hardwarePmuInfo.add( getDetectedPmuName() );
-
-    JsonArray hardwareImuInfo = user.createNestedArray( "M5Stack Detected IMU" );
-
-    hardwareImuInfo.add( getDetectedImuName() );
-
-    JsonArray hardwareCore2I2cInfo = user.createNestedArray( "M5Stack Core2 I2C Signature" );
-
-    if ( hardwareBackend.isProbeComplete() ) {
-      char signature[64];
-
-      snprintf(
-        signature,
-        sizeof(signature),
-        "34:%c 35:%c 38:%c 40:%c 51:%c 68:%c",
-        hardwareBackend.hasI2CAddress( 0x34 ) ? 'Y' : 'N',
-        hardwareBackend.hasI2CAddress( 0x35 ) ? 'Y' : 'N',
-        hardwareBackend.hasI2CAddress( 0x38 ) ? 'Y' : 'N',
-        hardwareBackend.hasI2CAddress( 0x40 ) ? 'Y' : 'N',
-        hardwareBackend.hasI2CAddress( 0x51 ) ? 'Y' : 'N',
-        hardwareBackend.hasI2CAddress( 0x68 ) ? 'Y' : 'N'
-      );
-
-      hardwareCore2I2cInfo.add( signature );
-    }
-    else {
-      hardwareCore2I2cInfo.add( "Not probed" );
-    }
-
     JsonArray displayInfo = user.createNestedArray( "CoreS3 Display" );
 
-    if ( isCore2DiagnosticOnlyMode() ) {
-      displayInfo.add( "DIAGNOSTIC ONLY - NOT INITIALIZED" );
-    }
-    else if (displayReady) {
+    if ( displayReady ) {
       char text[32];
 
       snprintf( text, sizeof(text), "READY (%d x %d)", screenWidth, screenHeight );
@@ -7513,10 +7364,7 @@ class CoreS3DisplayUsermod : public Usermod {
 
     JsonArray screenshotInfo = user.createNestedArray( "CoreS3 Display Screenshot" );
 
-    if ( isCore2DiagnosticOnlyMode() ) {
-      screenshotInfo.add( "UNAVAILABLE - DIAGNOSTIC ONLY" );
-    }
-    else if ( displayReady ) {
+    if ( displayReady ) {
       screenshotInfo.add( "/cores3/screenshot.bmp" );
     }
     else {
@@ -7525,21 +7373,7 @@ class CoreS3DisplayUsermod : public Usermod {
 
     JsonArray touchInfo = user.createNestedArray( "CoreS3 Display Touch" );
 
-    if ( isCore2DiagnosticOnlyMode() ) {
-      if ( hardwareBackend.isProbeComplete() ) {
-        touchInfo.add(
-          hardwareBackend.hasI2CAddress( 0x38 )
-            ? "I2C 0x38 DETECTED - NOT INITIALIZED"
-            : "I2C 0x38 NOT DETECTED"
-        );
-      }
-      else {
-        touchInfo.add( "DIAGNOSTIC PROBE UNAVAILABLE" );
-      }
-    }
-    else {
-      touchInfo.add( touchReady ? "READY" : "NOT FOUND" );
-    }
+    touchInfo.add( touchReady ? "READY" : "NOT FOUND" );
 
     JsonArray wifiInfo = user.createNestedArray( "CoreS3 Display WiFi" );
 

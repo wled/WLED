@@ -2,6 +2,7 @@
 
 #include "M5StackDisplayHardwareBackend.h"
 
+#include <Wire.h>
 #include <driver/i2c.h>
 
 #include <cstring>
@@ -653,133 +654,8 @@ coreS3DisplayGlobalWireRuntime() {
 #endif
 
 
-// ===========================================================
-// Compile-time M5Stack hardware profile
-//
-// CoreS3 remains the default verified runtime.
-// Core2 / Core2 for AWS remain diagnostic-only until their
-// Display / Touch / Power paths are verified on real hardware.
-// ===========================================================
-
-#define WLED_M5STACK_DISPLAY_PROFILE_CORES3        0
-#define WLED_M5STACK_DISPLAY_PROFILE_CORE2         1
-#define WLED_M5STACK_DISPLAY_PROFILE_CORE2_AWS     2
-
-#define WLED_M5STACK_DISPLAY_REVISION_UNKNOWN      0
-#define WLED_M5STACK_DISPLAY_REVISION_V1_0        10
-#define WLED_M5STACK_DISPLAY_REVISION_V1_1        11
-#define WLED_M5STACK_DISPLAY_REVISION_V1_3        13
-
-#ifndef WLED_M5STACK_DISPLAY_PROFILE
-  #define WLED_M5STACK_DISPLAY_PROFILE WLED_M5STACK_DISPLAY_PROFILE_CORES3
-#endif
-
-#ifndef WLED_M5STACK_DISPLAY_REVISION
-  #define WLED_M5STACK_DISPLAY_REVISION WLED_M5STACK_DISPLAY_REVISION_UNKNOWN
-#endif
-
-#ifndef WLED_M5STACK_CORE2_DIAGNOSTIC_ONLY
-  #define WLED_M5STACK_CORE2_DIAGNOSTIC_ONLY 0
-#endif
-
-static_assert(
-  WLED_M5STACK_DISPLAY_PROFILE >= WLED_M5STACK_DISPLAY_PROFILE_CORES3 &&
-  WLED_M5STACK_DISPLAY_PROFILE <= WLED_M5STACK_DISPLAY_PROFILE_CORE2_AWS,
-  "Invalid WLED_M5STACK_DISPLAY_PROFILE"
-);
-
-static_assert(
-  WLED_M5STACK_DISPLAY_REVISION == WLED_M5STACK_DISPLAY_REVISION_UNKNOWN ||
-  WLED_M5STACK_DISPLAY_REVISION == WLED_M5STACK_DISPLAY_REVISION_V1_0 ||
-  WLED_M5STACK_DISPLAY_REVISION == WLED_M5STACK_DISPLAY_REVISION_V1_1 ||
-  WLED_M5STACK_DISPLAY_REVISION == WLED_M5STACK_DISPLAY_REVISION_V1_3,
-  "Invalid WLED_M5STACK_DISPLAY_REVISION"
-);
-
-static_assert(
-  WLED_M5STACK_CORE2_DIAGNOSTIC_ONLY == 0 ||
-  WLED_M5STACK_CORE2_DIAGNOSTIC_ONLY == 1,
-  "WLED_M5STACK_CORE2_DIAGNOSTIC_ONLY must be 0 or 1"
-);
-
-static_assert(
-  WLED_M5STACK_DISPLAY_PROFILE == WLED_M5STACK_DISPLAY_PROFILE_CORES3 ||
-  WLED_M5STACK_CORE2_DIAGNOSTIC_ONLY == 1,
-  "Core2-family profiles require WLED_M5STACK_CORE2_DIAGNOSTIC_ONLY=1"
-);
-
-static_assert(
-  WLED_M5STACK_CORE2_DIAGNOSTIC_ONLY == 0 ||
-  WLED_M5STACK_DISPLAY_PROFILE == WLED_M5STACK_DISPLAY_PROFILE_CORE2 ||
-  WLED_M5STACK_DISPLAY_PROFILE == WLED_M5STACK_DISPLAY_PROFILE_CORE2_AWS,
-  "Diagnostic-only mode is reserved for Core2-family profiles"
-);
-
-enum M5StackDisplayHardwareProfile : uint8_t {
-  M5STACK_DISPLAY_HARDWARE_CORES3 = WLED_M5STACK_DISPLAY_PROFILE_CORES3,
-  M5STACK_DISPLAY_HARDWARE_CORE2 = WLED_M5STACK_DISPLAY_PROFILE_CORE2,
-  M5STACK_DISPLAY_HARDWARE_CORE2_AWS = WLED_M5STACK_DISPLAY_PROFILE_CORE2_AWS
-};
-
-enum M5StackDisplayHardwareRevision : uint8_t {
-  M5STACK_DISPLAY_REVISION_UNKNOWN = WLED_M5STACK_DISPLAY_REVISION_UNKNOWN,
-  M5STACK_DISPLAY_REVISION_V1_0 = WLED_M5STACK_DISPLAY_REVISION_V1_0,
-  M5STACK_DISPLAY_REVISION_V1_1 = WLED_M5STACK_DISPLAY_REVISION_V1_1,
-  M5STACK_DISPLAY_REVISION_V1_3 = WLED_M5STACK_DISPLAY_REVISION_V1_3
-};
-
-static constexpr M5StackDisplayHardwareProfile ACTIVE_M5STACK_DISPLAY_PROFILE =
-  static_cast<M5StackDisplayHardwareProfile>( WLED_M5STACK_DISPLAY_PROFILE );
-
-static constexpr M5StackDisplayHardwareRevision ACTIVE_M5STACK_DISPLAY_REVISION =
-  static_cast<M5StackDisplayHardwareRevision>( WLED_M5STACK_DISPLAY_REVISION );
-
-static constexpr bool ACTIVE_M5STACK_CORE2_DIAGNOSTIC_ONLY =
-  ( WLED_M5STACK_CORE2_DIAGNOSTIC_ONLY == 1 );
-
-struct M5StackDisplayHardwareCapabilities {
-  const char* name;
-  uint8_t displayRotation;
-  bool displayRuntimeEnabled;
-  bool touchRuntimeEnabled;
-  bool brightnessRuntimeEnabled;
-  bool batteryRuntimeEnabled;
-  bool diagnosticProbeEnabled;
-};
-
-static constexpr M5StackDisplayHardwareCapabilities M5STACK_HARDWARE_CAPABILITIES[] = {
-  {
-    "M5Stack CoreS3",
-    1,
-    true,
-    true,
-    true,
-    true,
-    false
-  },
-  {
-    "M5Stack Core2",
-    1,
-    false,
-    false,
-    false,
-    false,
-    true
-  },
-  {
-    "M5Stack Core2 for AWS",
-    1,
-    false,
-    false,
-    false,
-    false,
-    true
-  }
-};
-
-static constexpr const M5StackDisplayHardwareCapabilities&
-  ACTIVE_M5STACK_HARDWARE_CAPABILITIES =
-    M5STACK_HARDWARE_CAPABILITIES[WLED_M5STACK_DISPLAY_PROFILE];
+// CoreS3 is the only hardware target in this usermod.
+static constexpr uint8_t CORES3_DISPLAY_ROTATION = 1;
 
 // ===========================================================
 // CoreS3 runtime battery telemetry
@@ -818,323 +694,11 @@ static bool readCoreS3Axp2101Register( uint8_t reg, uint8_t& value ) {
   return true;
 }
 
-bool M5StackDisplayHardwareBackend::probeI2CAddress( TwoWire& wire, uint8_t address ) {
-    wire.beginTransmission( address );
-
-    return wire.endTransmission() == 0;
-  }
-
-bool M5StackDisplayHardwareBackend::readI2CRegister8( TwoWire& wire, uint8_t address, uint8_t reg, uint8_t& value ) {
-    wire.beginTransmission( address );
-    wire.write( reg );
-
-    if ( wire.endTransmission( false ) != 0 ) {
-      return false;
-    }
-
-    size_t received = wire.requestFrom( address, (size_t)1, true );
-
-    if ( received != 1 || !wire.available() ) {
-      return false;
-    }
-
-    value = (uint8_t)wire.read();
-
-    return true;
-  }
-
-void M5StackDisplayHardwareBackend::classifyCore2HardwareProbe( TwoWire& wire ) {
-    if ( hardwareProbe.address68 ) {
-      uint8_t chipId = 0;
-
-      // BMI270 CHIP_ID register 0x00 returns 0x24.
-      if ( readI2CRegister8( wire, 0x68, 0x00, chipId ) && chipId == 0x24 ) {
-        hardwareProbe.imu = M5STACK_DETECTED_IMU_BMI270;
-        hardwareProbe.imuChipId = chipId;
-      }
-      else {
-        // MPU6886 WHO_AM_I register 0x75 returns 0x19.
-        if ( readI2CRegister8( wire, 0x68, 0x75, chipId ) && chipId == 0x19 ) {
-          hardwareProbe.imu = M5STACK_DETECTED_IMU_MPU6886;
-          hardwareProbe.imuChipId = chipId;
-        }
-      }
-    }
-
-    if ( ACTIVE_M5STACK_DISPLAY_PROFILE == M5STACK_DISPLAY_HARDWARE_CORE2_AWS ) {
-      if ( hardwareProbe.address34 ) {
-        // Both documented Core2 for AWS generations use AXP192.
-        hardwareProbe.pmu = M5STACK_DETECTED_PMU_AXP192;
-      }
-
-      if ( hardwareProbe.imu == M5STACK_DETECTED_IMU_BMI270 ) {
-        hardwareProbe.variant = M5STACK_DETECTED_VARIANT_CORE2_AWS_V1_3;
-      }
-      else if ( hardwareProbe.imu == M5STACK_DETECTED_IMU_MPU6886 ) {
-        // Official legacy Core2 for AWS documentation identifies MPU6886,
-        // but does not assign the v1.0 / v1.1 name here. Keep it generic.
-        hardwareProbe.variant = M5STACK_DETECTED_VARIANT_CORE2_AWS_LEGACY;
-      }
-    }
-    else if ( ACTIVE_M5STACK_DISPLAY_PROFILE == M5STACK_DISPLAY_HARDWARE_CORE2 ) {
-      if ( hardwareProbe.address34 && hardwareProbe.address40 ) {
-        // Core2 v1.1 signature: AXP2101 + INA3221.
-        hardwareProbe.pmu = M5STACK_DETECTED_PMU_AXP2101;
-        hardwareProbe.variant = M5STACK_DETECTED_VARIANT_CORE2_V1_1;
-      }
-      else if ( hardwareProbe.address34 ) {
-        hardwareProbe.pmu = M5STACK_DETECTED_PMU_AXP192;
-        hardwareProbe.variant = M5STACK_DETECTED_VARIANT_CORE2_LEGACY;
-      }
-    }
-  }
-
-void M5StackDisplayHardwareBackend::printCore2HardwareProbeResult() {
-    DEBUG_PRINTF(
-      "[CoreS3_Display] Hardware probe: %s, Variant=%s, PMU=%s, IMU=%s",
-      probeStateName(),
-      detectedVariantName(),
-      detectedPmuName(),
-      detectedImuName()
-    );
-
-    if ( hardwareProbe.imuChipId > 0 ) {
-      DEBUG_PRINTF( " (ID=0x%02X)", hardwareProbe.imuChipId );
-    }
-
-    DEBUG_PRINTLN("");
-
-    DEBUG_PRINTF(
-      "[CoreS3_Display] Detected revision: %s\n",
-      detectedRevisionName()
-    );
-
-    DEBUG_PRINTF(
-      "[CoreS3_Display] Core2 I2C signature: "
-      "34=%s 35=%s 38=%s 40=%s 51=%s 68=%s\n",
-      hardwareProbe.address34 ? "YES" : "NO",
-      hardwareProbe.address35 ? "YES" : "NO",
-      hardwareProbe.address38 ? "YES" : "NO",
-      hardwareProbe.address40 ? "YES" : "NO",
-      hardwareProbe.address51 ? "YES" : "NO",
-      hardwareProbe.address68 ? "YES" : "NO"
-    );
-  }
-
 M5StackDisplayHardwareBackend::M5StackDisplayHardwareBackend( M5GFX& displayRef )
   : display( displayRef ) {
   }
 
-const char* M5StackDisplayHardwareBackend::profileName() const {
-    return ACTIVE_M5STACK_HARDWARE_CAPABILITIES.name;
-  }
-
-const char* M5StackDisplayHardwareBackend::revisionName() const {
-    switch ( ACTIVE_M5STACK_DISPLAY_REVISION ) {
-      case M5STACK_DISPLAY_REVISION_V1_0:
-        return "v1.0";
-
-      case M5STACK_DISPLAY_REVISION_V1_1:
-        return "v1.1";
-
-      case M5STACK_DISPLAY_REVISION_V1_3:
-        return "v1.3";
-
-      case M5STACK_DISPLAY_REVISION_UNKNOWN:
-      default:
-        return "UNKNOWN";
-    }
-  }
-
-bool M5StackDisplayHardwareBackend::isDisplayRuntimeEnabled() const {
-    return ACTIVE_M5STACK_HARDWARE_CAPABILITIES.displayRuntimeEnabled;
-  }
-
-bool M5StackDisplayHardwareBackend::isCore2FamilyProfile() const {
-    return ACTIVE_M5STACK_HARDWARE_CAPABILITIES.diagnosticProbeEnabled;
-  }
-
-bool M5StackDisplayHardwareBackend::isCore2DiagnosticOnlyMode() const {
-    return isCore2FamilyProfile() && ACTIVE_M5STACK_CORE2_DIAGNOSTIC_ONLY;
-  }
-
-const char* M5StackDisplayHardwareBackend::runtimeModeName() const {
-    return isCore2DiagnosticOnlyMode() ? "CORE2 DIAGNOSTIC ONLY" : "DISPLAY ACTIVE";
-  }
-
-const char* M5StackDisplayHardwareBackend::portStatusName() const {
-    if ( ACTIVE_M5STACK_HARDWARE_CAPABILITIES.displayRuntimeEnabled ) {
-      return "CORES3 VERIFIED DISPLAY RUNTIME";
-    }
-
-    if ( isCore2DiagnosticOnlyMode() ) {
-      return "CORE2 PORT PREPARED - DIAGNOSTIC ONLY";
-    }
-
-    return "HARDWARE RUNTIME BLOCKED";
-  }
-
-const char* M5StackDisplayHardwareBackend::probeStateName() const {
-    switch ( hardwareProbe.state ) {
-      case M5STACK_HARDWARE_PROBE_NOT_REQUIRED:
-        return "NOT REQUIRED";
-
-      case M5STACK_HARDWARE_PROBE_COMPLETE:
-        return "COMPLETE";
-
-      case M5STACK_HARDWARE_PROBE_FAILED:
-        return "FAILED";
-
-      case M5STACK_HARDWARE_PROBE_NOT_RUN:
-      default:
-        return "NOT RUN";
-    }
-  }
-
-const char* M5StackDisplayHardwareBackend::detectedPmuName() const {
-    switch ( hardwareProbe.pmu ) {
-      case M5STACK_DETECTED_PMU_AXP192:
-        return "AXP192 signature";
-
-      case M5STACK_DETECTED_PMU_AXP2101:
-        return "AXP2101 signature";
-
-      case M5STACK_DETECTED_PMU_UNKNOWN:
-      default:
-        return "UNKNOWN";
-    }
-  }
-
-const char* M5StackDisplayHardwareBackend::detectedImuName() const {
-    switch ( hardwareProbe.imu ) {
-      case M5STACK_DETECTED_IMU_MPU6886:
-        return "MPU6886";
-
-      case M5STACK_DETECTED_IMU_BMI270:
-        return "BMI270";
-
-      case M5STACK_DETECTED_IMU_UNKNOWN:
-      default:
-        return "UNKNOWN";
-    }
-  }
-
-const char* M5StackDisplayHardwareBackend::detectedVariantName() const {
-    switch ( hardwareProbe.variant ) {
-      case M5STACK_DETECTED_VARIANT_CORE2_LEGACY:
-        return "Core2 legacy signature";
-
-      case M5STACK_DETECTED_VARIANT_CORE2_V1_1:
-        return "Core2 v1.1 signature";
-
-      case M5STACK_DETECTED_VARIANT_CORE2_AWS_LEGACY:
-        return "Core2 for AWS MPU6886 generation";
-
-      case M5STACK_DETECTED_VARIANT_CORE2_AWS_V1_3:
-        return "Core2 for AWS v1.3 signature";
-
-      case M5STACK_DETECTED_VARIANT_UNKNOWN:
-      default:
-        return "UNKNOWN";
-    }
-  }
-
-const char* M5StackDisplayHardwareBackend::detectedRevisionName() const {
-    switch ( hardwareProbe.variant ) {
-      case M5STACK_DETECTED_VARIANT_CORE2_V1_1:
-        return "v1.1 signature";
-
-      case M5STACK_DETECTED_VARIANT_CORE2_AWS_V1_3:
-        return "v1.3 signature";
-
-      case M5STACK_DETECTED_VARIANT_CORE2_AWS_LEGACY:
-        return "Legacy MPU6886 generation; exact revision unknown";
-
-      case M5STACK_DETECTED_VARIANT_CORE2_LEGACY:
-        return "Legacy generation; exact revision unknown";
-
-      case M5STACK_DETECTED_VARIANT_UNKNOWN:
-      default:
-        return "UNKNOWN";
-    }
-  }
-
-bool M5StackDisplayHardwareBackend::isProbeComplete() const {
-    return hardwareProbe.state == M5STACK_HARDWARE_PROBE_COMPLETE;
-  }
-
-bool M5StackDisplayHardwareBackend::hasI2CAddress( uint8_t address ) const {
-    switch ( address ) {
-      case 0x34:
-        return hardwareProbe.address34;
-
-      case 0x35:
-        return hardwareProbe.address35;
-
-      case 0x38:
-        return hardwareProbe.address38;
-
-      case 0x40:
-        return hardwareProbe.address40;
-
-      case 0x51:
-        return hardwareProbe.address51;
-
-      case 0x68:
-        return hardwareProbe.address68;
-
-      default:
-        return false;
-    }
-  }
-
-void M5StackDisplayHardwareBackend::runDiagnostics() {
-    hardwareProbe = HardwareProbeResult();
-
-    if ( !ACTIVE_M5STACK_HARDWARE_CAPABILITIES.diagnosticProbeEnabled ) {
-      hardwareProbe.state = M5STACK_HARDWARE_PROBE_NOT_REQUIRED;
-
-      return;
-    }
-
-    if (
-      i2c_sda != CORE2_INTERNAL_I2C_SDA ||
-      i2c_scl != CORE2_INTERNAL_I2C_SCL
-    ) {
-      hardwareProbe.state = M5STACK_HARDWARE_PROBE_FAILED;
-
-      DEBUG_PRINTLN( F( "[CoreS3_Display] ERROR: Core2 diagnostic I2C must use WLED global Wire on GPIO21/22" ) );
-
-      return;
-    }
-
-    delay( 10 );
-
-    hardwareProbe.address34 = probeI2CAddress( Wire, 0x34 );
-    hardwareProbe.address35 = probeI2CAddress( Wire, 0x35 );
-    hardwareProbe.address38 = probeI2CAddress( Wire, 0x38 );
-    hardwareProbe.address40 = probeI2CAddress( Wire, 0x40 );
-    hardwareProbe.address51 = probeI2CAddress( Wire, 0x51 );
-    hardwareProbe.address68 = probeI2CAddress( Wire, 0x68 );
-
-    classifyCore2HardwareProbe( Wire );
-
-    hardwareProbe.state = M5STACK_HARDWARE_PROBE_COMPLETE;
-
-    printCore2HardwareProbeResult();
-  }
-
 bool M5StackDisplayHardwareBackend::initializeDisplay( int16_t& screenWidth, int16_t& screenHeight, bool& touchReady ) {
-    if ( !isDisplayRuntimeEnabled() ) {
-      DEBUG_PRINTF(
-        "[CoreS3_Display] Hardware profile not enabled for Display runtime: %s (%s)\n",
-        profileName(),
-        revisionName()
-      );
-
-      return false;
-    }
-
 #if defined(WLED_M5STACK_CORES3) && defined(CONFIG_IDF_TARGET_ESP32S3)
     CoreS3DisplayGlobalWireRuntime& coreS3Runtime =
       coreS3DisplayGlobalWireRuntime();
@@ -1160,7 +724,7 @@ bool M5StackDisplayHardwareBackend::initializeDisplay( int16_t& screenWidth, int
     return false;
 #endif
 
-    display.setRotation( ACTIVE_M5STACK_HARDWARE_CAPABILITIES.displayRotation );
+    display.setRotation( CORES3_DISPLAY_ROTATION );
 
     screenWidth = display.width();
     screenHeight = display.height();
@@ -1179,19 +743,22 @@ bool M5StackDisplayHardwareBackend::initializeDisplay( int16_t& screenWidth, int
   }
 
 bool M5StackDisplayHardwareBackend::readTouch( int16_t& touchX, int16_t& touchY ) {
-    if ( !ACTIVE_M5STACK_HARDWARE_CAPABILITIES.touchRuntimeEnabled ) {
-      return false;
-    }
-
+#if defined(WLED_M5STACK_CORES3) && defined(CONFIG_IDF_TARGET_ESP32S3)
     return ( display.getTouch( &touchX, &touchY ) > 0 );
+#else
+    (void)touchX;
+    (void)touchY;
+
+    return false;
+#endif
   }
 
 void M5StackDisplayHardwareBackend::writeBrightness( uint8_t value ) {
-    if ( !ACTIVE_M5STACK_HARDWARE_CAPABILITIES.brightnessRuntimeEnabled ) {
-      return;
-    }
-
+#if defined(WLED_M5STACK_CORES3) && defined(CONFIG_IDF_TARGET_ESP32S3)
     display.setBrightness( value );
+#else
+    (void)value;
+#endif
   }
 
 
@@ -1201,7 +768,6 @@ bool M5StackDisplayHardwareBackend::readDisplayRgb565(
   int16_t height
 ) {
     if (
-      !ACTIVE_M5STACK_HARDWARE_CAPABILITIES.displayRuntimeEnabled ||
       pixels == nullptr ||
       width <= 0 ||
       height <= 0
@@ -1228,14 +794,9 @@ bool M5StackDisplayHardwareBackend::readDisplayRgb565(
 bool M5StackDisplayHardwareBackend::readBatteryStatus( M5StackBatteryStatus& status ) {
     status = M5StackBatteryStatus();
 
-    if ( !ACTIVE_M5STACK_HARDWARE_CAPABILITIES.batteryRuntimeEnabled ) {
-      return false;
-    }
-
-    if ( ACTIVE_M5STACK_DISPLAY_PROFILE != M5STACK_DISPLAY_HARDWARE_CORES3 ) {
-      return false;
-    }
-
+#if !defined(WLED_M5STACK_CORES3) || !defined(CONFIG_IDF_TARGET_ESP32S3)
+    return false;
+#else
     uint8_t status1 = 0;
     uint8_t status2 = 0;
     uint8_t batteryPercent = 0;
@@ -1264,4 +825,5 @@ bool M5StackDisplayHardwareBackend::readBatteryStatus( M5StackBatteryStatus& sta
     status.level = batteryPercent;
 
     return true;
+#endif
   }
