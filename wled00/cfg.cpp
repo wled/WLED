@@ -247,7 +247,7 @@ bool deserializeConfig(JsonObject doc, bool fromFS) {
       uint16_t freqkHz = elm[F("freq")] | 0;  // will be in kHz for DotStar and Hz for PWM
       uint8_t AWmode = elm[F("rgbwm")] | RGBW_MODE_MANUAL_ONLY;
       uint8_t maPerLed = elm[F("ledma")] | LED_MILLIAMPS_DEFAULT;
-      uint16_t maMax = elm[F("maxpwr")] | (ablMilliampsMax * length) / total; // rough (incorrect?) per strip ABL calculation when no config exists
+      uint16_t maMax = elm[F("maxpwr")] | (total > 0 ? (ablMilliampsMax * length) / total : ablMilliampsMax); // rough (incorrect?) per strip ABL calculation when no config exists
       // To disable brightness limiter we either set output max current to 0 or single LED current to 0 (we choose output max current)
       if (Bus::isPWM(ledType) || Bus::isOnOff(ledType) || Bus::isVirtual(ledType)) { // analog and virtual
         maPerLed = 0;
@@ -469,6 +469,7 @@ bool deserializeConfig(JsonObject doc, bool fromFS) {
   JsonObject relay = hw[F("relay")];
 
   rlyOpenDrain  = relay[F("odrain")] | rlyOpenDrain;
+  CJSON(relayDelay, relay[F("del")]);
   int hw_relay_pin = relay["pin"] | -2;
   if (hw_relay_pin > -2) {
     PinManager::deallocatePin(rlyPin, PinOwner::Relay);
@@ -1060,6 +1061,7 @@ void serializeConfig(JsonObject root) {
   hw_relay["pin"] = rlyPin;
   hw_relay["rev"] = !rlyMde;
   hw_relay[F("odrain")] = rlyOpenDrain;
+  hw_relay[F("del")] = relayDelay;
 
   hw[F("baud")] = serialBaud;
 

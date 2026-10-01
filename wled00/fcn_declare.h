@@ -129,6 +129,7 @@ inline bool writeObjectToFileUsingId(const String &file, uint16_t id, const Json
 inline bool writeObjectToFile(const String &file, const char* key, const JsonDocument* content) { return writeObjectToFile(file.c_str(), key, content); };
 inline bool readObjectFromFileUsingId(const String &file, uint16_t id, JsonDocument* dest, const JsonDocument* filter = nullptr) { return readObjectFromFileUsingId(file.c_str(), id, dest); };
 inline bool readObjectFromFile(const String &file, const char* key, JsonDocument* dest, const JsonDocument* filter = nullptr) { return readObjectFromFile(file.c_str(), key, dest); };
+bool readNextIntFromFile(File &f, int &value); // helper for reading ledmaps
 bool copyFile(const char* src_path, const char* dst_path);
 bool backupFile(const char* filename);
 bool restoreFile(const char* filename);
@@ -426,7 +427,7 @@ namespace UsermodManager {
 };
 
 // Register usermods by building a static list via a linker section
-#define REGISTER_USERMOD(x) DYNARRAY_MEMBER(Usermod*, usermods, um_##x, 1) = &x
+#define REGISTER_USERMOD(x) DYNARRAY_MEMBER(Usermod*, usermods, um_##x, 00001) = &x
 
 //usermod.cpp
 void userSetup();

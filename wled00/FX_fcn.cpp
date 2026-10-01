@@ -446,83 +446,112 @@ void Segment::handleRandomPalette() {
 // strip must be suspended (strip.suspend()) before calling this function
 // this function may call fill() to clear pixels if spacing or mapping changed (which requires setting _vWidth, _vHeight, _vLength or beginDraw())
 void Segment::setGeometry(uint16_t i1, uint16_t i2, uint8_t grp, uint8_t spc, uint16_t ofs, uint16_t i1Y, uint16_t i2Y, uint8_t m12) {
-  // return if neither bounds nor grouping have changed
-  bool boundsUnchanged = (start == i1 && stop == i2);
-  #ifndef WLED_DISABLE_2D
-  boundsUnchanged &= (startY == i1Y && stopY == i2Y); // 2D
-  #endif
-  boundsUnchanged &= (grouping == grp && spacing == spc); // changing grouping and/or spacing changes virtual segment length (painting dimensions)
+  // Sanitise inputs
+  if (i2 <= i1) { // For any values, this means deactivate the segment; we check i2 before i1 for this case
+    i2 = 0;
+  } 
 
-  if (stop && (spc > 0 || m12 != map1D2D)) clear();
-  if (grp) { // prevent assignment of 0
-    grouping = grp;
-    spacing = spc;
-  } else {
-    grouping = 1;
-    spacing = 0;
+  // If i1 is invalid, use old value
+  // Valid range is inside maxWidth, or in trailing segment range
+  if ((i1 >= Segment::maxWidth) && (i1 < Segment::maxWidth*Segment::maxHeight || i1 >= strip.getLengthTotal())) {
+    i1 = start;
   }
-  if (ofs < UINT16_MAX) offset = ofs;
-  map1D2D  = constrain(m12, 0, 7);
+
+  // Check i2 validity
+  if (i2 > 0) {
+    // Clamp i2 to maximum length
+    if ((i1 >= Segment::maxWidth*Segment::maxHeight) && (i2 >= Segment::maxWidth*Segment::maxHeight)) {
+      // Trailing strip after 2D
+      i2 = MIN(i2,strip.getLengthTotal());
+      i1Y = 0;  // 2D Y values are not used for trailing strip
+      i2Y = 1;
+    } else if (i2 > Segment::maxWidth) {
+      i2 = Segment::maxWidth;
+    }
+  }
+
+  #ifndef WLED_DISABLE_2D
+  if (Segment::maxHeight>1) { // 2D
+    if (i1Y >= Segment::maxHeight) {
+      // Unlike i1 (X), Y values don't inherit old values if invalid
+      // This behaviour preserved for backwards compatibility
+      i1Y = 0;   
+    }
+    if (i2Y > Segment::maxHeight) {
+      i2Y = Segment::maxHeight;
+    } else if (i2Y < 1) {
+      i2Y = 1;
+    }
+  } else
+  #endif
+  { 
+    i1Y = 0;
+    i2Y = 1;
+  }
+
+  if (grp == 0) { grp = 1; spc = 0; }  // prevent assignment of 0
+  if (ofs == UINT16_MAX) ofs = offset; // keep current setting if passed illegal value
+  m12 = constrain(m12, 0, 7);
+
+  // Final safety check after all bounds adjustments
+  if ((i1 >= i2) || (i1Y >= i2Y)) { 
+    i2 = 0;  // disable segment
+  }
+
+  // Inputs are ok, check if anything has changed
+  bool boundsUnchanged = (start == i1 && stop == i2)
+  #ifndef WLED_DISABLE_2D
+                       && ((Segment::maxHeight <= 1) || (startY == i1Y && stopY == i2Y))
+  #endif
+                       && (grouping == grp)
+                       && (spacing == spc)
+                       && (offset == ofs)
+                       && (m12 == map1D2D);
 
   if (boundsUnchanged) return;
 
+  DEBUG_PRINTF_P(PSTR("Segment geometry: (%d,%d),(%d,%d) -> (%d,%d),(%d,%d) [%d,%d]\n"), start, stop, startY, stopY, (int)i1, (int)i2, (int)i1Y, (int)i2Y, (int) grp, (int)spc);
+  
   unsigned oldLength = length();
 
-  DEBUGFX_PRINTF_P(PSTR("Segment geometry: %d,%d -> %d,%d [%d,%d]\n"), (int)i1, (int)i2, (int)i1Y, (int)i2Y, (int)grp, (int)spc);
   markForReset();
   stopTransition(); // we can't use transition if segment dimensions changed
   stateChanged = true;      // send UDP/WS broadcast
 
-  // apply change immediately
-  if (i2 <= i1) { //disable segment
-    #ifdef WLED_ENABLE_GIF
-    endImagePlayback(this);
-    #endif
-    deallocateData();
-    p_free(pixels);
-    pixels = nullptr;
-    stop = 0;
-    return;
-  }
-  if (i1 < Segment::maxWidth || (i1 >= Segment::maxWidth*Segment::maxHeight && i1 < strip.getLengthTotal())) start = i1; // Segment::maxWidth equals strip.getLengthTotal() for 1D
-  stop = i2 > Segment::maxWidth*Segment::maxHeight && i1 >= Segment::maxWidth*Segment::maxHeight ? MIN(i2,strip.getLengthTotal()) : constrain(i2, 1, Segment::maxWidth); // check for 2D trailing strip
-  startY = 0;
-  stopY  = 1;
-  #ifndef WLED_DISABLE_2D
-  if (Segment::maxHeight>1) { // 2D
-    if (i1Y < Segment::maxHeight) startY = i1Y;
-    stopY = constrain(i2Y, 1, Segment::maxHeight);
-  }
-  #endif
-  // safety check
-  if (start >= stop || startY >= stopY) {
-    #ifdef WLED_ENABLE_GIF
-    endImagePlayback(this);
-    #endif
-    deallocateData();
-    p_free(pixels);
-    pixels = nullptr;
-    stop = 0;
-    return;
-  }
-  // allocate FX render buffer
-  if (length() != oldLength) {
+  // apply change
+  start = i1;
+  stop = i2;
+  startY = i1Y;
+  stopY = i2Y;
+  grouping = grp;
+  spacing = spc;
+  offset = ofs;
+  map1D2D = m12;
+
+  // Cleanup check
+  auto newLength = length();
+  if ((newLength > 0) && (newLength != oldLength)) {
     // allocate render buffer (always entire segment), prefer IRAM/PSRAM. Note: impact on FPS with PSRAM buffer is low (<2% with QSPI PSRAM) on S2/S3
+    // Note we don't pass BFRALLOC_CLEAR as resetIfRequired() will initialize the buffer later
     p_free(pixels);
     pixels = static_cast<uint32_t*>(allocate_buffer(length() * sizeof(uint32_t), BFRALLOC_PREFER_PSRAM | BFRALLOC_NOBYTEACCESS));
     if (!pixels) {
       DEBUGFX_PRINTLN(F("!!! Not enough RAM for pixel buffer !!!"));
-      #ifdef WLED_ENABLE_GIF
-      endImagePlayback(this);
-      #endif
-      deallocateData();
       errorFlag = ERR_NORAM_PX;
-      stop = 0;
-      return;
+      stop = 0; // will fall through into disable check below
     }
-
   }
-  refreshLightCapabilities();
+
+  if (length() == 0) {
+    #ifdef WLED_ENABLE_GIF
+    endImagePlayback(this);
+    #endif
+    deallocateData();
+    p_free(pixels);
+    pixels = nullptr;
+  } else {
+    refreshLightCapabilities();
+  }
 }
 
 
@@ -1905,6 +1934,7 @@ uint8_t WS2812FX::getActiveSegmentsNum() const {
 uint16_t WS2812FX::getLengthTotal() const {
   unsigned len = Segment::maxWidth * Segment::maxHeight; // will be _length for 1D (see finalizeInit()) but should cover whole matrix for 2D
   if (isMatrix && _length > len) len = _length; // for 2D with trailing strip
+  if (isMatrix && customMappingSize > len) len = customMappingSize; // sparse matrix ledmap with gaps and trailing strip (see deserializeMap())
   return len;
 }
 
@@ -2052,9 +2082,9 @@ void WS2812FX::fixInvalidSegments() {
     if (isMatrix) {
     #ifndef WLED_DISABLE_2D
       if (_segments[i].start >= Segment::maxWidth * Segment::maxHeight) {
-        // 1D segment at the end of matrix
-        if (_segments[i].start >= _length || _segments[i].startY > 0 || _segments[i].stopY > 1) { _segments.erase(_segments.begin()+i); continue; }
-        if (_segments[i].stop  >  _length) _segments[i].stop = _length;
+        // 1D segment at the end of matrix (trailing strip; logical length may exceed physical _length for sparse matrix ledmaps)
+        if (_segments[i].start >= getLengthTotal() || _segments[i].startY > 0 || _segments[i].stopY > 1) { _segments.erase(_segments.begin()+i); continue; }
+        if (_segments[i].stop  >  getLengthTotal()) _segments[i].stop = getLengthTotal();
         continue;
       }
       if (_segments[i].start >= Segment::maxWidth || _segments[i].startY >= Segment::maxHeight) { _segments.erase(_segments.begin()+i); continue; }
@@ -2150,58 +2180,110 @@ bool WS2812FX::deserializeMap(unsigned n) {
     isMatrix = true;
     DEBUG_PRINTF_P(PSTR("LED map width=%d, height=%d\n"), Segment::maxWidth, Segment::maxHeight);
   }
+  releaseJSONBufferLock();
 
   d_free(customMappingTable);
-  customMappingTable = static_cast<uint16_t*>(d_malloc(sizeof(uint16_t)*getLengthTotal())); // prefer DRAM for speed
+  customMappingTable = nullptr;
 
-  if (customMappingTable) {
-    DEBUG_PRINTF_P(PSTR("ledmap allocated: %uB\n"), sizeof(uint16_t)*getLengthTotal());
+  if (isMatrix) {
+    // 2D set-up: read the file twice: first pass counts valid pixel entries (numPhy)
+    // then allocate matrixSize + trailingCount and fill it on the second pass including trailing pixels
+    // if entries are missing, they are appended (fallback)
+    const unsigned matrixSize = Segment::maxWidth * Segment::maxHeight;
+
+    // count entries and physical pixels used in the matrix, any left-over physical pixels are trailing pixels
+    unsigned entries = 0;
+    unsigned numPhy = 0;
     File f = WLED_FS.open(fileName, "r");
-    f.find("\"map\":[");
-    while (f.available()) { // f.position() < f.size() - 1
-      char number[32];
-      size_t numRead = f.readBytesUntil(',', number, sizeof(number)-1); // read a single number (may include array terminating "]" but not number separator ',')
-      number[numRead] = 0;
-      if (numRead > 0) {
-        char *end = strchr(number,']'); // we encountered end of array so stop processing if no digit found
-        bool foundDigit = (end == nullptr);
-        int i = 0;
-        if (end != nullptr) do {
-          if (number[i] >= '0' && number[i] <= '9') foundDigit = true;
-          if (foundDigit || &number[i++] == end) break;
-        } while (i < 32);
-        if (!foundDigit) break;
-        int index = atoi(number);
-        if (index < 0 || index > 65535) index = 0xFFFF; // prevent integer wrap around
-        customMappingTable[customMappingSize++] = index;
-        if (end != nullptr) break; // array closing ']' was in this chunk; stop before atoi() coerces trailing JSON keys into bogus entries
-        if (customMappingSize >= getLengthTotal()) break;
-      } else break; // there was nothing to read, stop
+    if (f && f.find("\"map\"")) {
+      int value;
+      while (entries++ < matrixSize && readNextIntFromFile(f, value)) {
+        if (value >= 0 && value < (int)_length) numPhy++; // valid physical pixel entry
+      }
+      f.seek(0); // go back to the start of the file (closing and re-opening is slow)
     }
-    currentLedmap = n;
-    f.close();
+    // we now know the max physical pixel used in the map, check if we have unmapped pixels left (_length is total  physical)
+    if (entries > 0) {
+      const unsigned trailingCount = (_length > numPhy) ? _length - numPhy : 0;
+      const unsigned mapSize = matrixSize + trailingCount;
+      customMappingTable = static_cast<uint16_t*>(d_malloc(sizeof(uint16_t) * mapSize)); // prefer DRAM for speed
 
-    #ifdef WLED_DEBUG
+      if (customMappingTable) {
+        DEBUG_PRINTF_P(PSTR("ledmap allocated: %uB\n"), sizeof(uint16_t) * mapSize);
+        memset(customMappingTable, 0xFF, sizeof(uint16_t) * mapSize); // pre-fill with "-1" i.e. unmapped pixel
+
+        // second pass: fill matrix entries from file
+        numPhy = 0; // reset
+        unsigned mapindex = 0;
+        if (f && f.find("\"map\"")) { // advance to "map", readNextIntFromFile discards any chars up to the first number
+          int value;
+          while (mapindex < mapSize && readNextIntFromFile(f, value)) {
+            if (value < 0 || value >= _length) value = 0xFFFF; // set out of range mappings to unused
+            customMappingTable[mapindex++] = (uint16_t)value;
+            //if (value < 0xFFFF) numPhy++; // count valid physical pixel entries (needed for auto-trailing only, see below)
+          }
+        }
+
+        // TODO: this is a design choice: leave unmapped pixels black or append them as a strip?
+        // append any pixels missing in the LEDmap at the end in ascending order
+        // very simple walk-through search, users should map all pixels, this is a fallback
+        /*
+        if (numPhy < _length) {
+          for (unsigned p = 0; p < _length; p++) {
+            bool used = false;
+            // go through the whole map and check if this pixel index is not yet mapped
+            for (unsigned i = 0; i < mapSize; i++) {
+              if (customMappingTable[i] == p) { used = true; break; }
+            }
+            if (!used) customMappingTable[mapindex++] = (uint16_t)p; // append the unmapped pixel
+            if (mapindex >= mapSize) break; // safety check, should not happen
+          }
+        }
+        */
+        customMappingSize = mapSize;
+        currentLedmap = n;
+      } else {
+        DEBUG_PRINTLN(F("ERROR LED map allocation error."));
+      }
+    }
+    f.close(); // all done, close the file
+  } else {
+    // 1D set-up: allocate strip length and fill with entries from file
+    // partial maps leave indices beyond customMappingSize unmapped (-1)  TODO: see note above about appending unmapped pixels
+    const unsigned mapSize = getLengthTotal();
+    customMappingTable = static_cast<uint16_t*>(d_malloc(sizeof(uint16_t) * mapSize)); // prefer DRAM for speed
+
+    if (customMappingTable) {
+      memset(customMappingTable, 0xFF, sizeof(uint16_t) * mapSize); // pre-fill with "-1" i.e. unmapped pixel
+      DEBUG_PRINTF_P(PSTR("ledmap allocated: %uB\n"), sizeof(uint16_t)*mapSize);
+      File f = WLED_FS.open(fileName, "r");
+      if (f && f.find("\"map\"")) { // advance to "map", readNextIntFromFile discards any chars up to the first number
+        int value;
+        unsigned mapindex = 0;
+        while (mapindex < mapSize && readNextIntFromFile(f, value)) {
+          if (value < 0 || value >= _length) value = 0xFFFF; // prevent integer wrap around
+          customMappingTable[mapindex++] = (uint16_t)value;
+        }
+        customMappingSize = mapSize;
+        currentLedmap = n;
+        f.close();
+      }
+    } else {
+      DEBUG_PRINTLN(F("ERROR LED map allocation error."));
+    }
+  }
+
+  #ifdef WLED_DEBUG
+  if (customMappingSize) {
     DEBUG_PRINT(F("Loaded ledmap:"));
     for (unsigned i=0; i<customMappingSize; i++) {
       if (!(i%Segment::maxWidth)) DEBUG_PRINTLN();
       DEBUG_PRINTF_P(PSTR("%4d,"), customMappingTable[i] < 0xFFFFU ? customMappingTable[i] : -1);
     }
     DEBUG_PRINTLN();
-    #endif
-/*
-    JsonArray map = root[F("map")];
-    if (!map.isNull() && map.size()) {  // not an empty map
-      customMappingSize = min((unsigned)map.size(), (unsigned)getLengthTotal());
-      for (unsigned i=0; i<customMappingSize; i++) customMappingTable[i] = (uint16_t) (map[i]<0 ? 0xFFFFU : map[i]);
-      currentLedmap = n;
-    }
-*/
-  } else {
-    DEBUG_PRINTLN(F("ERROR LED map allocation error."));
   }
+  #endif
 
-  releaseJSONBufferLock();
   if (strip.getLengthTotal() != lengthTotalBefore)
     strip.updatePixelBuffer(); // allocate _pixels[] to match new length
   return (customMappingSize > 0);
