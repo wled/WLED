@@ -1097,28 +1097,27 @@ void M5StackDisplayHardwareBackend::runDiagnostics() {
       return;
     }
 
-    TwoWire probeWire( 1 );
-
-    if ( !probeWire.begin( CORE2_INTERNAL_I2C_SDA, CORE2_INTERNAL_I2C_SCL, CORE2_INTERNAL_I2C_FREQUENCY ) ) {
+    if (
+      i2c_sda != CORE2_INTERNAL_I2C_SDA ||
+      i2c_scl != CORE2_INTERNAL_I2C_SCL
+    ) {
       hardwareProbe.state = M5STACK_HARDWARE_PROBE_FAILED;
 
-      DEBUG_PRINTLN( F( "[CoreS3_Display] ERROR: Core2 diagnostic I2C start failed" ) );
+      DEBUG_PRINTLN( F( "[CoreS3_Display] ERROR: Core2 diagnostic I2C must use WLED global Wire on GPIO21/22" ) );
 
       return;
     }
 
     delay( 10 );
 
-    hardwareProbe.address34 = probeI2CAddress( probeWire, 0x34 );
-    hardwareProbe.address35 = probeI2CAddress( probeWire, 0x35 );
-    hardwareProbe.address38 = probeI2CAddress( probeWire, 0x38 );
-    hardwareProbe.address40 = probeI2CAddress( probeWire, 0x40 );
-    hardwareProbe.address51 = probeI2CAddress( probeWire, 0x51 );
-    hardwareProbe.address68 = probeI2CAddress( probeWire, 0x68 );
+    hardwareProbe.address34 = probeI2CAddress( Wire, 0x34 );
+    hardwareProbe.address35 = probeI2CAddress( Wire, 0x35 );
+    hardwareProbe.address38 = probeI2CAddress( Wire, 0x38 );
+    hardwareProbe.address40 = probeI2CAddress( Wire, 0x40 );
+    hardwareProbe.address51 = probeI2CAddress( Wire, 0x51 );
+    hardwareProbe.address68 = probeI2CAddress( Wire, 0x68 );
 
-    classifyCore2HardwareProbe( probeWire );
-
-    probeWire.end();
+    classifyCore2HardwareProbe( Wire );
 
     hardwareProbe.state = M5STACK_HARDWARE_PROBE_COMPLETE;
 

@@ -63,7 +63,6 @@ class M5StackDisplayHardwareBackend {
 
   static constexpr int CORE2_INTERNAL_I2C_SDA = 21;
   static constexpr int CORE2_INTERNAL_I2C_SCL = 22;
-  static constexpr uint32_t CORE2_INTERNAL_I2C_FREQUENCY = 400000;
 
   M5GFX& display;
   HardwareProbeResult hardwareProbe;
