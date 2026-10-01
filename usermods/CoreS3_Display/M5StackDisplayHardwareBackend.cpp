@@ -489,7 +489,7 @@ class CoreS3TouchGlobalWire : public lgfx::ITouch {
     if (
       points == nullptr ||
       count == 0 ||
-      ( !_inited && !init() )
+      !_inited
     ) {
       return 0;
     }
