@@ -4,6 +4,11 @@
  * Receives client input
  */
 
+// Runtime state private to this file - previously WLED_GLOBAL, a leftover from
+// when all state lived in one big extern block regardless of who used it.
+static byte presetCycMin = 1;
+static byte presetCycMax = 5;
+
 //called upon POST settings form submit
 void handleSettingsSet(AsyncWebServerRequest *request, byte subPage)
 {
@@ -105,7 +110,7 @@ void handleSettingsSet(AsyncWebServerRequest *request, byte subPage)
     apBehavior = request->arg(F("AB")).toInt();
     char oldSSID[33]; strcpy(oldSSID, apSSID);
     strlcpy(apSSID, request->arg(F("AS")).c_str(), 33);
-    if (!strcmp(oldSSID, apSSID) && apActive) forceReconnect = true;
+    if ((strcmp(oldSSID, apSSID) != 0) && apActive) forceReconnect = true; // AP SSID changed
     apHide = request->hasArg(F("AH"));
     int passlen = request->arg(F("AP")).length();
     if (passlen == 0 || (passlen > 7 && !isAsterisksOnly(request->arg(F("AP")).c_str(), 65))) {
@@ -324,6 +329,7 @@ void handleSettingsSet(AsyncWebServerRequest *request, byte subPage)
     }
     rlyMde = (bool)request->hasArg(F("RM"));
     rlyOpenDrain = (bool)request->hasArg(F("RO"));
+    relayDelay = request->arg(F("RLD")).toInt();
 
     disablePullUp = (bool)request->hasArg(F("IP"));
     touchThreshold = request->arg(F("TT")).toInt();
@@ -548,11 +554,6 @@ void handleSettingsSet(AsyncWebServerRequest *request, byte subPage)
   if (subPage == SUBPAGE_TIME)
   {
     ntpEnabled = request->hasArg(F("NT"));
-#ifdef CONFIG_IDF_TARGET_ESP32C5 // ToDO: esp32-c5 crashes on NTP requests: assert failed: udp_new_ip_type udp.c:1278 (Required to lock TCPIP core functionality!)
-    if (ntpEnabled) { DEBUG_PRINTLN("NTP disabled on -C5, as it leads to crashes"); }
-    ntpEnabled = false;
-    #warning "enabling NTP lead to crashes on -C5. NTP disabled"
-#endif
     strlcpy(ntpServerName, request->arg(F("NS")).c_str(), 33);
     useAMPM = !request->hasArg(F("CF"));
     currentTimezone = request->arg(F("TZ")).toInt();

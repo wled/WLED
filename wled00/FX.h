@@ -539,7 +539,6 @@ class Segment {
     inline uint32_t getPixelColorXYRaw(unsigned x, unsigned y) const              { auto XY = [](unsigned X, unsigned Y){ return X + Y*Segment::vWidth(); }; return pixels[XY(x,y)]; };
   #endif
     void resetIfRequired();         // sets all SEGENV variables to 0 and clears data buffer
-    void loadPalette(CRGBPalette16 &tgt, uint8_t pal);
 
     // transition functions
     void stopTransition();                  // ends transition mode by destroying transition structure (does nothing if not in transition)
@@ -652,6 +651,7 @@ class Segment {
     inline static unsigned vHeight()                       { return Segment::_vHeight; }
     inline static uint32_t getCurrentColor(unsigned i)     { return Segment::_currentColors[i<NUM_COLORS?i:0]; }
     inline static const CRGBPalette16 &getCurrentPalette() { return Segment::_currentPalette; }
+    void loadPalette(CRGBPalette16 &tgt, uint8_t pal);
 
     inline void setDrawDimensions() const { Segment::_vWidth = virtualWidth(); Segment::_vHeight = virtualHeight(); Segment::_vLength = virtualLength(); }
 
@@ -832,6 +832,7 @@ class WS2812FX {
 #endif
       correctWB(false),
       cctFromRgb(false),
+      _currentSegment(nullptr),
       // true private variables
       _pixels(nullptr),
       _pixelCCT(nullptr),
@@ -846,14 +847,14 @@ class WS2812FX {
       _isOffRefreshRequired(false),
       _hasWhiteChannel(false),
       _triggered(false),
+      _modeCount(MODE_COUNT),
       _segment_index(0),
       _mainSegment(0),
-      _modeCount(MODE_COUNT),
-      _callback(nullptr),
-      customMappingTable(nullptr),
       customMappingSize(0),
+      customMappingTable(nullptr),
       _lastShow(0),
-      _lastServiceShow(0)
+      _lastServiceShow(0),
+      _callback(nullptr)
     {
       _mode.reserve(_modeCount);     // allocate memory to prevent initial fragmentation (does not increase size())
       _modeData.reserve(_modeCount); // allocate memory to prevent initial fragmentation (does not increase size())
@@ -929,7 +930,7 @@ class WS2812FX {
     uint8_t getFirstSelectedSegId() const;
     uint8_t getLastActiveSegmentId() const;
     uint8_t getActiveSegsLightCapabilities(bool selectedOnly = false) const;
-    uint8_t addEffect(uint8_t id, mode_ptr mode_fn, const char *mode_name);         // add effect to the list; defined in FX.cpp;
+    uint8_t addEffect(uint8_t id, mode_ptr mode_fn, const char *mode_name);         // add effect to the list - mode_name must point to PROGMEM; defined in FX.cpp;
 
     inline uint8_t getBrightness() const    { return _brightness; }       // returns current strip brightness
     inline static constexpr unsigned getMaxSegments() { return MAX_NUM_SEGMENTS; }  // returns maximum number of supported segments (fixed value)
@@ -1003,11 +1004,9 @@ class WS2812FX {
   // end 2D support
 
     bool isMatrix;
-    struct {
-      bool autoSegments : 1;
-      bool correctWB    : 1;
-      bool cctFromRgb   : 1;
-    };
+    bool autoSegments;
+    bool correctWB;
+    bool cctFromRgb;
 
     Segment *_currentSegment;
 
@@ -1026,28 +1025,24 @@ class WS2812FX {
     uint16_t _cumulativeFps;
     uint8_t  _targetFps;
 
-    // will require only 1 byte
-    struct {
-      bool _isServicing          : 1;
-      bool _isOffRefreshRequired : 1; //periodic refresh is required for the strip to remain off.
-      bool _hasWhiteChannel      : 1;
-      bool _triggered            : 1;
-    };
-
-    uint8_t _segment_index;
-    uint8_t _mainSegment;
+    bool _isServicing;
+    bool _isOffRefreshRequired; //periodic refresh is required for the strip to remain off.
+    bool _hasWhiteChannel ;
+    bool _triggered;
 
     uint8_t                  _modeCount;
     std::vector<mode_ptr>    _mode;     // SRAM footprint: 4 bytes per element
     std::vector<const char*> _modeData; // mode (effect) name and its slider control data array
 
-    show_callback _callback;
+    uint8_t _segment_index;
+    uint8_t _mainSegment;
 
-    uint16_t* customMappingTable;
     uint16_t  customMappingSize;
+    uint16_t* customMappingTable;
 
     unsigned long _lastShow;
     unsigned long _lastServiceShow;
+    show_callback _callback;
 
     friend class Segment;
 };

@@ -316,6 +316,7 @@ WLED_GLOBAL bool rlyOpenDrain _INIT(false);
 #else
 WLED_GLOBAL bool rlyOpenDrain _INIT(RLYODRAIN);
 #endif
+WLED_GLOBAL uint16_t relayDelay _INIT(RELAY_DELAY); // delay in ms between switching on relay and sending data to LEDs
 #ifndef IRPIN
   #define IRPIN -1
 #endif
@@ -466,14 +467,12 @@ WLED_GLOBAL bool arlsForceMaxBri _INIT(false);                    // enable to f
 WLED_GLOBAL uint16_t e131Universe _INIT(1);                       // settings for E1.31 (sACN) protocol (only DMX_MODE_MULTIPLE_* can span over consequtive universes)
 WLED_GLOBAL uint16_t e131Port _INIT(5568);                        // DMX in port. E1.31 default is 5568, Art-Net is 6454
 WLED_GLOBAL byte e131Priority _INIT(0);                           // E1.31 port priority (if != 0 priority handling is active)
-WLED_GLOBAL E131Priority highPriority _INIT(3);                   // E1.31 highest priority tracking, init = timeout in seconds
+// highPriority/e131LastSequenceNumber/pollReplyCount are private to e131.cpp - see there.
 WLED_GLOBAL byte DMXMode _INIT(DMX_MODE_MULTIPLE_RGB);            // DMX mode (s.a.)
 WLED_GLOBAL uint16_t DMXAddress _INIT(1);                         // DMX start address of fixture, a.k.a. first Channel [for E1.31 (sACN) protocol]
 WLED_GLOBAL uint16_t DMXSegmentSpacing _INIT(0);                  // Number of void/unused channels between each segments DMX channels
-WLED_GLOBAL byte e131LastSequenceNumber[E131_MAX_UNIVERSE_COUNT]; // to detect packet loss
 WLED_GLOBAL bool e131Multicast _INIT(false);                      // multicast or unicast
 WLED_GLOBAL bool e131SkipOutOfSequence _INIT(false);              // freeze instead of flickering
-WLED_GLOBAL uint16_t pollReplyCount _INIT(0);                     // count number of replies for ArtPoll node report
 
 // mqtt
 WLED_GLOBAL unsigned long lastMqttReconnectAttempt _INIT(0);  // used for other periodic tasks too
@@ -578,14 +577,14 @@ WLED_GLOBAL uint16_t userVar0 _INIT(0), userVar1 _INIT(0); //available for use i
 // internal global variable declarations
 // wifi
 WLED_GLOBAL bool apActive _INIT(false);
-WLED_GLOBAL byte apClients _INIT(0);
+// apClients is private to network.cpp - see there.
 WLED_GLOBAL bool forceReconnect _INIT(false);
 WLED_GLOBAL unsigned long lastReconnectAttempt _INIT(0);
 WLED_GLOBAL bool interfacesInited _INIT(false);
 WLED_GLOBAL bool wasConnected _INIT(false);
 
 // color
-WLED_GLOBAL byte lastRandomIndex _INIT(0);        // used to save last random color so the new one is not the same
+// lastRandomIndex is private to colors.cpp - see there.
 WLED_GLOBAL std::vector<CRGBPalette16> customPalettes;  // custom palettes (file-based, IDs grow downwards starting at 200)
 WLED_GLOBAL std::vector<UsermodPalette> usermodPalettes; // usermod-registered palettes (IDs 255, 254, 253...)
 WLED_GLOBAL uint8_t paletteBlend _INIT(0);        // determines blending and wrapping of palette: 0: blend, wrap if moving (SEGMENT.speed>0); 1: blend, always wrap; 2: blend, never wrap; 3: don't blend or wrap
@@ -625,11 +624,9 @@ struct Button {
   unsigned long pressedTime;        // time button was pressed
   unsigned long waitTime;           // time to wait for next button press
   int8_t        pin;                // pin number
-  struct {
-    uint8_t     type          : 6;  // button type (push, long, double, etc.)
-    bool        pressedBefore : 1;  // button was pressed before
-    bool        longPressed   : 1;  // button was long pressed
-  };
+  uint8_t       type;               // button type (push, long, double, etc.)
+  bool          pressedBefore;      // button was pressed before
+  bool          longPressed;        // button was long pressed
   uint8_t       macroButton;        // macro/preset to call on button press
   uint8_t       macroLongPress;     // macro/preset to call on long press
   uint8_t       macroDoublePress;   // macro/preset to call on double press
@@ -718,8 +715,7 @@ WLED_GLOBAL byte improvError _INIT(0);
 WLED_GLOBAL int16_t currentPlaylist _INIT(-1);
 //still used for "PL=~" HTTP API command
 WLED_GLOBAL byte presetCycCurr _INIT(0);
-WLED_GLOBAL byte presetCycMin _INIT(1);
-WLED_GLOBAL byte presetCycMax _INIT(5);
+// presetCycMin/presetCycMax are private to set.cpp - see there.
 
 // realtime
 WLED_GLOBAL byte realtimeMode _INIT(REALTIME_MODE_INACTIVE);
@@ -765,8 +761,7 @@ WLED_GLOBAL time_t sunset _INIT(0);
 WLED_GLOBAL Toki toki _INIT(Toki());
 
 // General filesystem
-WLED_GLOBAL size_t fsBytesUsed _INIT(0);
-WLED_GLOBAL size_t fsBytesTotal _INIT(0);
+// fsBytesUsed/fsBytesTotal are private to file.cpp - use getFsBytesUsed()/getFsBytesTotal() instead.
 WLED_GLOBAL unsigned long presetsModifiedTime _INIT(0L);
 WLED_GLOBAL bool doCloseFile _INIT(false);
 
@@ -775,8 +770,7 @@ WLED_GLOBAL byte currentPreset _INIT(0);
 
 WLED_GLOBAL byte errorFlag _INIT(0);
 
-WLED_GLOBAL String messageHead, messageSub;
-WLED_GLOBAL byte optionType;
+// messageHead/messageSub/optionType are private to wled_server.cpp - see there.
 
 WLED_GLOBAL bool configNeedsWrite  _INIT(false);        // flag to initiate saving of config
 WLED_GLOBAL bool doReboot          _INIT(false);        // flag to initiate reboot from async handlers
@@ -796,7 +790,7 @@ WLED_GLOBAL AsyncWebSocket ws _INIT_N((("/ws")));
 #ifndef WLED_DISABLE_HUESYNC
 WLED_GLOBAL AsyncClient     *hueClient _INIT(NULL);
 #endif
-WLED_GLOBAL AsyncWebHandler *editHandler _INIT(nullptr);
+// editHandler is private to wled_server.cpp - see there.
 
 // udp interface objects
 WLED_GLOBAL WiFiUDP notifierUdp, rgbUdp, notifier2Udp;

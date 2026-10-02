@@ -1,8 +1,9 @@
 #include "wled.h"
 #ifdef ESP32
-// ESP32-C5 on pioarduino uses IDF 5.5+ which has SHA1 built-in, skip shim
-#if ESP_IDF_VERSION >= ESP_IDF_VERSION_VAL(5, 2, 0) && ESP_IDF_VERSION < ESP_IDF_VERSION_VAL(5, 5, 0)
 #include "mbedtls/sha1.h"
+// Some ESP-IDF builds/platforms compile mbedtls without SHA1 support (MBEDTLS_SHA1_C undefined),
+// while others (e.g. ESP32-C5 on pioarduino) have it built-in. Only provide the shim when missing.
+#if !defined(MBEDTLS_SHA1_C)
 #include "SHA1Builder.h"
 
 // Wrapper functions to map mbedtls SHA1 calls to Arduino SHA1Builder

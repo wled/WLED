@@ -193,7 +193,7 @@ On ESP32-S3 modules with OPI flash (e.g. N8R8 modules where the SPI flash itself
 
 ## Migrating from ESP-IDF v4.4.x to v5.x
 
-The jump from IDF v4.4 (arduino-esp32 v2.x) to IDF v5.x (arduino-esp32 v3.x) is the largest API break in ESP-IDF history. This section documents the critical changes and recommended migration patterns based on the upstream WLED `V5` branch (`https://github.com/wled/WLED/tree/V5`). Note: WLED has not yet migrated to IDF v5 — these patterns prepare for the future migration.
+The jump from IDF v4.4 (arduino-esp32 v2.x) to IDF v5.x (arduino-esp32 v3.x) is the largest API break in ESP-IDF history. This section documents the critical changes and recommended migration patterns.
 
 <!-- HUMAN_ONLY_START -->
 ### Compiler changes
