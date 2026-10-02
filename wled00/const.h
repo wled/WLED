@@ -167,7 +167,9 @@ static_assert(WLED_MAX_BUSSES <= 32, "WLED_MAX_BUSSES exceeds hard limit");
   #endif
 #endif
 
-#define RELAY_DELAY 50 // delay in ms between switching on relay and sending data to LEDs
+#ifndef RELAY_DELAY
+#define RELAY_DELAY 50 // default delay in ms between switching on relay and sending data to LEDs
+#endif
 
 #if defined(ESP8266) || defined(CONFIG_IDF_TARGET_ESP32S2)
 #define WLED_MAX_COLOR_ORDER_MAPPINGS 5
@@ -545,7 +547,7 @@ static_assert(WLED_MAX_BUSSES <= 32, "WLED_MAX_BUSSES exceeds hard limit");
 #define JSON_LOCK_SERVEJSON       17
 #define JSON_LOCK_NOTIFY          18
 #define JSON_LOCK_PRESET_NAME     19
-#define JSON_LOCK_LEDGAP          20
+//#define JSON_LOCK_LEDGAP          20 // unused
 #define JSON_LOCK_LEDMAP_ENUM     21
 #define JSON_LOCK_REMOTE          22
 #define JSON_LOCK_OTA             23
