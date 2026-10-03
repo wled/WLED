@@ -78,6 +78,14 @@ Mention your testing in the PR description (e.g., "Tested on ESP32 + WS2812B").
 We're all volunteers, so reviews can take some time (longer during busy times). 
 Don't worry - we haven't forgotten you! Feel free to ping after a week if there's no activity.
 
+### CoderabbitAI Comments
+
+After submitting your PR, when pushing new changes, or AI review tool 'CoderabbitAI' will review and comment on the source code.
+
+CodeRabbit findings are **review input**, not **mandatory changes**.
+
+Contributors should assess each finding against the code, tests, and project constraints. They can reject an incorrect finding or explain why a proposed change is unsuitable. Addressing every CodeRabbit comment is not a condition for a sound contribution.
+
 ### Updating your code
 While the PR is open, you can keep updating your branch - just push more commits! GitHub will automatically update your PR. 
 
