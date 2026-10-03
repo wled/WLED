@@ -118,10 +118,12 @@ This will then run platformio and produce a `data/firmware.bin` (also one called
 ### Write the .bin from pio per CLI
 ```
 # in the project root directory (where the platformio[_override].ini live):
-& "$env:USERPROFILE\.platformio\penv\Scripts\pio.exe" run -e "deadline_trophy"
-```
-then check under `.pio/build/deadline_trophy/firmware.bin`
+rm -r -fo .pio/build
 
+& "$env:USERPROFILE\.platformio\penv\Scripts\pio.exe" run -e "deadline_trophy"
+
+cp .pio/build/deadline_trophy/firmware.bin <target>
+```
 
 ## Upload the .bin to the Controller
 One should be able to access the UI.
