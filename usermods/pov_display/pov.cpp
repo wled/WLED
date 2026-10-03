@@ -2,46 +2,45 @@
 
 POV::POV() {}
 
-void POV::showLine(const byte * line, uint16_t size){
-    uint16_t i, pos;
-    uint8_t r, g, b;
-    if (!line) {
-        // All-black frame on null input
-        for (i = 0; i < SEGLEN; i++) {
-            SEGMENT.setPixelColor(i, CRGB::Black);
-        }
-        strip.show();
-        lastLineUpdate = micros();
-        return;
-    }
-    for (i = 0; i < SEGLEN; i++) {
-        if (i < size) {
-            pos = 3 * i;
-            // using bgr order
-            b = line[pos++];
-            g = line[pos++];
-            r = line[pos];
-            SEGMENT.setPixelColor(i, CRGB(r, g, b));
-        } else {
-            SEGMENT.setPixelColor(i, CRGB::Black);
-        }
-    }
-    strip.show();
-    lastLineUpdate = micros();
-}
-
 bool POV::loadImage(const char * filename){
   if(!image.init(filename)) return false;
   if(!image.load()) return false;
-  currentLine=0;
+  currentColumn=0;
   return true;
 }
 
-int16_t POV::showNextLine(){
+// Display a column directly from image memory
+// For each pixel in the column (from row 0 to row height-1),
+// compute its position in the BMP buffer and read the BGR values
+void POV::showColumn(uint16_t colIndex) {
+    uint16_t imgHeight = image.height();
+    int16_t rowSize = image.rowSize();
+    
+    for (uint16_t i = 0; i < SEGLEN; i++) {
+        SEGMENT.setPixelColor(i, CRGB::Black);
+        if (i < imgHeight) {
+            // Get pointer to this row in the image
+            byte *rowStart = image.line(i);
+            if (rowStart) {
+                // Compute offset to the desired column (3 bytes per pixel: BGR)
+                uint16_t pixelOffset = colIndex * 3;
+                if (pixelOffset + 2 <= rowSize) {
+                    // Read BGR values directly from image buffer
+                    uint8_t b = rowStart[pixelOffset];
+                    uint8_t g = rowStart[pixelOffset + 1];
+                    uint8_t r = rowStart[pixelOffset + 2];
+                    SEGMENT.setPixelColor(i, CRGB(r, g, b));
+                }
+	    }
+	}
+    }
+    strip.show();
+}
+
+// Show next column and advance to next one
+int16_t POV::showNextColumn() {
     if (!image.isLoaded()) return 0;
-    //move to next line
-    showLine(image.line(currentLine), image.width());
-    currentLine++;
-    if (currentLine == image.height()) {currentLine=0;}
-    return currentLine;
+    showColumn(currentColumn);
+    currentColumn = (currentColumn + 1) % image.width();
+    return currentColumn;
 }
