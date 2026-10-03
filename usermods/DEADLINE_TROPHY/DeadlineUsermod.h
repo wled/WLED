@@ -3,6 +3,8 @@
 #include "WiFiUdp.h"
 #include "DeadlineTrophy.h"
 
+using DeadlineTrophy::HardwareVersion;
+
 class DeadlineUsermod : public Usermod
 {
 public:
@@ -222,6 +224,9 @@ public:
         calcLogoTherm();
 
         setInputCurrentSwitch_onlyV1(runningSec);
+
+        // QUICK HACK: NO BRIGHTNESS ATTENUATION!!
+        attenuateFactor = 1.;
 
         if (currentLogoTempKelvin > maxLogoTempKelvin) {
             maxLogoTempKelvin = currentLogoTempKelvin;
