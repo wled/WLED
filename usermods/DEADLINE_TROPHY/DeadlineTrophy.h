@@ -221,7 +221,7 @@ namespace DeadlineTrophy {
     enum class HardwareVersion {
         V1, // Deadline 2025 Trophy
         V2, // Deadline 2025 Trophy
-    }
+    };
 
 }
 
