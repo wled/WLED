@@ -115,8 +115,16 @@ podman run --rm -v %cd%\data:/mnt trophy-builder
 ```
 This will then run platformio and produce a `data/firmware.bin` (also one called `deadline_trophy_<Timestamp>.bin`, just in case you tend to get distracted...).
 
+### Write the .bin from pio per CLI
+```
+# in the project root directory (where the platformio[_override].ini live):
+& "$env:USERPROFILE\.platformio\penv\Scripts\pio.exe" run -e "deadline_trophy"
+```
+then check under `.pio/build/deadline_trophy/firmware.bin`
+
+
 ## Upload the .bin to the Controller
-One should be able to access the UI
+One should be able to access the UI.
 
 The resulting `firmware.bin` can be uploaded via WLED's integrated Over-The-Air Updater, via
 * Web UI -> Config -> Security & Updates -> Manual OTA Update

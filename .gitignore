@@ -25,3 +25,5 @@ wled-update.sh
 
 # for deadline source file overwrites (build container)
 /data/
+
+*.bin
