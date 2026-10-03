@@ -572,7 +572,7 @@ static_assert(WLED_MAX_BUSSES <= 32, "WLED_MAX_BUSSES exceeds hard limit");
   #elif defined(CONFIG_IDF_TARGET_ESP32C3) || defined(CONFIG_IDF_TARGET_ESP32C5) || defined(CONFIG_IDF_TARGET_ESP32C6) || defined(CONFIG_IDF_TARGET_ESP32C61)
     #define MAX_LEDS 4096
   #else
-    #define MAX_LEDS 16384 // classic esp32, S3 and P4 can take more
+    #define MAX_LEDS 16384 // note: P4/S3 can take more, 24576 is already unstable on S3 using HUB75 (DMA buffers)
   #endif
 #endif
 
