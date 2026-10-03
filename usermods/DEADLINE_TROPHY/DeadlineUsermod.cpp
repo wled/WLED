@@ -244,7 +244,7 @@ void DeadlineUsermod::addToConfig(JsonObject& doc)
     // fun thing, fillUMPins() will look for entries in these "pin" arrays. deal with it.
     auto pins = top.createNestedArray("pin");
     pins.add(PIN_LOGOTHERM);
-    pins.add(PIN_INPUTVOLTAGE);
+    pins.add(inputVltagePin());
 
     auto limV = top.createNestedObject("minVoltage");
     limV[F("threshold")] = limit_inputVoltageThreshold;
