@@ -3,6 +3,8 @@
 #include "WiFiUdp.h"
 #include "DeadlineTrophy.h"
 
+using DeadlineTrophy::HardwareVersion;
+
 class DeadlineUsermod : public Usermod
 {
 public:
@@ -223,6 +225,9 @@ public:
 
         setInputCurrentSwitch_onlyV1(runningSec);
 
+        // QUICK HACK: NO BRIGHTNESS ATTENUATION!!
+        attenuateFactor = 1.;
+
         if (currentLogoTempKelvin > maxLogoTempKelvin) {
             maxLogoTempKelvin = currentLogoTempKelvin;
         }
@@ -272,11 +277,16 @@ public:
         return avg / AVERAGE_SAMPLES;
     }
 
-    int readInputVoltage() const {
-        int pin = hwVersion == HardwareVersion::V2
+    int inputVoltagePin() const {
+        return hwVersion == HardwareVersion::V2
             ? PIN_INPUTVOLTAGE_V2
             : PIN_INPUTVOLTAGE_V1;
-        return analogRead(pin);
+    }
+
+    int readInputVoltage() const {
+        return analogRead(
+            inputVoltagePin()
+        );
     }
 
     void readAnalogValues()

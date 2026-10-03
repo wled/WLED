@@ -135,6 +135,7 @@ namespace DeadlineTrophy {
             160, 137, 136, 64, 69, 79, 70, 75, 76, 81, 82, 99, 100,
             159, 138, 135, 65, 68, 71, 74, 77, 80, 83, 98, 101,
             158, 139, 134, 66, 67, 72, 73, 78, 79, 84, 97, 102
+            // qm: POSSIBLE BUG, 79 appear twice??
         }};
         const std::array<uint8_t, 17> UpperRightBar = {{
             111, 116, 117, 122, 123, 125,
@@ -221,7 +222,7 @@ namespace DeadlineTrophy {
     enum class HardwareVersion {
         V1, // Deadline 2025 Trophy
         V2, // Deadline 2025 Trophy
-    }
+    };
 
 }
 
