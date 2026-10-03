@@ -4,7 +4,7 @@
 #include "DeadlineTrophyAlgebra.h"
 
 const int PIN_LOGO_DATA = 21;
-const int PIN_LOGO_CLOCK_V1 = 22;
+const int PIN_LOGO_CLOCK_V1 = 3;
 const int PIN_LOGO_CLOCK_V2 = 22;
 const int PIN_BASE_DATA = 19;
 const int PIN_BASE_CLOCK = 18;
