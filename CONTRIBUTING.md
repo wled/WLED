@@ -80,7 +80,7 @@ Don't worry - we haven't forgotten you! Feel free to ping after a week if there'
 
 ### CoderabbitAI Comments
 
-After submitting your PR, when pushing new changes, or AI review tool 'CoderabbitAI' will review and comment on the source code.
+After submitting your PR, and when pushing new changes, or AI review tool 'CoderabbitAI' will review and comment on the source code.
 
 CodeRabbit findings are **review input**, not **mandatory changes**.
 
