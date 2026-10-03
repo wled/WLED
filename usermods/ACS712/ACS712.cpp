@@ -7,7 +7,6 @@
 class ACS712 : public Usermod {
   private:
     bool initPin = false;
-    bool initMQTT = false;
     float current = 0;
     float lastCurrent = 0;
     double sumCurrent = 0;
@@ -36,13 +35,13 @@ class ACS712 : public Usermod {
       json[F("name")] = serverDescription+String(" Current");
       json[F("state_topic")] = currentTopic;
       json[F("device_class")] = FPSTR(_current);
-      json[F("unique_id")] = String(mqttClientID);
+      json[F("unique_id")] = String(mqttClientID) + FPSTR(_current);
       json[F("unit_of_measurement")] = F("mA");
 
       String jsonSer;
-        serializeJson(json, jsonSer);
-        mqtt->publish(ha.c_str(), 0, true, jsonSer.c_str());
-      }
+      serializeJson(json, jsonSer);
+      mqtt->publish(ha.c_str(), 0, true, jsonSer.c_str());
+    }
 
   public:
     void setup() override {
@@ -53,11 +52,6 @@ class ACS712 : public Usermod {
       if (!initPin) {
         pinMode(pin, INPUT);
         initPin = true;
-      }
-
-      if (!initMQTT && WLED_MQTT_CONNECTED) {
-        _mqttInitialize();
-        initMQTT = true;
       }
 
       sumCurrent = 0;
@@ -72,10 +66,16 @@ class ACS712 : public Usermod {
       }
 
       current = sumCurrent/100.0f;
-      if (initMQTT) mqtt->publish(currentTopic.c_str(), 0, true, String((current+lastCurrent)/2.0f).c_str());
+      if (WLED_MQTT_CONNECTED && lastCurrent != 0) mqtt->publish(currentTopic.c_str(), 0, true, String((current+lastCurrent)/2.0f).c_str());
 
       lastCurrent = current;
       lastTime = millis();
+    }
+
+    void onMqttConnect(bool sessionPresent) override {
+      if (mqttDeviceTopic[0] != 0) {
+        _mqttInitialize();
+      }
     }
 
     void addToConfig(JsonObject &root) override {
