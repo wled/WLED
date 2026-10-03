@@ -1,6 +1,33 @@
 var d=document;
 var loc = false, locip, locproto = "http:";
 
+// Development build warning banner, shown on every page that loads common.js.
+// Pages can opt out (e.g. because their layout assumes the viewport starts at y=0)
+// by setting `window.__noDevBanner = true` before common.js loads.
+// Skipped inside iframes since the embedding page already shows its own banner.
+(function devBanner() {
+	if (window.__noDevBanner) return;
+	try { if (window.self !== window.top) return; } catch (e) { return; } // cross-origin iframe, be safe and skip
+	function add() {
+		if (d.getElementById('devBanner')) return;
+		var css = d.createElement('style');
+		css.textContent =
+			'#devBanner{position:fixed;top:0;left:0;right:0;height:24px;line-height:24px;'+
+			'background:repeating-linear-gradient(45deg,#a90,#a90 10px,#222 10px,#222 20px);'+
+			'color:#fff;font:bold 11px/24px Helvetica,Verdana,sans-serif;letter-spacing:.5px;'+
+			'text-align:center;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;'+
+			'padding:0 6px;box-sizing:border-box;z-index:20000;text-shadow:0 1px 2px #000;}'+
+			'body{padding-top:24px !important;}';
+		d.head.appendChild(css);
+		var b = cE('div');
+		b.id = 'devBanner';
+		b.textContent = '⚠ DEVELOPMENT BUILD — WORK IN PROGRESS — NOT FOR PRODUCTION USE';
+		d.body.insertBefore(b, d.body.firstChild);
+	}
+	if (d.readyState === 'loading') d.addEventListener('DOMContentLoaded', add);
+	else add();
+})();
+
 function H(pg="")   { window.open("https://kno.wled.ge/"+pg); }
 function GH()       { window.open("https://github.com/wled-dev/WLED"); }
 function gId(c)     { return d.getElementById(c); } // getElementById
@@ -186,10 +213,10 @@ function connectWs(onOpen) {
 // start: start pixel index
 // len: number of pixels to send
 // colors: Uint8Array with RGB values (3*len bytes)
-function sendDDP(ws, start, len, colors) {
+function sendDDP(ws, start, len, colors, isESP8266=false) {
 	if (!colors || colors.length < len * 3) return false; // not enough color data
-	let maxDDPpx = 472; // must fit into one WebSocket frame of 1428 bytes, DDP header is 10+1 bytes -> 472 RGB pixels
-	//let maxDDPpx = 172; // ESP8266: must fit into one WebSocket frame of 528 bytes -> 172 RGB pixels TODO: add support for ESP8266?
+	 // data must fit into one WebSocket frame of 1428 bytes, DDP header is 10+1 bytes -> 472 RGB pixels (ESP8266: 528 bytes -> 172 RGB pixels)
+	let maxDDPpx = isESP8266 ? 172 : 472;
 	if (!ws || ws.readyState !== WebSocket.OPEN) return false;
 	// send in chunks of maxDDPpx
 	for (let i = 0; i < len; i += maxDDPpx) {

@@ -37,9 +37,12 @@ class PwmOutput {
         PinManager::deallocatePin(pin_, PinOwner::UM_PWM_OUTPUTS);
         return;
       }
-
-      ledcSetup(channel_, freq_, bit_depth_);
-      ledcAttachPin(pin_, channel_);
+      #if ESP_IDF_VERSION >= ESP_IDF_VERSION_VAL(5, 0, 0)
+        ledcAttachChannel(pin_, freq_, bit_depth_, channel_);  // New API: ledcAttach(pin, freq, resolution, channel); keep PinManager channel ownership consistent
+      #else
+        ledcSetup(channel_, freq_, bit_depth_);
+        ledcAttachPin(pin_, channel_);
+      #endif
       DEBUG_PRINTF("pwm_output[%d]: init successful\n", pin_);
       enabled_ = true;
     }
