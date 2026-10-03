@@ -648,7 +648,7 @@ void getSettingsJS(byte subPage, Print& settingsScript)
                                timer.monthStart, timer.dayStart, timer.monthEnd, timer.dayEnd);
       }
     }
-    printSetFormCheckbox(settingsScript,PSTR("TB"),applyTimerOnBoot);
+    printSetFormValue(settingsScript,PSTR("TB"),bootTimerWindow);
   }
 
   if (subPage == SUBPAGE_SEC)

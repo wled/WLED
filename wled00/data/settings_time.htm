@@ -453,8 +453,9 @@
 	</div>
 	<div class="sec">
 		<h3>Time-Controlled Presets</h3>
-		Apply scheduled preset on boot: <input type="checkbox" name="TB"><br>
-		<i style="color:#999">When enabled, if you power on after a scheduled time, that preset will be applied automatically.</i><br><br>
+		Apply last timed preset on boot if triggered within: <input name="TB" class="m" type="number" min="0" max="1440" required> min<br>
+		<i>After power-on, once the time is synced, the preset that would be active now is applied.<br>
+		Looks back up to 1440 minutes (24 hours). Use 0 to turn off.</i><br><br>
 		<div style="display: inline-block">
 			<table id="TMT" style="min-width:330px;"></table>
 			<button type="button" onclick="addTimerRow()">+</button>

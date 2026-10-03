@@ -641,7 +641,7 @@ void handleSettingsSet(AsyncWebServerRequest *request, byte subPage)
       addTimer(p, h, m, wd, ms, me, ds, de);
     }
     compactTimers();
-    applyTimerOnBoot = request->hasArg(F("TB"));
+    bootTimerWindow = constrain(request->arg(F("TB")).toInt(), 0, BOOT_TIMER_WINDOW_MAX);
 
   }
 

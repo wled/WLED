@@ -705,7 +705,7 @@ WLED_GLOBAL bool countdownOverTriggered _INIT(true);
 
 // lastTimerMinute is private to ntp.cpp - see there.
 WLED_GLOBAL std::vector<Timer> timers;
-WLED_GLOBAL bool applyTimerOnBoot _INIT(false);  // apply most recent scheduled timer preset on boot (after NTP sync)
+WLED_GLOBAL uint16_t bootTimerWindow _INIT(0);  // minutes; on boot (after NTP sync), apply the most recent timer preset if it triggered within this time (0 = off)
 WLED_GLOBAL bool doAdvancePlaylist _INIT(false);
 
 //improv

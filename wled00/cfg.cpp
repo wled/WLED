@@ -734,7 +734,7 @@ bool deserializeConfig(JsonObject doc, bool fromFS) {
       addTimer(p, h, m, wd, ms, me, ds, de);
     }
   }
-  CJSON(applyTimerOnBoot, tm["aob"]);
+  CJSON(bootTimerWindow, tm["aob"]);
 
   JsonObject ota = doc["ota"];
   const char* pwd = ota["psk"]; //normally not present due to security
@@ -1250,7 +1250,7 @@ void serializeConfig(JsonObject root) {
     end[F("mon")] = t.monthEnd;
     end[F("day")] = t.dayEnd;
   }
-  timers["aob"] = applyTimerOnBoot;
+  timers["aob"] = bootTimerWindow;
 
   JsonObject ota = root.createNestedObject("ota");
   ota[F("lock")] = otaLock;

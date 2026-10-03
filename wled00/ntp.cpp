@@ -396,20 +396,25 @@ bool checkCountdown()
   return false;
 }
 
-byte weekdayMondayFirst()
+static byte weekdayMondayFirst(time_t t)
 {
-  byte wd = weekday(localTime) -1;
+  byte wd = weekday(t) -1;
   if (wd == 0) wd = 7;
   return wd;
 }
 
-bool isTodayInDateRange(byte monthStart, byte dayStart, byte monthEnd, byte dayEnd)
+byte weekdayMondayFirst()
+{
+  return weekdayMondayFirst(localTime);
+}
+
+static bool isDateInRange(time_t t, byte monthStart, byte dayStart, byte monthEnd, byte dayEnd)
 {
 	if (monthStart == 0 || dayStart == 0) return true;
 	if (monthEnd == 0) monthEnd = monthStart;
 	if (dayEnd == 0) dayEnd = 31;
-	byte d = day(localTime);
-	byte m = month(localTime);
+	byte d = day(t);
+	byte m = month(t);
 
 	if (monthStart < monthEnd) {
 		if (m > monthStart && m < monthEnd) return true;
@@ -427,6 +432,11 @@ bool isTodayInDateRange(byte monthStart, byte dayStart, byte monthEnd, byte dayE
 	//start month and end month are the same
 	if (dayEnd < dayStart) return (m != monthStart || (d <= dayEnd || d >= dayStart)); //all year, except the designated days in this month
 	return (m == monthStart && d >= dayStart && d <= dayEnd); //just the designated days this month
+}
+
+bool isTodayInDateRange(byte monthStart, byte dayStart, byte monthEnd, byte dayEnd)
+{
+  return isDateInRange(localTime, monthStart, dayStart, monthEnd, dayEnd);
 }
 
 void checkTimers()
@@ -470,64 +480,73 @@ void checkTimers()
   }
 }
 
+static constexpr int MINUTES_PER_DAY = 24 * 60;
+
 /*
- * Returns the minute-of-day (0-1439) timer t triggers at today, or -1 if it doesn't trigger today.
+ * Returns the minute-of-day (0-1439) timer t last triggers at on the day containing 'day',
+ * no later than minute-of-day 'latest', or -1 if it doesn't trigger that day by then.
  * Validates: timer enabled, weekday matches, date range.
- * For "every hour" timers (hour=24), returns the current hour's scheduled minute.
- * For sunrise/sunset timers, returns the calculated trigger time.
+ * For "every hour" timers (hour=24), returns the most recent hourly occurrence.
+ * For sunrise/sunset timers, returns today's calculated trigger time (close enough for yesterday).
  */
-static int getTimerMinuteOfDay(const Timer& t)
+static int getTimerMinuteOfDay(const Timer& t, time_t day, int latest)
 {
   if (!t.isEnabled()) return -1;
-  if (!((t.weekdays >> weekdayMondayFirst()) & 0x01)) return -1;  // wrong weekday
-  if (!isTodayInDateRange(t.monthStart, t.dayStart, t.monthEnd, t.dayEnd)) return -1;
+  if (!((t.weekdays >> weekdayMondayFirst(day)) & 0x01)) return -1;  // wrong weekday
+  if (!isDateInRange(day, t.monthStart, t.dayStart, t.monthEnd, t.dayEnd)) return -1;
 
+  int m;
   if (t.isSunrise() || t.isSunset()) {
     time_t sun = t.isSunrise() ? sunrise : sunset;
     if (!sun) return -1;
-    return elapsedSecsToday(sun + t.minute * 60) / 60;
+    m = elapsedSecsToday(sun + t.minute * 60) / 60;
+  } else if (t.hour == 24) {
+    m = (latest / 60) * 60 + t.minute;  // "every hour" at this minute
+    if (m > latest) m -= 60;            // not reached yet this hour, so the hour before
+  } else {
+    m = t.hour * 60 + t.minute;
   }
-  if (t.hour == 24) return hour(localTime) * 60 + t.minute;  // "every hour" at this minute
-  return t.hour * 60 + t.minute;
+  return (m >= 0 && m <= latest) ? m : -1;
 }
 
 /*
- * Apply the most recent time-controlled preset that should have triggered today.
+ * Apply the time-controlled preset that triggered most recently, if that was no more than
+ * bootTimerWindow minutes ago. Looks back at most one day, so across midnight too.
  * Called once after NTP sync on boot to handle powering on after a scheduled time.
  */
 static void applyBootTimerPreset()
 {
-  if (bootTimerApplied || !applyTimerOnBoot) return;
+  if (bootTimerApplied || !bootTimerWindow) return;
   bootTimerApplied = true;
 
-  int currentMinuteOfDay = elapsedSecsToday(localTime) / 60;
-  int latestTimerMinute = -1;
+  const int currentMinuteOfDay = elapsedSecsToday(localTime) / 60;
+  int minutesAgo = MINUTES_PER_DAY + 1;  // more than the lookback, so any timer found is more recent
   byte latestPreset = 0;
 
   DEBUG_PRINTLN(F("Checking for boot timer preset..."));
 
   for (const Timer& t : timers) {
-    int timerMinute = getTimerMinuteOfDay(t);  // returns -1 if timer not valid for today
-    if (timerMinute < 0) continue;
-
-    // For "every hour" timers, find the most recent past occurrence
-    if (t.hour == 24 && timerMinute > currentMinuteOfDay) {
-      timerMinute -= 60;
-      if (timerMinute < 0) continue;  // would be yesterday, skip
+    int ago;
+    int timerMinute = getTimerMinuteOfDay(t, localTime, currentMinuteOfDay);  // today, up to now
+    if (timerMinute >= 0) {
+      ago = currentMinuteOfDay - timerMinute;
+    } else {
+      // yesterday, but no earlier than this time of day (also skips -1: didn't trigger yesterday)
+      timerMinute = getTimerMinuteOfDay(t, localTime - SECS_PER_DAY, MINUTES_PER_DAY - 1);
+      if (timerMinute < currentMinuteOfDay) continue;
+      ago = currentMinuteOfDay + MINUTES_PER_DAY - timerMinute;
     }
 
-    // Only consider timers that should have already triggered today.
-    // Use >= so that if multiple timers share the same minute, the highest index wins,
+    // Use <= so that if multiple timers share the same minute, the highest index wins,
     // matching checkTimers() behavior where all are applied and the last one sticks.
-    if (timerMinute <= currentMinuteOfDay && timerMinute >= latestTimerMinute) {
-      latestTimerMinute = timerMinute;
+    if (ago <= minutesAgo) {
+      minutesAgo = ago;
       latestPreset = t.preset;
     }
   }
 
-  if (latestPreset > 0) {
-    DEBUG_PRINTF_P(PSTR("Applying boot timer preset %d (scheduled for %02d:%02d)\n"),
-                   latestPreset, latestTimerMinute / 60, latestTimerMinute % 60);
+  if (latestPreset > 0 && minutesAgo <= bootTimerWindow) {
+    DEBUG_PRINTF_P(PSTR("Applying boot timer preset %d (triggered %d min ago)\n"), latestPreset, minutesAgo);
     applyPreset(latestPreset);
   } else {
     DEBUG_PRINTLN(F("No applicable boot timer preset found."));
