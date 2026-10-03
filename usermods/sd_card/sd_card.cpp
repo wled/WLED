@@ -1,21 +1,54 @@
 #include "wled.h"
 
+#if !defined(WLED_USE_SD_SPI) && !defined(WLED_USE_SD_MMC)
+#define WLED_USE_SD_SPI // Fall back to SPI driver if buildenv does not specify the interface to be used.
+#endif
+#if defined(WLED_USE_SD_SPI) && defined(WLED_USE_SD_MMC)
+  #error "Both WLED_USE_SD_MMC and WLED_USE_SD_SPI are defined, please use only one."
+#endif
+
 // SD connected via MMC / SPI
 #if defined(WLED_USE_SD_MMC)
   #define USED_STORAGE_FILESYSTEMS "SD MMC, LittleFS"
   #define SD_ADAPTER SD_MMC
   #include "SD_MMC.h"
+  #pragma message "SD card usermod uses SD MMC driver"
 // SD connected via SPI (adjustable via usermod config)
 #elif defined(WLED_USE_SD_SPI)
   #define SD_ADAPTER SD
   #define USED_STORAGE_FILESYSTEMS "SD SPI, LittleFS"
   #include "SD.h"
   #include "SPI.h"
+  #pragma message "SD card usermod uses SD SPI driver"
 #endif
 
-#ifdef WLED_USE_SD_MMC
-#elif defined(WLED_USE_SD_SPI)
-  SPIClass spiPort = SPIClass(VSPI);
+#ifndef UM_SD_SELECT
+  #define UM_SD_SELECT 16
+#endif
+#ifndef UM_SD_CLOCK
+  #define UM_SD_CLOCK 14
+#endif
+#ifndef UM_SD_POCI
+  #if CONFIG_IDF_TARGET_ESP32S3 && (CONFIG_SPIRAM_MODE_OCT || CONFIG_ESPTOOLPY_FLASHMODE_OPI)  // on -S3 with octal (opi) flash or PSRAM, Pin 22-37 are not available
+    #define UM_SD_POCI 44
+  #else
+    #define UM_SD_POCI 36
+  #endif
+#endif
+#ifndef UM_SD_PICO
+  #define UM_SD_PICO 15
+#endif
+
+
+#ifdef WLED_USE_SD_SPI
+  // SD_MMC configuration handled elsewhere
+    // HSPI bus should be used both on -S3 and classic esp32; try VSPI (classic esp32) or FSPI (esp32-s3) in case of conflicts
+    SPIClass spiPort = SPIClass(HSPI); 
+  #if defined(WLED_USE_ETHERNET) || defined(CONFIG_IDF_TARGET_ESP32C3)
+   // Ethernet boards only have one SPI bus (HSPI) availeable
+   // ESP32-C3 only has one SPI bus
+   #warning "SD card may have conflicts with 2-pin LEDs."
+  #endif
 #endif
 
 void listDir( const char * dirname, uint8_t levels);
@@ -24,11 +57,13 @@ class UsermodSdCard : public Usermod {
   private:
     bool sdInitDone = false;
 
-    #ifdef WLED_USE_SD_SPI
-      int8_t configPinSourceSelect = 16;
-      int8_t configPinSourceClock = 14;
-      int8_t configPinPoci = 36; // confusing names? Then have a look :)
-      int8_t configPinPico = 15; // https://www.oshwa.org/a-resolution-to-redefine-spi-signal-names/
+// confusing names? Then have a look 
+// https://oshwa.org/resources/a-resolution-to-redefine-spi-signal-names/
+#ifdef WLED_USE_SD_SPI
+    int8_t configPinSourceSelect = UM_SD_SELECT;
+    int8_t configPinSourceClock = UM_SD_CLOCK;
+    int8_t configPinPoci = UM_SD_POCI;
+    int8_t configPinPico = UM_SD_PICO;
 
       //acquired and initialize the SPI port
       void init_SD_SPI()
@@ -51,10 +86,9 @@ class UsermodSdCard : public Usermod {
 
         bool returnOfInitSD = false;
 
-        #if defined(WLED_USE_SD_SPI)
-          spiPort.begin(configPinSourceClock, configPinPoci, configPinPico, configPinSourceSelect);
-          returnOfInitSD = SD_ADAPTER.begin(configPinSourceSelect, spiPort);
-        #endif
+        // This whole function is only enabled when compiling with WLED_USE_SD_SPI
+        spiPort.begin(configPinSourceClock, configPinPoci, configPinPico, configPinSourceSelect);
+        returnOfInitSD = SD_ADAPTER.begin(configPinSourceSelect, spiPort);
 
         if(!returnOfInitSD) {
           DEBUG_PRINTF("[%s] SPI begin failed!\n", _name);

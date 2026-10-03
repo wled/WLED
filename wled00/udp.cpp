@@ -6,7 +6,7 @@
 
 #define UDP_SEG_SIZE 36
 #define SEG_OFFSET (41)
-#define WLEDPACKETSIZE (41+(WS2812FX::getMaxSegments()*UDP_SEG_SIZE)+0)
+static constexpr size_t WLEDPACKETSIZE = 41+(WS2812FX::getMaxSegments()*UDP_SEG_SIZE);  // make sure this is known at compile-time
 #define UDP_IN_MAXSIZE 1472
 #define PRESUMED_NETWORK_DELAY 3 //how many ms could it take on avg to reach the receiver? This will be added to transmitted times
 
@@ -165,27 +165,24 @@ void notify(byte callMode, bool followUp)
       s0++;
     }
     if (s > s0) buffer.noOfPackets += 1 + ((s - s0) * UDP_SEG_SIZE) / bufferSize; // set number of packets
-    auto err = quickEspNow.send(ESPNOW_BROADCAST_ADDRESS, reinterpret_cast<const uint8_t*>(&buffer), packetSize+3);
+    auto err = wled::espNow.send(ESPNOW_BROADCAST_ADDRESS, reinterpret_cast<const uint8_t*>(&buffer), packetSize+3);
     if (!err && s0 < s) {
       // send rest of the segments
       buffer.packet++;
       packetSize = 0;
-      // WARNING: this will only work for up to 3 messages (~17 segments) as QuickESPNOW only has a ring buffer capable of holding 3 queued messages
-      // to work around that limitation it is mandatory to utilize onDataSent() callback which should reduce number queued messages
-      // and wait until at least one space is available in the buffer
       for (size_t i = s0; i < s; i++) {
         memcpy(buffer.data + packetSize, &udpOut[41+i*UDP_SEG_SIZE], UDP_SEG_SIZE);
         packetSize += UDP_SEG_SIZE;
         if (packetSize + UDP_SEG_SIZE < bufferSize) continue;
         DEBUG_PRINTF_P(PSTR("ESP-NOW sending packet: %d (%u)\n"), (int)buffer.packet, packetSize+3);
-        err = quickEspNow.send(ESPNOW_BROADCAST_ADDRESS, reinterpret_cast<const uint8_t*>(&buffer), packetSize+3);
+        err = wled::espNow.send(ESPNOW_BROADCAST_ADDRESS, reinterpret_cast<const uint8_t*>(&buffer), packetSize+3);
         buffer.packet++;
         packetSize = 0;
         if (err) break;
       }
       if (!err && packetSize > 0) {
         DEBUG_PRINTF_P(PSTR("ESP-NOW sending last packet: %d (%d)\n"), (int)buffer.packet, packetSize+3);
-        err = quickEspNow.send(ESPNOW_BROADCAST_ADDRESS, reinterpret_cast<const uint8_t*>(&buffer), packetSize+3);
+        err = wled::espNow.send(ESPNOW_BROADCAST_ADDRESS, reinterpret_cast<const uint8_t*>(&buffer), packetSize+3);
       }
     }
     if (err) {
@@ -196,7 +193,7 @@ void notify(byte callMode, bool followUp)
 #endif
   {
     DEBUG_PRINTLN(F("UDP sending packet."));
-    IPAddress broadcastIp = ~uint32_t(Network.subnetMask()) | uint32_t(Network.gatewayIP());
+    IPAddress broadcastIp = ~uint32_t(WLEDNetwork.subnetMask()) | uint32_t(WLEDNetwork.gatewayIP());
     notifierUdp.beginPacket(broadcastIp, udpPort);
     notifierUdp.write(udpOut, WLEDPACKETSIZE); // TODO: add actual used buffer size
     notifierUdp.endPacket();
@@ -268,6 +265,7 @@ static void parseNotifyPacket(const uint8_t *udpIn) {
     size_t inactiveSegs = 0;
     for (size_t i = 0; i < numSrcSegs && i < WS2812FX::getMaxSegments(); i++) {
       unsigned ofs = 41 + i*udpIn[40]; //start of segment offset byte
+      if (ofs + 36 > UDP_IN_MAXSIZE) break; // avoid reading outside of array
       unsigned id = udpIn[0 +ofs];
       DEBUG_PRINTF_P(PSTR("UDP segment received: %u\n"), id);
       if      (id >  strip.getSegmentsNum()) break;
@@ -499,7 +497,7 @@ void handleNotifications()
     packetSize = rgbUdp.parsePacket();
     if (packetSize) {
       if (!receiveDirect) return;
-      if (packetSize > UDP_IN_MAXSIZE || packetSize < 3) return;
+      if (packetSize > UDP_IN_MAXSIZE || packetSize < 3) return;  // packetSize must not exceed buffersize (UDP_IN_MAXSIZE)
       realtimeIP = rgbUdp.remoteIP();
       DEBUG_PRINTLN(rgbUdp.remoteIP());
       uint8_t lbuf[packetSize];
@@ -516,7 +514,7 @@ void handleNotifications()
     }
   }
 
-  localIP = Network.localIP();
+  localIP = WLEDNetwork.localIP();
   //notifier and UDP realtime
   if (!packetSize || packetSize > UDP_IN_MAXSIZE) return;
   if (!isSupp && notifierUdp.remoteIP() == localIP) return; //don't process broadcasts we send ourselves
@@ -587,7 +585,9 @@ void handleNotifications()
 
       unsigned id = (tpmPayloadFrameSize/3)*(packetNum-1); //start LED
       unsigned totalLen = strip.getLengthTotal();
-      for (size_t i = 6; i < tpmPayloadFrameSize + 4U && id < totalLen; i += 3, id++) {
+      // Clamp to prevent buffer overread: loop accesses up to udpIn[tpmPayloadFrameSize + 5]
+      size_t currentPayloadFrameSize = (packetSize >= 5) ? min(tpmPayloadFrameSize, uint16_t(packetSize - 5)) : 0;
+      for (size_t i = 6; i < currentPayloadFrameSize + 4U && id < totalLen; i += 3, id++) {
         setRealtimePixel(id, udpIn[i], udpIn[i+1], udpIn[i+2], 0);
       }
       if (tpmPacketCount == numPackets) { //reset packet count and show if all packets were received
@@ -698,7 +698,7 @@ void sendSysInfoUDP()
 {
   if (!udp2Connected) return;
 
-  IPAddress ip = Network.localIP();
+  IPAddress ip = WLEDNetwork.localIP();
   if (!ip || ip == IPAddress(255,255,255,255)) ip = IPAddress(4,3,2,1);
 
   // TODO: make a nice struct of it and clean up
@@ -720,19 +720,7 @@ void sendSysInfoUDP()
     data[x + 2] = ip[x];
   }
   memcpy((byte *)data + 6, serverDescription, 32);
-  #ifdef ESP8266
-  data[38] = NODE_TYPE_ID_ESP8266;
-  #elif defined(CONFIG_IDF_TARGET_ESP32C3)
-  data[38] = NODE_TYPE_ID_ESP32C3;
-  #elif defined(CONFIG_IDF_TARGET_ESP32S3)
-  data[38] = NODE_TYPE_ID_ESP32S3;
-  #elif defined(CONFIG_IDF_TARGET_ESP32S2)
-  data[38] = NODE_TYPE_ID_ESP32S2;
-  #elif defined(ARDUINO_ARCH_ESP32)
-  data[38] = NODE_TYPE_ID_ESP32;
-  #else
-  data[38] = NODE_TYPE_ID_UNDEFINED;
-  #endif
+  data[38] = uint8_t(WLED_BOARD); // see wled_boards.h
   if (bri) data[38] |= 0x80U;  // add on/off state
   data[39] = ip[3]; // unit ID == last IP number
 
@@ -804,6 +792,7 @@ uint8_t realtimeBroadcast(uint8_t type, IPAddress client, uint16_t length, const
 
         // write the header
         /*0*/ddpUdp.write(flags);
+        // TODO: sequence number should be 1-15 as 0 means "unused", it has no bad consequences other than out of sequence packet may be accepted
         /*1*/ddpUdp.write(sequenceNumber++ & 0x0F); // sequence may be unnecessary unless we are sending twice (as requested in Sync settings)
         /*2*/ddpUdp.write(isRGBW ?  DDP_TYPE_RGBW32 : DDP_TYPE_RGB24);
         /*3*/ddpUdp.write(DDP_ID_DISPLAY);
