@@ -31,13 +31,15 @@ class ACS712 : public Usermod {
       currentTopic = String(mqttDeviceTopic) + "/current";
 
       String ha = String("homeassistant/sensor/") + mqttClientID + "/" + FPSTR(_current) + "/config";
-      StaticJsonDocument<256> json;
+      StaticJsonDocument<512> json;
 
       json[F("name")] = serverDescription+String(" Current");
       json[F("state_topic")] = currentTopic;
       json[F("device_class")] = FPSTR(_current);
       json[F("unique_id")] = String(mqttClientID) + FPSTR(_current);
       json[F("unit_of_measurement")] = F("mA");
+
+      if (json.overflowed()) return;
 
       String jsonSer;
       serializeJson(json, jsonSer);
@@ -114,6 +116,7 @@ class ACS712 : public Usermod {
           initPin = false;
         }
         pin = newPin;
+        hasLastCurrent = false;
       }
 
       return configComplete;
