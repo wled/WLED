@@ -1291,7 +1291,7 @@ void WS2812FX::service() {
     show();
   }
 
-  #ifdef WLED_DEBUG
+  #if defined(WLED_DEBUG) && !defined(WLED_DEBUG_NO_SLOW_WARNINGS)
   if ((_targetFps != FPS_UNLIMITED) && (millis() - nowUp > _frametime))
     DEBUG_PRINTF_P(PSTR("Slow strip %u/%d.\n"), (unsigned)(millis()-nowUp), (int)_frametime);
   #endif
