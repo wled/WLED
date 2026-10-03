@@ -1,0 +1,4 @@
+{
+  "name": "PS Comet",
+  "build": { "libArchive": false }
+}

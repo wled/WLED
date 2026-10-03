@@ -48,6 +48,7 @@ ParticleSystem2D::ParticleSystem2D(uint32_t width, uint32_t height, uint32_t num
     sources[i].source.ttl = 1; //set source alive
     sources[i].sourceFlags.asByte = 0; // all flags disabled
   }
+  perParticleSize = isadvanced; // enable per particle size by default if using advanced properties (FX can disable if needed)
 
 }
 
@@ -79,9 +80,8 @@ void ParticleSystem2D::update(void) {
 }
 
 // update function for fire animation
-void ParticleSystem2D::updateFire(const uint8_t intensity,const bool renderonly) {
-  if (!renderonly)
-    fireParticleupdate();
+void ParticleSystem2D::updateFire(const uint8_t intensity) {
+  fireParticleupdate();
   fireIntesity = intensity > 0 ? intensity : 1; // minimum of 1, zero checking is used in render function
   render();
 }
@@ -500,7 +500,7 @@ void ParticleSystem2D::applyGravity(PSparticle &part) {
 // note: a coefficient smaller than 0 will speed them up (this is a feature, not a bug), coefficient larger than 255 inverts the speed, so don't do that
 void ParticleSystem2D::applyFriction(PSparticle &part, const int32_t coefficient) {
   // note: not checking if particle is dead can be done by caller (or can be omitted)
-  #if defined(CONFIG_IDF_TARGET_ESP32C3) || defined(ESP8266) // use bitshifts with rounding instead of division (2x faster)
+  #if !defined(WLED_HAVE_FAST_int_DIVIDE) // use bitshifts with rounding instead of division (2x faster)
   int32_t friction = 256 - coefficient;
   part.vx = ((int32_t)part.vx * friction + (((int32_t)part.vx >> 31) & 0xFF)) >> 8; // note: (v>>31) & 0xFF)) extracts the sign and adds 255 if negative for correct rounding using shifts
   part.vy = ((int32_t)part.vy * friction + (((int32_t)part.vy >> 31) & 0xFF)) >> 8;
@@ -514,7 +514,7 @@ void ParticleSystem2D::applyFriction(PSparticle &part, const int32_t coefficient
 // apply friction to all particles
 // note: not checking if particle is dead is faster as most are usually alive and if few are alive, rendering is fast anyways
 void ParticleSystem2D::applyFriction(const int32_t coefficient) {
-  #if defined(CONFIG_IDF_TARGET_ESP32C3) || defined(ESP8266) // use bitshifts with rounding instead of division (2x faster)
+  #if !defined(WLED_HAVE_FAST_int_DIVIDE) // use bitshifts with rounding instead of division (2x faster)
   int32_t friction = 256 - coefficient;
   for (uint32_t i = 0; i < usedParticles; i++) {
     particles[i].vx = ((int32_t)particles[i].vx * friction + (((int32_t)particles[i].vx >> 31) & 0xFF)) >> 8; // note: (v>>31) & 0xFF)) extracts the sign and adds 255 if negative for correct rounding using shifts
@@ -595,16 +595,15 @@ void ParticleSystem2D::render() {
     if (fireIntesity) { // fire mode
       brightness = (uint32_t)particles[i].ttl * (3 + (fireIntesity >> 5)) + 5;
       brightness = min(brightness, (uint32_t)255);
-      baseRGB = ColorFromPaletteWLED(SEGPALETTE, brightness, 255, LINEARBLEND_NOWRAP); // map hue to brightness for fire effect
+      baseRGB = ColorFromPalette(SEGPALETTE, brightness, 255, LINEARBLEND_NOWRAP);
     }
     else {
       brightness = min((particles[i].ttl << 1), (int)255);
-      baseRGB = ColorFromPaletteWLED(SEGPALETTE, particles[i].hue, 255, blend);
+      baseRGB = ColorFromPalette(SEGPALETTE, particles[i].hue, 255, blend);
       if (particles[i].sat < 255) {
-        CHSV32 baseHSV;
-        rgb2hsv(baseRGB.color32, baseHSV); // convert to HSV
+        CHSV32 baseHSV = baseRGB;
         baseHSV.s = min(baseHSV.s, particles[i].sat); // set the saturation but don't increase it
-        hsv2rgb(baseHSV, baseRGB.color32); // convert back to RGB
+        hsv2rgb_spectrum(baseHSV, baseRGB); // convert back to RGB
       }
     }
     if (gammaCorrectCol) brightness = gamma8(brightness); // apply gamma correction, used for gamma-inverted brightness distribution
@@ -805,7 +804,6 @@ void WLED_O2_ATTR ParticleSystem2D::renderLargeParticle(const uint32_t size, con
       if (gammaCorrectCol) {
         pixel_brightness = gamma8inv(pixel_brightness); // invert brigthess so brightness distribution is linear after gamma correction
       }
-
       // Render pixel
       uint32_t idx = render_x + (maxYpixel - render_y) * matrixX; // flip y coordinate (0,0 is bottom left in PS but top left in framebuffer)
       framebuffer[idx] = fast_color_scaleAdd(framebuffer[idx], color, pixel_brightness);
@@ -929,7 +927,7 @@ void WLED_O2_ATTR ParticleSystem2D::collideParticles(PSparticle &particle1, PSpa
     int32_t surfacehardness = max(collisionHardness, (int32_t)PS_P_MINSURFACEHARDNESS >> 1); // if particles are soft, the impulse must stay above a limit or collisions slip through at higher speeds, 170 seems to be a good value
     int32_t impulse = (((((-dotProduct) << 15) / distanceSquared) * surfacehardness) >> 8); // note: inverting before bitshift corrects for asymmetry in right-shifts (is slightly faster)
 
-    #if defined(CONFIG_IDF_TARGET_ESP32C3) || defined(ESP8266) // use bitshifts with rounding instead of division (2x faster)
+    #if !defined(WLED_HAVE_FAST_int_DIVIDE) // use bitshifts with rounding instead of division (2x faster)
     int32_t ximpulse = (impulse * dx + ((dx >> 31) & 0x7FFF)) >> 15; // note: extracting sign bit and adding rounding value to correct for asymmetry in right shifts
     int32_t yimpulse = (impulse * dy + ((dy >> 31) & 0x7FFF)) >> 15;
     #else
@@ -957,7 +955,7 @@ void WLED_O2_ATTR ParticleSystem2D::collideParticles(PSparticle &particle1, PSpa
     if (collisionHardness < PS_P_MINSURFACEHARDNESS && (SEGMENT.call & 0x07) == 0) { // if particles are soft, they become 'sticky' i.e. apply some friction (they do pile more nicely and stop sloshing around)
       const uint32_t coeff = collisionHardness + (255 - PS_P_MINSURFACEHARDNESS);
       // Note: could call applyFriction, but this is faster and speed is key here
-      #if defined(CONFIG_IDF_TARGET_ESP32C3) || defined(ESP8266) // use bitshifts with rounding instead of division (2x faster)
+      #if !defined(WLED_HAVE_FAST_int_DIVIDE) // use bitshifts with rounding instead of division (2x faster)
       particle1.vx = ((int32_t)particle1.vx * coeff + (((int32_t)particle1.vx >> 31) & 0xFF)) >> 8; // note: (v>>31) & 0xFF)) extracts the sign and adds 255 if negative for correct rounding using shifts
       particle1.vy = ((int32_t)particle1.vy * coeff + (((int32_t)particle1.vy >> 31) & 0xFF)) >> 8;
       particle2.vx = ((int32_t)particle2.vx * coeff + (((int32_t)particle2.vx >> 31) & 0xFF)) >> 8;
@@ -1096,7 +1094,11 @@ bool allocateParticleSystemMemory2D(uint32_t numparticles, uint32_t numsources, 
 // initialize Particle System, allocate additional bytes if needed (pointer to those bytes can be read from particle system class: PSdataEnd)
 bool initParticleSystem2D(ParticleSystem2D *&PartSys, uint32_t requestedsources, uint32_t additionalbytes, bool advanced, bool sizecontrol) {
   PSPRINT("PS 2D init ");
-  if (!strip.isMatrix) return false; // only for 2D
+  if (!strip.isMatrix) {
+    errorFlag = ERR_NOT_IMPL; // TODO: need a better error code if more codes are added
+    SEGMENT.deallocateData(); // deallocate any data to make sure data is null (there is no valid PS in data and data can only be checked for null)
+    return false; // only for 2D
+  }
   uint32_t cols = SEGMENT.virtualWidth();
   uint32_t rows = SEGMENT.virtualHeight();
   uint32_t pixels = cols * rows;
@@ -1156,7 +1158,7 @@ ParticleSystem1D::ParticleSystem1D(uint32_t length, uint32_t numberofparticles, 
     sources[i].source.ttl = 1; //set source alive
     sources[i].sourceFlags.asByte = 0; // all flags disabled
   }
-
+  perParticleSize = isadvanced; // enable per particle size by default so FX do not need to set this explicitly. FX can disable by setting global size.
   if (isadvanced) {
     for (uint32_t i = 0; i < numParticles; i++) {
       advPartProps[i].sat = 255; // set full saturation
@@ -1406,7 +1408,7 @@ void ParticleSystem1D::applyGravity(PSparticle1D &part, PSparticleFlags1D &partF
 // slow down particle by friction, the higher the speed, the higher the friction. a high friction coefficient slows them more (255 means instant stop)
 // note: a coefficient smaller than 0 will speed them up (this is a feature, not a bug), coefficient larger than 255 inverts the speed, so don't do that
 void ParticleSystem1D::applyFriction(int32_t coefficient) {
-  #if defined(CONFIG_IDF_TARGET_ESP32C3) || defined(ESP8266) // use bitshifts with rounding instead of division (2x faster)
+  #if !defined(WLED_HAVE_FAST_int_DIVIDE) // use bitshifts with rounding instead of division (2x faster)
   int32_t friction = 256 - coefficient;
   for (uint32_t i = 0; i < usedParticles; i++) {
     if (particles[i].ttl)
@@ -1453,14 +1455,12 @@ void ParticleSystem1D::render() {
 
     // generate RGB values for particle
     brightness = min(particles[i].ttl << 1, (int)255);
-    baseRGB = ColorFromPaletteWLED(SEGPALETTE, particles[i].hue, 255, blend);
-
+    baseRGB = ColorFromPalette(SEGPALETTE, particles[i].hue, 255, blend);
     if (advPartProps != nullptr) { //saturation is advanced property in 1D system
       if (advPartProps[i].sat < 255) {
-        CHSV32 baseHSV;
-        rgb2hsv(baseRGB.color32, baseHSV); // convert to HSV
-        baseHSV.s = min(baseHSV.s, advPartProps[i].sat); // set the saturation but don't increase it
-        hsv2rgb(baseHSV, baseRGB.color32); // convert back to RGB
+        CHSV32 baseHSV = baseRGB;
+        baseHSV.s = advPartProps[i].sat; // set the saturation
+        hsv2rgb_spectrum(baseHSV, baseRGB); // convert back to RGB
       }
     }
     if (gammaCorrectCol) brightness = gamma8(brightness); // apply gamma correction, used for gamma-inverted brightness distribution
@@ -1699,7 +1699,7 @@ void WLED_O2_ATTR ParticleSystem1D::collideParticles(uint32_t partIdx1, uint32_t
       }
       int32_t surfacehardness = max(collisionHardness, (int32_t)PS_P_MINSURFACEHARDNESS_1D); // if particles are soft, the impulse must stay above a limit or collisions slip through
       // Calculate new velocities after collision  note: not using dot product like in 2D as impulse is purely speed depnedent
-      #if defined(CONFIG_IDF_TARGET_ESP32C3) || defined(ESP8266) // use bitshifts with rounding instead of division (2x faster)
+      #if !defined(WLED_HAVE_FAST_int_DIVIDE) // use bitshifts with rounding instead of division (2x faster)
       int32_t impulse = (dv * surfacehardness + ((dv >> 31) & 0xFF)) >> 8; // note: (v>>31) & 0xFF)) extracts the sign and adds 255 if negative for correct rounding using shifts
       #else // division is faster on ESP32, S2 and S3
       int32_t impulse = (dv * surfacehardness) / 255;
@@ -1720,7 +1720,7 @@ void WLED_O2_ATTR ParticleSystem1D::collideParticles(uint32_t partIdx1, uint32_t
 
       if (collisionHardness < PS_P_MINSURFACEHARDNESS_1D && (SEGMENT.call & 0x07) == 0) { // if particles are soft, they become 'sticky' i.e. apply some friction
         const uint32_t coeff = collisionHardness + (250 - PS_P_MINSURFACEHARDNESS_1D);
-        #if defined(CONFIG_IDF_TARGET_ESP32C3) || defined(ESP8266) // use bitshifts with rounding instead of division (2x faster)
+        #if !defined(WLED_HAVE_FAST_int_DIVIDE) // use bitshifts with rounding instead of division (2x faster)
         particles[partIdx1].vx = ((int32_t)particles[partIdx1].vx * coeff + (((int32_t)particles[partIdx1].vx >> 31) & 0xFF)) >> 8; // note: (v>>31) & 0xFF)) extracts the sign and adds 255 if negative for correct rounding using shifts
         particles[partIdx2].vx = ((int32_t)particles[partIdx2].vx * coeff + (((int32_t)particles[partIdx2].vx >> 31) & 0xFF)) >> 8;
         #else // division is faster on ESP32, S2 and S3
@@ -1844,7 +1844,11 @@ bool allocateParticleSystemMemory1D(const uint32_t numparticles, const uint32_t 
 // initialize Particle System, allocate additional bytes if needed (pointer to those bytes can be read from particle system class: PSdataEnd)
 // note: percentofparticles is in uint8_t, for example 191 means 75%, (deafaults to 255 or 100% meaning one particle per pixel), can be more than 100% (but not recommended, can cause out of memory)
 bool initParticleSystem1D(ParticleSystem1D *&PartSys, const uint32_t requestedsources, const uint8_t fractionofparticles, const uint32_t additionalbytes, const bool advanced) {
-  if (SEGLEN == 1) return false; // single pixel not supported
+  if (SEGLEN == 1) {
+    errorFlag = ERR_NOT_IMPL; // TODO: need a better error code if more codes are added
+    SEGMENT.deallocateData(); // deallocate any data to make sure data is null (there is no valid PS in data and data can only be checked for null)
+    return false; // single pixel not supported
+  }
   uint32_t numparticles = calculateNumberOfParticles1D(fractionofparticles, advanced);
   uint32_t numsources = calculateNumberOfSources1D(requestedsources);
   bool allocsuccess = false;

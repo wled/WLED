@@ -1,6 +1,6 @@
 #include "Network.h"
 
-IPAddress NetworkClass::localIP()
+IPAddress WLEDNetworkClass::localIP()
 {
   IPAddress localIP;
 #if defined(ARDUINO_ARCH_ESP32) && defined(WLED_USE_ETHERNET)
@@ -17,7 +17,7 @@ IPAddress NetworkClass::localIP()
   return INADDR_NONE;
 }
 
-IPAddress NetworkClass::subnetMask()
+IPAddress WLEDNetworkClass::subnetMask()
 {
 #if defined(ARDUINO_ARCH_ESP32) && defined(WLED_USE_ETHERNET)
   if (ETH.localIP()[0] != 0) {
@@ -30,7 +30,7 @@ IPAddress NetworkClass::subnetMask()
   return IPAddress(255, 255, 255, 0);
 }
 
-IPAddress NetworkClass::gatewayIP()
+IPAddress WLEDNetworkClass::gatewayIP()
 {
 #if defined(ARDUINO_ARCH_ESP32) && defined(WLED_USE_ETHERNET)
   if (ETH.localIP()[0] != 0) {
@@ -43,7 +43,7 @@ IPAddress NetworkClass::gatewayIP()
   return INADDR_NONE;
 }
 
-void NetworkClass::localMAC(uint8_t* MAC)
+void WLEDNetworkClass::localMAC(uint8_t* MAC)
 {
 #if defined(ARDUINO_ARCH_ESP32) && defined(WLED_USE_ETHERNET)
   // ETH.macAddress(MAC); // Does not work because of missing ETHClass:: in ETH.ccp
@@ -71,12 +71,12 @@ void NetworkClass::localMAC(uint8_t* MAC)
   return;
 }
 
-bool NetworkClass::isConnected()
+bool WLEDNetworkClass::isConnected()
 {
   return (WiFi.localIP()[0] != 0 && WiFi.status() == WL_CONNECTED) || isEthernet();
 }
 
-bool NetworkClass::isEthernet()
+bool WLEDNetworkClass::isEthernet()
 {
 #if defined(ARDUINO_ARCH_ESP32) && defined(WLED_USE_ETHERNET)
   return (ETH.localIP()[0] != 0) && ETH.linkUp();
@@ -84,4 +84,4 @@ bool NetworkClass::isEthernet()
   return false;
 }
 
-NetworkClass Network;
+WLEDNetworkClass WLEDNetwork;

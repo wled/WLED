@@ -10,14 +10,14 @@
   #define DIMPROV_PRINTF(x...)
 #endif
 
-#if defined(CONFIG_IDF_TARGET_ESP32S2) || defined(CONFIG_IDF_TARGET_ESP32C3) || defined(CONFIG_IDF_TARGET_ESP32S3)
+#if defined(CONFIG_IDF_TARGET_ESP32S2) || defined(CONFIG_IDF_TARGET_ESP32C3) || defined(CONFIG_IDF_TARGET_ESP32C5) || defined(CONFIG_IDF_TARGET_ESP32S3) // ToDO check if C6, C61, P4 support this
 #undef WLED_DISABLE_IMPROV_WIFISCAN
 #define WLED_DISABLE_IMPROV_WIFISCAN
 #endif
 
 #define IMPROV_VERSION 1
-
-void parseWiFiCommand(char *rpcData);
+// forward declarations
+static void parseWiFiCommand(char* rpcData);
 
 enum ImprovPacketType {
   Current_State = 0x01,
@@ -94,7 +94,7 @@ void handleImprovPacket() {
             case ImprovRPCType::Request_State: {
               unsigned improvState = 0x02; //authorized
               if (WLED_WIFI_CONFIGURED) improvState = 0x03; //provisioning
-              if (Network.isConnected()) improvState = 0x04; //provisioned
+              if (WLEDNetwork.isConnected()) improvState = 0x04; //provisioned
               sendImprovStateResponse(improvState, false);
               if (improvState == 0x04) sendImprovIPRPCResult(ImprovRPCType::Request_State);
               break;
@@ -116,8 +116,8 @@ void handleImprovPacket() {
             return;
           }
         } else if (packetByte > 9) { //RPC data
-          rpcData[packetByte - 10] = next;
           if (packetByte > 137) return; //prevent buffer overflow
+          rpcData[packetByte - 10] = next;
         }
       }
     }
@@ -178,10 +178,10 @@ void sendImprovRPCResult(ImprovRPCType type, uint8_t n_strings, const char **str
 }
 
 void sendImprovIPRPCResult(ImprovRPCType type) {
-  if (Network.isConnected())
+  if (WLEDNetwork.isConnected())
   {
     char urlStr[64];
-    IPAddress localIP = Network.localIP();
+    IPAddress localIP = WLEDNetwork.localIP();
     unsigned len = sprintf(urlStr, "http://%d.%d.%d.%d", localIP[0], localIP[1], localIP[2], localIP[3]);
     if (len > 24) return; //sprintf fail?
     const char *str[1] = {urlStr};
@@ -208,7 +208,7 @@ void sendImprovInfoResponse() {
   #endif
   //Use serverDescription if it has been changed from the default "WLED", else mDNS name
   bool useMdnsName = (strcmp(serverDescription, "WLED") == 0 && strlen(cmDNS) > 0);
-  char vString[32];
+  char vString[WLED_VERSION_MAX_LEN + 12] = {'\0'};
   sprintf_P(vString, PSTR("%s/%i"), versionString, VERSION);
   const char *str[4] = {"WLED", vString, bString, useMdnsName ? cmDNS : serverDescription};
 
@@ -238,8 +238,8 @@ void handleImprovWifiScan() {
     bool isOpen = WiFi.encryptionType(i) == WIFI_AUTH_OPEN;
     #endif
 
-    char ssidStr[33];
-    strcpy(ssidStr, WiFi.SSID(i).c_str());
+    char ssidStr[33] = {'\0'};
+    strlcpy(ssidStr, WiFi.SSID(i).c_str(), sizeof(ssidStr));
     const char *str[3] = {ssidStr, rssiStr, isOpen ? "NO":"YES"};
     sendImprovRPCResult(ImprovRPCType::Request_Scan, 3, str);
   }
@@ -252,20 +252,19 @@ void startImprovWifiScan() {}
 void handleImprovWifiScan() {}
 #endif
 
-void parseWiFiCommand(char* rpcData) {
+static void parseWiFiCommand(char* rpcData) {
   unsigned len = rpcData[0];
   if (!len || len > 126) return;
 
   unsigned ssidLen = rpcData[1];
   if (ssidLen > len -1 || ssidLen > 32) return;
-  memset(multiWiFi[0].clientSSID, 0, 32);
+  memset(multiWiFi[0].clientSSID, 0, sizeof(multiWiFi[0].clientSSID));
   memcpy(multiWiFi[0].clientSSID, rpcData+2, ssidLen);
 
-  memset(multiWiFi[0].clientPass, 0, 64);
+  memset(multiWiFi[0].clientPass, 0, sizeof(multiWiFi[0].clientPass));
   if (len > ssidLen +1) {
     unsigned passLen = rpcData[2+ssidLen];
-    memset(multiWiFi[0].clientPass, 0, 64);
-    memcpy(multiWiFi[0].clientPass, rpcData+3+ssidLen, passLen);
+    memcpy(multiWiFi[0].clientPass, rpcData+3+ssidLen, min(size_t(passLen), sizeof(multiWiFi[0].clientPass)));
   }
 
   sendImprovStateResponse(0x03); //provisioning

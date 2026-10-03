@@ -1,0 +1,14 @@
+{
+  "features": {
+    "ghcr.io/ar90n/devcontainer-features/platformio:1": {
+      "version": "1.0.2",
+      "resolved": "ghcr.io/ar90n/devcontainer-features/platformio@sha256:4a28f8c147d81ff996afebe6f43e453355b6373dd4022960351090b532ac9dd3",
+      "integrity": "sha256:4a28f8c147d81ff996afebe6f43e453355b6373dd4022960351090b532ac9dd3"
+    },
+    "ghcr.io/devcontainers/features/node:2": {
+      "version": "2.0.0",
+      "resolved": "ghcr.io/devcontainers/features/node@sha256:fedd4c11f7adfb64283b578dddc7da906728daa25fa293351c9d913231acf12f",
+      "integrity": "sha256:fedd4c11f7adfb64283b578dddc7da906728daa25fa293351c9d913231acf12f"
+    }
+  }
+}

@@ -6,6 +6,10 @@
 #include "html_ui.h"
 #include "html_settings.h"
 #include "html_other.h"
+#include "js_iro.h"
+#ifdef WLED_ENABLE_GIF
+  #include "js_omggif.h"
+#endif
 #ifdef WLED_ENABLE_PIXART
   #include "html_pixart.h"
 #endif
@@ -17,6 +21,15 @@
 #endif
 #include "html_cpal.h"
 #include "html_edit.h"
+
+// forward declarations
+static void createEditHandler();
+
+// Runtime state private to this file - previously WLED_GLOBAL, a leftover from
+// when all state lived in one big extern block regardless of who used it.
+static AsyncWebHandler *editHandler = nullptr;
+static String messageHead, messageSub;
+static byte optionType;
 
 
 // define flash strings once (saves flash memory)
@@ -36,7 +49,10 @@ static const char s_cache_control[]  PROGMEM = "Cache-Control";
 static const char s_no_store[]       PROGMEM = "no-store";
 static const char s_expires[]        PROGMEM = "Expires";
 static const char _common_js[]       PROGMEM = "/common.js";
-
+static const char _iro_js[]          PROGMEM = "/iro.js";
+#ifdef WLED_ENABLE_GIF
+static const char _omggif_js[]       PROGMEM = "/omggif.js";
+#endif
 
 //Is this an IP?
 static bool isIp(const String &str) {
@@ -54,7 +70,7 @@ static bool inSubnet(const IPAddress &ip, const IPAddress &subnet, const IPAddre
 }
 
 static bool inSameSubnet(const IPAddress &client) {
-  return inSubnet(client, Network.localIP(), Network.subnetMask());
+  return inSubnet(client, WLEDNetwork.localIP(), WLEDNetwork.subnetMask());
 }
 
 static bool inLocalSubnet(const IPAddress &client) {
@@ -215,12 +231,13 @@ static void handleUpload(AsyncWebServerRequest *request, const String& filename,
       request->send(200, FPSTR(CONTENT_TYPE_PLAIN), F("File Uploaded!"));
     }
     cacheInvalidate++;
+    updateFSInfo(); // refresh memory usage info
   }
 }
 
 static const char _edit_htm[] PROGMEM = "/edit.htm";
 
-void createEditHandler() {
+static void createEditHandler() {
   if (editHandler != nullptr) server.removeHandler(editHandler);
 
   editHandler = &server.on(F("/edit"), static_cast<WebRequestMethod>(HTTP_GET), [](AsyncWebServerRequest *request) {
@@ -304,6 +321,7 @@ void createEditHandler() {
         request->send(500, FPSTR(CONTENT_TYPE_PLAIN), F("Delete failed"));
       else
         request->send(200, FPSTR(CONTENT_TYPE_PLAIN), F("File deleted"));
+      updateFSInfo(); // refresh memory usage info
       return;
     }
 
@@ -350,6 +368,16 @@ void initServer()
     handleStaticContent(request, FPSTR(_common_js), 200, FPSTR(CONTENT_TYPE_JAVASCRIPT), JS_common, JS_common_length);
   });
 
+  server.on(_iro_js, HTTP_GET, [](AsyncWebServerRequest *request) {
+    handleStaticContent(request, FPSTR(_iro_js), 200, FPSTR(CONTENT_TYPE_JAVASCRIPT), JS_iro, JS_iro_length);
+  });
+
+#ifdef WLED_ENABLE_GIF
+  server.on(_omggif_js, HTTP_GET, [](AsyncWebServerRequest *request) {
+    handleStaticContent(request, FPSTR(_omggif_js), 200, FPSTR(CONTENT_TYPE_JAVASCRIPT), JS_omggif, JS_omggif_length);
+  });
+#endif
+
   //settings page
   server.on(F("/settings"), HTTP_GET, [](AsyncWebServerRequest *request){
     serveSettings(request);
@@ -395,7 +423,7 @@ void initServer()
     bool verboseResponse = false;
     bool isConfig = false;
 
-    if (!requestJSONBufferLock(14)) {
+    if (!requestJSONBufferLock(JSON_LOCK_SERVER)) {
       request->deferResponse();
       return;
     }
@@ -490,7 +518,9 @@ void initServer()
   server.on(_update, HTTP_POST, [](AsyncWebServerRequest *request){
     if (request->_tempObject) {
       auto ota_result = getOTAResult(request);
-      if (ota_result.first) {
+      if (ota_result.first == OTAResultStatus::TryAgain) {
+        request->deferResponse();
+      } else if (ota_result.first == OTAResultStatus::Ready) {
         if (ota_result.second.length() > 0) {
           serveMessage(request, 500, F("Update failed!"), ota_result.second, 254);
         } else {
@@ -620,6 +650,14 @@ void initServer()
   server.on(_pixelforge_htm, HTTP_GET, [](AsyncWebServerRequest *request) {
     handleStaticContent(request, FPSTR(_pixelforge_htm), 200, FPSTR(CONTENT_TYPE_HTML), PAGE_pixelforge, PAGE_pixelforge_length);
   });
+  #else
+  server.on("/pixelforge.htm", HTTP_GET, [](AsyncWebServerRequest *request) {
+    request->send(200, "text/html",
+      F("<!DOCTYPE html><html><head><title>PixelForge</title></head>"
+      "<style>body{background:#000;color:#fff;font-family:sans-serif;display:flex;justify-content:center;}</style>"
+      "<body><h2>Sorry, PixelForge is not supported in this build.</h2></body></html>")
+    );
+  });
   #endif
 #endif
 
@@ -685,7 +723,7 @@ void serveSettingsJS(AsyncWebServerRequest* request)
     return;
   }
   byte subPage = request->arg(F("p")).toInt();
-  if (subPage > 10) {
+  if (subPage > SUBPAGE_LAST) {
     request->send_P(501, FPSTR(CONTENT_TYPE_JAVASCRIPT), PSTR("alert('Settings for this request are not implemented.');"));
     return;
   }
@@ -725,6 +763,7 @@ void serveSettings(AsyncWebServerRequest* request, bool post) {
 #ifndef WLED_DISABLE_2D
     else if (url.indexOf(  "2D")    > 0) subPage = SUBPAGE_2D;
 #endif
+    else if (url.indexOf(F("pins")) > 0) subPage = SUBPAGE_PINS;
     else if (url.indexOf(F("lock")) > 0) subPage = SUBPAGE_LOCK;
   }
   else if (url.indexOf("/update") >= 0) subPage = SUBPAGE_UPDATE; // update page, for PIN check
@@ -818,6 +857,7 @@ void serveSettings(AsyncWebServerRequest* request, bool post) {
 #ifndef WLED_DISABLE_2D
     case SUBPAGE_2D      :  content = PAGE_settings_2D;   len = PAGE_settings_2D_length;   break;
 #endif
+    case SUBPAGE_PINS    :  content = PAGE_settings_pininfo; len = PAGE_settings_pininfo_length; break;
     case SUBPAGE_LOCK    : {
       correctPIN = !strlen(settingsPIN); // lock if a pin is set
       serveMessage(request, 200, strlen(settingsPIN) > 0 ? PSTR("Settings locked") : PSTR("No PIN set"), FPSTR(s_redirecting), 1);

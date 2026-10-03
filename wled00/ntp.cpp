@@ -1,6 +1,21 @@
 #include "src/dependencies/timezone/Timezone.h"
 #include "wled.h"
 #include "fcn_declare.h"
+#include "asyncDNS.h"
+#include <memory>
+
+// forward declarations
+static void sendNTPPacket();
+static bool checkNTPResponse();
+static void applyBootTimerPreset();
+
+// Runtime state private to this file - previously WLED_GLOBAL, a leftover from
+// when all state lived in one big extern block regardless of who used it.
+static byte lastTimerMinute = 0;
+static bool bootTimerApplied = false;  // whether boot-time timer check has been performed
+static unsigned long ntpPacketSentTime = NTP_NEVER;
+static IPAddress ntpServerIP;
+
 
 // WARNING: may cause errors in sunset calculations on ESP8266, see #3400
 // building with `-D WLED_USE_REAL_MATH` will prevent those errors at the expense of flash and RAM
@@ -11,7 +26,7 @@
 //#define WLED_DEBUG_NTP
 #define NTP_SYNC_INTERVAL 42000UL //Get fresh NTP time about twice per day
 
-Timezone* tz;
+static Timezone* tz;
 
 #define TZ_UTC                  0
 #define TZ_UK                   1
@@ -42,7 +57,7 @@ Timezone* tz;
 #define TZ_COUNT               25
 #define TZ_INIT               255
 
-byte tzCurrent = TZ_INIT; //uninitialized
+static byte tzCurrent = TZ_INIT; //uninitialized
 
 /* C++11 form -- static std::array<std::pair<TimeChangeRule, TimeChangeRule>, TZ_COUNT> TZ_TABLE PROGMEM = {{ */
 static const std::pair<TimeChangeRule, TimeChangeRule> TZ_TABLE[] PROGMEM = {
@@ -180,17 +195,57 @@ void handleTime() {
   }
 }
 
+
 void handleNetworkTime()
 {
+  static std::shared_ptr<AsyncDNS> ntpDNSlookup;
+  
   if (ntpEnabled && ntpConnected && millis() - ntpLastSyncTime > (1000*NTP_SYNC_INTERVAL) && WLED_CONNECTED)
   {
     if (millis() - ntpPacketSentTime > 10000)
     {
       #ifdef ARDUINO_ARCH_ESP32   // I had problems using udp.flush() on 8266
-      while (ntpUdp.parsePacket() > 0) ntpUdp.flush(); // flush any existing packets
+      #if ESP_IDF_VERSION >= ESP_IDF_VERSION_VAL(5, 0, 0)
+        while (ntpUdp.parsePacket() > 0) ntpUdp.clear();  // flush() is deprecated in arduino-esp32 3.x.y
+      #else
+        while (ntpUdp.parsePacket() > 0) ntpUdp.flush(); // flush any existing packets
       #endif
-      sendNTPPacket();
-      ntpPacketSentTime = millis();
+      #endif
+      if (!ntpServerIP.fromString(ntpServerName)) // check if server is IP or domain
+      {
+        AsyncDNS::result res = ntpDNSlookup ? ntpDNSlookup->status() : AsyncDNS::result::Idle;
+        switch (res) {
+          case AsyncDNS::result::Idle:
+            //DEBUG_PRINTF_P(PSTR("Resolving NTP server name: %s\n"), ntpServerName);
+            ntpDNSlookup = AsyncDNS::query(ntpServerName, ntpDNSlookup); // start dnslookup asynchronously
+            return;
+
+          case AsyncDNS::result::Busy:
+            return; // still in progress
+
+          case AsyncDNS::result::Success:
+            ntpServerIP = ntpDNSlookup->getIP();
+            DEBUG_PRINTF_P(PSTR("NTP IP resolved: %s\n"), ntpServerIP.toString().c_str());
+            sendNTPPacket();
+            ntpDNSlookup.reset();
+            break;
+
+          case AsyncDNS::result::Error:
+            DEBUG_PRINTLN(F("NTP DNS failed"));
+            if (ntpDNSlookup->getErrorCount() > 6) {
+              // after 6 failed attempts (30min), reset network connection as dns is probably stuck (TODO: IDF bug, should be fixed in V5)
+              if (offMode) forceReconnect = true; // do not disturb while LEDs are running
+              ntpDNSlookup.reset();
+            } else {
+              // Retry
+              ntpDNSlookup = AsyncDNS::query(ntpServerName, ntpDNSlookup);
+            }
+            ntpLastSyncTime = millis() - (1000*NTP_SYNC_INTERVAL - 300000); // pause for 5 minutes
+            break;
+        }
+      }
+      else
+        sendNTPPacket();
     }
     if (checkNTPResponse())
     {
@@ -199,16 +254,8 @@ void handleNetworkTime()
   }
 }
 
-void sendNTPPacket()
+static void sendNTPPacket()
 {
-  if (!ntpServerIP.fromString(ntpServerName)) //see if server is IP or domain
-  {
-    #ifdef ESP8266
-    WiFi.hostByName(ntpServerName, ntpServerIP, 750);
-    #else
-    WiFi.hostByName(ntpServerName, ntpServerIP);
-    #endif
-  }
 
   DEBUG_PRINTLN(F("send NTP"));
   byte pbuf[NTP_PACKET_SIZE];
@@ -227,6 +274,7 @@ void sendNTPPacket()
   ntpUdp.beginPacket(ntpServerIP, 123); //NTP requests are to port 123
   ntpUdp.write(pbuf, NTP_PACKET_SIZE);
   ntpUdp.endPacket();
+  ntpPacketSentTime = millis();
 }
 
 static bool isValidNtpResponse(const byte* ntpPacket) {
@@ -236,7 +284,7 @@ static bool isValidNtpResponse(const byte* ntpPacket) {
   // if((ntpPacket[0] & 0b00111000) >> 3 < 0b100) return false; //reject Version < 4
   if((ntpPacket[0] & 0b00000111) != 0b100)      return false; //reject Mode != Server
   if((ntpPacket[1] < 1) || (ntpPacket[1] > 15)) return false; //reject invalid Stratum
-  if( ntpPacket[16] == 0 && ntpPacket[17] == 0 && 
+  if( ntpPacket[16] == 0 && ntpPacket[17] == 0 &&
       ntpPacket[18] == 0 && ntpPacket[19] == 0 &&
       ntpPacket[20] == 0 && ntpPacket[21] == 0 &&
       ntpPacket[22] == 0 && ntpPacket[23] == 0)               //reject ReferenceTimestamp == 0
@@ -245,12 +293,16 @@ static bool isValidNtpResponse(const byte* ntpPacket) {
   return true;
 }
 
-bool checkNTPResponse()
+static bool checkNTPResponse()
 {
   int cb = ntpUdp.parsePacket();
   if (cb < NTP_MIN_PACKET_SIZE) {
     #ifdef ARDUINO_ARCH_ESP32   // I had problems using udp.flush() on 8266
-    if (cb > 0) ntpUdp.flush();  // this avoids memory leaks on esp32
+    #if ESP_IDF_VERSION >= ESP_IDF_VERSION_VAL(5, 0, 0)
+      if (cb > 0) ntpUdp.clear();  // flush() is deprecated in arduino-esp32 3.x.y
+    #else
+      if (cb > 0) ntpUdp.flush();  // this avoids memory leaks on esp32
+    #endif
     #endif
     return false;
   }
@@ -289,11 +341,10 @@ bool checkNTPResponse()
   #endif
 
   if (countdownTime - toki.second() > 0) countdownOverTriggered = false;
-
-  // NTP sync succeeded
+  // if time changed re-calculate sunrise/sunset
   updateLocalTime();
   calculateSunriseAndSunset();
-  applyBootTimerPreset();
+  applyBootTimerPreset();  // only acts on the first successful NTP sync
   return true;
 }
 
@@ -378,68 +429,73 @@ bool isTodayInDateRange(byte monthStart, byte dayStart, byte monthEnd, byte dayE
 	return (m == monthStart && d >= dayStart && d <= dayEnd); //just the designated days this month
 }
 
-/*
- * Returns the minute-of-day (0-1439) for timer i if it's valid for today, or -1 if invalid.
- * Validates: preset assigned, timer enabled, weekday matches, date range (for timers 0-7).
- * For "every hour" timers (hour=24), returns the current hour's scheduled minute.
- * For sunrise/sunset timers (8/9), returns the calculated trigger time.
- */
-static int getTimerMinuteOfDay(unsigned i)
-{
-  if (i > 9) return -1;
-  if (timerMacro[i] == 0) return -1;
-  if (!(timerWeekday[i] & 0x01)) return -1;  // not enabled
-  if (!((timerWeekday[i] >> weekdayMondayFirst()) & 0x01)) return -1;  // wrong weekday
-
-  if (i < 8) {
-    // Standard timer (0-7)
-    if (!isTodayInDateRange(((timerMonth[i] >> 4) & 0x0F), timerDay[i], timerMonth[i] & 0x0F, timerDayEnd[i])) return -1;
-    if (timerHours[i] == 24) {
-      return hour(localTime) * 60 + timerMinutes[i];  // "every hour" at this minute
-    }
-    return timerHours[i] * 60 + timerMinutes[i];
-  } else if (i == 8) {
-    // Sunrise timer
-    if (!sunrise) return -1;
-    time_t t = sunrise + timerMinutes[8] * 60;
-    return hour(t) * 60 + minute(t);
-  } else {
-    // Sunset timer (i == 9)
-    if (!sunset) return -1;
-    time_t t = sunset + timerMinutes[9] * 60;
-    return hour(t) * 60 + minute(t);
-  }
-}
-
 void checkTimers()
 {
-  if (lastTimerMinute != minute(localTime)) //only check once a new minute begins
-  {
+  if (lastTimerMinute != minute(localTime)) {
     lastTimerMinute = minute(localTime);
-
-    // re-calculate sunrise and sunset just after midnight
     if (!hour(localTime) && minute(localTime)==1) calculateSunriseAndSunset();
-
-    int currentMinuteOfDay = elapsedSecsToday(localTime) / 60;
     DEBUG_PRINTF_P(PSTR("Local time: %02d:%02d\n"), hour(localTime), minute(localTime));
-
-    for (unsigned i = 0; i < 10; i++)
-    {
-      int timerMinute = getTimerMinuteOfDay(i);  // returns -1 if timer not valid for today
-      if (timerMinute == currentMinuteOfDay) {
-        applyPreset(timerMacro[i]);
-        if (i == 8) DEBUG_PRINTF_P(PSTR("Sunrise macro %d triggered."), timerMacro[8]);
-        if (i == 9) DEBUG_PRINTF_P(PSTR("Sunset macro %d triggered."), timerMacro[9]);
+    for (size_t i = 0; i < timers.size(); i++) {
+      const Timer& t = timers[i];
+      if (!t.isEnabled()) continue;
+      time_t tt = 0;
+      if (t.isSunrise()) {
+        if (!sunrise) continue;
+        tt = sunrise + t.minute * 60;
+      } else if (t.isSunset()) {
+        if (!sunset) continue;
+        tt = sunset + t.minute * 60;
+      } else {
+        struct tm tim = {};
+        tim.tm_year = year(localTime) - 1900;
+        tim.tm_mon = month(localTime) - 1;
+        tim.tm_mday = day(localTime);
+        tim.tm_hour = t.hour;
+        tim.tm_min = t.minute;
+        tim.tm_sec = 0;
+        tim.tm_isdst = -1;
+        tt = mktime(&tim);
+      }
+      if ((hour(tt) == hour(localTime) && minute(tt) == minute(localTime)) || (t.hour == 24 && t.minute == minute(localTime))) {
+        if (!((t.weekdays >> weekdayMondayFirst()) & 0x01)) continue;
+        if (!isTodayInDateRange(t.monthStart, t.dayStart, t.monthEnd, t.dayEnd)) continue;
+        applyPreset(t.preset);
+        #ifdef WLED_DEBUG
+        if (t.isSunrise()) DEBUG_PRINTF_P(PSTR("Sunrise timer %d offset %d\n"), t.preset, t.minute);
+        else if (t.isSunset()) DEBUG_PRINTF_P(PSTR("Sunset timer %d offset %d\n"), t.preset, t.minute);
+        else DEBUG_PRINTF_P(PSTR("Timer %d: preset %d\n"), i, t.preset);
+        #endif
       }
     }
   }
 }
 
 /*
+ * Returns the minute-of-day (0-1439) timer t triggers at today, or -1 if it doesn't trigger today.
+ * Validates: timer enabled, weekday matches, date range.
+ * For "every hour" timers (hour=24), returns the current hour's scheduled minute.
+ * For sunrise/sunset timers, returns the calculated trigger time.
+ */
+static int getTimerMinuteOfDay(const Timer& t)
+{
+  if (!t.isEnabled()) return -1;
+  if (!((t.weekdays >> weekdayMondayFirst()) & 0x01)) return -1;  // wrong weekday
+  if (!isTodayInDateRange(t.monthStart, t.dayStart, t.monthEnd, t.dayEnd)) return -1;
+
+  if (t.isSunrise() || t.isSunset()) {
+    time_t sun = t.isSunrise() ? sunrise : sunset;
+    if (!sun) return -1;
+    return elapsedSecsToday(sun + t.minute * 60) / 60;
+  }
+  if (t.hour == 24) return hour(localTime) * 60 + t.minute;  // "every hour" at this minute
+  return t.hour * 60 + t.minute;
+}
+
+/*
  * Apply the most recent time-controlled preset that should have triggered today.
  * Called once after NTP sync on boot to handle powering on after a scheduled time.
  */
-void applyBootTimerPreset()
+static void applyBootTimerPreset()
 {
   if (bootTimerApplied || !applyTimerOnBoot) return;
   bootTimerApplied = true;
@@ -450,13 +506,12 @@ void applyBootTimerPreset()
 
   DEBUG_PRINTLN(F("Checking for boot timer preset..."));
 
-  for (unsigned i = 0; i < 10; i++)
-  {
-    int timerMinute = getTimerMinuteOfDay(i);  // returns -1 if timer not valid for today
+  for (const Timer& t : timers) {
+    int timerMinute = getTimerMinuteOfDay(t);  // returns -1 if timer not valid for today
     if (timerMinute < 0) continue;
 
     // For "every hour" timers, find the most recent past occurrence
-    if (i < 8 && timerHours[i] == 24 && timerMinute > currentMinuteOfDay) {
+    if (t.hour == 24 && timerMinute > currentMinuteOfDay) {
       timerMinute -= 60;
       if (timerMinute < 0) continue;  // would be yesterday, skip
     }
@@ -466,7 +521,7 @@ void applyBootTimerPreset()
     // matching checkTimers() behavior where all are applied and the last one sticks.
     if (timerMinute <= currentMinuteOfDay && timerMinute >= latestTimerMinute) {
       latestTimerMinute = timerMinute;
-      latestPreset = timerMacro[i];
+      latestPreset = t.preset;
     }
   }
 
@@ -532,7 +587,7 @@ static int getSunriseUTC(int year, int month, int day, float lat, float lon, boo
 	return UT*60;
 }
 
-#define SUNSET_MAX (24*60) // 1day = max expected absolute value for sun offset in minutes 
+#define SUNSET_MAX (24*60) // 1day = max expected absolute value for sun offset in minutes
 // calculate sunrise and sunset (if longitude and latitude are set)
 void calculateSunriseAndSunset() {
   if ((int)(longitude*10.) || (int)(latitude*10.)) {
@@ -602,3 +657,69 @@ void setTimeFromAPI(uint32_t timein) {
   }
   if (presetsModifiedTime == 0) presetsModifiedTime = timein;
 }
+
+void addTimer(uint8_t preset, uint8_t hour, int8_t minute, uint8_t weekdays,
+              uint8_t monthStart, uint8_t monthEnd, uint8_t dayStart, uint8_t dayEnd) {
+  if (hour > 24 && hour != TH_SUNSET && hour != TH_SUNRISE) {
+    DEBUG_PRINTLN(F("Timer: Invalid hour value"));
+    return;
+  }
+  if (hour == TH_SUNRISE || hour == TH_SUNSET) {
+    if (minute < -120 || minute > 120) {
+      DEBUG_PRINTLN(F("Timer: Clamping sunrise/sunset offset to [-120,120]"));
+      if (minute < -120) minute = -120;
+      else if (minute > 120) minute = 120;
+    }
+  } else {
+    if (minute < 0 || minute > 59) {
+      DEBUG_PRINTLN(F("Timer: Invalid minute value"));
+      return;
+    }
+  }
+  if ((monthStart != 0 && monthStart > 12) ||
+      (monthEnd != 0 && monthEnd > 12)) {
+    DEBUG_PRINTLN(F("Timer: Invalid month range"));
+    return;
+  }
+  if ((dayStart != 0 && dayStart > 31) ||
+      (dayEnd != 0 && dayEnd > 31)) {
+    DEBUG_PRINTLN(F("Timer: Invalid day range"));
+    return;
+  }
+  if (timers.size() >= WLED_MAX_TIMERS) {
+    DEBUG_PRINTLN(F("Timer: Maximum number of timers reached"));
+    return;
+  }
+  Timer t(preset, hour, minute, weekdays, monthStart, monthEnd, dayStart, dayEnd);
+  timers.push_back(t);
+  DEBUG_PRINTF("Timer added: preset=%d, hour=%d, minute=%d, count=%d\n", preset, hour, minute, timers.size());
+}
+
+void removeTimer(size_t index) {
+  if (index < timers.size()) {
+    timers.erase(timers.begin() + index);
+    DEBUG_PRINTF("Timer removed at index %d, count=%d\n", index, timers.size());
+  }
+}
+
+void clearTimers() {
+  timers.clear();
+  DEBUG_PRINTLN(F("All timers cleared"));
+}
+
+size_t getTimerCount() {
+  return timers.size();
+}
+
+void compactTimers() {
+  for (size_t i = 0; i < timers.size();) {
+    const Timer& t = timers[i];
+    if (t.preset == 0) {
+      timers.erase(timers.begin() + i);
+    } else {
+      ++i;
+    }
+  }
+  timers.shrink_to_fit();
+}
+

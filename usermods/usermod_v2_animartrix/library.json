@@ -2,6 +2,6 @@
   "name": "animartrix",
   "build": { "libArchive": false },
   "dependencies": {
-    "Animartrix": "https://github.com/netmindz/animartrix.git#b172586"
+    "Animartrix": "https://github.com/netmindz/animartrix.git#81eb09b91c8c9c8c01f8ea442787f8127d56c72f"
   }    
 }
