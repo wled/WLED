@@ -34,10 +34,6 @@ extends = env:esp32s3dev_16MB_opi
 board_build.arduino.memory_type = qio_qspi
 board_build.flash_mode = qio
 
-; Current WLED pioarduino / ESP-IDF 5 build family.
-platform = ${esp32_idf_V5.platform_pioarduino}
-platform_packages = ${esp32_idf_V5.platform_packages_pioarduino}
-
 ; Preserve normal WLED build scripts.
 extra_scripts =
     ${scripts_defaults.extra_scripts}
