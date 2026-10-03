@@ -225,7 +225,6 @@ public:
 
         setInputCurrentSwitch_onlyV1(runningSec);
 
-        // QUICK HACK: NO BRIGHTNESS ATTENUATION!!
         #ifdef DEADLINE_NO_ATTENUATE
           attenuateFactor = 1.;
         #endif
