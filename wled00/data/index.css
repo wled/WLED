@@ -252,7 +252,7 @@ button {
 
 .search-icon {
 	position: absolute;
-	top: 8px;
+	top: 10px;
 	left: 12px;
 	width: 24px;
 	height: 24px;
@@ -852,6 +852,7 @@ input[type=range]::-moz-range-thumb {
 	margin: -4px 4px -1px 0;
 	vertical-align: middle;
 	display: inline-block;
+	pointer-events: none;
 }
 .btn-n {
 	width: 230px;
@@ -964,13 +965,12 @@ div.sel-p {
 div.sel-p:after {
 	content: "";
 	position: absolute;
-	right: 10px;
-	top: 22px;
-	width: 0;
-	height: 0;
-	border-left: 8px solid transparent;
-	border-right: 8px solid transparent;
-	border-top: 8px solid var(--c-f);
+	top: 20px; right: 16px;
+	width: 7px; height: 7px;
+	border-left: 2px solid var(--c-f);
+	border-bottom: 2px solid var(--c-f);
+	transform: rotate(-45deg);
+	pointer-events: none;
 }
 select.sel-ple {
 	text-align: center;
@@ -1283,6 +1283,9 @@ TD .checkmark, TD .radiomark {
 	vertical-align: middle;
 	-webkit-filter: grayscale(100%); /* Safari 6.0 - 9.0 */
 	filter: grayscale(100%);
+}
+.filter .fchkl *, .option .ochkl * {
+	pointer-events: none;
 }
 .filter .fchkl {
 	margin: 0 4px;
