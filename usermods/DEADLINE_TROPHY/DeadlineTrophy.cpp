@@ -40,7 +40,7 @@ namespace DeadlineTrophy {
         bool useV2 = false;
         #if DEADLINE_CONFIG_VERSION == 2026
           useV2 = true;
-        #endif;
+        #endif
 
         // Usermods usually only care about their own stuff, but then again:
         // "You're remembered for the rules you break" - Stockton Rush, OceanGate CEO

@@ -226,7 +226,9 @@ public:
         setInputCurrentSwitch_onlyV1(runningSec);
 
         // QUICK HACK: NO BRIGHTNESS ATTENUATION!!
-        attenuateFactor = 1.;
+        #ifdef DEADLINE_NO_ATTENUATE
+          attenuateFactor = 1.;
+        #endif
 
         if (currentLogoTempKelvin > maxLogoTempKelvin) {
             maxLogoTempKelvin = currentLogoTempKelvin;
