@@ -153,6 +153,7 @@ void sendDataWs(AsyncWebSocketClient * client)
   DEBUG_PRINTF_P(PSTR("JSON buffer size: %u for WS request (%u).\n"), pDoc->memoryUsage(), len);
 
   // the following may no longer be necessary as heap management has been fixed by @willmmiles in AWS
+  strip.waitForLEDs(STRIP_WAIT_VERYSHORT); // wait for LEDs ouptut to finish - prevents glitches on -C3
   size_t heap1 = getFreeHeapSize();
   DEBUG_PRINTF_P(PSTR("heap %u\n"), getFreeHeapSize());
   AsyncWebSocketBuffer buffer(len);
