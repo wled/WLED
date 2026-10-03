@@ -12,6 +12,16 @@
 
 #define FS_BUFSIZE 256
 
+// Filesystem usage stats, refreshed by updateFSInfo() - previously WLED_GLOBAL,
+// a leftover from when all state lived in one big extern block regardless of
+// who used it. json.cpp only ever reads these (status report), so it gets
+// by-value getters rather than a mutable reference - an accidental write from
+// outside this file is now a build error instead of a silent bug.
+static size_t fsBytesUsed = 0;
+static size_t fsBytesTotal = 0;
+size_t getFsBytesUsed()  { return fsBytesUsed;  }
+size_t getFsBytesTotal() { return fsBytesTotal; }
+
 /*
  * Structural requirements for files managed by writeObjectToFile() and readObjectFromFile() utilities:
  * 1. File must be a string representation of a valid JSON object
@@ -366,6 +376,49 @@ bool readObjectFromFile(const char* file, const char* key, JsonDocument* dest, c
     DEBUG_PRINTF_P(PSTR("readObjectFromFile(%s): JSON %s !\n"), fileName, jsonErr.c_str());
     return jsonErr == DeserializationError::NoMemory || jsonErr == DeserializationError::EmptyInput; // NoMemory => data is partial but usable; empty => handled by caller
   } else return true;
+}
+
+// helper to read comma-separated integers from a JSON array
+// reads until it finds "-" or a number char, converts the number, reads until ',' (discarded) or ']' (kept for next call)
+// returns false when the array terminator ']' or EOF is reached without a valid number
+// sets value to -1 if not a number, discards garbage values following a valid number
+bool readNextIntFromFile(File &f, int &value) {
+  value = 0;
+  bool foundDigit = false;
+  bool negative = false;
+  while (f.available()) {
+    char c = (char)f.peek();
+    if (c >= '0' && c <= '9') {
+      if (value < (0x7FFFFFFF / 10)) value = value * 10 + (c - '0'); // saturate instead of overflowing if too large
+      foundDigit = true;
+    } else if (c == '-' && !foundDigit) {
+      negative = true; // leading minus, return negative value of number
+    } else if (c == ',') {
+      f.read(); // consume separator comma
+      if (!foundDigit) {
+        value = -1;  // invalid input, make it -1
+        return true; // not end of file yet
+      }
+      break; // number complete
+    } else if (c == ']') {
+      if (foundDigit) break; // leave ']' available for the next call to terminate with "false"
+      f.read();                    // consume array terminator (support multiple arrays in a file)
+      return false;
+    } else if (foundDigit) {
+      // number followed by a char/whitespace - malformed, skip everything up to the next ',' or ']'
+      while (f.available()) {
+        char d = (char)f.peek();
+        if (d == ',') { f.read(); break; } // consume the ','
+        if (d == ']') { break; } // leave ']' for the next call to terminate the array
+        f.read(); // consume malformed char
+      }
+      break; // might be EOF, but we have foundDigit, let the next call handle termination
+    }
+    f.read(); // consume the peeked character
+  }
+  if (!foundDigit) return false;
+  if (negative) value = -value;
+  return true;
 }
 
 void updateFSInfo() {

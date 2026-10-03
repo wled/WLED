@@ -144,6 +144,10 @@ uint32_t ColorFromPalette(const CRGBPalette16& pal, unsigned index, uint8_t brig
   return RGBW32(red1,green1,blue1,0);
 }
 
+// Runtime state private to this file - previously WLED_GLOBAL, a leftover from
+// when all state lived in one big extern block regardless of who used it.
+static byte lastRandomIndex = 0; // used to save last random color so the new one is not the same
+
 void setRandomColor(byte* rgb)
 {
   lastRandomIndex = get_random_wheel_index(lastRandomIndex);
@@ -269,7 +273,10 @@ void loadCustomPalettes() {
     char fileName[32];
     sprintf_P(fileName, PSTR("/palette%d.json"), index);
     if (WLED_FS.exists(fileName)) {
-      emptyPaletteGap = 0; // reset gap counter if file exists
+      // add gray placeholders to preserve palette IDs for subsequent slots (is omitted in UI but shown in cpal.htm)
+      for (unsigned g = 0; g < emptyPaletteGap; g++)
+        customPalettes.push_back(CRGBPalette16(CRGB(128, 128, 128)));
+      emptyPaletteGap = 0;  // reset gap counter if file exists
       DEBUGFX_PRINTF_P(PSTR("Reading palette from %s\n"), fileName);
       if (readObjectFromFile(fileName, nullptr, &pDoc)) {
         JsonArray pal = pDoc[F("palette")];
@@ -307,6 +314,15 @@ void loadCustomPalettes() {
       if (emptyPaletteGap > WLED_MAX_CUSTOM_PALETTE_GAP) break; // stop looking for more palettes
     }
   }
+}
+
+size_t removeUsermodPalettes(const char *name) {
+  size_t before = usermodPalettes.size();
+  for (int i = usermodPalettes.size() - 1; i >= 0; i--) {
+    if (usermodPalettes[i].name == name)
+      usermodPalettes.erase(usermodPalettes.begin() + i);
+  }
+  return before - usermodPalettes.size();
 }
 
 // convert HSV (16bit hue) to RGB (32bit with white = 0), optimized for speed

@@ -30,8 +30,10 @@ static constexpr bool validatePinsAndTypes(const unsigned* types, unsigned numTy
   // Pins provided < pins required -> always invalid
   // Pins provided = pins required -> always valid
   // Pins provided > pins required -> valid if excess pins are a product of last type pins since it will be repeated
-  return (sumPinsRequired(types, numTypes) > numPins) ? false :
-          (numPins - sumPinsRequired(types, numTypes)) % Bus::getNumberOfPins(types[numTypes-1]) == 0;
+  // HUB75 types use their pin slots for config params, not GPIO - skip GPIO pin validation for them
+  return Bus::isHub75(types[numTypes-1]) ? true :
+         (sumPinsRequired(types, numTypes) > numPins) ? false :
+         (numPins - sumPinsRequired(types, numTypes)) % Bus::getNumberOfPins(types[numTypes-1]) == 0;
 }
 
 
@@ -47,7 +49,7 @@ bool deserializeConfig(JsonObject doc, bool fromFS) {
   //int rev_major = doc["rev"][0]; // 1
   //int rev_minor = doc["rev"][1]; // 0
 
-  //long vid = doc[F("vid")]; // 2010020
+  long vid = doc[F("vid")] | VERSION; // 2605010 note: "vid" can be used to detect an update from older versions but only on first call, it is written to the new VID after buses are initialized
 
   JsonObject id = doc["id"];
   getStringFromJson(cmDNS, id[F("mdns")], 33);
@@ -158,9 +160,17 @@ bool deserializeConfig(JsonObject doc, bool fromFS) {
   noWifiSleep = !(wifi[F("sleep")] | !noWifiSleep); // inverted
   //noWifiSleep = !noWifiSleep;
   CJSON(force802_3g, wifi[F("phy")]); //force phy mode g?
+#ifdef SOC_WIFI_SUPPORT_5G
+  CJSON(wifiBandMode, wifi[F("band")]);
+  if (wifiBandMode < WIFI_BAND_MODE_2G_ONLY || wifiBandMode > WIFI_BAND_MODE_AUTO) wifiBandMode = WIFI_BAND_MODE_AUTO;
+#endif
 #ifdef ARDUINO_ARCH_ESP32
   CJSON(txPower, wifi[F("txpwr")]);
-  txPower = min(max((int)txPower, (int)WIFI_POWER_2dBm), (int)WIFI_POWER_19_5dBm);
+  #if defined(ARDUINO_ARCH_ESP32) && (ESP_IDF_VERSION_MAJOR > 4)
+    txPower = min(max((int)txPower, (int)WIFI_POWER_2dBm), (int)WIFI_POWER_21dBm);  // V5 allows WIFI_POWER_21dBm = 84 ... WIFI_POWER_MINUS_1dBm = -4
+  #else
+    txPower = min(max((int)txPower, (int)WIFI_POWER_2dBm), (int)WIFI_POWER_19_5dBm);
+  #endif
 #endif
 
   JsonObject hw = doc[F("hw")];
@@ -238,7 +248,7 @@ bool deserializeConfig(JsonObject doc, bool fromFS) {
       uint16_t freqkHz = elm[F("freq")] | 0;  // will be in kHz for DotStar and Hz for PWM
       uint8_t AWmode = elm[F("rgbwm")] | RGBW_MODE_MANUAL_ONLY;
       uint8_t maPerLed = elm[F("ledma")] | LED_MILLIAMPS_DEFAULT;
-      uint16_t maMax = elm[F("maxpwr")] | (ablMilliampsMax * length) / total; // rough (incorrect?) per strip ABL calculation when no config exists
+      uint16_t maMax = elm[F("maxpwr")] | (total > 0 ? (ablMilliampsMax * length) / total : ablMilliampsMax); // rough (incorrect?) per strip ABL calculation when no config exists
       // To disable brightness limiter we either set output max current to 0 or single LED current to 0 (we choose output max current)
       if (Bus::isPWM(ledType) || Bus::isOnOff(ledType) || Bus::isVirtual(ledType)) { // analog and virtual
         maPerLed = 0;
@@ -460,6 +470,7 @@ bool deserializeConfig(JsonObject doc, bool fromFS) {
   JsonObject relay = hw[F("relay")];
 
   rlyOpenDrain  = relay[F("odrain")] | rlyOpenDrain;
+  CJSON(relayDelay, relay[F("del")]);
   int hw_relay_pin = relay["pin"] | -2;
   if (hw_relay_pin > -2) {
     PinManager::deallocatePin(rlyPin, PinOwner::Relay);
@@ -694,8 +705,18 @@ bool deserializeConfig(JsonObject doc, bool fromFS) {
   JsonArray timersArray = tm["ins"];
   if (!timersArray.isNull()) {
     clearTimers();
+    bool legacySunriseLoaded = false;  // migration flag: pre 16.0 used hour=255 for both sunrise & sunset (type determined by array position)
     for (JsonObject timer : timersArray) {
       uint8_t h = timer[F("hour")] | 0;
+      // legacy migration for pre 16.0 (vid < 2605010): first occurrence = sunrise, second occurrence = sunset
+      if (vid < 2605010 && h == 255) {
+        if (legacySunriseLoaded) {
+          h = TH_SUNSET;   // second "255" entry is actually sunset
+        } else {
+          legacySunriseLoaded = true;
+        }
+      }
+
       int8_t m = timer[F("min")] | 0;
       uint8_t p = timer[F("macro")] | 0;
       uint8_t dow = timer[F("dow")] | 127;
@@ -898,6 +919,9 @@ void serializeConfig(JsonObject root) {
   JsonObject wifi = root.createNestedObject(F("wifi"));
   wifi[F("sleep")] = !noWifiSleep;
   wifi[F("phy")] = force802_3g;
+#ifdef SOC_WIFI_SUPPORT_5G
+  wifi[F("band")] = wifiBandMode;
+#endif
 #ifdef ARDUINO_ARCH_ESP32
   wifi[F("txpwr")] = txPower;
 #endif
@@ -1038,6 +1062,7 @@ void serializeConfig(JsonObject root) {
   hw_relay["pin"] = rlyPin;
   hw_relay["rev"] = !rlyMde;
   hw_relay[F("odrain")] = rlyOpenDrain;
+  hw_relay[F("del")] = relayDelay;
 
   hw[F("baud")] = serialBaud;
 

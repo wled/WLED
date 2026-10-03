@@ -3,6 +3,13 @@
 #define WLED_FCN_DECLARE_H
 #include <dynarray.h>
 
+// dummy macro for 8266
+#ifndef ARDUINO_ARCH_ESP32
+#ifndef ESP_IDF_VERSION_VAL
+#define ESP_IDF_VERSION_VAL(n1,n2,n3) 500
+#endif
+#endif
+
 #include "colors.h"
 
 /*
@@ -25,7 +32,9 @@ bool isButtonPressed(uint8_t b=0);
 void handleButton();
 void handleOnOff(bool forceOff = false);
 void handleIO();
+#ifdef SOC_TOUCH_VERSION_2 // ESP32 S2 and S3 have a function to check touch state but need to attach an interrupt to do so
 void IRAM_ATTR touchButtonISR();
+#endif
 
 //cfg.cpp
 bool backupConfig();
@@ -100,7 +109,7 @@ void initDMXInput();
 void handleDMXInput();
 
 //e131.cpp
-void handleE131Packet(e131_packet_t* p, IPAddress clientIP, byte protocol);
+void handleE131Packet(e131_packet_t* p, IPAddress clientIP, byte protocol, size_t packetLen);
 void handleDMXData(uint16_t uni, uint16_t dmxChannels, uint8_t* e131_data, uint8_t mde, uint8_t previousUniverses);
 // void handleArtnetPollReply(IPAddress ipAddress);                                          // local function, only used in e131.cpp
 // void prepareArtnetPollReply(ArtPollReply* reply);                                         // local function, only used in e131.cpp
@@ -113,11 +122,14 @@ bool writeObjectToFile(const char* file, const char* key, const JsonDocument* co
 bool readObjectFromFileUsingId(const char* file, uint16_t id, JsonDocument* dest, const JsonDocument* filter = nullptr);
 bool readObjectFromFile(const char* file, const char* key, JsonDocument* dest, const JsonDocument* filter = nullptr);
 void updateFSInfo();
+size_t getFsBytesUsed();
+size_t getFsBytesTotal();
 void closeFile();
 inline bool writeObjectToFileUsingId(const String &file, uint16_t id, const JsonDocument* content) { return writeObjectToFileUsingId(file.c_str(), id, content); };
 inline bool writeObjectToFile(const String &file, const char* key, const JsonDocument* content) { return writeObjectToFile(file.c_str(), key, content); };
 inline bool readObjectFromFileUsingId(const String &file, uint16_t id, JsonDocument* dest, const JsonDocument* filter = nullptr) { return readObjectFromFileUsingId(file.c_str(), id, dest); };
 inline bool readObjectFromFile(const String &file, const char* key, JsonDocument* dest, const JsonDocument* filter = nullptr) { return readObjectFromFile(file.c_str(), key, dest); };
+bool readNextIntFromFile(File &f, int &value); // helper for reading ledmaps
 bool copyFile(const char* src_path, const char* dst_path);
 bool backupFile(const char* filename);
 bool restoreFile(const char* filename);
@@ -176,7 +188,6 @@ void serializeSegment(const JsonObject& root, const Segment& seg, byte id, bool 
 void serializeState(JsonObject root, bool forPreset = false, bool includeBri = true, bool segmentBounds = true, bool selectedSegmentsOnly = false);
 void serializeInfo(JsonObject root);
 void serializeModeNames(JsonArray arr);
-void serializeModeData(JsonArray fxdata);
 void serializePins(JsonObject root);
 void serveJson(AsyncWebServerRequest* request);
 #ifdef WLED_ENABLE_JSONLIVE
@@ -285,6 +296,9 @@ void handleRemote();
 bool isAsterisksOnly(const char* str, byte maxLen);
 void handleSettingsSet(AsyncWebServerRequest *request, byte subPage);
 bool handleSet(AsyncWebServerRequest *request, const String& req, bool apply=true);
+
+//wled.cpp
+uint16_t getRolloverMillis();
 
 //udp.cpp
 void notify(byte callMode, bool followUp=false);
@@ -413,7 +427,7 @@ namespace UsermodManager {
 };
 
 // Register usermods by building a static list via a linker section
-#define REGISTER_USERMOD(x) DYNARRAY_MEMBER(Usermod*, usermods, um_##x, 1) = &x
+#define REGISTER_USERMOD(x) DYNARRAY_MEMBER(Usermod*, usermods, um_##x, 00001) = &x
 
 //usermod.cpp
 void userSetup();
@@ -452,8 +466,12 @@ uint8_t extractModeSlider(uint8_t mode, uint8_t slider, char *dest, uint8_t maxL
 int16_t extractModeDefaults(uint8_t mode, const char *segVar);
 void checkSettingsPIN(const char *pin);
 uint16_t crc16(const unsigned char* data_p, size_t length);
+
+#if !defined(ARDUINO_ARCH_ESP32) || (ESP_IDF_VERSION < ESP_IDF_VERSION_VAL(6, 0, 0)) // ToDO: verify that this works correctly in V5
 String computeSHA1(const String& input);
 String getDeviceId();
+#endif
+
 uint16_t beat88(uint16_t beats_per_minute_88, uint32_t timebase = 0);
 uint16_t beat16(uint16_t beats_per_minute, uint32_t timebase = 0);
 uint8_t beat8(uint16_t beats_per_minute, uint32_t timebase = 0);
@@ -525,10 +543,10 @@ inline size_t getFreeHeapSize() { return ESP.getFreeHeap(); } // returns free he
 inline size_t getContiguousFreeHeap() { return ESP.getMaxFreeBlockSize(); } // returns largest contiguous free block
 #endif
 #define BFRALLOC_NOBYTEACCESS    (1 << 0) // ESP32 has 32bit accessible DRAM (usually ~50kB free) that must not be byte-accessed
-#define BFRALLOC_PREFER_DRAM     (1 << 1) // prefer DRAM over PSRAM
-#define BFRALLOC_ENFORCE_DRAM    (1 << 2) // use DRAM only, no PSRAM
-#define BFRALLOC_PREFER_PSRAM    (1 << 3) // prefer PSRAM over DRAM
-#define BFRALLOC_ENFORCE_PSRAM   (1 << 4) // use PSRAM if available, otherwise uses DRAM
+#define BFRALLOC_PREFER_DRAM     (1 << 1) // prefer DRAM over PSRAM (can still use PSRAM for larger allocations if DRAM is starting to run low)
+#define BFRALLOC_ENFORCE_DRAM    (1 << 2) // use DRAM only, no PSRAM allowed
+#define BFRALLOC_PREFER_PSRAM    (1 << 3) // prefer PSRAM over DRAM (can still use DRAM if there is loads of free DRAM to optimize speed)
+#define BFRALLOC_ENFORCE_PSRAM   (1 << 4) // use PSRAM if available, falls back to DRAM if PSRAM fails
 #define BFRALLOC_CLEAR           (1 << 5) // clear allocated buffer after allocation
 void *allocate_buffer(size_t size, uint32_t type);
 

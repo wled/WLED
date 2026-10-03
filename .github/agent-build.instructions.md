@@ -46,7 +46,7 @@ Use these timeout values when running builds:
 3. Then build and test firmware
 
 
-## Before Finishing Work - Testing
+## Before Finishing Work - Testing and Review
 
 **You MUST complete ALL of these before marking work as done:**
 
@@ -56,6 +56,11 @@ Use these timeout values when running builds:
    - Choose `esp32dev` as a common, representative environment
    - If the build fails, fix the issue before proceeding
 3. **For web UI changes**: manually test the interface (see below)
+4. Compare your changes to the previous source code:
+    - All **previous comments have been preserved** or were updated to reflect the new behaviour.
+    - All code changes are correct and necessary to achieve desired behaviour.
+    - No unrelated code has been deleted accidentally.
+    - Any duplication of already existing functionality is strictly necessary.
 
 If any step fails, fix the issue. **Do NOT mark work complete with failing builds or tests.**
 
@@ -112,7 +117,9 @@ Match this workflow in local development to catch failures before pushing.
 ## Important Reminders
 
 - Always **commit source code**
+-  Every pull request MUST include a clear description of *what* changed and *why*.
 - **Never edit or commit** `wled00/html_*.h` and  `wled00/js_*.h` — auto-generated from `wled00/data/`
+- After modifying source code files, check that any **previous comments have been preserved** or updated to reflect the new behaviour.
 - Web UI rebuild is part of the PlatformIO firmware compilation pipeline
 - Common environments:  `nodemcuv2`, `esp32dev`, `esp8266_2m`, `esp32c3dev`, `esp32s3dev_8MB_opi`
 - List all PlatformIO targets: `pio run --list-targets`

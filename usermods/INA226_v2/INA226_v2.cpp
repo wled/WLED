@@ -1,13 +1,37 @@
 #include "wled.h"
 #include <INA226_WE.h>
 
+#ifndef INA226_ADDRESS
 #define INA226_ADDRESS 0x40 // Default I2C address for INA226
+#endif
 
-#define DEFAULT_CHECKINTERVAL 60000
+#ifndef INA226_CHECK_INTERVAL_MS
+#define INA226_CHECK_INTERVAL_MS 60000 // Default check interval in milliseconds
+#endif
+
+#define DEFAULT_CHECKINTERVAL INA226_CHECK_INTERVAL_MS
 #define DEFAULT_INASAMPLES 128
 #define DEFAULT_INASAMPLESENUM AVERAGE_128
 #define DEFAULT_INACONVERSIONTIME 1100
 #define DEFAULT_INACONVERSIONTIMEENUM CONV_TIME_1100
+
+// Compile-time defaults for shunt resistor (micro-ohms), current range (mA), and current offset (mA)
+// These can be overridden via -D flags in platformio.ini / platformio_override.ini
+#ifndef INA226_SHUNT_MICRO_OHMS
+#define INA226_SHUNT_MICRO_OHMS 1000000  // 1 Ohm = 1,000,000 μΩ
+#endif
+
+#ifndef INA226_DEFAULT_CURRENT_RANGE
+#define INA226_DEFAULT_CURRENT_RANGE 1000  // 1000 mA = 1 A
+#endif
+
+#ifndef INA226_CURRENT_OFFSET_MA
+#define INA226_CURRENT_OFFSET_MA 0  // No offset by default
+#endif
+
+#ifndef INA226_ENABLED_DEFAULT
+#define INA226_ENABLED_DEFAULT false
+#endif
 
 // A packed version of all INA settings enums and their human friendly counterparts packed into a 32 bit structure
 // Some values are shifted and need to be preprocessed before usage
@@ -81,10 +105,11 @@ private:
     uint16_t _settingInaSamples : 11;          // Number of samples for averaging, max 1024
 
     uint8_t _i2cAddress;
-    uint16_t _checkInterval; // milliseconds, user settings is in seconds
-    float _decimalFactor;    // a power of 10 factor. 1 would be no change, 10 is one decimal, 100 is two etc. User sees a power of 10 (0, 1, 2, ..)
-    uint16_t _shuntResistor; // Shunt resistor value in milliohms
-    uint16_t _currentRange;  // Expected maximum current in milliamps
+    uint32_t _checkIntervalMs;  // milliseconds, user settings is in seconds
+    float _decimalFactor;       // a power of 10 factor. 1 would be no change, 10 is one decimal, 100 is two etc. User sees a power of 10 (0, 1, 2, ..)
+    uint32_t _shuntResistorUOhm; // Shunt resistor value in micro-ohms (μΩ)
+    uint16_t _currentRangeMa;    // Expected maximum current in milliamps
+    int16_t _currentOffsetMa;    // Current offset in milliamps, subtracted from readings
 
     uint8_t _lastStatus = 0;
     float _lastCurrent = 0;
@@ -93,7 +118,7 @@ private:
     float _lastShuntVoltage = 0;
     bool _lastOverflow = false;
 
-#ifndef WLED_MQTT_DISABLE
+#ifndef WLED_DISABLE_MQTT
     float _lastCurrentSent = 0;
     float _lastVoltageSent = 0;
     float _lastPowerSent = 0;
@@ -118,9 +143,11 @@ private:
         _ina226 = new INA226_WE(_i2cAddress);
         if (!_ina226->init())
         {
-            DEBUG_PRINTLN(F("INA226 initialization failed!"));
+            DEBUG_PRINTLN(F("INA226: init failed!"));
             return;
         }
+        DEBUG_PRINTF_P(PSTR("INA226: addr=0x%02X shunt=%luμΩ range=%umA offset=%dmA\n"),
+                       _i2cAddress, _shuntResistorUOhm, _currentRangeMa, _currentOffsetMa);
         _ina226->setCorrectionFactor(1.0);
 
         uint16_t tmpShort = _settingInaSamples;
@@ -129,7 +156,7 @@ private:
         tmpShort = _settingInaConversionTimeUs << 2;
         _ina226->setConversionTime(getConversionTimeEnum(tmpShort));
 
-        if (_checkInterval >= 20000)
+        if (_checkIntervalMs >= 20000)
         {
             _isTriggeredOperationMode = true;
             _ina226->setMeasureMode(TRIGGERED);
@@ -140,7 +167,11 @@ private:
             _ina226->setMeasureMode(CONTINUOUS);
         }
 
-        _ina226->setResistorRange(static_cast<float>(_shuntResistor) / 1000.0, static_cast<float>(_currentRange) / 1000.0);
+        _ina226->setResistorRange(static_cast<float>(_shuntResistorUOhm) / 1000000.0f, static_cast<float>(_currentRangeMa) / 1000.0f);
+
+        DEBUG_PRINTF_P(PSTR("INA226: mode=%s interval=%lums samples=%u convTime=%uμs\n"),
+                       _isTriggeredOperationMode ? "triggered" : "continuous",
+                       _checkIntervalMs, _settingInaSamples, _settingInaConversionTimeUs << 2);
     }
 
     void fetchAndPushValues()
@@ -150,17 +181,19 @@ private:
         if (_lastStatus != 0)
             return;
 
-        float current = truncateDecimals(_ina226->getCurrent_mA() / 1000.0);
+        float current = truncateDecimals((_ina226->getCurrent_mA() - _currentOffsetMa) / 1000.0f);
         float voltage = truncateDecimals(_ina226->getBusVoltage_V());
-        float power = truncateDecimals(_ina226->getBusPower() / 1000.0);
-        float shuntVoltage = truncateDecimals(_ina226->getShuntVoltage_V());
+        float power = truncateDecimals(_ina226->getBusPower() / 1000.0f);
+        float shuntVoltage = truncateDecimals(_ina226->getShuntVoltage_mV());
         bool overflow = _ina226->overflow;
 
 #ifndef WLED_DISABLE_MQTT
         mqttPublishIfChanged(F("current"), _lastCurrentSent, current, 0.01f);
         mqttPublishIfChanged(F("voltage"), _lastVoltageSent, voltage, 0.01f);
         mqttPublishIfChanged(F("power"), _lastPowerSent, power, 0.1f);
-        mqttPublishIfChanged(F("shunt_voltage"), _lastShuntVoltageSent, shuntVoltage, 0.01f);
+        // Publish in V for backward compatibility
+        float shuntVoltageV = shuntVoltage / 1000.0f;
+        mqttPublishIfChanged(F("shunt_voltage"), _lastShuntVoltageSent, shuntVoltageV, 0.01f);
         mqttPublishIfChanged(F("overflow"), _lastOverflowSent, overflow);
 #endif
 
@@ -169,6 +202,9 @@ private:
         _lastPower = power;
         _lastShuntVoltage = shuntVoltage;
         _lastOverflow = overflow;
+
+        DEBUG_PRINTF_P(PSTR("INA226: %.3fA %.2fV %.2fW shunt=%.2fmV%s\n"),
+                       current, voltage, power, shuntVoltage, overflow ? " OVF" : "");
     }
 
     void handleTriggeredMode(unsigned long currentTime)
@@ -188,7 +224,7 @@ private:
         }
         else
         {
-            if (currentTime - _lastLoopCheck >= _checkInterval)
+            if (currentTime - _lastLoopCheck >= _checkIntervalMs)
             {
                 // Start a measurement and use isBusy() later to determine when it is done
                 _ina226->startSingleMeasurementNoWait();
@@ -201,7 +237,7 @@ private:
 
     void handleContinuousMode(unsigned long currentTime)
     {
-        if (currentTime - _lastLoopCheck >= _checkInterval)
+        if (currentTime - _lastLoopCheck >= _checkIntervalMs)
         {
             _lastLoopCheck = currentTime;
             fetchAndPushValues();
@@ -215,19 +251,23 @@ private:
             return;
 
         char topic[128];
-        snprintf_P(topic, 127, "%s/current", mqttDeviceTopic);
+        auto buildTopic = [&](const char *suffix) {
+            snprintf_P(topic, sizeof(topic), PSTR("%s/%s"), mqttDeviceTopic, suffix);
+        };
+
+        buildTopic("current");
         mqttCreateHassSensor(F("Current"), topic, F("current"), F("A"));
 
-        snprintf_P(topic, 127, "%s/voltage", mqttDeviceTopic);
+        buildTopic("voltage");
         mqttCreateHassSensor(F("Voltage"), topic, F("voltage"), F("V"));
 
-        snprintf_P(topic, 127, "%s/power", mqttDeviceTopic);
+        buildTopic("power");
         mqttCreateHassSensor(F("Power"), topic, F("power"), F("W"));
 
-        snprintf_P(topic, 127, "%s/shunt_voltage", mqttDeviceTopic);
+        buildTopic("shunt_voltage");
         mqttCreateHassSensor(F("Shunt Voltage"), topic, F("voltage"), F("V"));
 
-        snprintf_P(topic, 127, "%s/overflow", mqttDeviceTopic);
+        buildTopic("overflow");
         mqttCreateHassBinarySensor(F("Overflow"), topic);
     }
 
@@ -315,14 +355,23 @@ public:
     UsermodINA226()
     {
         // Default values
+        _settingEnabled = INA226_ENABLED_DEFAULT;
         _settingInaSamples = DEFAULT_INASAMPLES;
-        _settingInaConversionTimeUs = DEFAULT_INACONVERSIONTIME;
+        _settingInaConversionTimeUs = DEFAULT_INACONVERSIONTIME >> 2; // stored shifted to fit 12-bit field
 
         _i2cAddress = INA226_ADDRESS;
-        _checkInterval = DEFAULT_CHECKINTERVAL;
+        _checkIntervalMs = DEFAULT_CHECKINTERVAL;
         _decimalFactor = 100;
-        _shuntResistor = 1000;
-        _currentRange = 1000;
+        _shuntResistorUOhm = INA226_SHUNT_MICRO_OHMS;
+        _currentRangeMa = INA226_DEFAULT_CURRENT_RANGE;
+        _currentOffsetMa = INA226_CURRENT_OFFSET_MA;
+
+        _mqttPublish = false;
+        _mqttPublishAlways = false;
+        _mqttHomeAssistant = false;
+        _initDone = false;
+        _isTriggeredOperationMode = false;
+        _measurementTriggered = false;
     }
 
     void setup()
@@ -399,7 +448,7 @@ public:
         JsonArray jsonCurrent = user.createNestedArray(F("Current"));
         JsonArray jsonVoltage = user.createNestedArray(F("Voltage"));
         JsonArray jsonPower = user.createNestedArray(F("Power"));
-        JsonArray jsonShuntVoltage = user.createNestedArray(F("Shunt Voltage"));
+        JsonArray jsonShuntVoltage = user.createNestedArray(F("Shunt Voltage Drop"));
         JsonArray jsonOverflow = user.createNestedArray(F("Overflow"));
 
         if (_lastLoopCheck == 0)
@@ -432,7 +481,7 @@ public:
         jsonPower.add(F("W"));
 
         jsonShuntVoltage.add(_lastShuntVoltage);
-        jsonShuntVoltage.add(F("V"));
+        jsonShuntVoltage.add(F("mV"));
 
         jsonOverflow.add(_lastOverflow ? F("true") : F("false"));
     }
@@ -442,12 +491,13 @@ public:
         JsonObject top = root.createNestedObject(FPSTR(_name));
         top[F("Enabled")] = _settingEnabled;
         top[F("I2CAddress")] = static_cast<uint8_t>(_i2cAddress);
-        top[F("CheckInterval")] = _checkInterval / 1000;
+        top[F("CheckInterval")] = _checkIntervalMs / 1000;
         top[F("INASamples")] = _settingInaSamples;
         top[F("INAConversionTime")] = _settingInaConversionTimeUs << 2;
         top[F("Decimals")] = log10f(_decimalFactor);
-        top[F("ShuntResistor")] = _shuntResistor;
-        top[F("CurrentRange")] = _currentRange;
+        top[F("ShuntResistor")] = static_cast<float>(_shuntResistorUOhm) / 1000.0f;
+        top[F("CurrentRange")] = _currentRangeMa;
+        top[F("CurrentOffset")] = _currentOffsetMa;
 #ifndef WLED_DISABLE_MQTT
         top[F("MqttPublish")] = _mqttPublish;
         top[F("MqttPublishAlways")] = _mqttPublishAlways;
@@ -455,6 +505,17 @@ public:
 #endif
 
         DEBUG_PRINTLN(F("INA226 config saved."));
+    }
+
+    void appendConfigData() override
+    {
+        oappend(F("addInfo('INA226:CheckInterval',1,'seconds');"));
+        oappend(F("addInfo('INA226:INASamples',1,'samples (1-1024)');"));
+        oappend(F("addInfo('INA226:INAConversionTime',1,'&micro;s');"));
+        oappend(F("addInfo('INA226:Decimals',1,'(0-5)');"));
+        oappend(F("addInfo('INA226:ShuntResistor',1,'m&Omega;');"));
+        oappend(F("addInfo('INA226:CurrentRange',1,'mA');"));
+        oappend(F("addInfo('INA226:CurrentOffset',1,'mA');"));
     }
 
     bool readFromConfig(JsonObject &root) override
@@ -472,12 +533,12 @@ public:
             configComplete = false;
 
         configComplete &= getJsonValue(top[F("I2CAddress")], _i2cAddress);
-        if (getJsonValue(top[F("CheckInterval")], _checkInterval))
+        if (getJsonValue(top[F("CheckInterval")], _checkIntervalMs))
         {
-            if (1 <= _checkInterval && _checkInterval <= 600)
-                _checkInterval *= 1000;
+            if (1 <= _checkIntervalMs && _checkIntervalMs <= 600)
+                _checkIntervalMs *= 1000;
             else
-                _checkInterval = DEFAULT_CHECKINTERVAL;
+                _checkIntervalMs = DEFAULT_CHECKINTERVAL;
         }
         else
             configComplete = false;
@@ -511,8 +572,26 @@ public:
         else
             configComplete = false;
 
-        configComplete &= getJsonValue(top[F("ShuntResistor")], _shuntResistor);
-        configComplete &= getJsonValue(top[F("CurrentRange")], _currentRange);
+        float shuntMilliOhms;
+        if (getJsonValue(top[F("ShuntResistor")], shuntMilliOhms))
+        {
+            if (shuntMilliOhms > 0)
+                _shuntResistorUOhm = static_cast<uint32_t>(shuntMilliOhms * 1000.0f + 0.5f);
+            else
+                _shuntResistorUOhm = INA226_SHUNT_MICRO_OHMS;
+        }
+        else
+            configComplete = false;
+
+        if (getJsonValue(top[F("CurrentRange")], _currentRangeMa))
+        {
+            if (_currentRangeMa == 0 || _currentRangeMa > 20000)
+                _currentRangeMa = INA226_DEFAULT_CURRENT_RANGE;
+        }
+        else
+            configComplete = false;
+        if (!getJsonValue(top[F("CurrentOffset")], _currentOffsetMa))
+            _currentOffsetMa = INA226_CURRENT_OFFSET_MA;  // Use compile-time default if missing from config
 
 #ifndef WLED_DISABLE_MQTT
         if (getJsonValue(top[F("MqttPublish")], tmpBool))
