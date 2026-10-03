@@ -9,6 +9,7 @@ class ACS712 : public Usermod {
     bool initPin = false;
     float current = 0;
     float lastCurrent = 0;
+    bool hasLastCurrent = false;
     double sumCurrent = 0;
     unsigned long lastTime = 0;
     String currentTopic = "";
@@ -30,7 +31,7 @@ class ACS712 : public Usermod {
       currentTopic = String(mqttDeviceTopic) + "/current";
 
       String ha = String("homeassistant/sensor/") + mqttClientID + "/" + FPSTR(_current) + "/config";
-      StaticJsonDocument<1024> json;
+      StaticJsonDocument<256> json;
 
       json[F("name")] = serverDescription+String(" Current");
       json[F("state_topic")] = currentTopic;
@@ -50,25 +51,31 @@ class ACS712 : public Usermod {
     void loop() override {
       if (!enabled || strip.isUpdating() || pin == -1 || (millis() - lastTime < 5000)) return;
       if (!initPin) {
-        pinMode(pin, INPUT);
-        initPin = true;
+        if (PinManager::allocatePin(pin, false, PinOwner::UM_Unspecified)) {
+          pinMode(pin, INPUT);
+          initPin = true;
+        } else {
+          pin = -1;
+          return;
+        }
       }
 
       sumCurrent = 0;
       for(int i = 0; i < 100; i++){
         current = analogRead(pin);
 
-        current = (current - (resolution / 2.0f)) * (5000.0f / (resolution * currentRatio));
-        current = current * 1000;
+        current = (current - (resolution / 2.0f)) * (5000.0f / (resolution * currentRatio)); // 5000.0f (5V) = sensor voltage
+        current = current * 1000; // convert from A to mA
         current = current + offset;
 
         sumCurrent += current;
       }
 
       current = sumCurrent/100.0f;
-      if (WLED_MQTT_CONNECTED && lastCurrent != 0) mqtt->publish(currentTopic.c_str(), 0, true, String((current+lastCurrent)/2.0f).c_str());
+      if (WLED_MQTT_CONNECTED && hasLastCurrent) mqtt->publish(currentTopic.c_str(), 0, true, String((current+lastCurrent)/2.0f).c_str());
 
       lastCurrent = current;
+      hasLastCurrent = true;
       lastTime = millis();
     }
 
@@ -88,16 +95,26 @@ class ACS712 : public Usermod {
     }
 
     bool readFromConfig(JsonObject& root) override {
+      int8_t newPin = pin;
+
       JsonObject top = root[FPSTR(_name)];
       bool configComplete = !top.isNull();
       configComplete &= getJsonValue(top[FPSTR(_enabled)], enabled, enabled);
-      configComplete &= getJsonValue(top["pin"], pin, pin);
+      configComplete &= getJsonValue(top["pin"], newPin, newPin);
       configComplete &= getJsonValue(top["current"], currentRatio, currentRatio);
       configComplete &= getJsonValue(top["resolution"], resolution, resolution);
       configComplete &= getJsonValue(top["offset"], offset, offset);
 
       if (currentRatio == 0) currentRatio = 100;
       if (resolution == 0) resolution = 4095;
+
+      if (newPin != pin) {
+        if (initPin) {
+          PinManager::deallocatePin(pin, PinOwner::UM_Unspecified);
+          initPin = false;
+        }
+        pin = newPin;
+      }
 
       return configComplete;
     }
