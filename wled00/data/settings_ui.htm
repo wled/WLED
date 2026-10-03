@@ -6,7 +6,7 @@
 	<title>UI Settings</title>
 	<style> html { visibility: hidden; } </style> <!-- prevent white & ugly display while loading, unhidden in loadResources() -->
 	<script>
-	var initial_ds, initial_st, initial_su, oldUrl;
+	var oldUrl;
 	var sett = null;
 	// load common.js with retry on error
 	(function loadFiles() {
@@ -131,7 +131,22 @@
 			gId('lserr').style.display = "inline";
 			gId('lserr').innerHTML = "&#9888; Settings JSON parsing failed. (" + e + ")";
 		}
+		if (!sett.comp) sett.comp = {};
+		if (d.Sf.ON && d.Sf.ON.value !== "") {
+			var serverOn = parseInt(d.Sf.ON.value, 10);
+			if (!Number.isNaN(serverOn) && sett.comp.on !== serverOn) sett.comp.on = serverOn;
+		}
+		if (d.Sf.OF && d.Sf.OF.value !== "") {
+			var serverOff = parseInt(d.Sf.OF.value, 10);
+			if (!Number.isNaN(serverOff) && sett.comp.off !== serverOff) sett.comp.off = serverOff;
+		}
 		genForm(sett);
+		// sync local storage silently with server values for ON/OFF overrides
+		try {
+			localStorage.setItem('wledUiCfg', JSON.stringify(sett));
+		} catch (e) {
+			// ignore write errors; localStorage may be unavailable
+		}
 		gId('dm').checked = (gId('theme_base').value === 'light');
 	}
 
@@ -143,6 +158,14 @@
 			var val = e.classList.contains('cb') ? e.checked : e.value;
 			set(e.id, sett, val);
 			console.log(`${e.id} set to ${val}`);
+		}
+		if (d.Sf.ON && d.Sf.ON.value !== "") {
+			if (!sett.comp) sett.comp = {};
+			sett.comp.on = parseInt(d.Sf.ON.value, 10) || 0;
+		}
+		if (d.Sf.OF && d.Sf.OF.value !== "") {
+			if (!sett.comp) sett.comp = {};
+			sett.comp.off = parseInt(d.Sf.OF.value, 10) || 0;
 		}
 		try {
 			localStorage.setItem('wledUiCfg', JSON.stringify(sett));
@@ -164,15 +187,11 @@
 	
 	function Save() {
 		SetLS();
-		if (d.Sf.DS.value != initial_ds || /*d.Sf.ST.checked != initial_st ||*/ d.Sf.SU.checked != initial_su) d.Sf.submit();
+		d.Sf.submit(); // always submit: ON/OF are server-backed fields that always need saving
 	}
-	
 	function S() {
 		getLoc();
 		loadJS(getURL('/settings/s.js?p=3'), false, undefined, ()=>{
-			initial_ds = d.Sf.DS.value;
-			//initial_st = d.Sf.ST.checked;
-			initial_su = d.Sf.SU.checked;
 			GetLS();
 		});	// If we set async false, file is loaded and executed, then next statement is processed
 		if (loc) d.Sf.action = getURL('/settings/ui');
@@ -247,8 +266,8 @@
 		<span class="l"></span>: <input type="checkbox" id="comp_segpwr" class="agi cb"><br>
 		<span class="l"></span>: <input type="checkbox" id="comp_segexp" class="agi cb"><br>
 		<span class="l"></span>: <input type="checkbox" id="comp_fxdef" class="agi cb"><br>
-		<span class="l"></span>: <input type="number" min=0 max=250 step=1 id="comp_on" class="agi"><br>
-		<span class="l"></span>: <input type="number" min=0 max=250 step=1 id="comp_off" class="agi"><br>
+		<span class="l"></span>: <input type="number" min=0 max=250 step=1 id="comp_on" name="ON" class="agi"><br>
+		<span class="l"></span>: <input type="number" min=0 max=250 step=1 id="comp_off" name="OF" class="agi"><br>
 		I hate dark mode: <input type="checkbox" id="dm" onchange="UI()"><br>
 		<span id="idonthateyou" style="display:none"><i>Why would you? </i>&#x1F97A;<br></span>
 		<span class="l"></span>: <input type="number" min=0.0 max=1.0 step=0.01 id="theme_alpha_tab" class="agi"><br>
