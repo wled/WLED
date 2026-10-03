@@ -1,5 +1,10 @@
 #pragma once
 
+// "DEADLINE ISLAND"
+// effect: jtruk for Deadline 2026
+// compilation warnings: jtruk for Deadline 2026
+// Seems to need segments flipping in the WLED panel before the effect works. Maybe that's true of them all?
+
 #include "FX.h"
 #include "../usermods/DEADLINE_TROPHY/DeadlineTrophy.h"
 
@@ -24,214 +29,426 @@ extern uint16_t mode_static(void);
 //   but you can also declare any variable "static" to be more flexible (QM figures that makes sense here)
 // - the EVERY_NTH_CALL(n) { ... } helper is great for debugging.
 
-uint16_t mode_DeadlineTrophy(void) {
-    using namespace DeadlineTrophy;
-    using namespace DeadlineTrophy::FxHelpers;
-    CRGB segcolor0 = CRGB(SEGCOLOR(0));
-    CHSV color = rgb2hsv_approximate(segcolor0);
-    CHSV color_(color);
-    float hue = static_cast<float>(color.hue);
+const float dPixelW = 1.0 / 26.0;
+const float dPixelH = 1.0 / 12.0;
+const uint8_t samplesPerPixelDimension = 1;
+const float dSampleW = dPixelW / samplesPerPixelDimension;
+const float dSampleH = dPixelH / samplesPerPixelDimension;
+const uint8_t samplesPerPixel = samplesPerPixelDimension * samplesPerPixelDimension;
 
-    float bpm = static_cast<float>(SEGMENT.speed);
-    float beat = beatNow(bpm);
-    float fractBeat = fmodf(beat, 1.);
-    float time = secondNow();
+static int state = 0;
+static int stateCounter = 0;
 
-    if (SEGENV.call == 0) {
-        // DEBUG_PRINTF("[DEADLINE_TROPHY] FX was called, now initialized for segment %d (%s) :)\n", strip.getCurrSegmentId(), SEGMENT.name);
-        SEGMENT.fill(BLACK);
-        // we use SEGENV.aux0 as a internal store for the random-flashes, but for no particular reason - stop me if you care
-        SEGMENT.aux0 = 0;
-    }
+const uint8_t bufferW = 48;
+const uint8_t bufferH = 48;
+DeadlineTrophy::FloatRgb buffer[bufferH][bufferW];
+const uint letterInterlace = 4;
 
-    // Idea is, that every 4 beats random numbers are drawn, then maybe some flashing effect shown.
-    // (this demonstrates random numbers and how to use the palette).
-    static float randomTakenAtBeat = 0.;
-    CRGBW lastRandomColor;
-    if (beat > randomTakenAtBeat + 4.) {
-        SEGMENT.aux0 = hw_random8();
-        randomTakenAtBeat = floor_t(beat);
-        lastRandomColor = ColorFromPalette(SEGPALETTE, hw_random8(), 255, LINEARBLEND_NOWRAP);
-    }
+const DeadlineTrophy::FloatRgb fontLetterA[7][8] = {
+	{{0.000,0.000,0.000},{0.000,0.000,0.000},{0.941,0.878,0.000},{0.816,0.690,0.000},{0.753,0.565,0.000},{0.627,0.439,0.000},{0.502,0.376,0.000},{0.000,0.000,0.000}},
+	{{0.000,0.000,0.000},{0.941,0.878,0.000},{0.941,0.878,0.000},{0.000,0.000,0.000},{0.000,0.000,0.000},{0.000,0.000,0.000},{0.502,0.376,0.000},{0.439,0.251,0.000}},
+	{{0.000,0.000,0.000},{0.816,0.690,0.000},{0.816,0.690,0.000},{0.000,0.000,0.000},{0.000,0.000,0.000},{0.000,0.000,0.000},{0.502,0.376,0.000},{0.439,0.251,0.000}},
+	{{0.000,0.000,0.000},{0.753,0.565,0.000},{0.753,0.565,0.000},{0.753,0.565,0.000},{0.753,0.565,0.000},{0.627,0.439,0.000},{0.502,0.376,0.000},{0.439,0.251,0.000}},
+	{{0.000,0.000,0.000},{0.627,0.439,0.000},{0.627,0.439,0.000},{0.627,0.439,0.000},{0.000,0.000,0.000},{0.000,0.000,0.000},{0.502,0.376,0.000},{0.439,0.251,0.000}},
+	{{0.000,0.000,0.000},{0.502,0.376,0.000},{0.502,0.376,0.000},{0.502,0.376,0.000},{0.000,0.000,0.000},{0.000,0.000,0.000},{0.502,0.376,0.000},{0.439,0.251,0.000}},
+	{{0.000,0.000,0.000},{0.439,0.251,0.000},{0.439,0.251,0.000},{0.439,0.251,0.000},{0.000,0.000,0.000},{0.000,0.000,0.000},{0.439,0.251,0.000},{0.439,0.251,0.000}},
+};
 
-    static Vec2 triangleLeft = Logo::coord(138).uv;
-    static Vec2 triangleRight = Logo::coord(103).uv;
+const DeadlineTrophy::FloatRgb fontLetterD[7][8] = {
+	{{0.000,0.000,0.000},{0.941,0.941,0.941},{0.941,0.878,0.000},{0.816,0.690,0.000},{0.753,0.565,0.000},{0.627,0.439,0.000},{0.502,0.376,0.000},{0.000,0.000,0.000}},
+	{{0.000,0.000,0.000},{0.941,0.878,0.000},{0.941,0.878,0.000},{0.000,0.000,0.000},{0.000,0.000,0.000},{0.000,0.000,0.000},{0.502,0.376,0.000},{0.439,0.251,0.000}},
+	{{0.000,0.000,0.000},{0.816,0.690,0.000},{0.816,0.690,0.000},{0.000,0.000,0.000},{0.000,0.000,0.000},{0.000,0.000,0.000},{0.502,0.376,0.000},{0.439,0.251,0.000}},
+	{{0.000,0.000,0.000},{0.753,0.565,0.000},{0.753,0.565,0.000},{0.753,0.565,0.000},{0.000,0.000,0.000},{0.000,0.000,0.000},{0.502,0.376,0.000},{0.439,0.251,0.000}},
+	{{0.000,0.000,0.000},{0.627,0.439,0.000},{0.627,0.439,0.000},{0.627,0.439,0.000},{0.000,0.000,0.000},{0.000,0.000,0.000},{0.502,0.376,0.000},{0.439,0.251,0.000}},
+	{{0.000,0.000,0.000},{0.502,0.376,0.000},{0.502,0.376,0.000},{0.502,0.376,0.000},{0.502,0.376,0.000},{0.502,0.376,0.000},{0.502,0.376,0.000},{0.439,0.251,0.000}},
+	{{0.000,0.000,0.000},{0.439,0.251,0.000},{0.439,0.251,0.000},{0.439,0.251,0.000},{0.439,0.251,0.000},{0.439,0.251,0.000},{0.439,0.251,0.000},{0.000,0.000,0.000}},
+};
 
-    if (IS_LOGO_SEGMENT) {
-        // QM: that width is useful for a point with exp(-r*r/w/w), values go from [1/8..1]
-        // float width = exp2f((static_cast<float>(SEGMENT.intensity) - 192.) / 64.);
-        // mapping 0..255 to [1/4 .. 4] with centered 128 = 1:
-        float k = exp2f((static_cast<float>(SEGMENT.intensity) - 128.) / 32.);
-        static float k_factor = 1.;
-        // custom3 is only 5bit (0..31)
-        float w = exp2f((static_cast<float>(SEGMENT.custom3) - 16.) / 8.);
+const DeadlineTrophy::FloatRgb fontLetterE[7][8] = {
+	{{0.000,0.000,0.000},{0.000,0.000,0.000},{0.941,0.878,0.000},{0.816,0.690,0.000},{0.753,0.565,0.000},{0.627,0.439,0.000},{0.502,0.376,0.000},{0.439,0.251,0.000}},
+	{{0.000,0.000,0.000},{0.941,0.878,0.000},{0.941,0.878,0.000},{0.000,0.000,0.000},{0.000,0.000,0.000},{0.000,0.000,0.000},{0.000,0.000,0.000},{0.000,0.000,0.000}},
+	{{0.000,0.000,0.000},{0.816,0.690,0.000},{0.816,0.690,0.000},{0.000,0.000,0.000},{0.000,0.000,0.000},{0.000,0.000,0.000},{0.000,0.000,0.000},{0.000,0.000,0.000}},
+	{{0.000,0.000,0.000},{0.753,0.565,0.000},{0.753,0.565,0.000},{0.753,0.565,0.000},{0.753,0.565,0.000},{0.627,0.439,0.000},{0.000,0.000,0.000},{0.000,0.000,0.000}},
+	{{0.000,0.000,0.000},{0.627,0.439,0.000},{0.627,0.439,0.000},{0.627,0.439,0.000},{0.000,0.000,0.000},{0.000,0.000,0.000},{0.000,0.000,0.000},{0.000,0.000,0.000}},
+	{{0.000,0.000,0.000},{0.502,0.376,0.000},{0.502,0.376,0.000},{0.502,0.376,0.000},{0.502,0.376,0.000},{0.502,0.376,0.000},{0.502,0.376,0.000},{0.439,0.251,0.000}},
+	{{0.000,0.000,0.000},{0.000,0.000,0.000},{0.439,0.251,0.000},{0.439,0.251,0.000},{0.439,0.251,0.000},{0.439,0.251,0.000},{0.439,0.251,0.000},{0.439,0.251,0.000}},
+};
 
-        EVERY_NTH_CALL(5000) {
-            measureMicros();
-        }
+const DeadlineTrophy::FloatRgb fontLetterI[7][8] = {
+	{{0.000,0.000,0.000},{0.941,0.941,0.941},{0.941,0.878,0.000},{0.816,0.690,0.000},{0.753,0.565,0.000},{0.627,0.439,0.000},{0.502,0.376,0.000},{0.439,0.251,0.000}},
+	{{0.000,0.000,0.000},{0.000,0.000,0.000},{0.000,0.000,0.000},{0.000,0.000,0.000},{0.753,0.565,0.000},{0.627,0.439,0.000},{0.000,0.000,0.000},{0.000,0.000,0.000}},
+	{{0.000,0.000,0.000},{0.000,0.000,0.000},{0.000,0.000,0.000},{0.000,0.000,0.000},{0.753,0.565,0.000},{0.627,0.439,0.000},{0.000,0.000,0.000},{0.000,0.000,0.000}},
+	{{0.000,0.000,0.000},{0.000,0.000,0.000},{0.000,0.000,0.000},{0.753,0.565,0.000},{0.753,0.565,0.000},{0.627,0.439,0.000},{0.000,0.000,0.000},{0.000,0.000,0.000}},
+	{{0.000,0.000,0.000},{0.000,0.000,0.000},{0.000,0.000,0.000},{0.627,0.439,0.000},{0.627,0.439,0.000},{0.627,0.439,0.000},{0.000,0.000,0.000},{0.000,0.000,0.000}},
+	{{0.000,0.000,0.000},{0.502,0.376,0.000},{0.502,0.376,0.000},{0.502,0.376,0.000},{0.502,0.376,0.000},{0.502,0.376,0.000},{0.502,0.376,0.000},{0.439,0.251,0.000}},
+	{{0.000,0.000,0.000},{0.439,0.251,0.000},{0.439,0.251,0.000},{0.439,0.251,0.000},{0.439,0.251,0.000},{0.439,0.251,0.000},{0.439,0.251,0.000},{0.439,0.251,0.000}},
+};
 
-        SEGMENT.fill(BLACK);
+const DeadlineTrophy::FloatRgb fontLetterL[7][8] = {
+	{{0.000,0.000,0.000},{0.941,0.941,0.941},{0.941,0.878,0.000},{0.000,0.000,0.000},{0.000,0.000,0.000},{0.000,0.000,0.000},{0.000,0.000,0.000},{0.000,0.000,0.000}},
+	{{0.000,0.000,0.000},{0.941,0.878,0.000},{0.941,0.878,0.000},{0.000,0.000,0.000},{0.000,0.000,0.000},{0.000,0.000,0.000},{0.000,0.000,0.000},{0.000,0.000,0.000}},
+	{{0.000,0.000,0.000},{0.816,0.690,0.000},{0.816,0.690,0.000},{0.000,0.000,0.000},{0.000,0.000,0.000},{0.000,0.000,0.000},{0.000,0.000,0.000},{0.000,0.000,0.000}},
+	{{0.000,0.000,0.000},{0.753,0.565,0.000},{0.753,0.565,0.000},{0.753,0.565,0.000},{0.000,0.000,0.000},{0.000,0.000,0.000},{0.000,0.000,0.000},{0.000,0.000,0.000}},
+	{{0.000,0.000,0.000},{0.627,0.439,0.000},{0.627,0.439,0.000},{0.627,0.439,0.000},{0.000,0.000,0.000},{0.000,0.000,0.000},{0.000,0.000,0.000},{0.000,0.000,0.000}},
+	{{0.000,0.000,0.000},{0.502,0.376,0.000},{0.502,0.376,0.000},{0.502,0.376,0.000},{0.502,0.376,0.000},{0.502,0.376,0.000},{0.502,0.376,0.000},{0.439,0.251,0.000}},
+	{{0.000,0.000,0.000},{0.000,0.000,0.000},{0.439,0.251,0.000},{0.439,0.251,0.000},{0.439,0.251,0.000},{0.439,0.251,0.000},{0.439,0.251,0.000},{0.439,0.251,0.000}},
+};
 
-        for (const auto& coord : logoCoordinates()) {
-            float d = coord.uv.length();
-            d = sin_t(M_TWOPI * (d * k * k_factor + w * beat));
-            d *= d;
-            d = 0.02 / d;
+const DeadlineTrophy::FloatRgb fontLetterN[7][8] = {
+	{{0.000,0.000,0.000},{0.941,0.941,0.941},{0.941,0.878,0.000},{0.816,0.690,0.000},{0.753,0.565,0.000},{0.627,0.439,0.000},{0.502,0.376,0.000},{0.000,0.000,0.000}},
+	{{0.000,0.000,0.000},{0.941,0.878,0.000},{0.941,0.878,0.000},{0.000,0.000,0.000},{0.000,0.000,0.000},{0.000,0.000,0.000},{0.502,0.376,0.000},{0.439,0.251,0.000}},
+	{{0.000,0.000,0.000},{0.816,0.690,0.000},{0.816,0.690,0.000},{0.000,0.000,0.000},{0.000,0.000,0.000},{0.000,0.000,0.000},{0.502,0.376,0.000},{0.439,0.251,0.000}},
+	{{0.000,0.000,0.000},{0.753,0.565,0.000},{0.753,0.565,0.000},{0.753,0.565,0.000},{0.000,0.000,0.000},{0.000,0.000,0.000},{0.502,0.376,0.000},{0.439,0.251,0.000}},
+	{{0.000,0.000,0.000},{0.627,0.439,0.000},{0.627,0.439,0.000},{0.627,0.439,0.000},{0.000,0.000,0.000},{0.000,0.000,0.000},{0.502,0.376,0.000},{0.439,0.251,0.000}},
+	{{0.000,0.000,0.000},{0.502,0.376,0.000},{0.502,0.376,0.000},{0.502,0.376,0.000},{0.000,0.000,0.000},{0.000,0.000,0.000},{0.502,0.376,0.000},{0.439,0.251,0.000}},
+	{{0.000,0.000,0.000},{0.439,0.251,0.000},{0.439,0.251,0.000},{0.439,0.251,0.000},{0.000,0.000,0.000},{0.000,0.000,0.000},{0.439,0.251,0.000},{0.439,0.251,0.000}},
+};
 
-            // nach Polarwinkel unterdrücken...
-            float theta = coord.uv.polarAngleFrom({0, 0}, 0.25 * beat * M_TWOPI);
-            // aber reicht alle 8 Takte mal.
-            float every8Beats = fmodf(beat, 8.);
-            float gaussCurveExponent = (every8Beats - 6.) / 2;
-            float swirlIntensity = exp(-sq(gaussCurveExponent));
-            d *= exp(-theta * swirlIntensity);
+const DeadlineTrophy::FloatRgb fontLetterS[7][8] = {
+	{{0.000,0.000,0.000},{0.000,0.000,0.000},{0.941,0.878,0.000},{0.816,0.690,0.000},{0.753,0.565,0.000},{0.627,0.439,0.000},{0.502,0.376,0.000},{0.000,0.000,0.000}},
+	{{0.000,0.000,0.000},{0.941,0.878,0.000},{0.941,0.878,0.000},{0.000,0.000,0.000},{0.000,0.000,0.000},{0.000,0.000,0.000},{0.502,0.376,0.000},{0.439,0.251,0.000}},
+	{{0.000,0.000,0.000},{0.816,0.690,0.000},{0.816,0.690,0.000},{0.000,0.000,0.000},{0.000,0.000,0.000},{0.000,0.000,0.000},{0.000,0.000,0.000},{0.000,0.000,0.000}},
+	{{0.000,0.000,0.000},{0.000,0.000,0.000},{0.753,0.565,0.000},{0.753,0.565,0.000},{0.753,0.565,0.000},{0.627,0.439,0.000},{0.502,0.376,0.000},{0.000,0.000,0.000}},
+	{{0.000,0.000,0.000},{0.000,0.000,0.000},{0.000,0.000,0.000},{0.000,0.000,0.000},{0.000,0.000,0.000},{0.000,0.000,0.000},{0.502,0.376,0.000},{0.439,0.251,0.000}},
+	{{0.000,0.000,0.000},{0.502,0.376,0.000},{0.502,0.376,0.000},{0.502,0.376,0.000},{0.502,0.376,0.000},{0.502,0.376,0.000},{0.502,0.376,0.000},{0.439,0.251,0.000}},
+	{{0.000,0.000,0.000},{0.439,0.251,0.000},{0.439,0.251,0.000},{0.439,0.251,0.000},{0.439,0.251,0.000},{0.439,0.251,0.000},{0.439,0.251,0.000},{0.000,0.000,0.000}},
+};
 
-            // at some other time, make k large and suppress points
-            gaussCurveExponent = (fmodf(beat, 16.) - 9.) / 2.4;
-            k_factor = 1. + exp(-sq(gaussCurveExponent));
-            d = powf(d, sq(k_factor));
+std::string scrollText = "  DEADLINE ISLAND ";
+uint scrollLetter = 0;
+float scrollX = .0f;
 
-            color.hue = static_cast<uint8_t>(hue - 3. * theta);
-            color.sat = color_.sat;
-            color.val = static_cast<uint8_t>(50. * clip(d));
-
-            // as an example of controlling the parameters. draws a gauss curve / circle around teh given point, white.
-            /*
-            d = 255. * coord.gaussAt(center, 0.5 * k, w - 1.);
-            color.val = max(color.val, static_cast<uint8_t>(d));
-            color.sat = min(color.sat, static_cast<uint8_t>(255. - d));
-            */
-
-            // draw one triangle to show usage of left/right tilt vectors
-            CHSV triangleColor = CHSV(230, 200, 170);
-            Vec2 pointForLeft = triangleLeft + (-8.f + 24.f * perlin1D(10. * beat)) * Logo::xUnit;
-            d = coord.sdLine(pointForLeft - 10. * Logo::tiltRight, pointForLeft + 10. * Logo::tiltRight);
-            color = mixHsv(color, triangleColor, exp(-6. * d));
-            Vec2 pointForRight = triangleRight + (3.f - 7.f * perlin1D(10. * beat + 4.)) * Logo::xUnit;
-            d = coord.sdLine(pointForRight - 10. * Logo::tiltLeft, pointForRight + 10. * Logo::tiltLeft);
-            color = mixHsv(color, triangleColor, exp(-7. * d));
-            float bottomLineHeight = triangleLeft.y + Logo::unit * (-1.f + 5.f * perlin1D(6. * beat + 100.));
-            d = coord.sdLine({-10., bottomLineHeight}, {10., bottomLineHeight});
-            color = mixHsv(color, triangleColor, exp(-8. * d));
-
-            // EVERY_NTH_CALL(210) {
-            //     DEBUG_PRINTF("[QM_DEBUG_LOGO] (%.3f, %.3f)->(%.3f, %.3f) (%.3f, %.3f)->(%.3f, %.3f) bottomY=%.3f, d=%.3f\n",
-            //         triangleLeft.x, triangleLeft.y, pointForLeft.x, pointForLeft.y,
-            //         triangleRight.x, triangleRight.y, pointForRight.x, pointForRight.y,
-            //         bottomLineHeight, d
-            //     );
-            // }
-
-            setLogo(coord.x, coord.y, color);
-        }
-
-        // now, about these random draws we did somewhere above
-        /*
-        if (SEGMENT.aux0 > 150) {
-            // these are just two exp decays one eighth of a beat apart
-            float lastExpPeakAt = fractBeat < 0.125 ? 0. : 0.125;
-            float exponent = fractBeat < 0.125 ? 5. : 1.4;
-            float flashIntensity =
-                exp(-exponent * (fractBeat-lastExpPeakAt) * static_cast<float>(fractBeat >= lastExpPeakAt));
-            if (fractBeat < 0.125) {
-                fillLogoArray(Logo::InnerTriangle.data(), Logo::InnerTriangle.size(),
-                              RGBW32(200, 255, 50, 0), flashIntensity);
-            } else {
-                fillLogoArray(Logo::OuterTriangle.data(), Logo::OuterTriangle.size(),
-                              RGBW32(210, 110, 10, 0), flashIntensity);
-            }
-        }
-        */
-
-        using namespace Logo;
-
-        static uint32_t contourColor = uint32_t(CRGB(30, 40, 120));
-        int contourIndex = static_cast<int>(beat * 8.) % Contour.size();
-        // some contour frames
-        if (contourIndex == 0) {
-            fillLogoArray(Contour.data(), Contour.size(), contourColor, 0.01);
-        } else if (contourIndex == 1) {
-            fillLogoArray(MiddleTriangle.data(), MiddleTriangle.size(), YELLOW, 0.003);
-            fillLogoArray(LeftmostBar.data(), LeftmostBar.size(), CYAN, 0.004);
-        } else if (contourIndex == 2) {
-            fillLogoArray(InnerTriangle.data(), InnerTriangle.size(), WHITE, 0.01);
-            fillLogoArray(OuterTriangle.data(), OuterTriangle.size(), CYAN, 0.004);
-        }
-        // did have one bright wandering point but it was too ugly
-        // Coord wanderPixel = coord(Contour[Contour.size() - 1 - contourIndex]);
-        // setLogo(wanderPixel.x, wanderPixel.y, contourColor);
-        // // and another, as a tail
-        // if (contourIndex < Contour.size() - 1) {
-        //     wanderPixel = coord(Contour[Contour.size() - 2 - contourIndex]);
-        //     uint32_t paleContour = mixRgb(BLACK, contourColor, 0.07);
-        //     setLogo(wanderPixel.x, wanderPixel.y, paleContour);
-        // }
-
-        // and change colors when a round is completed
-        if (contourIndex == Contour.size() - 1) {
-            contourColor = uint32_t(CRGB(30, 90 + perlin8(SEGMENT.call) % 80, 170));
-        }
-
-        EVERY_NTH_CALL(5000) {
-            DEBUG_PRINTF("[QM_DEBUG_FX] Logo took %ld µs.\n", measureMicros());
-        }
-
-    }
-
-    if (IS_BASE_SEGMENT) {
-        static float phi = 0.;
-        static float omega = 1.7;
-
-        SEGMENT.fadeToBlackBy(20);
-
-        for (const auto& coord : baseCoordinates()) {
-            FloatRgb col0 = cosinePalette(
-                0.2 * time,
-                {0.29, 0.22, 0.5},
-                {0.43, 0.74, 0.74},
-                {1.3, 0.7, 1.2},
-                {0.85, 0.14, 0.83}
-            );
-            // read the "uvS" coordinate as s == 0 in the middle of every side, becoming (-)0.5 towards the corners
-            float uvs = min(abs(coord.uv.x), abs(coord.uv.y));
-            float d = (1. - cos_t(M_PI * 5. * uvs)) * (0.6 + 0.4 * sin_t(M_TWOPI * 0.125 * beat));
-            col0.scale(d*d);
-            col0.grade(0.8);
-            float dimTheMiddle = 1. - 0.8 * cos(M_PI * uvs);
-            col0.scale(dimTheMiddle);
-
-            // now add a rotating line, showing the use of SDF geometry
-            phi = 0.25 * beat * omega;
-            Vec2 end{1, 1};
-            end.rotate(phi);
-            d = coord.sdLine(-end, end);
-            d = exp(-2.5*d);
-
-            color = col0.toCHSV();
-            color.sat = mix8(255, 20, d);
-            color.val = max(color.val, static_cast<uint8_t>(255.*d));
-            setBase(coord.x, coord.y, color);
-        }
-    }
-
-    // for the first argument of beatsin8_t (accum88 type), "BPM << 8" just oscillates once per beat
-    //uint8_t fourBeatSineWave = beatsin8_t(SEGMENT.speed << 6, 0, 255);
-    uint8_t beatSineWave = beatsin8_t(SEGMENT.speed << 8, 0, 255);
-    uint8_t annoyingBlink = mix8(255, 0, exp(-fractBeat));
-
-    if (IS_BACK_LED) {
-        setSingle(annoyingBlink);
-
-    } else if (IS_FLOOR_LED) {
-        setSingle(fmodf(beat, 4.) < 1. ? beatSineWave : BLACK);
-
-    }
-
-    return FRAMETIME;
+void fillBuffer(DeadlineTrophy::FloatRgb rgb) {
+	for(int y = 0; y < bufferH; y++) {
+		for(int x = 0; x < bufferW; x++) {
+			buffer[y][x] = rgb;
+		}
+	}
 }
 
-static const char _data_FX_MODE_DEADLINE_TROPHY[] PROGMEM =
-    "DEADLINE Trophy@BPM,!,Contour Intensity,!,!;!,!;!;2;c1=0,sx=110,pal=59";
+void letterToBuffer(char letter, uint dx, uint dy, uint colourSwitch) {
+	const DeadlineTrophy::FloatRgb (*fontLetter)[8] = nullptr;
+	colourSwitch = colourSwitch % 6;
+	switch(letter) {
+		case 'A':
+			fontLetter = fontLetterA;
+			break;
+		case 'D':
+			fontLetter = fontLetterD;
+			break;
+		case 'E':
+			fontLetter = fontLetterE;
+			break;
+		case 'I':
+			fontLetter = fontLetterI;
+			break;
+		case 'L':
+			fontLetter = fontLetterL;
+			break;
+		case 'N':
+			fontLetter = fontLetterN;
+			break;
+		case 'S':
+			fontLetter = fontLetterS;
+			break;
+		default:
+			return;
+	}
+	for(int y = 0; y < 8; y++) {
+		uint drawY = y;
+		if(y>=6) {
+			drawY--;
+		}
+		for(int x = 0; x < 8; x++) {
+			for(int ix = 0; ix < letterInterlace; ix++) {
+				for(int iy = 0; iy < letterInterlace; iy++) {
+					uint px = (dx+x)*letterInterlace + ix;
+					uint py = (dy+y)*letterInterlace + iy;
+					if(px>=0 && px<bufferW && py>=0 && py<bufferH) {
+						DeadlineTrophy::FloatRgb rgb = fontLetter[drawY][x];
+
+						switch(colourSwitch) {
+							case 1:
+								rgb = {rgb.g, rgb.b, rgb.r};
+								break;
+							case 2:
+								rgb = {rgb.b, rgb.r, rgb.g};
+								break;	
+							case 3:
+								rgb = {rgb.r, rgb.b, rgb.g};
+								break;
+							case 4:
+								rgb = {rgb.b, rgb.g, rgb.r};
+								break;	
+							case 5:
+								rgb = {rgb.g, rgb.r, rgb.b};
+								break;
+						}
+
+						buffer[py][px] = rgb;
+					}
+				}
+			}
+		}
+	}
+}
+
+float floorSkew(float xProp) {
+	return xProp * .35f;
+}
+
+void backgroundToBuffer(uint32_t t) {
+	const float sky = 0.5f;
+	for(int x = 0; x < bufferW; x++) {
+		float xProp = float(x)/bufferW;
+		float shoreSkew = floorSkew(xProp);
+		for(int y = 0; y < bufferH; y++) {
+			float yProp = float(y)/bufferH;
+			const float shore = .5 + shoreSkew + (sin(t/6.0f) + sin((xProp/2 - yProp)*10.f) + sin(x*.1 + t/8.3f)) * .01f;
+
+			DeadlineTrophy::FloatRgb rgb;
+			if(yProp < sky) {
+				const float fade = 1 - ((sky - yProp) / sky);
+				rgb = {.1f * fade, .02f * fade, .3f};
+			} else if(yProp < shore) {
+				float waterProp = 1.0f; //(yProp / shore) + .2 * sin((xProp/2 - yProp)*2.f + t/6.0f); 
+				float fade = ((yProp - sky) / (1 - sky));
+				rgb = {
+					MIN(1.0f, MAX(0.0f, (.02f * fade) + (.025f * waterProp))),
+					MIN(1.0f, MAX(0.0f, (.02f * fade) + (.025f * waterProp))),
+					MIN(1.0f, MAX(0.04f, .02f + (.1f * fade) + (.1f * waterProp)))
+				};
+			} else {
+				rgb = {.12f, .12f, .0f};
+			}
+
+			buffer[y][x] = rgb;
+		}
+	}
+}
+
+// y = 0->1
+float treeSkew(float yProp, float wind) {
+	float skew = 1 - yProp;
+	skew = (skew * skew) * (.06 * (wind + 1));
+	return skew;
+}
+
+void treeToBuffer(uint32_t t) {
+	const float treeX = .15;
+	const float wind = sin(t/20.0f) * .5+ sin(t/4.4f) * .4 + sin(t/2.2f) * .3;
+	const uint y0 = .25*bufferH;
+	const uint y1 = .72*bufferH;
+	float yDiff = y1 - y0;
+	for(int y=y0; y<y1; y++) {
+		float yProp = (float)(y - y0) / yDiff;
+		float treeW = .05 + yProp * .02;
+		float skew = treeSkew(yProp, wind);
+		uint x0 = (treeX + skew - treeW) * bufferW;
+		uint x1 = (treeX + skew + treeW) * bufferW;
+		for(int x=x0; x<x1; x++) {
+			buffer[y][x] = {.15,.05,.05};
+		}
+	}
+
+	uint x0 = (treeX - .1) + treeSkew(0, wind) * bufferW;
+	uint x1 = x0 + .55 * bufferW;
+	for(int x=x0; x<x1; x++) {
+		float xProp = (float(x-x0)/float(x1-x0));
+		float y0 = .20f * bufferH + xProp * .1 * bufferH;
+		float y1 = y0 + .125f * bufferH;
+		for(int y=y0; y<y1; y++) {
+			buffer[y][x] = {.0,.1,.0};
+		}
+	}
+}
+
+const DeadlineTrophy::Vec2 dHalfPixel = {dPixelW/2, dPixelH/2};
+
+// Describes how much of a pixel dimension to sample
+struct Partial {
+	int whole;
+	float part;
+};
+
+// Takes a from and to, and returns partials
+// to must not be less than from
+std::vector<Partial> getSpread(float from, float to) {
+	std::vector<Partial> result;
+
+	int iFrom = (int) from;
+	int iTo = (int) to;
+	float fFromR = from - iFrom;
+	float fToR = to - iTo;
+
+	if(iFrom == iTo) {
+		float diff = fToR - fFromR;
+		if(diff > 0) {
+			result.push_back({iFrom, diff});
+		}
+	} else {
+		float diff = 1 - fFromR;
+		if(diff > 0) {
+			result.push_back({iFrom, diff});
+		}
+		for(int i = iFrom + 1; i < iTo; i++) {
+			result.push_back({i, 1});
+		}
+		if(fToR > 0) {
+			result.push_back({iTo, fToR});
+		}
+	}
+
+	return result;
+};
+
+CRGB bufferToPixel(DeadlineTrophy::Vec2 uv) {
+	using namespace DeadlineTrophy;
+
+	// map x:-1->1 to 0->1 and y:-1->1 to 1->0
+	Vec2 uvUnit = {(uv.x + 1) / 2, 1 - ((uv.y + 1) / 2)};
+
+	// Attempt to straighten
+//	uvUnit.x -= uvUnit.y * 1/3;
+
+	Vec2 uvLow = uvUnit - dHalfPixel;
+	Vec2 uvHigh = uvUnit + dHalfPixel;
+
+	std::vector<Partial> ySpread = getSpread(uvLow.y * bufferH, uvHigh.y * bufferH);
+	std::vector<Partial> xSpread = getSpread(uvLow.x * bufferW, uvHigh.x * bufferW);
+
+	DeadlineTrophy::FloatRgb rgbPixel = {0,0,0};
+	float totalArea = 0;
+	for(const Partial& yPartial : ySpread) {
+		int y = yPartial.whole;
+		for(const Partial& xPartial : xSpread) {
+			int x = xPartial.whole;
+			float frac = xPartial.part * yPartial.part;
+
+			if(y >= 0 && y < bufferW && x >= 0 && x < bufferW) {
+				FloatRgb rgb = buffer[y][x];
+				rgbPixel.r += rgb.r * frac;
+				rgbPixel.g += rgb.g * frac;
+				rgbPixel.b += rgb.b * frac;
+			}
+
+			totalArea += frac;
+		}
+	}
+
+	if(totalArea > 0) {
+		rgbPixel.r /= totalArea;
+		rgbPixel.g /= totalArea;
+		rgbPixel.b /= totalArea;
+	}
+	return rgbPixel.toCRGB();
+}
+
+void bufferToLogo() {
+	using namespace DeadlineTrophy;
+	using namespace DeadlineTrophy::FxHelpers;
+
+	for (const auto& coord : logoCoordinates()) {
+		setLogo(coord.x, coord.y, uint32_t(bufferToPixel(coord.uv)));
+	}
+}
+
+DeadlineTrophy::FloatRgb pointSample(DeadlineTrophy::Vec2 uv, float time) {
+	float a = atan2f(uv.y, uv.x);
+	float d = sqrtf(uv.x * uv.x + uv.y * uv.y);
+
+	return {double(0.5f + sin(a * 12.f + time) * 0.5f), 0, double(0.5f + sin(d) * 0.5f)};
+}
+
+CRGB superSample(DeadlineTrophy::Vec2 uv, float time) {	
+	DeadlineTrophy::FloatRgb rgbAll = {0, 0, 0};
+
+	DeadlineTrophy::Vec2 sampleUV = {uv.x - dPixelW/2 + dSampleW/2, uv.y - dPixelH/2 + dSampleH/2};
+	for(int xSample = 0; xSample < samplesPerPixelDimension; xSample++) {
+		for(int ySample = 0; ySample < samplesPerPixelDimension; ySample++) {
+			DeadlineTrophy::FloatRgb rgbPoint = pointSample(sampleUV, time);
+			rgbAll.r += rgbPoint.r;
+			rgbAll.g += rgbPoint.g;
+			rgbAll.b += rgbPoint.b;
+			sampleUV.x += dSampleW;
+			sampleUV.y += dSampleH;
+		}
+	}
+	rgbAll.r /= samplesPerPixel;
+	rgbAll.g /= samplesPerPixel;
+	rgbAll.b /= samplesPerPixel;
+
+	return rgbAll.toCRGB();
+}
+
+uint16_t mode_DeadlineTrophy(void) {
+	using namespace DeadlineTrophy;
+	using namespace DeadlineTrophy::FxHelpers;
+	using namespace Logo;
+
+	if (SEGENV.call == 0) {
+		// Initialise anything
+		state = 0;
+		stateCounter = 0;
+	}
+
+	if (IS_BASE_SEGMENT) {
+		for (const auto& coord : baseCoordinates()) {
+			float fade = 0.5f + 0.5f * sin((coord.uv.x + coord.uv.y) + float(SEGENV.call)/5.0f);
+
+			FloatRgb rgb = {0, 0.3f, fade};
+			setBase(coord.x, coord.y, rgb);
+		}
+	} else if (IS_LOGO_SEGMENT) {
+		if(state < 3) {
+			scrollX -= 1.2f;
+			if(scrollX < -10) {
+				scrollX = 0.0f;
+				scrollLetter = scrollLetter + 1;
+				if(scrollLetter > scrollText.length()) {
+					scrollLetter = 0;
+					state ++;
+					stateCounter = 0;
+				};
+			}
+
+			fillBuffer({0,0,0});
+			int drawScrollX = scrollX;
+			int drawScrollLetter = scrollLetter;
+			uint yScroll = 2;
+
+			while(drawScrollX < 20 && drawScrollLetter < scrollText.length()) {
+				int colourSwitch = state * 2;
+				if(drawScrollLetter > 10) {
+					colourSwitch ++;
+				}
+				letterToBuffer(scrollText[drawScrollLetter], drawScrollX, yScroll, colourSwitch);
+				drawScrollX += 10;
+				drawScrollLetter++;
+			};
+		} else {
+			backgroundToBuffer(SEGENV.call);
+			treeToBuffer(SEGENV.call);
+			stateCounter ++;
+			if(stateCounter > 150) {
+				state = 0;
+				stateCounter = 0;
+			}
+		}
+
+		bufferToLogo();
+	} else if (IS_BACK_LED) {
+		SEGMENT.fill(YELLOW);
+	} else if (IS_FLOOR_LED) {
+		SEGMENT.fill(BLUE);
+	}
+
+	return FRAMETIME;
+}
+static const char _data_FX_MODE_DEADLINE_TROPHY[] PROGMEM = "DEADLINE Trophy@!,Fade time;;;01";
+
+//static const char _data_FX_MODE_DEADLINE_TROPHY[] PROGMEM =
+//    "DEADLINE Trophy@BPM,!,Contour Intensity,!,!;!,!;!;2;c1=0,sx=110,pal=59";
 // <-- cf. https://kno.wled.ge/interfaces/json-api/#effect-metadata
 // <EffectParameters>;<Colors>;<Palette>;<Flags>;<Defaults>
 // <Colors> = !,! = Two Defaults
