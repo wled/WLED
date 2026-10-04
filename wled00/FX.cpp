@@ -5162,7 +5162,6 @@ static const char _data_FX_MODE_SHIMMER[] PROGMEM = "Shimmer@Speed,Interval,Size
 /////////////////////////////
 void mode_2DAnalogClock(void) {                  // By Andras Fekete (bandi13)
   if (!strip.isMatrix || !SEGMENT.is2D()) FX_FALLBACK_STATIC; // not a 2D set-up
-
   const int cols = SEG_W;
   const int rows = SEG_H;
 
@@ -5181,9 +5180,9 @@ void mode_2DAnalogClock(void) {                  // By Andras Fekete (bandi13)
   SEGMENT.drawCircle(centerX, centerY, radius, DARKGREY, soft);
   if (radius > 8) SEGMENT.drawCircle(centerX, centerY, radius-1, DARKGREY, soft); // thicker circle
 
-  time_t hours_in_day = (localTime / (60 * 60)) % 12;
-  time_t minutes_in_day = (localTime / (60)) % 60;
-  time_t seconds_in_day = (localTime) % 60;
+  unsigned hours_in_day =  hour(localTime) % 12;  // analog clock is always 12 hours not 24 hours
+  unsigned minutes_in_day = minute(localTime);
+  unsigned seconds_in_day = second(localTime);
 
   float hour_angle = radians(30.0f * (hours_in_day + minutes_in_day / 60.0f) - 90.0f);
   int hour_len = radius / 2;
