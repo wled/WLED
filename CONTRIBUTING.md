@@ -93,7 +93,7 @@ You can chat with the review bot by adding a comment that starts with `@coderabb
 Example: ask for a summary of review comments (includes maintainer comments)
 
    ```text
-   @coderabbitai create a prioritized list of suggested improvements for this PR so that it would be ready to merge. Include references to the original review comment where possible.
+   @coderabbitai create a prioritised list of suggested improvements for this PR to make it ready for merging. Where possible, include references to the original review comment.
    ```
 
 ### Updating your code
