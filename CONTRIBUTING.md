@@ -218,9 +218,13 @@ Why we ask for this: our maintainers are volunteers with limited time. A PR wher
 
 #### Can you explain it?
 
-Reviewers may ask you direct questions about your change, or about a root cause you've claimed. Please expect to answer these yourself, in your own words - not by pasting your AI's reply back verbatim without checking it first. If you can't currently answer a question, it's fine to say so and take the time to dig in; that's a much better outcome for everyone than a confident-sounding guess.
+Reviewers may ask you direct questions about your change, or about a root cause you've claimed. Please expect to answer these yourself, in your own words - not by pasting your AI's reply back verbatim. If you can't currently answer a question, it's fine to say so and take the time to dig in; that's a much better outcome for everyone than a confident-sounding guess.
 
 This applies especially to root-cause claims. Before writing "the bug is caused by X", please verify it against the actual code path (and, ideally, a log or a reproduction) rather than asserting it purely because an AI sounded sure. A quick note on how you verified it goes a long way, e.g. "confirmed by adding a debug print at `strip.cpp:123` - the value was indeed wrapping around". If you haven't verified it yet, say that too ("AI suggested this cause, not yet confirmed") - it's honest and saves everyone time.
+
+#### Don't let an AI agent explain for you
+
+We understand that AI is useful when communicating as a non-native English speaker. Using AI to improve the grammar or clarity of text you have written yourself is fine. However do not use AI to auto-generate answers to questions from reviewers, or to auto-generate PR descriptions. You should understand and be able to explain your own work. Using AI to improve grammar or clarity is fine, but the substance must be your own.
 
 #### Keep PRs scoped
 
