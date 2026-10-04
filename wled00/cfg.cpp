@@ -62,9 +62,9 @@ bool deserializeConfig(JsonObject doc, bool fromFS) {
   JsonObject nw = doc["nw"];
 #ifndef WLED_DISABLE_ESPNOW
   CJSON(enableESPNow, nw[F("espnow")]);
-  linked_remotes.clear();
   JsonVariant lrem = nw[F("linked_remote")];
   if (!lrem.isNull()) {
+    linked_remotes.clear();
      if (lrem.is<JsonArray>()) {
       for (size_t i = 0; i < lrem.size(); i++) {
         std::array<char, 13> entry{};
