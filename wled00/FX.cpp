@@ -5172,12 +5172,6 @@ void mode_2DAnalogClock(void) {                  // By Andras Fekete (bandi13)
   const int radius = min(centerX, centerY);
   const bool soft = radius > 6 && SEGMENT.check2;
 
-  if (SEGENV.call == 0) { // set up defaults
-    if (SEGMENT.colors[0] == DEFAULT_COLOR) SEGMENT.colors[0] = RED;
-    if (SEGMENT.colors[1] == BLACK) SEGMENT.colors[1] = GREEN;
-    if (SEGMENT.colors[2] == BLACK) SEGMENT.colors[2] = BLUE;
-  }
-
   SEGMENT.fadeToBlackBy(240);
   SEGMENT.drawCircle(centerX, centerY, radius, DARKGREY, soft);
   if (radius > 8) SEGMENT.drawCircle(centerX, centerY, radius-1, DARKGREY, soft); // thicker circle
@@ -5201,11 +5195,11 @@ void mode_2DAnalogClock(void) {                  // By Andras Fekete (bandi13)
     int secondLen = (radius * 9) / 10;
     int secondX = centerX + secondLen * cos_t(secondAngle);
     int secondY = centerY + secondLen * sin_t(secondAngle);
-    SEGMENT.drawLine(centerX, centerY, secondX, secondY, SEGCOLOR(2), soft);
+    SEGMENT.drawLine(centerX, centerY, secondX, secondY, SEGCOLOR(2) != BLACK ? SEGCOLOR(2) : BLUE, soft);
   }
 
-  SEGMENT.drawLine(centerX, centerY, minuteX, minuteY, SEGCOLOR(1), soft);
-  SEGMENT.drawLine(centerX, centerY, hourX, hourY, SEGCOLOR(0), soft);
+  SEGMENT.drawLine(centerX, centerY, minuteX, minuteY, SEGCOLOR(1) != BLACK ? SEGCOLOR(1) : GREEN, soft);
+  SEGMENT.drawLine(centerX, centerY, hourX, hourY, SEGCOLOR(0), soft);  // we could also use RED, if the default of ORANGE looks too ugly
 
 } // mode_2DAnalogClock()
 static const char _data_FX_MODE_2DANALOGCLOCK[] PROGMEM = "Analog Clock@,,,,,Seconds,Soft;Hour,Minute,Second;;2;o1=1,o2=1";
