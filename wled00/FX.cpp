@@ -5180,30 +5180,30 @@ void mode_2DAnalogClock(void) {                  // By Andras Fekete (bandi13)
   SEGMENT.drawCircle(centerX, centerY, radius, DARKGREY, soft);
   if (radius > 8) SEGMENT.drawCircle(centerX, centerY, radius-1, DARKGREY, soft); // thicker circle
 
-  unsigned hours_in_day =  hour(localTime) % 12;  // analog clock is always 12 hours not 24 hours
-  unsigned minutes_in_day = minute(localTime);
-  unsigned seconds_in_day = second(localTime);
+  unsigned hoursInDay =  hour(localTime) % 12;  // analog clock is always 12 hours not 24 hours
+  unsigned minutesInDay = minute(localTime);
+  unsigned secondsInDay = second(localTime);
 
-  float hour_angle = radians(30.0f * (hours_in_day + minutes_in_day / 60.0f) - 90.0f);
-  int hour_len = radius / 2;
-  int hour_x = centerX + hour_len * cos_t(hour_angle);
-  int hour_y = centerY + hour_len * sin_t(hour_angle);
+  float hourAngle = radians(30.0f * (hoursInDay + minutesInDay / 60.0f) - 90.0f);
+  int hourLen = radius / 2;
+  int hourX = centerX + hourLen * cos_t(hourAngle);
+  int hourY = centerY + hourLen * sin_t(hourAngle);
 
-  float minute_angle = radians(6.0f * (minutes_in_day + seconds_in_day / 60.0f) - 90.0f);
-  int minute_len = (radius * 7) / 10;
-  int minute_x = centerX + minute_len * cos_t(minute_angle);
-  int minute_y = centerY + minute_len * sin_t(minute_angle);
+  float minuteAngle = radians(6.0f * (minutesInDay + secondsInDay / 60.0f) - 90.0f);
+  int minuteLen = (radius * 7) / 10;
+  int minuteX = centerX + minuteLen * cos_t(minuteAngle);
+  int minuteY = centerY + minuteLen * sin_t(minuteAngle);
 
   if (SEGMENT.check1) {
-    float second_angle = radians(6.0f * seconds_in_day - 90.0f);
-    int second_len = (radius * 9) / 10;
-    int second_x = centerX + second_len * cos_t(second_angle);
-    int second_y = centerY + second_len * sin_t(second_angle);
-    SEGMENT.drawLine(centerX, centerY, second_x, second_y, SEGCOLOR(2), soft);
+    float secondAngle = radians(6.0f * secondsInDay - 90.0f);
+    int secondLen = (radius * 9) / 10;
+    int secondX = centerX + secondLen * cos_t(secondAngle);
+    int secondY = centerY + secondLen * sin_t(secondAngle);
+    SEGMENT.drawLine(centerX, centerY, secondX, secondY, SEGCOLOR(2), soft);
   }
 
-  SEGMENT.drawLine(centerX, centerY, minute_x, minute_y, SEGCOLOR(1), soft);
-  SEGMENT.drawLine(centerX, centerY, hour_x, hour_y, SEGCOLOR(0), soft);
+  SEGMENT.drawLine(centerX, centerY, minuteX, minuteY, SEGCOLOR(1), soft);
+  SEGMENT.drawLine(centerX, centerY, hourX, hourY, SEGCOLOR(0), soft);
 
 } // mode_2DAnalogClock()
 static const char _data_FX_MODE_2DANALOGCLOCK[] PROGMEM = "Analog Clock@,,,,,Seconds,Soft;Hour,Minute,Second;;2;o1=1,o2=1";
