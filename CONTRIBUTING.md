@@ -5,6 +5,20 @@ WLED is a community-driven project, and every contribution matters! We appreciat
 Our maintainers are here for two things: **helping you** improve your code, and **keeping WLED** lean, efficient, and maintainable. 
 We'll work with you to refine your contribution, but we'll also push back if something might create technical debt or add features without clear value. Don't take it personally - we're just protecting WLED's architecture while helping your contribution succeed!
 
+### Quick Jump
+
+* [Do not force-push](#updating-your-code)
+* [Our take on AI-assisted contributions](#source-code-from-an-ai-agent-or-bot)
+* [Explain in your own words, keep PRs scoped](#can-you-explain-it)
+* [CodeRabbit review comments](#coderabbitai-comments)
+* [Code Style Guide](#code-style)
+
+* [Developer Infos](#important-developer-infos)
+* [Starting your PR](#pr-from-a-branch-in-your-own-fork)
+* [Describe your PR](#describing-your-pr)
+* [During Review](#during-review)
+* [Merge Conflicts](#dealing-with-merge-conflicts)
+
 ## Opening Issues & Feature Requests
 
 Whether you're reporting a bug or suggesting a new feature, please lead with **what you want to achieve or what's bothering you, in plain language** - not with a specific code path, root cause, or proposed source change. For example, "the LEDs flicker when I use transition X at low brightness" or "I'd like to control WLED without needing an app" tells us what matters, before any technical detail.
@@ -80,11 +94,21 @@ Don't worry - we haven't forgotten you! Feel free to ping after a week if there'
 
 ### CoderabbitAI Comments
 
-After submitting your PR, and when pushing new changes, or AI review tool 'CoderabbitAI' will review and comment on the source code.
+After submitting your PR, and when pushing new changes, our AI review tool 'CoderabbitAI' will review and comment on the source code.
 
 CodeRabbit findings are **review input**, not **mandatory changes**.
 
 Contributors should assess each finding against the code, tests, and project constraints. They can reject an incorrect finding or explain why a proposed change is unsuitable. Addressing every CodeRabbit comment is not a condition for a sound contribution.
+
+#### Talk to Me
+
+You can chat with the review bot by adding a comment that starts with `@coderabbitai`. Use this to ask questions, explain your intentions behind the code, request summaries, and so on. CodeRabbit cannot work on your code as a coding agent, but it can suggest code changes for you to test and commit.
+
+Example: ask for a summary of review comments (includes maintainer comments)
+
+   ```text
+   @coderabbitai create a prioritised list of suggested improvements for this PR to make it ready for merging. Where possible, include references to the original review comment.
+   ```
 
 ### Updating your code
 While the PR is open, you can keep updating your branch - just push more commits! GitHub will automatically update your PR. 
