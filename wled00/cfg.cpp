@@ -180,13 +180,13 @@ bool deserializeConfig(JsonObject doc, bool fromFS) {
   uint16_t total = hw_led[F("total")] | strip.getLengthTotal();
   uint16_t ablMilliampsMax = hw_led[F("maxpwr")] | BusManager::ablMilliampsMax();
   BusManager::setMilliampsMax(ablMilliampsMax);
-  Bus::setGlobalAWMode(hw_led[F("rgbwm")] | AW_GLOBAL_DISABLED);
+  Bus::setGlobalAWMode(hw_led[F("rgbwm")] | Bus::getGlobalAWMode());
   CJSON(strip.correctWB, hw_led["cct"]);
   CJSON(strip.cctFromRgb, hw_led[F("cr")]);
   CJSON(cctICused, hw_led[F("ic")]);
   uint8_t cctBlending = hw_led[F("cb")] | Bus::getCCTBlend();
   Bus::setCCTBlend(cctBlending);
-  unsigned targetFPS = hw_led["fps"] | WLED_FPS;
+  unsigned targetFPS = hw_led["fps"] | strip.getTargetFps();
   strip.setTargetFps(targetFPS); //unlimited if 0, default 42 FPS
 
   #ifndef WLED_DISABLE_2D
@@ -528,8 +528,8 @@ bool deserializeConfig(JsonObject doc, bool fromFS) {
   CJSON(strip.autoSegments, light[F("aseg")]);
 
   CJSON(gammaCorrectVal, light["gc"]["val"]); // default 2.2
-  float light_gc_bri = light["gc"]["bri"] | 1.0f; // default to 1.0 (false)
-  float light_gc_col = light["gc"]["col"] | gammaCorrectVal; // default to gammaCorrectVal (true)
+  float light_gc_bri = light["gc"]["bri"] | (gammaCorrectBri ? gammaCorrectVal : 1.0f); // keep current if absent (1.0 = off)
+  float light_gc_col = light["gc"]["col"] | (gammaCorrectCol ? gammaCorrectVal : 1.0f); // keep current if absent (1.0 = off)
   if (light_gc_bri != 1.0f) gammaCorrectBri = true;
   else                      gammaCorrectBri = false;
   if (light_gc_col != 1.0f) gammaCorrectCol = true;
