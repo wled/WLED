@@ -5165,8 +5165,10 @@ void mode_2DAnalogClock(void) {                  // By Andras Fekete (bandi13)
   const int cols = SEG_W;
   const int rows = SEG_H;
 
-  const int centerX = (cols-!(cols%2)) >> 1;  // use odd sized circle
-  const int centerY = (rows-!(rows%2)) >> 1;  // use odd sized circle
+  // use odd sized circle, to have a well-defined center pixel
+  const int centerX = (cols - 1) / 2;
+  const int centerY = (rows - 1) / 2;
+
   const int radius = min(centerX, centerY);
   const bool soft = radius > 6 && SEGMENT.check2;
 
