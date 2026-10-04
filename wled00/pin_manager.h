@@ -3,8 +3,19 @@
 /*
  * Registers pins so there is no attempt for two interfaces to use the same pin
  */
-#include <Arduino.h>
-#include "const.h" // for USERMOD_* values
+
+#ifdef ESP8266
+#define WLED_NUM_PINS (GPIO_PIN_COUNT+1) // somehow they forgot GPIO 16 (0-16==17)
+#else
+#define WLED_NUM_PINS (GPIO_PIN_COUNT)
+#endif
+
+// Pin capability flags - only "special" capabilities useful for debugging (note: touch capability is provided by appendGPIOinfo() via d.touch)
+#define PIN_CAP_ADC          0x02   // has ADC capability (analog input)
+#define PIN_CAP_PWM          0x04   // can be used for PWM (analog LED output) -> unused, all pins can use ledc PWM
+#define PIN_CAP_BOOT         0x08   // bootloader pin
+#define PIN_CAP_BOOTSTRAP    0x10   // bootstrap pin (strapping pin affecting boot mode)
+#define PIN_CAP_INPUT_ONLY   0x20   // input only pin (cannot be used as output)
 
 typedef struct PinManagerPinType {
   int8_t pin;
@@ -26,15 +37,17 @@ enum struct PinOwner : uint8_t {
   Ethernet      = 0x81,
   BusDigital    = 0x82,
   BusOnOff      = 0x83,
-  BusPwm        = 0x84,   // 'BusP' == PWM output using BusPwm
-  Button        = 0x85,   // 'Butn' == button from configuration
-  IR            = 0x86,   // 'IR'   == IR receiver pin from configuration
-  Relay         = 0x87,   // 'Rly'  == Relay pin from configuration
-  SPI_RAM       = 0x88,   // 'SpiR' == SPI RAM
-  DebugOut      = 0x89,   // 'Dbg'  == debug output always IO1
-  DMX           = 0x8A,   // 'DMX'  == hard-coded to IO2
-  HW_I2C        = 0x8B,   // 'I2C'  == hardware I2C pins (4&5 on ESP8266, 21&22 on ESP32)
-  HW_SPI        = 0x8C,   // 'SPI'  == hardware (V)SPI pins (13,14&15 on ESP8266, 5,18&23 on ESP32)
+  BusPwm        = 0x84,   // 'BusP'      == PWM output using BusPwm
+  Button        = 0x85,   // 'Butn'      == button from configuration
+  IR            = 0x86,   // 'IR'        == IR receiver pin from configuration
+  Relay         = 0x87,   // 'Rly'       == Relay pin from configuration
+  SPI_RAM       = 0x88,   // 'SpiR'      == SPI RAM
+  DebugOut      = 0x89,   // 'Dbg'       == debug output always IO1
+  DMX           = 0x8A,   // 'DMX'       == DMX output, hard-coded to IO2
+  HW_I2C        = 0x8B,   // 'I2C'       == hardware I2C pins (4&5 on ESP8266, 21&22 on ESP32)
+  HW_SPI        = 0x8C,   // 'SPI'       == hardware (V)SPI pins (13,14&15 on ESP8266, 5,18&23 on ESP32)
+  DMX_INPUT     = 0x8D,   // 'DMX_INPUT' == DMX input via serial
+  HUB75         = 0x8E,   // 'Hub75' == Hub75 driver
   // Use UserMod IDs from const.h here
   UM_Unspecified       = USERMOD_ID_UNSPECIFIED,        // 0x01
   UM_Example           = USERMOD_ID_EXAMPLE,            // 0x02 // Usermod "usermod_v2_example.h"
@@ -46,7 +59,6 @@ enum struct PinOwner : uint8_t {
   UM_RotaryEncoderUI   = USERMOD_ID_ROTARY_ENC_UI,      // 0x08 // Usermod "usermod_v2_rotary_encoder_ui.h"
   // #define USERMOD_ID_AUTO_SAVE                       // 0x09 // Usermod "usermod_v2_auto_save.h" -- Does not allocate pins
   // #define USERMOD_ID_DHT                             // 0x0A // Usermod "usermod_dht.h" -- Statically allocates pins, not compatible with pinManager?
-  // #define USERMOD_ID_MODE_SORT                       // 0x0B // Usermod "usermod_v2_mode_sort.h" -- Does not allocate pins
   // #define USERMOD_ID_VL53L0X                         // 0x0C // Usermod "usermod_vl53l0x_gestures.h" -- Uses "standard" HW_I2C pins
   UM_MultiRelay        = USERMOD_ID_MULTI_RELAY,        // 0x0D // Usermod "usermod_multi_relay.h"
   UM_AnimatedStaircase = USERMOD_ID_ANIMATED_STAIRCASE, // 0x0E // Usermod "Animated_Staircase.h"
@@ -63,29 +75,12 @@ enum struct PinOwner : uint8_t {
   UM_PWM_OUTPUTS       = USERMOD_ID_PWM_OUTPUTS,        // 0x26 // Usermod "usermod_pwm_outputs.h"
   UM_LDR_DUSK_DAWN     = USERMOD_ID_LDR_DUSK_DAWN,      // 0x2B // Usermod "usermod_LDR_Dusk_Dawn_v2.h"
   UM_MAX17048          = USERMOD_ID_MAX17048,           // 0x2F // Usermod "usermod_max17048.h"
-  UM_BME68X            = USERMOD_ID_BME68X              // 0x31 // Usermod "usermod_bme68x.h -- Uses "standard" HW_I2C pins
+  UM_BME68X            = USERMOD_ID_BME68X,             // 0x31 // Usermod "usermod_bme68x.h -- Uses "standard" HW_I2C pins
+  UM_PIXELS_DICE_TRAY  = USERMOD_ID_PIXELS_DICE_TRAY    // 0x35 // Usermod "pixels_dice_tray.h" -- Needs compile time specified 6 pins for display including SPI.
 };
 static_assert(0u == static_cast<uint8_t>(PinOwner::None), "PinOwner::None must be zero, so default array initialization works as expected");
 
-class PinManagerClass {
-  private:
-  #ifdef ESP8266
-  #define WLED_NUM_PINS 17
-  uint8_t pinAlloc[3] = {0x00, 0x00, 0x00}; //24bit, 1 bit per pin, we use first 17bits
-  PinOwner ownerTag[WLED_NUM_PINS] = { PinOwner::None };
-  #else
-  #define WLED_NUM_PINS 50
-  uint8_t pinAlloc[7] = {0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00}; // 56bit, 1 bit per pin, we use 50 bits on ESP32-S3
-  uint8_t ledcAlloc[2] = {0x00, 0x00}; //16 LEDC channels
-  PinOwner ownerTag[WLED_NUM_PINS] = { PinOwner::None }; // new MCU's have up to 50 GPIO
-  #endif
-  struct {
-    uint8_t i2cAllocCount : 4; // allow multiple allocation of I2C bus pins but keep track of allocations
-    uint8_t spiAllocCount : 4; // allow multiple allocation of SPI bus pins but keep track of allocations
-  };
-
-  public:
-  PinManagerClass() : i2cAllocCount(0), spiAllocCount(0) {}
+namespace PinManager {
   // De-allocates a single pin
   bool deallocatePin(byte gpio, PinOwner tag);
   // De-allocates multiple pins but only if all can be deallocated (PinOwner has to be specified)
@@ -99,22 +94,24 @@ class PinManagerClass {
   // using more than one pin, such as I2C, SPI, rotary encoders,
   // ethernet, etc..
   bool allocateMultiplePins(const managed_pin_type * mptArray, byte arrayElementCount, PinOwner tag );
+  bool allocateMultiplePins(const int8_t * mptArray, byte arrayElementCount, PinOwner tag, boolean output);
 
-  #if !defined(ESP8266) // ESP8266 compiler doesn't understand deprecated attribute
   [[deprecated("Replaced by three-parameter allocatePin(gpio, output, ownerTag), for improved debugging")]]
-  #endif
   inline bool allocatePin(byte gpio, bool output = true) { return allocatePin(gpio, output, PinOwner::None); }
-  #if !defined(ESP8266) // ESP8266 compiler doesn't understand deprecated attribute
   [[deprecated("Replaced by two-parameter deallocatePin(gpio, ownerTag), for improved debugging")]]
-  #endif
   inline void deallocatePin(byte gpio) { deallocatePin(gpio, PinOwner::None); }
 
   // will return true for reserved pins
-  bool isPinAllocated(byte gpio, PinOwner tag = PinOwner::None) const;
+  bool isPinAllocated(byte gpio, PinOwner tag = PinOwner::None);
   // will return false for reserved pins
-  bool isPinOk(byte gpio, bool output = true) const;
+  bool isPinOk(byte gpio, bool output = true);
 
-  PinOwner getPinOwner(byte gpio) const;
+  bool isReadOnlyPin(byte gpio);
+  int getButtonIndex(byte gpio); // returns button index if pin is used for button, otherwise -1
+  bool isAnalogPin(byte gpio); // returns true if pin has ADC capability, otherwise false
+
+  PinOwner getPinOwner(byte gpio);
+  const char* getPinOwnerName(uint8_t gpio);
 
   #ifdef ARDUINO_ARCH_ESP32
   byte allocateLedc(byte channels);
@@ -122,5 +119,5 @@ class PinManagerClass {
   #endif
 };
 
-extern PinManagerClass pinManager;
+//extern PinManager pinManager;
 #endif

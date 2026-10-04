@@ -5,26 +5,16 @@ This usermod reads information from an Adafruit MAX17048  and outputs the follow
 
 
 ## Dependencies
-Libraries:
-- `Adafruit_BusIO@~1.14.5` (by [adafruit](https://github.com/adafruit/Adafruit_BusIO))
-- `Adafruit_MAX1704X@~1.0.2` (by [adafruit](https://github.com/adafruit/Adafruit_MAX1704X))
-
-These must be added under `lib_deps` in your `platform.ini` (or `platform_override.ini`).
 Data is published over MQTT - make sure you've enabled the MQTT sync interface.
 
 ## Compilation
 
+Add "MAX17048_v2" to your platformio.ini environment's custom_usermods and build.
 To enable, compile with `USERMOD_MAX17048` define in the build_flags (e.g. in `platformio.ini` or `platformio_override.ini`) such as in the example below:
 ```ini
 [env:usermod_max17048_d1_mini]
 extends = env:d1_mini
-build_flags =
-  ${common.build_flags_esp8266}
-  -D USERMOD_MAX17048
-lib_deps = 
-  ${esp8266.lib_deps}
-  https://github.com/adafruit/Adafruit_BusIO @ 1.14.5
-  https://github.com/adafruit/Adafruit_MAX1704X @ 1.0.2
+custom_usermods = ${env:d1_mini.custom_usermods} MAX17048_v2
 ```
 
 ### Configuration Options

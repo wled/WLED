@@ -22,12 +22,17 @@ const char *getPresetsFileName(bool persistent) {
   return persistent ? presets_json : tmp_json;
 }
 
+bool presetNeedsSaving() {
+  return presetToSave;
+}
+
 static void doSaveState() {
   bool persist = (presetToSave < 251);
 
-  unsigned long start = millis();
-  while (strip.isUpdating() && millis()-start < (2*FRAMETIME_FIXED)+1) yield(); // wait 2 frames
-  if (!requestJSONBufferLock(10)) return;
+  unsigned long maxWait = millis() + strip.getFrameTime();
+  while (strip.isUpdating() && millis() < maxWait) delay(1); // wait for strip to finish updating, accessing FS during sendout causes glitches
+
+  if (!requestJSONBufferLock(JSON_LOCK_PRESET_SAVE)) return;
 
   initPresetsFile(); // just in case if someone deleted presets.json using /edit
   JsonObject sObj = pDoc->to<JsonObject>();
@@ -52,14 +57,10 @@ static void doSaveState() {
 */
   #if defined(ARDUINO_ARCH_ESP32)
   if (!persist) {
-    if (tmpRAMbuffer!=nullptr) free(tmpRAMbuffer);
+    p_free(tmpRAMbuffer);
     size_t len = measureJson(*pDoc) + 1;
-    DEBUG_PRINTLN(len);
     // if possible use SPI RAM on ESP32
-    if (psramSafe && psramFound())
-      tmpRAMbuffer = (char*) ps_malloc(len);
-    else
-      tmpRAMbuffer = (char*) malloc(len);
+    tmpRAMbuffer = (char*)p_malloc(len);
     if (tmpRAMbuffer!=nullptr) {
       serializeJson(*pDoc, tmpRAMbuffer, len);
     } else {
@@ -76,8 +77,8 @@ static void doSaveState() {
   // clean up
   saveLedmap   = -1;
   presetToSave = 0;
-  delete[] saveName;
-  delete[] quickLoad;
+  p_free(saveName);
+  p_free(quickLoad);
   saveName = nullptr;
   quickLoad = nullptr;
   playlistSave = false;
@@ -85,7 +86,7 @@ static void doSaveState() {
 
 bool getPresetName(byte index, String& name)
 {
-  if (!requestJSONBufferLock(19)) return false;
+  if (!requestJSONBufferLock(JSON_LOCK_PRESET_NAME)) return false;
   bool presetExists = false;
   if (readObjectFromFileUsingId(getPresetsFileName(), index, pDoc)) {
     JsonObject fdo = pDoc->as<JsonObject>();
@@ -117,8 +118,7 @@ void initPresetsFile()
 
 bool applyPresetFromPlaylist(byte index)
 {
-  DEBUG_PRINT(F("Request to apply preset: "));
-  DEBUG_PRINTLN(index);
+  DEBUG_PRINTF_P(PSTR("Request to apply preset: %d\n"), index);
   presetToApply = index;
   callModeToApply = CALL_MODE_DIRECT_CHANGE;
   return true;
@@ -127,8 +127,7 @@ bool applyPresetFromPlaylist(byte index)
 bool applyPreset(byte index, byte callMode)
 {
   unloadPlaylist(); // applying a preset unloads the playlist (#3827)
-  DEBUG_PRINT(F("Request to apply preset: "));
-  DEBUG_PRINTLN(index);
+  DEBUG_PRINTF_P(PSTR("Request to apply preset: %u\n"), index);
   presetToApply = index;
   callModeToApply = callMode;
   return true;
@@ -145,6 +144,7 @@ void applyPresetWithFallback(uint8_t index, uint8_t callMode, uint8_t effectID, 
 
 void handlePresets()
 {
+  byte presetErrFlag = ERR_NONE;
   if (presetToSave) {
     strip.suspend();
     doSaveState();
@@ -152,7 +152,7 @@ void handlePresets()
     return;
   }
 
-  if (presetToApply == 0 || !requestJSONBufferLock(9)) return; // no preset waiting to apply, or JSON buffer is already allocated, return to loop until free
+  if (presetToApply == 0 || !requestJSONBufferLock(JSON_LOCK_PRESET_LOAD)) return; // no preset waiting to apply, or JSON buffer is already allocated, return to loop until free
 
   bool changePreset = false;
   uint8_t tmpPreset = presetToApply; // store temporary since deserializeState() may call applyPreset()
@@ -163,19 +163,25 @@ void handlePresets()
   presetToApply = 0; //clear request for preset
   callModeToApply = 0;
 
-  DEBUG_PRINT(F("Applying preset: "));
-  DEBUG_PRINTLN(tmpPreset);
+  DEBUG_PRINTF_P(PSTR("Applying preset: %u\n"), (unsigned)tmpPreset);
+
+  #if defined(ARDUINO_ARCH_ESP32S2) || defined(ARDUINO_ARCH_ESP32C3)
+  unsigned long maxWait = millis() + strip.getFrameTime();
+  while (strip.isUpdating() && millis() < maxWait) delay(1); // wait for strip to finish updating, accessing FS during sendout causes glitches
+  #endif
 
   #ifdef ARDUINO_ARCH_ESP32
   if (tmpPreset==255 && tmpRAMbuffer!=nullptr) {
     deserializeJson(*pDoc,tmpRAMbuffer);
-    errorFlag = ERR_NONE;
   } else
   #endif
   {
-  errorFlag = readObjectFromFileUsingId(getPresetsFileName(tmpPreset < 255), tmpPreset, pDoc) ? ERR_NONE : ERR_FS_PLOAD;
+  presetErrFlag = readObjectFromFileUsingId(getPresetsFileName(tmpPreset < 255), tmpPreset, pDoc) ? ERR_NONE : ERR_FS_PLOAD;
   }
   fdo = pDoc->as<JsonObject>();
+
+  // only reset errorflag if previous error was preset-related
+  if ((errorFlag == ERR_NONE) || (errorFlag == ERR_FS_PLOAD)) errorFlag = presetErrFlag;
 
   //HTTP API commands
   const char* httpwin = fdo["win"];
@@ -188,8 +194,8 @@ void handlePresets()
     changePreset = true;
   } else {
     if (!fdo["seg"].isNull() || !fdo["on"].isNull() || !fdo["bri"].isNull() || !fdo["nl"].isNull() || !fdo["ps"].isNull() || !fdo[F("playlist")].isNull()) changePreset = true;
-    if (!(tmpMode == CALL_MODE_BUTTON_PRESET && fdo["ps"].is<const char *>() && strchr(fdo["ps"].as<const char *>(),'~') != strrchr(fdo["ps"].as<const char *>(),'~')))
-      fdo.remove("ps"); // remove load request for presets to prevent recursive crash (if not called by button and contains preset cycling string "1~5~")
+    if (!(tmpMode == CALL_MODE_INIT || (tmpMode == CALL_MODE_BUTTON_PRESET && fdo["ps"].is<const char *>() && strchr(fdo["ps"].as<const char *>(),'~') != strrchr(fdo["ps"].as<const char *>(),'~'))))
+      fdo.remove("ps"); // remove load request for presets to prevent recursive crash (if not called by boot preset or button which contains preset cycling string "1~5~")
     deserializeState(fdo, CALL_MODE_NO_NOTIFY, tmpPreset); // may change presetToApply by calling applyPreset()
   }
   if (!errorFlag && tmpPreset < 255 && changePreset) currentPreset = tmpPreset;
@@ -197,7 +203,7 @@ void handlePresets()
   #if defined(ARDUINO_ARCH_ESP32)
   //Aircoookie recommended not to delete buffer
   if (tmpPreset==255 && tmpRAMbuffer!=nullptr) {
-    free(tmpRAMbuffer);
+    p_free(tmpRAMbuffer);
     tmpRAMbuffer = nullptr;
   }
   #endif
@@ -211,8 +217,8 @@ void handlePresets()
 //called from handleSet(PS=) [network callback (sObj is empty), IR (irrational), deserializeState, UDP] and deserializeState() [network callback (filedoc!=nullptr)]
 void savePreset(byte index, const char* pname, JsonObject sObj)
 {
-  if (!saveName) saveName = new char[33];
-  if (!quickLoad) quickLoad = new char[9];
+  if (!saveName) saveName = static_cast<char*>(p_malloc(33));
+  if (!quickLoad) quickLoad = static_cast<char*>(p_malloc(9));
   if (!saveName || !quickLoad) return;
 
   if (index == 0 || (index > 250 && index < 255)) return;
@@ -222,7 +228,7 @@ void savePreset(byte index, const char* pname, JsonObject sObj)
     else                             sprintf_P(saveName, PSTR("Preset %d"), index);
   }
 
-  DEBUG_PRINT(F("Saving preset (")); DEBUG_PRINT(index); DEBUG_PRINT(F(") ")); DEBUG_PRINTLN(saveName);
+  DEBUG_PRINTF_P(PSTR("Saving preset (%d) %s\n"), index, saveName);
 
   presetToSave = index;
   playlistSave = false;
@@ -233,7 +239,7 @@ void savePreset(byte index, const char* pname, JsonObject sObj)
   if (!sObj[FPSTR(bootPS)].isNull()) {
     bootPreset = sObj[FPSTR(bootPS)] | bootPreset;
     sObj.remove(FPSTR(bootPS));
-    doSerializeConfig = true;
+    configNeedsWrite = true;
   }
 
   if (sObj.size()==0 || sObj["o"].isNull()) { // no "o" means not a playlist or custom API call, saving of state is async (not immediately)
@@ -258,13 +264,13 @@ void savePreset(byte index, const char* pname, JsonObject sObj)
         presetsModifiedTime = toki.second(); //unix time
         updateFSInfo();
       }
-      delete[] saveName;
-      delete[] quickLoad;
+      p_free(saveName);
+      p_free(quickLoad);
       saveName = nullptr;
       quickLoad = nullptr;
     } else {
       // store playlist
-      // WARNING: playlist will be loaded in json.cpp after this call and will have repeat counter increased by 1
+      // WARNING: playlist will be loaded in json.cpp after this call and will have repeat counter increased by 1 it will also be randomised if selected
       includeBri   = true; // !sObj["on"].isNull();
       playlistSave = true;
     }

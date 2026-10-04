@@ -1,0 +1,4 @@
+{
+  "name": "auto_save",
+  "build": { "libArchive": false }
+}

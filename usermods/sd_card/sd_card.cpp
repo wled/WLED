@@ -1,0 +1,278 @@
+#include "wled.h"
+
+#if !defined(WLED_USE_SD_SPI) && !defined(WLED_USE_SD_MMC)
+#define WLED_USE_SD_SPI // Fall back to SPI driver if buildenv does not specify the interface to be used.
+#endif
+#if defined(WLED_USE_SD_SPI) && defined(WLED_USE_SD_MMC)
+  #error "Both WLED_USE_SD_MMC and WLED_USE_SD_SPI are defined, please use only one."
+#endif
+
+// SD connected via MMC / SPI
+#if defined(WLED_USE_SD_MMC)
+  #define USED_STORAGE_FILESYSTEMS "SD MMC, LittleFS"
+  #define SD_ADAPTER SD_MMC
+  #include "SD_MMC.h"
+  #pragma message "SD card usermod uses SD MMC driver"
+// SD connected via SPI (adjustable via usermod config)
+#elif defined(WLED_USE_SD_SPI)
+  #define SD_ADAPTER SD
+  #define USED_STORAGE_FILESYSTEMS "SD SPI, LittleFS"
+  #include "SD.h"
+  #include "SPI.h"
+  #pragma message "SD card usermod uses SD SPI driver"
+#endif
+
+#ifndef UM_SD_SELECT
+  #define UM_SD_SELECT 16
+#endif
+#ifndef UM_SD_CLOCK
+  #define UM_SD_CLOCK 14
+#endif
+#ifndef UM_SD_POCI
+  #if CONFIG_IDF_TARGET_ESP32S3 && (CONFIG_SPIRAM_MODE_OCT || CONFIG_ESPTOOLPY_FLASHMODE_OPI)  // on -S3 with octal (opi) flash or PSRAM, Pin 22-37 are not available
+    #define UM_SD_POCI 44
+  #else
+    #define UM_SD_POCI 36
+  #endif
+#endif
+#ifndef UM_SD_PICO
+  #define UM_SD_PICO 15
+#endif
+
+
+#ifdef WLED_USE_SD_SPI
+  // SD_MMC configuration handled elsewhere
+    // HSPI bus should be used both on -S3 and classic esp32; try VSPI (classic esp32) or FSPI (esp32-s3) in case of conflicts
+    SPIClass spiPort = SPIClass(HSPI); 
+  #if defined(WLED_USE_ETHERNET) || defined(CONFIG_IDF_TARGET_ESP32C3)
+   // Ethernet boards only have one SPI bus (HSPI) availeable
+   // ESP32-C3 only has one SPI bus
+   #warning "SD card may have conflicts with 2-pin LEDs."
+  #endif
+#endif
+
+void listDir( const char * dirname, uint8_t levels);
+
+class UsermodSdCard : public Usermod {
+  private:
+    bool sdInitDone = false;
+
+// confusing names? Then have a look 
+// https://oshwa.org/resources/a-resolution-to-redefine-spi-signal-names/
+#ifdef WLED_USE_SD_SPI
+    int8_t configPinSourceSelect = UM_SD_SELECT;
+    int8_t configPinSourceClock = UM_SD_CLOCK;
+    int8_t configPinPoci = UM_SD_POCI;
+    int8_t configPinPico = UM_SD_PICO;
+
+      //acquired and initialize the SPI port
+      void init_SD_SPI()
+      {
+        if(!configSdEnabled) return;
+        if(sdInitDone) return;
+
+        PinManagerPinType pins[5] = {
+        { configPinSourceSelect, true },
+        { configPinSourceClock, true },
+        { configPinPoci, false },
+        { configPinPico, true }
+        };
+
+        if (!PinManager::allocateMultiplePins(pins, 4, PinOwner::UM_SdCard)) {
+            DEBUG_PRINTF("[%s] SD (SPI) pin allocation failed!\n", _name);
+            sdInitDone = false;
+            return;
+        }
+
+        bool returnOfInitSD = false;
+
+        // This whole function is only enabled when compiling with WLED_USE_SD_SPI
+        spiPort.begin(configPinSourceClock, configPinPoci, configPinPico, configPinSourceSelect);
+        returnOfInitSD = SD_ADAPTER.begin(configPinSourceSelect, spiPort);
+
+        if(!returnOfInitSD) {
+          DEBUG_PRINTF("[%s] SPI begin failed!\n", _name);
+          sdInitDone = false;
+          return;
+        }
+
+        sdInitDone = true;
+      }
+
+      //deinitialize the acquired SPI port
+      void deinit_SD_SPI()
+      {
+        if(!sdInitDone) return;
+
+        SD_ADAPTER.end();
+
+        DEBUG_PRINTF("[%s] deallocate pins!\n", _name);
+        PinManager::deallocatePin(configPinSourceSelect, PinOwner::UM_SdCard);
+        PinManager::deallocatePin(configPinSourceClock,  PinOwner::UM_SdCard);
+        PinManager::deallocatePin(configPinPoci,         PinOwner::UM_SdCard);
+        PinManager::deallocatePin(configPinPico,         PinOwner::UM_SdCard);
+
+        sdInitDone = false;
+      }
+
+      // some SPI pin was changed, while SPI was initialized, reinit to new port
+      void reinit_SD_SPI()
+      {
+          deinit_SD_SPI();
+          init_SD_SPI();
+      }
+    #endif
+
+    #ifdef WLED_USE_SD_MMC
+      void init_SD_MMC() {
+        if(sdInitDone) return;
+        bool returnOfInitSD = false;
+        returnOfInitSD = SD_ADAPTER.begin();
+        DEBUG_PRINTF("[%s] MMC begin\n", _name);
+
+        if(!returnOfInitSD) {
+          DEBUG_PRINTF("[%s] MMC begin failed!\n", _name);
+          sdInitDone = false;
+          return;
+        }
+
+        sdInitDone = true;
+      }
+    #endif
+
+  public:
+    static bool configSdEnabled;
+    static const char _name[];
+
+    void setup() {
+      DEBUG_PRINTF("[%s] usermod loaded \n", _name);
+      #if defined(WLED_USE_SD_SPI)
+        init_SD_SPI();
+      #elif defined(WLED_USE_SD_MMC)
+        init_SD_MMC();
+      #endif
+ 
+      #if defined(SD_ADAPTER) && defined(SD_PRINT_HOME_DIR)  
+        listDir("/", 0);        
+      #endif
+    }
+
+    void loop(){
+      
+    }
+
+    uint16_t getId()
+    {
+      return USERMOD_ID_SD_CARD;
+    }
+
+    void addToConfig(JsonObject& root)
+    {
+      #ifdef WLED_USE_SD_SPI
+      JsonObject top = root.createNestedObject(FPSTR(_name));
+      top["pinSourceSelect"] = configPinSourceSelect;
+      top["pinSourceClock"] = configPinSourceClock;
+      top["pinPoci"] = configPinPoci;
+      top["pinPico"] = configPinPico;
+      top["sdEnabled"] = configSdEnabled;
+      #endif
+    }
+
+    bool readFromConfig(JsonObject &root)
+    {
+      #ifdef WLED_USE_SD_SPI
+        JsonObject top = root[FPSTR(_name)];
+        if (top.isNull()) {
+          DEBUG_PRINTF("[%s] No config found. (Using defaults.)\n", _name);
+          return false;
+        }
+
+        uint8_t oldPinSourceSelect  = configPinSourceSelect;
+        uint8_t oldPinSourceClock = configPinSourceClock;
+        uint8_t oldPinPoci = configPinPoci;
+        uint8_t oldPinPico = configPinPico;
+        bool    oldSdEnabled = configSdEnabled;
+
+        getJsonValue(top["pinSourceSelect"], configPinSourceSelect);
+        getJsonValue(top["pinSourceClock"],  configPinSourceClock);
+        getJsonValue(top["pinPoci"],         configPinPoci);
+        getJsonValue(top["pinPico"],         configPinPico);
+        getJsonValue(top["sdEnabled"],       configSdEnabled);
+
+        if(configSdEnabled != oldSdEnabled) {
+          configSdEnabled ? init_SD_SPI() : deinit_SD_SPI();
+          DEBUG_PRINTF("[%s] SD card %s\n", _name, configSdEnabled ? "enabled" : "disabled");
+        }
+
+        if( configSdEnabled && (
+            oldPinSourceSelect  != configPinSourceSelect ||
+            oldPinSourceClock   != configPinSourceClock  ||
+            oldPinPoci          != configPinPoci         ||
+            oldPinPico          != configPinPico)
+          )
+        {
+          DEBUG_PRINTF("[%s] Init SD card based of config\n", _name);
+          DEBUG_PRINTF("[%s] Config changes \n - SS: %d -> %d\n - MI: %d -> %d\n - MO: %d -> %d\n - En: %d -> %d\n", _name, oldPinSourceSelect, configPinSourceSelect, oldPinSourceClock, configPinSourceClock, oldPinPoci, configPinPoci, oldPinPico, configPinPico);
+          reinit_SD_SPI();
+        }
+      #endif
+
+      return true;
+    }
+};
+
+const char UsermodSdCard::_name[] PROGMEM = "SD Card";
+bool UsermodSdCard::configSdEnabled = true;
+
+#ifdef SD_ADAPTER
+//checks if the file is available on SD card
+bool file_onSD(const char *filepath)
+{
+  #ifdef WLED_USE_SD_SPI
+    if(!UsermodSdCard::configSdEnabled) return false;
+  #endif
+
+  uint8_t cardType = SD_ADAPTER.cardType();
+  if(cardType == CARD_NONE) {
+    DEBUG_PRINTF("[%s] not attached / cardType none\n", UsermodSdCard::_name);
+    return false; // no SD card attached
+  }
+  if(cardType == CARD_MMC || cardType == CARD_SD || cardType == CARD_SDHC)
+  {
+    return SD_ADAPTER.exists(filepath);
+  }
+
+  return false; // unknown card type
+}
+
+void listDir( const char * dirname, uint8_t levels){
+    DEBUG_PRINTF("Listing directory: %s\n", dirname);
+
+    File root = SD_ADAPTER.open(dirname);
+    if(!root){
+        DEBUG_PRINTF("Failed to open directory\n");
+        return;
+    }
+    if(!root.isDirectory()){
+        DEBUG_PRINTF("Not a directory\n");
+        return;
+    }
+
+    File file = root.openNextFile();
+    while(file){
+        if(file.isDirectory()){
+            DEBUG_PRINTF("  DIR : %s\n",file.name());
+            if(levels){
+                listDir(file.name(), levels -1);
+            }
+        } else {
+            DEBUG_PRINTF("  FILE: %s  SIZE: %d\n",file.name(), file.size());
+        }
+        file = root.openNextFile();
+    }
+}
+
+#endif
+
+static UsermodSdCard sd_card;
+REGISTER_USERMOD(sd_card);

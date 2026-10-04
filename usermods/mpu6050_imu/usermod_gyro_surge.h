@@ -163,7 +163,7 @@ class GyroSurge : public Usermod {
     void loop() {
       // get IMU data
       um_data_t *um_data;
-      if (!usermods.getUMData(&um_data, USERMOD_ID_IMU)) {
+      if (!UsermodManager::getUMData(&um_data, USERMOD_ID_IMU)) {
         // Apply max
         strip.getSegment(0).fadeToBlackBy(max);
         return;

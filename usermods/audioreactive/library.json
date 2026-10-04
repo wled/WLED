@@ -1,0 +1,15 @@
+{
+  "name": "audioreactive",
+  "build": {
+    "libArchive": false,
+    "extraScript": "override_sqrt.py"
+  },
+  "dependencies": [
+    {
+      "owner": "kosme",      
+      "name": "arduinoFFT",
+      "version": "2.0.1",
+      "platforms": "espressif32"
+    }
+  ]
+}

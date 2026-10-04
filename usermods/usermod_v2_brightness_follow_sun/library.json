@@ -1,0 +1,4 @@
+{
+  "name": "brightness_follow_sun",
+  "build": { "libArchive": false }
+}

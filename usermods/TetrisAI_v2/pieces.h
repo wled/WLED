@@ -19,7 +19,6 @@
 #include <bitset>
 #include <cstddef>
 #include <cassert>
-#include <iostream>
 
 #define numPieces 7
 

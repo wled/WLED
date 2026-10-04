@@ -1,0 +1,13 @@
+on:
+  workflow_dispatch:
+
+jobs:
+  dispatch:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Repository Dispatch
+        uses: peter-evans/repository-dispatch@v3
+        with:
+          repository: wled/WLED-WebInstaller
+          event-type: release-nightly
+          token: ${{ secrets.PAT_PUBLIC }}

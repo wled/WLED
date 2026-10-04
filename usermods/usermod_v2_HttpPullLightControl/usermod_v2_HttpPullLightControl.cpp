@@ -4,6 +4,9 @@
 const char HttpPullLightControl::_name[]    PROGMEM = "HttpPullLightControl";
 const char HttpPullLightControl::_enabled[] PROGMEM = "Enable";
 
+static HttpPullLightControl http_pull_usermod;
+REGISTER_USERMOD(http_pull_usermod);
+
 void HttpPullLightControl::setup() {
   //Serial.begin(115200);
 
@@ -68,6 +71,7 @@ String HttpPullLightControl::generateUniqueId() {
     unsigned char shaResult[20]; // SHA1 produces a hash of 20 bytes  (which is 40 HEX characters)
     mbedtls_sha1_context ctx;
     mbedtls_sha1_init(&ctx);
+#if ESP_IDF_VERSION < ESP_IDF_VERSION_VAL(5, 0, 0)
     status = mbedtls_sha1_starts_ret(&ctx);
     if (status != 0) {
       DEBUG_PRINTLN(F("Error starting SHA1 checksum calculation"));
@@ -80,6 +84,21 @@ String HttpPullLightControl::generateUniqueId() {
     if (status != 0) {
       DEBUG_PRINTLN(F("Error finishing SHA1 checksum calculation"));
     }
+#else
+    // function names have changed in esp-idf V5
+    status = mbedtls_sha1_starts(&ctx);
+    if (status != 0) {
+      DEBUG_PRINTLN(F("Error starting SHA1 checksum calculation"));
+    }
+    status = mbedtls_sha1_update(&ctx, reinterpret_cast<const unsigned char*>(input.c_str()), input.length());
+    if (status != 0) {
+      DEBUG_PRINTLN(F("Error feeding update buffer into ongoing SHA1 checksum calculation"));
+    }
+    status = mbedtls_sha1_finish(&ctx, shaResult);
+    if (status != 0) {
+      DEBUG_PRINTLN(F("Error finishing SHA1 checksum calculation"));
+    }
+#endif
     mbedtls_sha1_free(&ctx);
 
     // Convert the Hash to a hexadecimal string
@@ -281,7 +300,6 @@ void HttpPullLightControl::handleResponse(String& responseStr) {
   if (!requestJSONBufferLock(myLockId)) {
     DEBUG_PRINT(F("ERROR: Can not request JSON Buffer Lock, number: "));
       DEBUG_PRINTLN(myLockId);
-      releaseJSONBufferLock(); // Just release in any case, maybe there was already a buffer lock
     return;
   }
 
@@ -297,10 +315,10 @@ void HttpPullLightControl::handleResponse(String& responseStr) {
     // Check for valid JSON, otherwise we brick the program runtime
     if (jsonStr[0] == '{' || jsonStr[0] == '[') {
       // Attempt to deserialize the JSON response
-      DeserializationError error = deserializeJson(doc, jsonStr);
+      DeserializationError error = deserializeJson(*pDoc, jsonStr);
       if (error == DeserializationError::Ok) {
         // Get JSON object from th doc
-        JsonObject obj = doc.as<JsonObject>();
+        JsonObject obj = pDoc->as<JsonObject>();
         // Parse the object throuhg deserializeState  (use CALL_MODE_NO_NOTIFY or OR CALL_MODE_DIRECT_CHANGE)
         deserializeState(obj, CALL_MODE_NO_NOTIFY);
       } else {

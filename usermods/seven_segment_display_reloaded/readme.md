@@ -9,7 +9,7 @@ Very loosely based on the existing usermod "seven segment display".
 
 Add the compile-time option `-D USERMOD_SSDR` to your `platformio.ini` (or `platformio_override.ini`) or use `#define USERMOD_SSDR` in `my_config.h`.
 
-For the auto brightness option, the usermod SN_Photoresistor has to be installed as well. See SN_Photoresistor/readme.md for instructions.
+For the auto brightness option, the usermod SN_Photoresistor or BH1750_V2 has to be installed as well. See SN_Photoresistor/readme.md or BH1750_V2/readme.md for instructions.
 
 ## Settings
 All settings can be controlled via the usermod settings page.
@@ -28,10 +28,10 @@ Enables the blinking colon(s) if they are defined
 Shows the leading zero of the hour if it exists (i.e. shows `07` instead of `7`)
 
 ### enable-auto-brightness
-Enables the auto brightness feature. Can be used only when the usermod SN_Photoresistor is installed.
+Enables the auto brightness feature. Can be used only when the usermods SN_Photoresistor or BH1750_V2 are installed.
 
 ### auto-brightness-min / auto-brightness-max
-The lux value calculated from usermod SN_Photoresistor will be mapped to the values defined here.
+The lux value calculated from usermod SN_Photoresistor or BH1750_V2 will be mapped to the values defined here.
 The mapping, 0 - 1000 lux, will be mapped to auto-brightness-min and auto-brightness-max
 
 WLED current protection will override the calculated value if it is too high.

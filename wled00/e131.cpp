@@ -4,19 +4,49 @@
 #define MAX_4_CH_LEDS_PER_UNIVERSE 128
 #define MAX_CHANNELS_PER_UNIVERSE 512
 
+// forward declarations
+static void handleDDPPacket(e131_packet_t* p, size_t packetLen);
+static void handleArtnetPollReply(IPAddress ipAddress);
+static void prepareArtnetPollReply(ArtPollReply *reply);
+static void sendArtnetPollReply(ArtPollReply *reply, IPAddress ipAddress, uint16_t portAddress);
+
+// Runtime state private to this file - previously WLED_GLOBAL, a leftover from
+// when all state lived in one big extern block regardless of who used it.
+static E131Priority highPriority(3);                              // E1.31 highest priority tracking, init = timeout in seconds
+static byte e131LastSequenceNumber[E131_MAX_UNIVERSE_COUNT];       // to detect packet loss
+static uint16_t pollReplyCount = 0;                                // count number of replies for ArtPoll node report
+
 /*
  * E1.31 handler
  */
 
 //DDP protocol support, called by handleE131Packet
 //handles RGB data only
-void handleDDPPacket(e131_packet_t* p) {
+static void handleDDPPacket(e131_packet_t* p, size_t packetLen) {
   static bool ddpSeenPush = false;  // have we seen a push yet?
   int lastPushSeq = e131LastSequenceNumber[0];
 
-  //reject late packets belonging to previous frame (assuming 4 packets max. before push)
+  if (packetLen < DDP_HEADER_LEN) return; // too short to safely read any DDP header fields
+
+  // reject unsupported color data types (only RGB and RGBW are supported)
+  //uint8_t maskedType = p->dataType & 0x3F; // mask out custom and reserved flags, only type bits are relevant
+  //if (maskedType != DDP_TYPE_RGB24 && maskedType != DDP_TYPE_RGBW32) return;
+
+  // note: for maximum compatibility we do not reject unknonw or malformed data types but simply default to RGB24 and check there is enough data available in the packet to do so
+  //       also we assume 8bit per channel and currently do not support other bit depths
+
+  // reject control, status and config packets (not implemented)
+  if (p->destination == DDP_ID_CONTROL || p->destination == DDP_ID_STATUS || p->destination == DDP_ID_CONFIG) return;
+
+  // reject query and response packets (not implemented)
+  if (p->flags & (DDP_FLAGS_QUERY | DDP_FLAGS_REPLY)) return;
+
+  bool push = p->flags & DDP_FLAGS_PUSH; // push flag means "render now"
+  if (!push && (p->flags & DDP_FLAGS_STORAGE)) return; // reject "from storage" flag but still let the push flag pass if set along with it
+
+  //reject late packets belonging to previous frame (assuming 4 packets max. before push, if more are used and packets are very late, they are still accepted)
   if (e131SkipOutOfSequence && lastPushSeq) {
-    int sn = p->sequenceNum & 0xF;
+    int sn = p->sequenceNum & 0xF; // sequence number is 4 bits, 1-15, 0 means unused
     if (sn) {
       if (lastPushSeq > 5) {
         if (sn > (lastPushSeq -5) && sn < lastPushSeq) return;
@@ -26,61 +56,83 @@ void handleDDPPacket(e131_packet_t* p) {
     }
   }
 
-  uint8_t ddpChannelsPerLed = ((p->dataType & 0b00111000)>>3 == 0b011) ? 4 : 3; // data type 0x1B (formerly 0x1A) is RGBW (type 3, 8 bit/channel)
+  unsigned ddpChannelsPerLed = 3; // default to RGB
+  if ((p->dataType & 0b00111000)>>3 == 0b011) ddpChannelsPerLed = 4; // RGBW data type (see DDP protocol definition)
 
   uint32_t start =  htonl(p->channelOffset) / ddpChannelsPerLed;
   start += DMXAddress / ddpChannelsPerLed;
-  uint16_t stop = start + htons(p->dataLen) / ddpChannelsPerLed;
+  uint16_t dataLen = htons(p->dataLen);
+  unsigned stop = start + dataLen / ddpChannelsPerLed;
   uint8_t* data = p->data;
-  uint16_t c = 0;
-  if (p->flags & DDP_TIMECODE_FLAG) c = 4; //packet has timecode flag, we do not support it, but data starts 4 bytes later
+  unsigned c = 0;
+  if (p->flags & DDP_FLAGS_TIME) c = 4; //packet has timecode flag, we do not support it, but data starts 4 bytes later
+
+  // ensure the received packet is at least as long as the header claims
+  if (packetLen < DDP_HEADER_LEN + c + dataLen) {
+    DEBUG_PRINTLN(F("DDP packet incomplete"));
+    return;
+  }
+
+  unsigned numLeds = stop - start; // stop >= start is guaranteed
+  unsigned maxDataIndex = numLeds * ddpChannelsPerLed; // validate bounds before accessing data array
+  if (maxDataIndex > dataLen) {
+    DEBUG_PRINTLN(F("DDP packet data bounds exceeded, rejecting."));
+    return;
+  }
 
   if (realtimeMode != REALTIME_MODE_DDP) ddpSeenPush = false; // just starting, no push yet
   realtimeLock(realtimeTimeoutMs, REALTIME_MODE_DDP);
 
-  if (!realtimeOverride || (realtimeMode && useMainSegmentOnly)) {
-    for (uint16_t i = start; i < stop; i++) {
+  if (!realtimeOverride) {
+    for (unsigned i = start; i < stop; i++, c += ddpChannelsPerLed) {
       setRealtimePixel(i, data[c], data[c+1], data[c+2], ddpChannelsPerLed >3 ? data[c+3] : 0);
-      c += ddpChannelsPerLed;
     }
   }
 
-  bool push = p->flags & DDP_PUSH_FLAG;
   ddpSeenPush |= push;
   if (!ddpSeenPush || push) { // if we've never seen a push, or this is one, render display
     e131NewData = true;
-    byte sn = p->sequenceNum & 0xF;
+    int sn = p->sequenceNum & 0xF;
     if (sn) e131LastSequenceNumber[0] = sn;
   }
 }
 
 //E1.31 and Art-Net protocol support
-void handleE131Packet(e131_packet_t* p, IPAddress clientIP, byte protocol){
+void handleE131Packet(e131_packet_t* p, IPAddress clientIP, byte protocol, size_t packetLen){
 
-  uint16_t uni = 0, dmxChannels = 0;
+  int uni = 0, dmxChannels = 0;
   uint8_t* e131_data = nullptr;
-  uint8_t seq = 0, mde = REALTIME_MODE_E131;
+  int seq = 0, mde = REALTIME_MODE_E131;
 
   if (protocol == P_ARTNET)
   {
+    if (packetLen < 10) return; // need at least art_opcode (offset 8, 2 bytes)
     if (p->art_opcode == ARTNET_OPCODE_OPPOLL) {
       handleArtnetPollReply(clientIP);
       return;
     }
+    if (packetLen < 18) return; // need art_length (offset 16, 2 bytes) for DMX data
     uni = p->art_universe;
     dmxChannels = htons(p->art_length);
+    const int artNetMaxData = (packetLen >= 18) ? (int)(packetLen - 18) : 0; // art_data at offset 18; clamp so e131_data[dmxChannels] stays in bounds
+    if (dmxChannels > artNetMaxData) dmxChannels = artNetMaxData;
+    if (dmxChannels > MAX_CHANNELS_PER_UNIVERSE) dmxChannels = MAX_CHANNELS_PER_UNIVERSE;
     e131_data = p->art_data;
     seq = p->art_sequence_number;
     mde = REALTIME_MODE_ARTNET;
   } else if (protocol == P_E131) {
+    if (packetLen < 126) return; // need up to property_values[0] (offset 125) and property_value_count (offset 123)
     // Ignore PREVIEW data (E1.31: 6.2.6)
     if ((p->options & 0x80) != 0) return;
-    dmxChannels = htons(p->property_value_count) - 1;
+    dmxChannels = htons(p->property_value_count) - 1; // on malformed packets, this can become negative, checked below
     // DMX level data is zero start code. Ignore everything else. (E1.11: 8.5)
-    if (dmxChannels == 0 || p->property_values[0] != 0) return;
+    if (dmxChannels <= 0 || p->property_values[0] != 0) return;
     uni = htons(p->universe);
     e131_data = p->property_values;
     seq = p->sequence_number;
+    const int e131MaxData = (packetLen > 126) ? (int)(packetLen - 126) : 0; // property_values at offset 125; clamp so e131_data[dmxChannels] stays in bounds
+    if (dmxChannels > e131MaxData) dmxChannels = e131MaxData;
+    if (dmxChannels > MAX_CHANNELS_PER_UNIVERSE) dmxChannels = MAX_CHANNELS_PER_UNIVERSE;
     if (e131Priority != 0) {
       if (p->priority < e131Priority ) return;
       // track highest priority & skip all lower priorities
@@ -89,15 +141,17 @@ void handleE131Packet(e131_packet_t* p, IPAddress clientIP, byte protocol){
     }
   } else { //DDP
     realtimeIP = clientIP;
-    handleDDPPacket(p);
+    handleDDPPacket(p, packetLen);
     return;
   }
 
   #ifdef WLED_ENABLE_DMX
   // does not act on out-of-order packets yet
   if (e131ProxyUniverse > 0 && uni == e131ProxyUniverse) {
+    // Art-Net: art_data is 0-indexed (channel 1 at index 0)
+    // E1.31: property_values[0] is start code, (channel 1 at index 1)
     for (uint16_t i = 1; i <= dmxChannels; i++)
-      dmx.write(i, e131_data[i]);
+      dmx.write(i, mde == REALTIME_MODE_ARTNET ? e131_data[i-1] : e131_data[i]);
     dmx.update();
   }
   #endif
@@ -105,30 +159,29 @@ void handleE131Packet(e131_packet_t* p, IPAddress clientIP, byte protocol){
   // only listen for universes we're handling & allocated memory
   if (uni < e131Universe || uni >= (e131Universe + E131_MAX_UNIVERSE_COUNT)) return;
 
-  uint8_t previousUniverses = uni - e131Universe;
+  unsigned previousUniverses = uni - e131Universe;
 
   if (e131SkipOutOfSequence)
     if (seq < e131LastSequenceNumber[previousUniverses] && seq > 20 && e131LastSequenceNumber[previousUniverses] < 250){
-      DEBUG_PRINT(F("skipping E1.31 frame (last seq="));
-      DEBUG_PRINT(e131LastSequenceNumber[previousUniverses]);
-      DEBUG_PRINT(F(", current seq="));
-      DEBUG_PRINT(seq);
-      DEBUG_PRINT(F(", universe="));
-      DEBUG_PRINT(uni);
-      DEBUG_PRINTLN(")");
+      DEBUG_PRINTF_P(PSTR("skipping E1.31 frame (last seq=%d, current seq=%d, universe=%d)\n"), e131LastSequenceNumber[previousUniverses], seq, uni);
       return;
     }
   e131LastSequenceNumber[previousUniverses] = seq;
 
   // update status info
   realtimeIP = clientIP;
+
+  handleDMXData(uni, dmxChannels, e131_data, mde, previousUniverses);
+}
+
+void handleDMXData(uint16_t uni, uint16_t dmxChannels, uint8_t* e131_data, uint8_t mde, uint8_t previousUniverses) {
   byte wChannel = 0;
-  uint16_t totalLen = strip.getLengthTotal();
-  uint16_t availDMXLen = 0;
-  uint16_t dataOffset = DMXAddress;
+  unsigned totalLen = strip.getLengthTotal();
+  unsigned availDMXLen = 0;
+  unsigned dataOffset = DMXAddress;
 
   // For legacy DMX start address 0 the available DMX length offset is 0
-  const uint16_t dmxLenOffset = (DMXAddress == 0) ? 0 : 1;
+  const unsigned dmxLenOffset = (DMXAddress == 0) ? 0 : 1;
 
   // Check if DMX start address fits in available channels
   if (dmxChannels >= DMXAddress) {
@@ -136,7 +189,7 @@ void handleE131Packet(e131_packet_t* p, IPAddress clientIP, byte protocol){
   }
 
   // DMX data in Art-Net packet starts at index 0, for E1.31 at index 1
-  if (protocol == P_ARTNET && dataOffset > 0) {
+  if (mde == REALTIME_MODE_ARTNET && dataOffset > 0) {
     dataOffset--;
   }
 
@@ -151,10 +204,10 @@ void handleE131Packet(e131_packet_t* p, IPAddress clientIP, byte protocol){
 
       realtimeLock(realtimeTimeoutMs, mde);
 
-      if (realtimeOverride && !(realtimeMode && useMainSegmentOnly)) return;
+      if (realtimeOverride) return;
 
       wChannel = (availDMXLen > 3) ? e131_data[dataOffset+3] : 0;
-      for (uint16_t i = 0; i < totalLen; i++)
+      for (unsigned i = 0; i < totalLen; i++)
         setRealtimePixel(i, e131_data[dataOffset+0], e131_data[dataOffset+1], e131_data[dataOffset+2], wChannel);
       break;
 
@@ -163,7 +216,7 @@ void handleE131Packet(e131_packet_t* p, IPAddress clientIP, byte protocol){
       if (availDMXLen < 4) return;
 
       realtimeLock(realtimeTimeoutMs, mde);
-      if (realtimeOverride && !(realtimeMode && useMainSegmentOnly)) return;
+      if (realtimeOverride) return;
       wChannel = (availDMXLen > 4) ? e131_data[dataOffset+4] : 0;
 
       if (bri != e131_data[dataOffset+0]) {
@@ -171,7 +224,7 @@ void handleE131Packet(e131_packet_t* p, IPAddress clientIP, byte protocol){
         strip.setBrightness(bri, true);
       }
 
-      for (uint16_t i = 0; i < totalLen; i++)
+      for (unsigned i = 0; i < totalLen; i++)
         setRealtimePixel(i, e131_data[dataOffset+1], e131_data[dataOffset+2], e131_data[dataOffset+3], wChannel);
       break;
 
@@ -180,7 +233,7 @@ void handleE131Packet(e131_packet_t* p, IPAddress clientIP, byte protocol){
         if (uni != e131Universe || availDMXLen < 2) return;
 
         // limit max. selectable preset to 250, even though DMX max. val is 255
-        uint8_t dmxValPreset = (e131_data[dataOffset+1] > 250 ? 250 : e131_data[dataOffset+1]);
+        int dmxValPreset = (e131_data[dataOffset+1] > 250 ? 250 : e131_data[dataOffset+1]);
         
         // only apply preset if value changed 
         if (dmxValPreset != 0 && dmxValPreset != currentPreset &&  
@@ -193,7 +246,7 @@ void handleE131Packet(e131_packet_t* p, IPAddress clientIP, byte protocol){
         // only change brightness if value changed
         if (bri != e131_data[dataOffset]) {                                        
           bri = e131_data[dataOffset];
-          strip.setBrightness(scaledBri(bri), false);
+          strip.setBrightness(bri, false);
           stateUpdated(CALL_MODE_WS_SEND);
         }
         return;
@@ -207,15 +260,15 @@ void handleE131Packet(e131_packet_t* p, IPAddress clientIP, byte protocol){
       {
         if (uni != e131Universe) return;
         bool isSegmentMode = DMXMode == DMX_MODE_EFFECT_SEGMENT || DMXMode == DMX_MODE_EFFECT_SEGMENT_W;
-        uint8_t dmxEffectChannels = (DMXMode == DMX_MODE_EFFECT || DMXMode == DMX_MODE_EFFECT_SEGMENT) ? 15 : 18;
-        for (uint8_t id = 0; id < strip.getSegmentsNum(); id++) {
+        unsigned dmxEffectChannels = (DMXMode == DMX_MODE_EFFECT || DMXMode == DMX_MODE_EFFECT_SEGMENT) ? 15 : 18;
+        for (unsigned id = 0; id < strip.getSegmentsNum(); id++) {
           Segment& seg = strip.getSegment(id);
           if (isSegmentMode)
             dataOffset = DMXAddress + id * (dmxEffectChannels + DMXSegmentSpacing);
           else
             dataOffset = DMXAddress;
           // Modify address for Art-Net data
-          if (protocol == P_ARTNET && dataOffset > 0)
+          if (mde == REALTIME_MODE_ARTNET && dataOffset > 0)
             dataOffset--;
           // Skip out of universe addresses
           if (dataOffset > dmxChannels - dmxEffectChannels + 1)
@@ -227,16 +280,16 @@ void handleE131Packet(e131_packet_t* p, IPAddress clientIP, byte protocol){
           if (e131_data[dataOffset+3]   != seg.intensity) seg.intensity = e131_data[dataOffset+3];
           if (e131_data[dataOffset+4]   != seg.palette)   seg.setPalette(e131_data[dataOffset+4]);
 
-          if ((e131_data[dataOffset+5] & 0b00000010) != seg.reverse_y) { seg.setOption(SEG_OPTION_REVERSED_Y, e131_data[dataOffset+5] & 0b00000010); }
-          if ((e131_data[dataOffset+5] & 0b00000100) != seg.mirror_y) { seg.setOption(SEG_OPTION_MIRROR_Y, e131_data[dataOffset+5] & 0b00000100); }
-          if ((e131_data[dataOffset+5] & 0b00001000) != seg.transpose) { seg.setOption(SEG_OPTION_TRANSPOSED, e131_data[dataOffset+5] & 0b00001000); }
-          if ((e131_data[dataOffset+5] & 0b00110000) / 8 != seg.map1D2D) {
-            seg.map1D2D = (e131_data[dataOffset+5] & 0b00110000) / 8;
+          if (bool(e131_data[dataOffset+5] & 0b00000010) != seg.reverse_y) { seg.reverse_y = bool(e131_data[dataOffset+5] & 0b00000010); }
+          if (bool(e131_data[dataOffset+5] & 0b00000100) != seg.mirror_y)  { seg.mirror_y  = bool(e131_data[dataOffset+5] & 0b00000100); }
+          if (bool(e131_data[dataOffset+5] & 0b00001000) != seg.transpose) { seg.transpose = bool(e131_data[dataOffset+5] & 0b00001000); }
+          if ((e131_data[dataOffset+5] & 0b00110000) >> 4 != seg.map1D2D) {
+            seg.map1D2D = (e131_data[dataOffset+5] & 0b00110000) >> 4;
           }
           // To maintain backwards compatibility with prior e1.31 values, reverse is fixed to mask 0x01000000
-          if ((e131_data[dataOffset+5] & 0b01000000) != seg.reverse) { seg.setOption(SEG_OPTION_REVERSED, e131_data[dataOffset+5] & 0b01000000); }
+          if ((e131_data[dataOffset+5] & 0b01000000) != seg.reverse) { seg.reverse = bool(e131_data[dataOffset+5] & 0b01000000); }
           // To maintain backwards compatibility with prior e1.31 values, mirror is fixed to mask 0x10000000
-          if ((e131_data[dataOffset+5] & 0b10000000) != seg.mirror) { seg.setOption(SEG_OPTION_MIRROR, e131_data[dataOffset+5] & 0b10000000); }
+          if ((e131_data[dataOffset+5] & 0b10000000) != seg.mirror) { seg.mirror = bool(e131_data[dataOffset+5] & 0b10000000); }
 
           uint32_t colors[3];
           byte whites[3] = {0,0,0};
@@ -255,7 +308,7 @@ void handleE131Packet(e131_packet_t* p, IPAddress clientIP, byte protocol){
           // Set segment opacity or global brightness
           if (isSegmentMode) {
             if (e131_data[dataOffset] != seg.opacity) seg.setOpacity(e131_data[dataOffset]);
-          } else if ( id == strip.getSegmentsNum()-1 ) {
+          } else if ( id == strip.getSegmentsNum()-1U ) {
             if (bri != e131_data[dataOffset]) {
               bri = e131_data[dataOffset];
               strip.setBrightness(bri, true);
@@ -270,11 +323,11 @@ void handleE131Packet(e131_packet_t* p, IPAddress clientIP, byte protocol){
     case DMX_MODE_MULTIPLE_RGB:
     case DMX_MODE_MULTIPLE_RGBW:
       {
-        bool is4Chan = (DMXMode == DMX_MODE_MULTIPLE_RGBW);
-        const uint16_t dmxChannelsPerLed = is4Chan ? 4 : 3;
-        const uint16_t ledsPerUniverse = is4Chan ? MAX_4_CH_LEDS_PER_UNIVERSE : MAX_3_CH_LEDS_PER_UNIVERSE;
+        const bool is4Chan = (DMXMode == DMX_MODE_MULTIPLE_RGBW);
+        const unsigned dmxChannelsPerLed = is4Chan ? 4 : 3;
+        const unsigned ledsPerUniverse = is4Chan ? MAX_4_CH_LEDS_PER_UNIVERSE : MAX_3_CH_LEDS_PER_UNIVERSE;
         uint8_t stripBrightness = bri;
-        uint16_t previousLeds, dmxOffset, ledsTotal;
+        unsigned previousLeds, dmxOffset, ledsTotal;
 
         if (previousUniverses == 0) {
           if (availDMXLen < 1) return;
@@ -289,9 +342,9 @@ void handleE131Packet(e131_packet_t* p, IPAddress clientIP, byte protocol){
           }
         } else {
           // All subsequent universes start at the first channel.
-          dmxOffset = (protocol == P_ARTNET) ? 0 : 1;
-          const uint16_t dimmerOffset = (DMXMode == DMX_MODE_MULTIPLE_DRGB) ? 1 : 0;
-          uint16_t ledsInFirstUniverse = (((MAX_CHANNELS_PER_UNIVERSE - DMXAddress) + dmxLenOffset) - dimmerOffset) / dmxChannelsPerLed;
+          dmxOffset = (mde == REALTIME_MODE_ARTNET) ? 0 : 1;
+          const unsigned dimmerOffset = (DMXMode == DMX_MODE_MULTIPLE_DRGB) ? 1 : 0;
+          unsigned ledsInFirstUniverse = (((MAX_CHANNELS_PER_UNIVERSE - DMXAddress) + dmxLenOffset) - dimmerOffset) / dmxChannelsPerLed;
           previousLeds = ledsInFirstUniverse + (previousUniverses - 1) * ledsPerUniverse;
           ledsTotal = previousLeds + (dmxChannels / dmxChannelsPerLed);
         }
@@ -302,7 +355,7 @@ void handleE131Packet(e131_packet_t* p, IPAddress clientIP, byte protocol){
         }
 
         realtimeLock(realtimeTimeoutMs, mde);
-        if (realtimeOverride && !(realtimeMode && useMainSegmentOnly)) return;
+        if (realtimeOverride) return;
 
         if (ledsTotal > totalLen) {
           ledsTotal = totalLen;
@@ -315,16 +368,9 @@ void handleE131Packet(e131_packet_t* p, IPAddress clientIP, byte protocol){
           }
         }
 
-        if (!is4Chan) {
-          for (uint16_t i = previousLeds; i < ledsTotal; i++) {
-            setRealtimePixel(i, e131_data[dmxOffset], e131_data[dmxOffset+1], e131_data[dmxOffset+2], 0);
-            dmxOffset+=3;
-          }
-        } else {
-          for (uint16_t i = previousLeds; i < ledsTotal; i++) {
-            setRealtimePixel(i, e131_data[dmxOffset], e131_data[dmxOffset+1], e131_data[dmxOffset+2], e131_data[dmxOffset+3]);
-            dmxOffset+=4;
-          }
+        for (unsigned i = previousLeds; i < ledsTotal; i++) {
+          setRealtimePixel(i, e131_data[dmxOffset], e131_data[dmxOffset+1], e131_data[dmxOffset+2], is4Chan ? e131_data[dmxOffset+3] : 0);
+          dmxOffset += dmxChannelsPerLed;
         }
         break;
       }
@@ -337,12 +383,12 @@ void handleE131Packet(e131_packet_t* p, IPAddress clientIP, byte protocol){
   e131NewData = true;
 }
 
-void handleArtnetPollReply(IPAddress ipAddress) {
+static void handleArtnetPollReply(IPAddress ipAddress) {
   ArtPollReply artnetPollReply;
   prepareArtnetPollReply(&artnetPollReply);
 
-  uint16_t startUniverse = e131Universe;
-  uint16_t endUniverse = e131Universe;
+  unsigned startUniverse = e131Universe;
+  unsigned endUniverse = e131Universe;
 
   switch (DMXMode) {
     case DMX_MODE_DISABLED:
@@ -362,15 +408,15 @@ void handleArtnetPollReply(IPAddress ipAddress) {
     case DMX_MODE_MULTIPLE_RGBW:
       {
         bool is4Chan = (DMXMode == DMX_MODE_MULTIPLE_RGBW);
-        const uint16_t dmxChannelsPerLed = is4Chan ? 4 : 3;
-        const uint16_t dimmerOffset = (DMXMode == DMX_MODE_MULTIPLE_DRGB) ? 1 : 0;
-        const uint16_t dmxLenOffset = (DMXAddress == 0) ? 0 : 1; // For legacy DMX start address 0
-        const uint16_t ledsInFirstUniverse = (((MAX_CHANNELS_PER_UNIVERSE - DMXAddress) + dmxLenOffset) - dimmerOffset) / dmxChannelsPerLed;
-        const uint16_t totalLen = strip.getLengthTotal();
+        const unsigned dmxChannelsPerLed = is4Chan ? 4 : 3;
+        const unsigned dimmerOffset = (DMXMode == DMX_MODE_MULTIPLE_DRGB) ? 1 : 0;
+        const unsigned dmxLenOffset = (DMXAddress == 0) ? 0 : 1; // For legacy DMX start address 0
+        const unsigned ledsInFirstUniverse = (((MAX_CHANNELS_PER_UNIVERSE - DMXAddress) + dmxLenOffset) - dimmerOffset) / dmxChannelsPerLed;
+        const unsigned totalLen = strip.getLengthTotal();
 
         if (totalLen > ledsInFirstUniverse) {
-          const uint16_t ledsPerUniverse = is4Chan ? MAX_4_CH_LEDS_PER_UNIVERSE : MAX_3_CH_LEDS_PER_UNIVERSE;
-          const uint16_t remainLED = totalLen - ledsInFirstUniverse;
+          const unsigned ledsPerUniverse = is4Chan ? MAX_4_CH_LEDS_PER_UNIVERSE : MAX_3_CH_LEDS_PER_UNIVERSE;
+          const unsigned remainLED = totalLen - ledsInFirstUniverse;
 
           endUniverse += (remainLED / ledsPerUniverse);
 
@@ -391,7 +437,7 @@ void handleArtnetPollReply(IPAddress ipAddress) {
   }
 
   if (DMXMode != DMX_MODE_DISABLED) {
-    for (uint16_t i = startUniverse; i <= endUniverse; ++i) {
+    for (unsigned i = startUniverse; i <= endUniverse; ++i) {
       sendArtnetPollReply(&artnetPollReply, ipAddress, i);
     }
   }
@@ -403,7 +449,7 @@ void handleArtnetPollReply(IPAddress ipAddress) {
   #endif
 }
 
-void prepareArtnetPollReply(ArtPollReply *reply) {
+static void prepareArtnetPollReply(ArtPollReply *reply) {
   // Art-Net
   reply->reply_id[0] = 0x41;
   reply->reply_id[1] = 0x72;
@@ -416,14 +462,14 @@ void prepareArtnetPollReply(ArtPollReply *reply) {
 
   reply->reply_opcode = ARTNET_OPCODE_OPPOLLREPLY;
 
-  IPAddress localIP = Network.localIP();
-  for (uint8_t i = 0; i < 4; i++) {
+  IPAddress localIP = WLEDNetwork.localIP();
+  for (unsigned i = 0; i < 4; i++) {
     reply->reply_ip[i] = localIP[i];
   }
 
   reply->reply_port = ARTNET_DEFAULT_PORT;
 
-  char * numberEnd = versionString;
+  char * numberEnd = (char*) versionString; // strtol promises not to try to edit this.
   reply->reply_version_h = (uint8_t)strtol(numberEnd, &numberEnd, 10);
   numberEnd++;
   reply->reply_version_l = (uint8_t)strtol(numberEnd, &numberEnd, 10);
@@ -491,9 +537,9 @@ void prepareArtnetPollReply(ArtPollReply *reply) {
   // A DMX to / from Art-Net device
   reply->reply_style = 0x00;
 
-  Network.localMAC(reply->reply_mac);
+  WLEDNetwork.localMAC(reply->reply_mac);
 
-  for (uint8_t i = 0; i < 4; i++) {
+  for (unsigned i = 0; i < 4; i++) {
     reply->reply_bind_ip[i] = localIP[i];
   }
 
@@ -517,17 +563,17 @@ void prepareArtnetPollReply(ArtPollReply *reply) {
   // Node does not support fail-over
   reply->reply_status_3 = 0x00;
 
-  for (uint8_t i = 0; i < 21; i++) {
+  for (unsigned i = 0; i < 21; i++) {
     reply->reply_filler[i] = 0x00;
   }
 }
 
-void sendArtnetPollReply(ArtPollReply *reply, IPAddress ipAddress, uint16_t portAddress) {
+static void sendArtnetPollReply(ArtPollReply *reply, IPAddress ipAddress, uint16_t portAddress) {
   reply->reply_net_sw = (uint8_t)((portAddress >> 8) & 0x007F);
   reply->reply_sub_sw = (uint8_t)((portAddress >> 4) & 0x000F);
   reply->reply_sw_out[0] = (uint8_t)(portAddress & 0x000F);
 
-  snprintf_P((char *)reply->reply_node_report, sizeof(reply->reply_node_report)-1, PSTR("#0001 [%04u] OK - WLED v" TOSTRING(WLED_VERSION)), pollReplyCount);
+  snprintf_P((char *)reply->reply_node_report, sizeof(reply->reply_node_report)-1, PSTR("#0001 [%04u] OK - WLED v%s"), pollReplyCount, versionString);
 
   if (pollReplyCount < 9999) {
     pollReplyCount++;

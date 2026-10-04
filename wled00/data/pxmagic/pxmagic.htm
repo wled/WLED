@@ -882,10 +882,8 @@
       hostnameLabel();
     })();
 
-    function gId(id) {
-      return d.getElementById(id);
-    }
-
+    function gId(e) {return d.getElementById(e);}
+    function cE(e) {return d.createElement(e);}
     function hostnameLabel() {
       const link = gId("wledEdit");
       link.href = WLED_URL + "/edit";
@@ -1675,7 +1673,7 @@
     }
 
     function createCanvas(width, height) {
-      const canvas = d.createElement("canvas");
+      const canvas = cE("canvas");
 
       canvas.width = width;
       canvas.height = height;
@@ -1719,7 +1717,7 @@
       const blob = new Blob([text], { type: mimeType });
       const url = URL.createObjectURL(blob);
 
-      const anchorElement = d.createElement("a");
+      const anchorElement = cE("a");
       anchorElement.href = url;
       anchorElement.download = `${filename}.${fileExtension}`;
 
@@ -1790,7 +1788,7 @@
       hideElement = "preview"
     ) {
       const hide = gId(hideElement);
-      const toast = d.createElement("div");
+      const toast = cE("div");
       const wait = 100;
 
       toast.style.animation = "fadeIn";
@@ -1799,14 +1797,14 @@
 
       toast.classList.add("toast", type);
 
-      const body = d.createElement("span");
+      const body = cE("span");
       body.classList.add("toast-body");
 
       body.textContent = message;
 
       toast.appendChild(body);
 
-      const progress = d.createElement("div");
+      const progress = cE("div");
       progress.classList.add("toast-progress");
 
       progress.style.animation = "progress";
@@ -1831,7 +1829,7 @@
 
     function carousel(id, images, delay = 3000) {
       let index = 0;
-      const carousel = d.createElement("div");
+      const carousel = cE("div");
       carousel.classList.add("carousel");
 
       images.forEach((canvas, i) => {
@@ -1959,7 +1957,7 @@
           let errorElement = parent.querySelector(".error-message");
 
           if (!errorElement) {
-            errorElement = d.createElement("div");
+            errorElement = cE("div");
             errorElement.classList.add("error-message");
             parent.appendChild(errorElement);
           }

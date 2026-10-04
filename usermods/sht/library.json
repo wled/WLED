@@ -1,0 +1,7 @@
+{
+  "name": "sht",
+  "build": { "libArchive": false },
+  "dependencies": {
+    "robtillaart/SHT85": "~0.3.3"
+  }
+}
