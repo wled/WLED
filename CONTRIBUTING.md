@@ -86,6 +86,16 @@ CodeRabbit findings are **review input**, not **mandatory changes**.
 
 Contributors should assess each finding against the code, tests, and project constraints. They can reject an incorrect finding or explain why a proposed change is unsuitable. Addressing every CodeRabbit comment is not a condition for a sound contribution.
 
+#### Talk to Me
+
+You can chat with the review bot by adding a comment that starts with `@coderabbitai`. Use this to ask questions, explain your intentions behind the code, request summaries, and so on. CodeRabbit cannot work on your code as a coding agent, but it can suggest code changes for you to test and commit.
+
+Example: ask for a summary of review comments (includes maintainer comments)
+
+   ```text
+   @coderabbitai create a prioritized list of suggested improvements for this PR so that it would be ready to merge. Include referenced to the original review comment where possible.
+   ```
+
 ### Updating your code
 While the PR is open, you can keep updating your branch - just push more commits! GitHub will automatically update your PR. 
 
