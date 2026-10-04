@@ -11,7 +11,7 @@ from pathlib import Path
 DYNARRAY_INJECTION = (
     "\n    /* dynarray: WLED dynamic module arrays */\n"
     "    . = ALIGN(0x10);\n"
-    "    KEEP(*(SORT_BY_INIT_PRIORITY(.dynarray.*)))\n"
+    "    KEEP(*(SORT(.dynarray.*)))\n"
     "    "
 )
 
