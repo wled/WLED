@@ -5199,10 +5199,10 @@ void mode_2DAnalogClock(void) {                  // By Andras Fekete (bandi13)
   }
 
   SEGMENT.drawLine(centerX, centerY, minuteX, minuteY, SEGCOLOR(1) != BLACK ? SEGCOLOR(1) : GREEN, soft);
-  SEGMENT.drawLine(centerX, centerY, hourX, hourY, SEGCOLOR(0), soft);  // we could also use RED, if the default of ORANGE looks too ugly
+  SEGMENT.drawLine(centerX, centerY, hourX, hourY, SEGCOLOR(0) != BLACK ? SEGCOLOR(0) : RED, soft);
 
 } // mode_2DAnalogClock()
-static const char _data_FX_MODE_2DANALOGCLOCK[] PROGMEM = "Analog Clock@,,,,,Seconds,Soft;Hour,Minute,Second;;2;o1=1,o2=1";
+static const char _data_FX_MODE_2DANALOGCLOCK[] PROGMEM = "Analog Clock 2D@,,,,,Seconds,Soft;Hour,Minute,Second;;2;o1=1,o2=1";
 
 
 // Black hole
