@@ -5,7 +5,7 @@ class UdpNameSync : public Usermod {
   private:
 
     bool enabled = false;
-    char segmentName[WLED_MAX_SEGNAME_LEN] = {0};
+    char segmentName[WLED_MAX_SEGNAME_LEN + 1] = {0}; // Segment::setName() accepts up to WLED_MAX_SEGNAME_LEN chars, so keep room for the terminator
     static constexpr uint8_t kPacketType = 200; // custom usermod packet type
     static const char _name[];
     static const char _enabled[];
