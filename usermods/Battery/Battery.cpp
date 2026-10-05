@@ -36,7 +36,7 @@ class UsermodBattery : public Usermod {
     bool lowPowerIndicatorEnabled = USERMOD_BATTERY_LOW_POWER_INDICATOR_ENABLED;
     uint8_t lowPowerIndicatorPreset = USERMOD_BATTERY_LOW_POWER_INDICATOR_PRESET;
     uint8_t lowPowerIndicatorThreshold = USERMOD_BATTERY_LOW_POWER_INDICATOR_THRESHOLD;
-    uint8_t lowPowerIndicatorReactivationThreshold = lowPowerIndicatorThreshold + 10;
+    uint8_t lowPowerIndicatorReactivationThreshold = min(100, lowPowerIndicatorThreshold + 10);
     uint8_t lowPowerIndicatorDuration = USERMOD_BATTERY_LOW_POWER_INDICATOR_DURATION;
     bool lowPowerIndicationDone = false;
     bool lowPowerIndicatorActive = false;
@@ -65,6 +65,7 @@ class UsermodBattery : public Usermod {
     float coulombSoC = -1.0f;
     bool coulombInitialized = false;
     unsigned long lastCoulombTime = 0;
+    bool coulombTimebaseValid = false;  // false after a gap without valid current
     unsigned long restStartTime = 0;
     bool atRest = false;
     static constexpr float REST_CURRENT_THRESHOLD = 0.01f;
@@ -124,7 +125,7 @@ class UsermodBattery : public Usermod {
         lowPowerIndicatorEnabled = lp[FPSTR(_enabled)] | lowPowerIndicatorEnabled;
         lowPowerIndicatorPreset = lp[FPSTR(_preset)] | lowPowerIndicatorPreset;
         setLowPowerIndicatorThreshold(lp[FPSTR(_threshold)] | lowPowerIndicatorThreshold);
-        lowPowerIndicatorReactivationThreshold = lowPowerIndicatorThreshold + 10;
+        updateReactivationThreshold();
         lowPowerIndicatorDuration = lp[FPSTR(_duration)] | lowPowerIndicatorDuration;
       }
     }
@@ -291,7 +292,7 @@ class UsermodBattery : public Usermod {
       }
 
       // auto-detect INA226 usermod (retry at most every INA_PROBE_INTERVAL_MS until first success)
-      if (!ina226Probed && millis() >= nextInaProbeTime) {
+      if (!ina226Probed && (long)(millis() - nextInaProbeTime) >= 0) {
         nextInaProbeTime = millis() + INA_PROBE_INTERVAL_MS;
         um_data_t *data = nullptr;
         if (UsermodManager::getUMData(&data, USERMOD_ID_INA226) && data) {
@@ -321,25 +322,32 @@ class UsermodBattery : public Usermod {
 
       initializing = false;
       float rawValue = readVoltage();
+      float prevVoltage = bat->getVoltage();
 
-      // exponential smoothing — ADC in ESP32 fluctuates too much for single readout
-      float filteredVoltage = bat->getVoltage() + alpha * (rawValue - bat->getVoltage());
+      if (!bat->isValidVoltage(rawValue)) {
+        // out-of-range reading: invalidate voltage and level, keep it out of the filter
+        bat->setVoltage(-1.0f);
+        bat->invalidateLevel();
+      } else {
+        // exponential smoothing — ADC in ESP32 fluctuates too much for single readout
+        // (re)seed the filter with the raw value if the previous reading was invalid
+        float filteredVoltage = prevVoltage < 0.0f ? rawValue : prevVoltage + alpha * (rawValue - prevVoltage);
+        bat->setVoltage(filteredVoltage);
+        bat->calculateAndSetLevel(filteredVoltage);
 
-      bat->setVoltage(filteredVoltage);
-      bat->calculateAndSetLevel(filteredVoltage);
+        // charging detection: compare current voltage against ~2.5 minutes ago
+        float oldestVoltage = voltageHistory[voltageHistoryIdx];
+        voltageHistory[voltageHistoryIdx] = filteredVoltage;
+        voltageHistoryIdx = (voltageHistoryIdx + 1) % VOLTAGE_HISTORY_SIZE;
+        if (!voltageHistoryFull && voltageHistoryIdx == 0) voltageHistoryFull = true;
 
-      umVoltage = filteredVoltage;
-      umLevel = bat->getLevel();
-
-      // charging detection: compare current voltage against ~2.5 minutes ago
-      float oldestVoltage = voltageHistory[voltageHistoryIdx];
-      voltageHistory[voltageHistoryIdx] = filteredVoltage;
-      voltageHistoryIdx = (voltageHistoryIdx + 1) % VOLTAGE_HISTORY_SIZE;
-      if (!voltageHistoryFull && voltageHistoryIdx == 0) voltageHistoryFull = true;
-
-      if (voltageHistoryFull && oldestVoltage > 0.0f) {
-        charging = (filteredVoltage - oldestVoltage > CHARGE_VOLTAGE_THRESHOLD);
+        if (voltageHistoryFull && oldestVoltage > 0.0f) {
+          charging = (filteredVoltage - oldestVoltage > CHARGE_VOLTAGE_THRESHOLD);
+        }
       }
+
+      umVoltage = bat->getVoltage();
+      umLevel = bat->getLevel();
 
       // Coulomb counting & runtime estimation via INA226
       float current_A = estimatedRuntimeEnabled ? getINA226Current() : -1.0f;
@@ -354,6 +362,11 @@ class UsermodBattery : public Usermod {
             coulombInitialized = true;
           }
           lastCoulombTime = now;
+          coulombTimebaseValid = true;
+        } else if (!coulombTimebaseValid) {
+          // first valid current after a gap: restart the timebase, do not integrate across the gap
+          lastCoulombTime = now;
+          coulombTimebaseValid = true;
         } else {
           float dt_hours = (now - lastCoulombTime) / 3600000.0f;
           lastCoulombTime = now;
@@ -392,6 +405,7 @@ class UsermodBattery : public Usermod {
         estimatedTimeLeft = -1;
         smoothedCurrent = -1.0f;
         atRest = false;
+        coulombTimebaseValid = false;
       }
 
       // auto-off
@@ -399,8 +413,8 @@ class UsermodBattery : public Usermod {
         turnOff();
 
 #ifndef WLED_DISABLE_MQTT
-      publishMqtt("battery", String(bat->getLevel(), 0).c_str());
-      publishMqtt("voltage", String(bat->getVoltage()).c_str());
+      if (bat->getLevel() >= 0) publishMqtt("battery", String(bat->getLevel()).c_str());
+      if (bat->getVoltage() >= 0) publishMqtt("voltage", String(bat->getVoltage()).c_str());
       publishMqtt("charging", charging ? "on" : "off");
       if (estimatedRuntimeEnabled && estimatedTimeLeft >= 0) {
         publishMqtt("runtime", String(estimatedTimeLeft).c_str());
@@ -621,7 +635,7 @@ class UsermodBattery : public Usermod {
       lowPowerIndicatorEnabled = lp[FPSTR(_enabled)] | lowPowerIndicatorEnabled;
       lowPowerIndicatorPreset = lp[FPSTR(_preset)] | lowPowerIndicatorPreset;
       setLowPowerIndicatorThreshold(lp[FPSTR(_threshold)] | lowPowerIndicatorThreshold);
-      lowPowerIndicatorReactivationThreshold = lowPowerIndicatorThreshold + 10;
+      updateReactivationThreshold();
       lowPowerIndicatorDuration = lp[FPSTR(_duration)] | lowPowerIndicatorDuration;
 
       if (initDone)
@@ -719,6 +733,12 @@ class UsermodBattery : public Usermod {
     void setLowPowerIndicatorThreshold(int8_t threshold) {
       lowPowerIndicatorThreshold = threshold;
       lowPowerIndicatorThreshold = autoOffEnabled /*&& lowPowerIndicatorEnabled*/ ? max(autoOffThreshold + 1, (int)lowPowerIndicatorThreshold) : max(5, (int)lowPowerIndicatorThreshold);
+      lowPowerIndicatorThreshold = min(100, (int)lowPowerIndicatorThreshold);
+    }
+
+    // reactivation 10% above the indicator threshold, capped so it stays reachable
+    void updateReactivationThreshold() {
+      lowPowerIndicatorReactivationThreshold = min(100, lowPowerIndicatorThreshold + 10);
     }
 };
 

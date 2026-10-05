@@ -136,6 +136,8 @@ private:
 
     void initializeINA226()
     {
+        _hasValidReading = false;
+
         if (_ina226 != nullptr)
         {
             delete _ina226;
@@ -180,7 +182,10 @@ private:
         _lastStatus = _ina226->getI2cErrorCode();
 
         if (_lastStatus != 0)
+        {
+            _hasValidReading = false;
             return;
+        }
 
         float current = truncateDecimals((_ina226->getCurrent_mA() - _currentOffsetMa) / 1000.0f);
         float voltage = truncateDecimals(_ina226->getBusVoltage_V());

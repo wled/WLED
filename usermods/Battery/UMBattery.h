@@ -136,11 +136,14 @@ class UMBattery
         /**
          * check if voltage is within specified voltage range, allow 10% over/under voltage
          */
+        bool isValidVoltage(float voltage)
+        {
+            return voltage >= this->getMinVoltage() * 0.85f && voltage <= this->getMaxVoltage() * 1.1f;
+        }
+
         void setVoltage(float voltage)
         {
-            this->voltage = ( (voltage < this->getMinVoltage() * 0.85f) || (voltage > this->getMaxVoltage() * 1.1f) )
-                ? -1.0f
-                : voltage;
+            this->voltage = this->isValidVoltage(voltage) ? voltage : -1.0f;
         }
 
         int8_t getLevel()
@@ -148,9 +151,20 @@ class UMBattery
             return this->level;
         }
 
+        /*
+         * The 110% upper bound is headroom for charging / USB charger voltage above
+         * the discharge curve's 100% point. Values above 100 are a voltage-derived
+         * indication, not physical state of charge. The lookup tables cap at 100.
+         */
         void setLevel(float level)
         {
             this->level = (int8_t)constrain(level, 0.0f, 110.0f);
+        }
+
+        // mark level as unknown (-1), e.g. after an out-of-range voltage reading
+        void invalidateLevel()
+        {
+            this->level = -1;
         }
 
         /*

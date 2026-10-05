@@ -153,7 +153,7 @@ If none of the built-in battery types match your cell chemistry, you can add you
 2. **Add a new enum value** in `battery_defaults.h`:
 
    ```cpp
-   typedef enum
+   typedef enum : uint8_t   // keep the uint8_t base, UMT_BYTE relies on it
    {
      lipo=1,
      lion=2,
