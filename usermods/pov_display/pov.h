@@ -15,16 +15,12 @@ class POV {
         /* Reads from file an image and making it current image */
         bool loadImage(const char * filename);
         
-        /* Show next column (for horizontal POV) */
-        int16_t showNextColumn();
-
         BMPimage * currentImage() {return &image;}
 
         char * getFilename() {return image.getFilename();}
 
     private:
         BMPimage image;
-        int16_t  currentColumn=0;    //next column to be shown
 };
 
 
