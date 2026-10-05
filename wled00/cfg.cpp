@@ -528,12 +528,10 @@ bool deserializeConfig(JsonObject doc, bool fromFS) {
   CJSON(strip.autoSegments, light[F("aseg")]);
 
   CJSON(gammaCorrectVal, light["gc"]["val"]); // default 2.2
-  float light_gc_bri = light["gc"]["bri"] | (gammaCorrectBri ? gammaCorrectVal : 1.0f); // keep current if absent (1.0 = off)
-  float light_gc_col = light["gc"]["col"] | (gammaCorrectCol ? gammaCorrectVal : 1.0f); // keep current if absent (1.0 = off)
-  if (light_gc_bri != 1.0f) gammaCorrectBri = true;
-  else                      gammaCorrectBri = false;
-  if (light_gc_col != 1.0f) gammaCorrectCol = true;
-  else                      gammaCorrectCol = false;
+  JsonVariant gc_bri = light["gc"]["bri"]; // 1.0 = off, absent = keep current
+  JsonVariant gc_col = light["gc"]["col"];
+  if (!gc_bri.isNull()) gammaCorrectBri = (gc_bri.as<float>() != 1.0f);
+  if (!gc_col.isNull()) gammaCorrectCol = (gc_col.as<float>() != 1.0f);
   if (gammaCorrectVal < 0.1f || gammaCorrectVal > 3) {
     gammaCorrectVal = 1.0f; // no gamma correction
     gammaCorrectBri = false;
