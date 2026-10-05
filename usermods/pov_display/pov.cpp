@@ -12,6 +12,9 @@ bool POV::loadImage(const char * filename){
 // For each pixel in the column (from row 0 to row height-1),
 // compute its position in the BMP buffer and read the BGR values
 void POV::showColumn(uint16_t colIndex) {
+    // Ignore out-of-range columns: for widths == 2 (mod 4) the row-size check
+    // below would still read one byte past the buffer when colIndex == width
+    if (colIndex >= image.width()) return;
     uint16_t imgHeight = image.height();
     int rowSize = image.rowSize();
     
