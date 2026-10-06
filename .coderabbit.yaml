@@ -259,3 +259,5 @@ reviews:
     unit_tests:
       # default: true - disabled in WLED: we don't have a unit test framework, this option just confuses contributors
       enabled: false
+    autofix:
+      enabled: false
