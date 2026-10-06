@@ -22,7 +22,7 @@ A generic "go ahead" or silence doesn't count - get a clear yes. Until then, you
 Reviewer time is limited, and checking long AI-generated explanations for reasoning errors is costly. Even after the user agreement is confirmed:
 
 - **Never post** replies to reviewer comments or discussions, and **never create issue tickets**, on the user's behalf. You may help the user draft the text locally; the human reviews it and posts it themselves.
-- Creating or updating pull requests remains allowed. Keep PR descriptions concise and factual.
+- Creating or updating pull requests remains allowed. Keep PR descriptions concise and factual, and include a summary written by the user in their own words, leading with what they want to achieve or what bothers them in plain language, as described in [CONTRIBUTING.md](CONTRIBUTING.md#opening-issues--feature-requests).
 
 ## Build Commands
 
