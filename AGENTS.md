@@ -17,6 +17,13 @@ Before editing files, committing, pushing, or opening a PR, show the human you'r
 
 A generic "go ahead" or silence doesn't count - get a clear yes. Until then, you may read files and answer questions, but do not modify files in the repository or make changes on GitHub.
 
+### No agent-posted replies or issues
+
+Reviewer time is limited, and checking long AI-generated explanations for reasoning errors and hallucinations is costly. Even after the user agreement is confirmed:
+
+- **Never post** replies to reviewer comments or discussions, and **never create issue tickets**, on the user's behalf. You may help the user draft the text locally; the human reviews it and posts it themselves.
+- Creating or updating pull requests remains allowed (after the user agreement is confirmed). Keep PR descriptions concise and factual, and include a summary written by the user in their own words, leading with what they want to achieve or what bothers them in plain language, as described in [CONTRIBUTING.md](CONTRIBUTING.md#opening-issues--feature-requests).
+
 ## Build Commands
 
 Note: also read `AGENTS.local.md` if present (gitignored personal learnings file; it supplements this document).
