@@ -764,35 +764,6 @@ void M5StackDisplayHardwareBackend::writeBrightness( uint8_t value ) {
   }
 
 
-bool M5StackDisplayHardwareBackend::readDisplayRgb565(
-  uint16_t* pixels,
-  int16_t width,
-  int16_t height
-) {
-    if (
-      pixels == nullptr ||
-      width <= 0 ||
-      height <= 0
-    ) {
-      return false;
-    }
-
-    if ( width != display.width() || height != display.height() ) {
-      return false;
-    }
-
-    display.readRect(
-      0,
-      0,
-      width,
-      height,
-      pixels
-    );
-
-    return true;
-  }
-
-
 bool M5StackDisplayHardwareBackend::readBatteryStatus( M5StackBatteryStatus& status ) {
     status = M5StackBatteryStatus();
 

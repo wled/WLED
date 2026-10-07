@@ -1,8 +1,6 @@
 #include "wled.h"
 #include <WiFi.h>
 #include <M5GFX.h>
-#include <esp_heap_caps.h>
-#include <memory>
 
 #include "M5StackDisplayHardwareBackend.h"
 #include "M5StackDisplayUI.h"
@@ -32,7 +30,6 @@
 //   - Startup animation
 //   - Display sleep / wake
 //   - Runtime synchronization with WLED state
-//   - Browser screenshot endpoint (/cores3/screenshot.bmp)
 //
 // Architecture
 //   UI and WLED-state logic are kept separate from the thin
@@ -74,27 +71,6 @@ class CoreS3DisplayUsermod : public Usermod {
   int16_t screenHeight = 0;
 
   unsigned long lastUpdate = 0;
-
-  // =========================================================
-  // Browser Screenshot
-  // =========================================================
-  //
-  // A GET request to /cores3/screenshot.bmp returns a one-shot
-  // 24-bit BMP capture of the current 320 x 240 LCD contents.
-  //
-  // The frame and BMP buffers are allocated only while a request
-  // is active and are placed in PSRAM. The finished BMP buffer is
-  // retained by the asynchronous HTTP response until transmission
-  // completes, then released automatically.
-  //
-  // This is intentionally a still-image endpoint. It does not
-  // continuously stream frames and therefore does not add normal
-  // runtime Display/Wi-Fi load when unused.
-  // =========================================================
-
-  bool screenshotCaptureInProgress = false;
-
-  static constexpr size_t SCREENSHOT_BMP_HEADER_SIZE = 54;
 
   // =========================================================
   // Network access state
@@ -6722,300 +6698,6 @@ class CoreS3DisplayUsermod : public Usermod {
     }
   }
 
-  static void writeBmp16( uint8_t* destination, uint16_t value ) {
-    destination[0] = (uint8_t)( value & 0xFF );
-    destination[1] = (uint8_t)( ( value >> 8 ) & 0xFF );
-  }
-
-  static void writeBmp32( uint8_t* destination, uint32_t value ) {
-    destination[0] = (uint8_t)( value & 0xFF );
-    destination[1] = (uint8_t)( ( value >> 8 ) & 0xFF );
-    destination[2] = (uint8_t)( ( value >> 16 ) & 0xFF );
-    destination[3] = (uint8_t)( ( value >> 24 ) & 0xFF );
-  }
-
-  bool buildScreenshotBmp(
-    uint8_t*& bmpData,
-    size_t& bmpSize
-  ) {
-    bmpData = nullptr;
-    bmpSize = 0;
-
-    if ( !displayReady || screenWidth <= 0 || screenHeight <= 0 ) {
-      return false;
-    }
-
-    const size_t width = (size_t)screenWidth;
-    const size_t height = (size_t)screenHeight;
-    const size_t pixelCount = width * height;
-    const size_t frameBytes = pixelCount * sizeof(uint16_t);
-
-    // 24-bit BMP rows are aligned to 4-byte boundaries.
-    const size_t rowBytes = width * 3;
-    const size_t rowStride = ( rowBytes + 3 ) & ~((size_t)3);
-    const size_t imageBytes = rowStride * height;
-    const size_t totalBytes = SCREENSHOT_BMP_HEADER_SIZE + imageBytes;
-
-    uint16_t* frameBuffer = static_cast<uint16_t*>(
-      heap_caps_malloc(
-        frameBytes,
-        MALLOC_CAP_SPIRAM | MALLOC_CAP_8BIT
-      )
-    );
-
-    if ( frameBuffer == nullptr ) {
-      return false;
-    }
-
-    uint8_t* outputBuffer = static_cast<uint8_t*>(
-      heap_caps_malloc(
-        totalBytes,
-        MALLOC_CAP_SPIRAM | MALLOC_CAP_8BIT
-      )
-    );
-
-    if ( outputBuffer == nullptr ) {
-      heap_caps_free( frameBuffer );
-      return false;
-    }
-
-    if (
-      !hardwareBackend.readDisplayRgb565(
-        frameBuffer,
-        screenWidth,
-        screenHeight
-      )
-    ) {
-      heap_caps_free( outputBuffer );
-      heap_caps_free( frameBuffer );
-
-      return false;
-    }
-
-    memset( outputBuffer, 0, totalBytes );
-
-    // -------------------------------------------------------
-    // BITMAPFILEHEADER (14 bytes)
-    // -------------------------------------------------------
-
-    outputBuffer[0] = 'B';
-    outputBuffer[1] = 'M';
-
-    writeBmp32( outputBuffer + 2, (uint32_t)totalBytes );
-    writeBmp32( outputBuffer + 10, (uint32_t)SCREENSHOT_BMP_HEADER_SIZE );
-
-    // -------------------------------------------------------
-    // BITMAPINFOHEADER (40 bytes)
-    //
-    // Negative height selects top-down row order. This lets us
-    // preserve the LCD's natural 0..height-1 scan order without
-    // reversing the captured frame.
-    // -------------------------------------------------------
-
-    writeBmp32( outputBuffer + 14, 40 );
-    writeBmp32( outputBuffer + 18, (uint32_t)screenWidth );
-    writeBmp32(
-      outputBuffer + 22,
-      (uint32_t)(int32_t)( -screenHeight )
-    );
-
-    writeBmp16( outputBuffer + 26, 1 );
-    writeBmp16( outputBuffer + 28, 24 );
-
-    writeBmp32( outputBuffer + 30, 0 );
-    writeBmp32( outputBuffer + 34, (uint32_t)imageBytes );
-
-    // 72 DPI, expressed as pixels per metre.
-    writeBmp32( outputBuffer + 38, 2835 );
-    writeBmp32( outputBuffer + 42, 2835 );
-
-    for ( size_t y = 0; y < height; y++ ) {
-      const uint16_t* sourceRow = frameBuffer + ( y * width );
-      uint8_t* destinationRow =
-        outputBuffer + SCREENSHOT_BMP_HEADER_SIZE + ( y * rowStride );
-
-      for ( size_t x = 0; x < width; x++ ) {
-        const uint16_t rawPixel = sourceRow[x];
-
-        // M5GFX readRect() returns the CoreS3 panel RGB565 word with
-        // the two bytes swapped relative to the logical TFT color value.
-        //
-        // Example:
-        //   TFT_CYAN = 0x07FF
-        //   readRect  = 0xFF07
-        //
-        // Restore the logical RGB565 word before expanding to RGB888.
-        const uint16_t pixel = (uint16_t)(
-          ( rawPixel >> 8 ) |
-          ( rawPixel << 8 )
-        );
-
-        const uint8_t red5 = (uint8_t)( ( pixel >> 11 ) & 0x1F );
-        const uint8_t green6 = (uint8_t)( ( pixel >> 5 ) & 0x3F );
-        const uint8_t blue5 = (uint8_t)( pixel & 0x1F );
-
-        const uint8_t red8 = (uint8_t)( ( red5 << 3 ) | ( red5 >> 2 ) );
-        const uint8_t green8 = (uint8_t)( ( green6 << 2 ) | ( green6 >> 4 ) );
-        const uint8_t blue8 = (uint8_t)( ( blue5 << 3 ) | ( blue5 >> 2 ) );
-
-        uint8_t* destinationPixel = destinationRow + ( x * 3 );
-
-        // BMP 24-bit pixel byte order is B, G, R.
-        destinationPixel[0] = blue8;
-        destinationPixel[1] = green8;
-        destinationPixel[2] = red8;
-      }
-    }
-
-    heap_caps_free( frameBuffer );
-
-    bmpData = outputBuffer;
-    bmpSize = totalBytes;
-
-    return true;
-  }
-
-  void handleScreenshotRequest( AsyncWebServerRequest* request ) {
-    if ( request == nullptr ) {
-      return;
-    }
-
-    if (
-      !displayReady ||
-      screenWidth <= 0 ||
-      screenHeight <= 0
-    ) {
-      request->send(
-        503,
-        F("text/plain"),
-        F("CoreS3 display screenshot is unavailable.\n")
-      );
-
-      return;
-    }
-
-    // Keep screenshot memory use bounded and avoid overlapping LCD reads.
-    if ( screenshotCaptureInProgress ) {
-      request->send(
-        429,
-        F("text/plain"),
-        F("A CoreS3 screenshot request is already in progress.\n")
-      );
-
-      return;
-    }
-
-    screenshotCaptureInProgress = true;
-
-    uint8_t* bmpData = nullptr;
-    size_t bmpSize = 0;
-
-    if ( !buildScreenshotBmp( bmpData, bmpSize ) ) {
-      screenshotCaptureInProgress = false;
-
-      DEBUG_PRINTLN(
-        F( "[CoreS3_Display] Screenshot: capture/buffer allocation failed" )
-      );
-
-      request->send(
-        503,
-        F("text/plain"),
-        F("CoreS3 screenshot capture failed. PSRAM may be unavailable.\n")
-      );
-
-      return;
-    }
-
-    // The async response outlives this request handler. Keep the BMP buffer
-    // alive with shared ownership until the response itself is destroyed.
-    std::shared_ptr<uint8_t> bmpOwner(
-      bmpData,
-      [this]( uint8_t* pointer ) {
-        if ( pointer != nullptr ) {
-          heap_caps_free( pointer );
-        }
-
-        screenshotCaptureInProgress = false;
-      }
-    );
-
-    const size_t responseSize = bmpSize;
-
-    AsyncWebServerResponse* response = request->beginResponse(
-      F("image/bmp"),
-      responseSize,
-      [bmpOwner, responseSize](
-        uint8_t* buffer,
-        size_t maxLength,
-        size_t index
-      ) -> size_t {
-        if ( buffer == nullptr || index >= responseSize ) {
-          return 0;
-        }
-
-        const size_t remaining = responseSize - index;
-        const size_t copyLength =
-          ( maxLength < remaining ) ? maxLength : remaining;
-
-        memcpy(
-          buffer,
-          bmpOwner.get() + index,
-          copyLength
-        );
-
-        return copyLength;
-      }
-    );
-
-    if ( response == nullptr ) {
-      screenshotCaptureInProgress = false;
-
-      request->send(
-        503,
-        F("text/plain"),
-        F("CoreS3 screenshot response could not be created.\n")
-      );
-
-      return;
-    }
-
-    response->addHeader(
-      F("Cache-Control"),
-      F("no-store, no-cache, must-revalidate, max-age=0")
-    );
-
-    response->addHeader( F("Pragma"), F("no-cache") );
-    response->addHeader( F("Expires"), F("0") );
-
-    response->addHeader(
-      F("Content-Disposition"),
-      F("inline; filename=\"cores3-screen.bmp\"")
-    );
-
-    request->send( response );
-
-    DEBUG_PRINTF(
-      "[CoreS3_Display] Screenshot: %d x %d BMP (%u bytes)\n",
-      screenWidth,
-      screenHeight,
-      (unsigned)responseSize
-    );
-  }
-
-  void registerScreenshotEndpoint() {
-    server.on(
-      F("/cores3/screenshot.bmp"),
-      HTTP_GET,
-      [this]( AsyncWebServerRequest* request ) {
-        handleScreenshotRequest( request );
-      }
-    );
-
-    DEBUG_PRINTLN(
-      F( "[CoreS3_Display] Screenshot endpoint: /cores3/screenshot.bmp" )
-    );
-  }
-
   public:
 
   CoreS3DisplayUsermod()
@@ -7128,8 +6810,6 @@ class CoreS3DisplayUsermod : public Usermod {
 
     DEBUG_PRINTLN( F( "[CoreS3_Display][BUILD] CoreS3 Display v0.1.0" ) );
     DEBUG_PRINTLN( F( "[CoreS3_Display] Initialization start" ) );
-
-    registerScreenshotEndpoint();
 
     DEBUG_PRINTLN( F( "[CoreS3_Display] Hardware: M5Stack CoreS3" ) );
 
@@ -7362,15 +7042,6 @@ class CoreS3DisplayUsermod : public Usermod {
     }
     else {
       displayInfo.add( "FAILED" );
-    }
-
-    JsonArray screenshotInfo = user.createNestedArray( "CoreS3 Display Screenshot" );
-
-    if ( displayReady ) {
-      screenshotInfo.add( "/cores3/screenshot.bmp" );
-    }
-    else {
-      screenshotInfo.add( "UNAVAILABLE" );
     }
 
     JsonArray touchInfo = user.createNestedArray( "CoreS3 Display Touch" );

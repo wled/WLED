@@ -28,13 +28,12 @@ M5Stack CoreS3 上で WLED v17 系をネイティブ動作させ、<br>
 - AXP2101 Power Key を使った Safe Shutdown
 - 電源OFF前に LED BLACK frame を送信
 - Safe Shutdown のキャンセル時は直前の LED 状態を復元
-- ブラウザから現在の LCD 画面を BMP で取得
 
 ---
 
 ## Screenshots
 
-以下は、CoreS3 本体の LCD を Browser Screenshot 機能で直接取得した実画面です。
+以下は、CoreS3 本体の LCD ユーザーインターフェースの実画面です。
 
 ### Main
 
@@ -104,28 +103,6 @@ Effect が Color Slot を使用しない場合は `COLOR NOT USED` と表示し�
 </table>
 
 Preset の呼び出しだけでなく、SAVE NEW / OVERWRITE / DELETE / BOOT PRESET まで CoreS3 から操作できます。
-
-### Browser Screenshot
-
-CoreS3 の現在の LCD 表示は、ブラウザから次の URL で取得できます。
-
-```text
-http://<CoreS3-IP>/cores3/screenshot.bmp
-```
-
-例:
-
-```text
-http://192.168.1.100/cores3/screenshot.bmp
-```
-
-Screenshot は静止画です。<br>
-URL を更新すると、その時点の 320 × 240 LCD 内容を再取得します。
-
-BMP は CoreS3 の LCD から RGB565 で読み出し、24-bit BMP に変換して返します。<br>
-大きな Screenshot バッファは通常時には常駐せず、要求時のみ PSRAM に確保します。
-
-このドキュメントに掲載している PNG 画像も、Browser Screenshot で取得した BMP を PC 側で PNG に変換したものです。
 
 ---
 
@@ -438,7 +415,6 @@ WLED/
 - Battery display
 - Wi-Fi status
 - Preset UI
-- Browser Screenshot
 
 ### audioreactive
 
@@ -453,7 +429,6 @@ WLED 標準の汎用 Audio Reactive Usermod に含まれる ES7210 対応を、C
 - 120 LED を CoreS3 から直接高輝度で給電する構成は推奨しません。
 - WLED 標準 Brightness 128 は変更していません。
 - CoreS3 では Brightness 64 前後からの使用を推奨します。
-- Browser Screenshot は BMP の静止画です。ライブストリームではありません。
 - DCDC OVP 保護は無効化していません。
 
 ---

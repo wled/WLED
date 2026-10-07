@@ -33,15 +33,6 @@ class M5StackDisplayHardwareBackend {
   bool readTouch( int16_t& touchX, int16_t& touchY );
   void writeBrightness( uint8_t value );
 
-  // Read the current physical LCD contents as RGB565.
-  // The caller owns the buffer; this backend keeps panel access out of the
-  // UI/WLED-state layer.
-  bool readDisplayRgb565(
-    uint16_t* pixels,
-    int16_t width,
-    int16_t height
-  );
-
   // Read battery state through the CoreS3 hardware backend.
   // The UI consumes only this generic status object; PMIC/register details
   // stay outside CoreS3_Display.cpp.

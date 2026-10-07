@@ -28,13 +28,12 @@ This project runs the WLED v17 series natively on M5Stack CoreS3 and combines<br
 - Safe Shutdown using the AXP2101 Power Key
 - LED BLACK frame before hard power-off
 - Restore of the previous LED state when Safe Shutdown is canceled
-- Browser capture of the current LCD as a BMP image
 
 ---
 
 ## Screenshots
 
-The following images were captured directly from the CoreS3 LCD using the Browser Screenshot feature.
+The following images show the CoreS3 LCD user interface.
 
 ### Main
 
@@ -104,28 +103,6 @@ When the current Effect does not use a Color Slot, the UI shows `COLOR NOT USED`
 </table>
 
 In addition to recalling Presets, CoreS3 can perform SAVE NEW / OVERWRITE / DELETE / BOOT PRESET operations.
-
-### Browser Screenshot
-
-The current CoreS3 LCD can be captured from a browser at:
-
-```text
-http://<CoreS3-IP>/cores3/screenshot.bmp
-```
-
-Example:
-
-```text
-http://192.168.1.100/cores3/screenshot.bmp
-```
-
-The endpoint returns a still image.<br>
-Refreshing the URL captures the current 320 × 240 LCD contents again.
-
-The LCD is read as RGB565 and converted to a 24-bit BMP.<br>
-Large screenshot buffers are not kept resident during normal operation; they are allocated in PSRAM only while a request is active.
-
-The PNG images included in this documentation were also created by converting BMP files captured with this Browser Screenshot endpoint on the PC side.
 
 ---
 
@@ -438,7 +415,6 @@ Responsibilities:
 - Battery display
 - Wi-Fi status
 - Preset UI
-- Browser Screenshot
 
 ### audioreactive
 
@@ -453,7 +429,6 @@ The generic WLED Audio Reactive usermod includes ES7210 support used by the Core
 - Directly powering 120 LEDs from CoreS3 at high brightness is not recommended.
 - The standard WLED Brightness default of 128 is not modified.
 - A starting Brightness around 64 is recommended for CoreS3.
-- Browser Screenshot returns a still BMP image; it is not a live stream.
 - DCDC OVP protection is not disabled.
 
 ---
