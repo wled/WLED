@@ -2155,11 +2155,12 @@ bool WS2812FX::deserializeMap(unsigned n) {
   if (n == 0 || isFile) interfaceUpdateCallMode = CALL_MODE_WS_SEND; // schedule WS update (to inform UI)
   uint32_t lengthTotalBefore = strip.getLengthTotal();
 
-  Segment::maxWidth = _length; // set to 1D as default with no map
-  Segment::maxHeight = 1;
-
   if (!isFile && n==0) {
     setUpMatrix(); // 2D panel support creates its own ledmap (on the fly), is a no-op if not a matrix
+    if (!isMatrix) {
+      Segment::maxWidth = _length; // set to 1D as default with no map
+      Segment::maxHeight = 1;
+    }
     if (strip.getLengthTotal() != lengthTotalBefore)
       strip.updatePixelBuffer(); // allocate _pixels[] to match new length
     return false;
@@ -2179,7 +2180,7 @@ bool WS2812FX::deserializeMap(unsigned n) {
 
   JsonObject root = pDoc->as<JsonObject>();
   // if we are loading default ledmap (at boot) set matrix width and height from the ledmap (compatible with WLED MM ledmaps)
-  if (n == 0 && (!root[F("width")].isNull() || !root[F("height")].isNull())) {
+  if (!root[F("width")].isNull() || !root[F("height")].isNull()) {
     Segment::maxWidth  = min(max(root[F("width")].as<int>(), 1), 255);
     Segment::maxHeight = min(max(root[F("height")].as<int>(), 1), 255);
     isMatrix = true;
@@ -2252,6 +2253,8 @@ bool WS2812FX::deserializeMap(unsigned n) {
   } else {
     // 1D set-up: allocate strip length and fill with entries from file
     // partial maps leave indices beyond customMappingSize unmapped (-1)  TODO: see note above about appending unmapped pixels
+    Segment::maxWidth = _length;
+    Segment::maxHeight = 1;
     const unsigned mapSize = getLengthTotal();
     customMappingTable = static_cast<uint16_t*>(d_malloc(sizeof(uint16_t) * mapSize)); // prefer DRAM for speed
 
