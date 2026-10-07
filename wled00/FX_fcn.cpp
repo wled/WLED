@@ -2149,12 +2149,17 @@ bool WS2812FX::deserializeMap(unsigned n) {
 
   customMappingSize = 0; // prevent use of mapping if anything goes wrong
   currentLedmap = 0;
+  d_free(customMappingTable);
+  customMappingTable = nullptr;
+
   if (n == 0 || isFile) interfaceUpdateCallMode = CALL_MODE_WS_SEND; // schedule WS update (to inform UI)
   uint32_t lengthTotalBefore = strip.getLengthTotal();
 
-  if (!isFile && n==0 && isMatrix) {
-    // 2D panel support creates its own ledmap (on the fly) if a ledmap.json does not exist
-    setUpMatrix();
+  Segment::maxWidth = _length; // set to 1D as default with no map
+  Segment::maxHeight = 1;
+
+  if (!isFile && n==0) {
+    setUpMatrix(); // 2D panel support creates its own ledmap (on the fly), is a no-op if not a matrix
     if (strip.getLengthTotal() != lengthTotalBefore)
       strip.updatePixelBuffer(); // allocate _pixels[] to match new length
     return false;
@@ -2181,9 +2186,6 @@ bool WS2812FX::deserializeMap(unsigned n) {
     DEBUG_PRINTF_P(PSTR("LED map width=%d, height=%d\n"), Segment::maxWidth, Segment::maxHeight);
   }
   releaseJSONBufferLock();
-
-  d_free(customMappingTable);
-  customMappingTable = nullptr;
 
   if (isMatrix) {
     // 2D set-up: read the file twice: first pass counts valid pixel entries (numPhy)
