@@ -376,7 +376,8 @@ void Segment::startTransition(uint16_t dur, uint8_t kind) {
           captureBlend(millis()); // rebase fade channel to the current visual blend and restart it
         }
       }
-      else if (_t->_spatialProgress > 0 || _t->_fadeProgress < 0xFFFFU) {
+      else if (_t->_spatialProgress > 0 || _t->_oldSegment == nullptr) {
+        // note: if spatialProgress == 0, do not capture captureBlend(): for example an FX change also changes palette, we do not want that to fade in prallel
         if (!fadeTransitionActive() && _t->_oldSegment != nullptr) {
           // spatial transition with no fade running: enable fade and let the spatial transition continue. Need to capture the current "revealed" state i.e. copy segment colors to _t
           for (unsigned i = 0; i < NUM_COLORS; i++) _t->_colors[i] = colors[i]; // rebase transition colors&palette from current final state
