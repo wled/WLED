@@ -409,7 +409,6 @@ void Segment::startTransition(uint16_t dur, uint8_t kind) {
         // segment-level on/off
         if (_t->_oldSegment) {
           if (strip.isPoweringOff()) _t->_flags ^= TRANSITION_FLAG_POWER_ON; // flip POWER_ON flag, it is flipped back below, we need it to stay off if a segment is turned on during global off
-          if (!strip.isPoweringOn()) _t->_oldSegment->on = !_t->_oldSegment->on; // invert old segment's on state (but do not turn old segment off so rendering continues)
           _t->_oldSegment->opacity = opacity;
           _t->_oldSegment->cct = cct;
         }
