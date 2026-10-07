@@ -10022,7 +10022,7 @@ void mode_particleHourglass(void) {
 
   uint32_t colormode = SEGMENT.custom1 >> 5; // 0-7
 
-  if (SEGMENT.intensity != *settingTracker) { // initialize
+  if (SEGMENT.call == 0 || SEGMENT.intensity != *settingTracker) { // initialize
     *settingTracker = SEGMENT.intensity;
     for (uint32_t i = 0; i < PartSys->usedParticles; i++) {
       PartSys->particleFlags[i].reversegrav = true; // resting particles dont fall
