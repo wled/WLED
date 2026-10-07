@@ -1,10 +1,13 @@
 #include "wled.h"
 
+// forward declarations
+static void _overlayAnalogCountdown();
+
 /*
  * Used to draw clock overlays over the strip
  */
 
-void _overlayAnalogClock()
+static void _overlayAnalogClock()
 {
   int overlaySize = overlayMax - overlayMin +1;
   if (countdownMode)
@@ -47,7 +50,7 @@ void _overlayAnalogClock()
 }
 
 
-void _overlayAnalogCountdown()
+static void _overlayAnalogCountdown()
 {
   if ((unsigned long)toki.second() < countdownTime)
   {
