@@ -1,0 +1,4 @@
+{
+  "name": "LDR_PIR",
+  "build": { "libArchive": false }
+}
