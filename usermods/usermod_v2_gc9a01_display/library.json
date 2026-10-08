@@ -1,0 +1,12 @@
+{
+  "name": "gc9a01_display",
+  "build": {
+    "libArchive": false,
+    "flags": [
+      "-DUSERMOD_GC9A01_DISPLAY"
+    ]
+  },
+  "dependencies": {
+    "bodmer/TFT_eSPI": "^2.5.43"
+  }
+}
