@@ -4,6 +4,14 @@
  * LED methods
  */
 
+// Runtime state private to this file - previously WLED_GLOBAL, a leftover from
+// when all state lived in one big extern block regardless of who used it.
+static bool          transitionActive = false;
+static unsigned long transitionStartTime;
+static unsigned long lastNlUpdate;
+static byte           briNlT = 0;              // current nightlight brightness
+static byte           colNlT[] = { 0, 0, 0, 0 }; // current nightlight color
+
  // applies chosen setment properties to legacy values
 void setValuesFromSegment(uint8_t s) {
   const Segment& seg = strip.getSegment(s);
