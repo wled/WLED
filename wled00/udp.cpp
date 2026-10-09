@@ -427,13 +427,7 @@ void realtimeLock(uint32_t timeoutMs, byte md)
   }
 
   if (realtimeTimeout != UINT32_MAX) {
-    if (timeoutMs == 255001 || timeoutMs == 65000) realtimeTimeout = UINT32_MAX;
-    else {
-      realtimeTimeout = millis() + timeoutMs;
-      // Reserve 0 for cancellation and UINT32_MAX for an indefinite hold.
-      // Move finite deadlines at these two rollover ticks to the next valid tick.
-      if (realtimeTimeout == 0 || realtimeTimeout == UINT32_MAX) realtimeTimeout = 1;
-    }
+    realtimeTimeout = (timeoutMs == 255001 || timeoutMs == 65000) ? UINT32_MAX : millis() + timeoutMs;
   }
   realtimeMode = md;
 
@@ -485,7 +479,7 @@ void handleNotifications()
     else                    strip.show();
   }
 
-  // Compare finite deadlines across millis() rollover; 0 cancels immediately.
+  // Compare deadlines rollover-safe; 0 (set to cancel) must be checked explicitly, as the signed difference only treats it as expired for half of the millis() range.
   if (realtimeMode && realtimeTimeout != UINT32_MAX && (realtimeTimeout == 0 || int32_t(millis() - realtimeTimeout) > 0)) exitRealtime();
 
   //receive UDP notifications
