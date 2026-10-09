@@ -271,9 +271,12 @@ void IRAM_ATTR BusDigital::setPixelColor(unsigned pix, uint32_t c) {
   if (!_valid) return;
   uint8_t cctWW = 0, cctCW = 0;
   uint16_t wwcw = 0;
+  // RGB/RGBW: white balance tints the mixed white, so apply it before white extraction.
+  // CCT outputs already render temperature with WW/CW, so balance only the remaining RGB.
+  const uint16_t whiteBalance = Bus::getWhiteBalance();
+  if (whiteBalance >= 1900 && !hasCCT()) c = colorBalanceFromKelvin(whiteBalance, c); // color correction from CCT
   if (hasWhite()) c = autoWhiteCalc(c, cctWW, cctCW);
-  // Balance RGB after white extraction so tinting cannot change white output.
-  if (Bus::getWhiteBalance() >= 1900) c = colorBalanceFromKelvin(Bus::getWhiteBalance(), c); // RGB correction
+  if (whiteBalance >= 1900 && hasCCT()) c = colorBalanceFromKelvin(whiteBalance, c); // RGB correction after white extraction
   c = color_fade(c, _bri, true); // apply brightness
 
   if (hasCCT()) {
@@ -475,12 +478,14 @@ BusPwm::BusPwm(const BusConfig &bc)
 
 void BusPwm::setPixelColor(unsigned pix, uint32_t c) {
   if (pix != 0 || !_valid) return; //only react to first pixel
+  const uint16_t whiteBalance = Bus::getWhiteBalance();
+  if (whiteBalance >= 1900 && (_type == TYPE_ANALOG_3CH || _type == TYPE_ANALOG_4CH)) {
+    c = colorBalanceFromKelvin(whiteBalance, c); //color correction from CCT
+  }
   uint8_t cctWW, cctCW;
   if (_type != TYPE_ANALOG_3CH) c = autoWhiteCalc(c, cctWW, cctCW);
-  // Keep the extracted white level independent of RGB white balance.
-  if (Bus::getWhiteBalance() >= 1900 && (_type == TYPE_ANALOG_3CH || _type == TYPE_ANALOG_4CH || _type == TYPE_ANALOG_5CH)) {
-    c = colorBalanceFromKelvin(Bus::getWhiteBalance(), c); // RGB correction
-  }
+  // RGB+CCT: whites carry the temperature, so balance only the remaining RGB
+  if (whiteBalance >= 1900 && _type == TYPE_ANALOG_5CH) c = colorBalanceFromKelvin(whiteBalance, c);
   uint8_t r = R(c), g = G(c), b = B(c), w = W(c);
   // note: no color scaling, brightness is applied in show()
 
@@ -738,8 +743,8 @@ BusNetwork::BusNetwork(const BusConfig &bc)
 void BusNetwork::setPixelColor(unsigned pix, uint32_t c) {
   if (!_valid || pix >= _len) return;
   uint8_t ww, cw; // dummy, unused
+  if (Bus::getWhiteBalance() >= 1900) c = colorBalanceFromKelvin(Bus::getWhiteBalance(), c); //color correction from CCT
   if (_hasWhite) c = autoWhiteCalc(c, ww, cw);
-  if (Bus::getWhiteBalance() >= 1900) c = colorBalanceFromKelvin(Bus::getWhiteBalance(), c); // RGB correction
   unsigned offset = pix * _UDPchannels;
   _data[offset]   = R(c);
   _data[offset+1] = G(c);
