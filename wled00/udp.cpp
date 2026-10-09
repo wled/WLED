@@ -443,6 +443,7 @@ void exitRealtime() {
   realtimeTimeout = 0; // cancel realtime mode immediately
   realtimeMode = REALTIME_MODE_INACTIVE; // inform UI immediately
   realtimeIP[0] = 0;
+  resetE131SequenceNumbers(); // the next stream must not be filtered against this one's sequence numbers
   if (useMainSegmentOnly) { // unfreeze live segment again
     strip.getMainSegment().freeze = false;
     strip.trigger();
@@ -479,8 +480,8 @@ void handleNotifications()
     else                    strip.show();
   }
 
-  // Compare deadlines rollover-safe; 0 (set to cancel) must be checked explicitly, as the signed difference only treats it as expired for half of the millis() range.
-  if (realtimeMode && realtimeTimeout != UINT32_MAX && (realtimeTimeout == 0 || int32_t(millis() - realtimeTimeout) > 0)) exitRealtime();
+  //unlock strip when realtime UDP times out
+  if (realtimeMode && millis() > realtimeTimeout) exitRealtime();
 
   //receive UDP notifications
   if (!udpConnected) return;

@@ -110,6 +110,7 @@ void handleDMXInput();
 
 //e131.cpp
 void handleE131Packet(e131_packet_t* p, IPAddress clientIP, byte protocol, size_t packetLen);
+void resetE131SequenceNumbers();
 void handleDMXData(uint16_t uni, uint16_t dmxChannels, uint8_t* e131_data, uint8_t mde, uint8_t previousUniverses);
 // void handleArtnetPollReply(IPAddress ipAddress);                                          // local function, only used in e131.cpp
 // void prepareArtnetPollReply(ArtPollReply* reply);                                         // local function, only used in e131.cpp

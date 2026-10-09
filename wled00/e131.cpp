@@ -20,11 +20,16 @@ static uint16_t pollReplyCount = 0;                                // count numb
  * E1.31 handler
  */
 
+// Forget the last stream's sequence numbers, called when realtime mode ends
+void resetE131SequenceNumbers() {
+  memset(e131LastSequenceNumber, 0, sizeof(e131LastSequenceNumber));
+}
+
 //DDP protocol support, called by handleE131Packet
 //handles RGB data only
 static void handleDDPPacket(e131_packet_t* p, size_t packetLen) {
   static bool ddpSeenPush = false;  // have we seen a push yet?
-  int lastPushSeq = realtimeMode == REALTIME_MODE_DDP ? e131LastSequenceNumber[0] : 0;
+  int lastPushSeq = e131LastSequenceNumber[0];
 
   if (packetLen < DDP_HEADER_LEN) return; // too short to safely read any DDP header fields
 
@@ -80,11 +85,7 @@ static void handleDDPPacket(e131_packet_t* p, size_t packetLen) {
     return;
   }
 
-  if (realtimeMode != REALTIME_MODE_DDP) {
-    // A new stream must not inherit the old sender's sequence or push state.
-    ddpSeenPush = false;
-    e131LastSequenceNumber[0] = 0;
-  }
+  if (realtimeMode != REALTIME_MODE_DDP) ddpSeenPush = false; // just starting, no push yet
   realtimeLock(realtimeTimeoutMs, REALTIME_MODE_DDP);
 
   if (!realtimeOverride) {
