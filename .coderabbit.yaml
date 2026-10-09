@@ -261,3 +261,5 @@ reviews:
       enabled: false
     autofix:
       enabled: false
+    autopilot:
+      enabled: false
