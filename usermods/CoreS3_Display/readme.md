@@ -3,7 +3,7 @@
 [日本語](readme_jp.md)
 
 This project runs the WLED v17 series natively on M5Stack CoreS3 and combines<br>
-**local touch control / built-in microphone Audio Reactive / battery status / safe power-off / LED control** in a single device.
+**local touch control / built-in microphone Audio Reactive / battery status / physical Power Key handling / LED control** in a single device.
 
 > **Status:** Hardware-validated CoreS3 implementation<br>
 > **Base:** WLED 17.0.0-devV5<br>
@@ -25,9 +25,9 @@ This project runs the WLED v17 series natively on M5Stack CoreS3 and combines<br
 - Battery level display
 - Display Sleep / Wake
 - Wi-Fi Offline / Recovery AP UX
-- Safe Shutdown using the AXP2101 Power Key
-- LED BLACK frame before hard power-off
-- Restore of the previous LED state when Safe Shutdown is canceled
+- AXP2101 physical Power Key handling
+- WLED standard power-off / power-on transitions for long-press and canceled hold
+- Clean transition reversal when WLED is turned back on before PMIC hard power-off
 
 ---
 
@@ -278,23 +278,27 @@ Long-duration hardware testing and regression checks showed strong stabilization
 > This does not claim that DCDC3 itself was proven to be the sole hardware root cause.<br>
 > In this project, DCDC3 Always-PWM is treated as a stabilization measure that has been strongly validated on real hardware.
 
-### Safe Shutdown
+### Power Key Handling
 
-Holding the physical CoreS3 Power Key sends a BLACK frame to the LED Strip before the PMIC hard power-off.
+Holding the physical CoreS3 Power Key requests the normal WLED power-off path before the AXP2101 performs the final PMIC hard power-off.
+
+The CoreS3 usermod does not force LED output directly. It uses WLED's standard power transition handling so brightness state, transition reversal, and other WLED power behavior remain under core control.
 
 Processing sequence:
 
 ```text
 Power Key long press
         ↓
-LED BLACK frame
+WLED standard OFF transition
         ↓
-Strip suspend
+LED output reaches OFF
         ↓
 AXP2101 hard power-off
 ```
 
-If the Power Key is released after BLACK but before the final hard power-off, shutdown is canceled and the previous LED output and Brightness are restored.
+If the Power Key is released before the final PMIC hard power-off, the usermod requests the normal WLED power-on path when appropriate.
+
+If WLED is turned back on from the Web UI while the power-off transition is still running, the standard WLED transition can reverse and restore the active effect without CoreS3-specific LED output overriding it.
 
 ---
 
@@ -402,7 +406,7 @@ Responsibilities:
 - External 5V
 - DCDC3 Always-PWM
 - Power Key
-- Safe Shutdown
+- WLED Power Transition
 - Power Health
 
 ### CoreS3_Display

@@ -3,7 +3,7 @@
 [English](readme.md)
 
 M5Stack CoreS3 上で WLED v17 系をネイティブ動作させ、<br>
-**タッチディスプレイ / 内蔵マイク Audio Reactive / バッテリー表示 / 安全な電源OFF / LED制御** を1台にまとめるプロジェクトです。
+**タッチディスプレイ / 内蔵マイク Audio Reactive / バッテリー表示 / 物理 Power Key 連携 / LED制御** を1台にまとめるプロジェクトです。
 
 > **Status:** CoreS3 実機検証済み実装<br>
 > **Base:** WLED 17.0.0-devV5<br>
@@ -25,9 +25,9 @@ M5Stack CoreS3 上で WLED v17 系をネイティブ動作させ、<br>
 - バッテリー残量表示
 - Display Sleep / Wake
 - Wi-Fi Offline / Recovery AP UX
-- AXP2101 Power Key を使った Safe Shutdown
-- 電源OFF前に LED BLACK frame を送信
-- Safe Shutdown のキャンセル時は直前の LED 状態を復元
+- AXP2101 物理 Power Key の処理
+- 長押しおよびキャンセル時に WLED 標準の Power OFF / ON transition を使用
+- PMIC hard-off 前に WLED が再度 ON になった場合も標準 transition で自然に復帰
 
 ---
 
@@ -278,23 +278,27 @@ OVP protection: unchanged / enabled
 > DCDC3 がハードウェア上の絶対的な根本原因だった、と断定しているわけではありません。<br>
 > 本プロジェクトでは「実機で強く検証された安定化策」として扱っています。
 
-### Safe Shutdown
+### Power Key Handling
 
-CoreS3 の物理 Power Key 長押しでは、PMIC hard-off の前に LED Strip へ BLACK frame を送信します。
+CoreS3 の物理 Power Key を長押しすると、AXP2101 が最終的な PMIC hard-off を行う前に、WLED 標準の Power OFF 処理を要求します。
+
+CoreS3 usermod 側では LED 出力を直接強制せず、WLED 標準の Power transition を使用します。これにより Brightness 状態、transition の反転、その他の WLED Power 処理は WLED Core 側で管理されます。
 
 処理の概要:
 
 ```text
 Power Key long press
         ↓
-LED BLACK frame
+WLED standard OFF transition
         ↓
-Strip suspend
+LED output reaches OFF
         ↓
 AXP2101 hard power-off
 ```
 
-BLACK 送信後に Power Key を離して Shutdown をキャンセルした場合は、直前の LED 出力と Brightness を復元します。
+最終的な PMIC hard-off の前に Power Key を離した場合は、必要に応じて WLED 標準の Power ON 処理を要求します。
+
+Power OFF transition の途中で Web UI から WLED を再度 ON にした場合も、CoreS3 固有の LED 出力強制を行わず、WLED 標準 transition が反転して実行中のエフェクトへ復帰します。
 
 ---
 
@@ -402,7 +406,7 @@ WLED/
 - External 5V
 - DCDC3 Always-PWM
 - Power Key
-- Safe Shutdown
+- WLED Power Transition
 - Power Health
 
 ### CoreS3_Display
