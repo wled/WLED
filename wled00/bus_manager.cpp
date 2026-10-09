@@ -269,10 +269,11 @@ void BusDigital::setStatusPixel(uint32_t c) {
 // note: using WLED_O2_ATTR makes this function ~7% faster at the expense of 600 bytes of flash
 void IRAM_ATTR BusDigital::setPixelColor(unsigned pix, uint32_t c) {
   if (!_valid) return;
-  if (Bus::_cct >= 1900) c = colorBalanceFromKelvin(Bus::_cct, c); //color correction from CCT
   uint8_t cctWW = 0, cctCW = 0;
   uint16_t wwcw = 0;
   if (hasWhite()) c = autoWhiteCalc(c, cctWW, cctCW);
+  // Balance RGB after white extraction so tinting cannot change white output.
+  if (Bus::getWhiteBalance() >= 1900) c = colorBalanceFromKelvin(Bus::getWhiteBalance(), c); // RGB correction
   c = color_fade(c, _bri, true); // apply brightness
 
   if (hasCCT()) {
@@ -474,11 +475,12 @@ BusPwm::BusPwm(const BusConfig &bc)
 
 void BusPwm::setPixelColor(unsigned pix, uint32_t c) {
   if (pix != 0 || !_valid) return; //only react to first pixel
-  if (Bus::_cct >= 1900 && (_type == TYPE_ANALOG_3CH || _type == TYPE_ANALOG_4CH)) {
-    c = colorBalanceFromKelvin(Bus::_cct, c); //color correction from CCT
-  }
   uint8_t cctWW, cctCW;
   if (_type != TYPE_ANALOG_3CH) c = autoWhiteCalc(c, cctWW, cctCW);
+  // Keep the extracted white level independent of RGB white balance.
+  if (Bus::getWhiteBalance() >= 1900 && (_type == TYPE_ANALOG_3CH || _type == TYPE_ANALOG_4CH)) {
+    c = colorBalanceFromKelvin(Bus::getWhiteBalance(), c); // RGB correction
+  }
   uint8_t r = R(c), g = G(c), b = B(c), w = W(c);
   // note: no color scaling, brightness is applied in show()
 
@@ -737,7 +739,7 @@ void BusNetwork::setPixelColor(unsigned pix, uint32_t c) {
   if (!_valid || pix >= _len) return;
   uint8_t ww, cw; // dummy, unused
   if (_hasWhite) c = autoWhiteCalc(c, ww, cw);
-  if (Bus::_cct >= 1900) c = colorBalanceFromKelvin(Bus::_cct, c); //color correction from CCT
+  if (Bus::getWhiteBalance() >= 1900) c = colorBalanceFromKelvin(Bus::getWhiteBalance(), c); // RGB correction
   unsigned offset = pix * _UDPchannels;
   _data[offset]   = R(c);
   _data[offset+1] = G(c);
@@ -1462,13 +1464,14 @@ void IRAM_ATTR BusManager::setPixelColor(unsigned pix, uint32_t c) {
   }
 }
 
-void BusManager::setSegmentCCT(int16_t cct, bool allowWBCorrection) {
+void BusManager::setSegmentCCT(int16_t cct, bool allowWBCorrection, bool deriveFromRgb) {
   if (cct > 255) cct = 255;
   if (cct >= 0) {
     //if white balance correction allowed, save as kelvin value instead of 0-255
     if (allowWBCorrection) cct = 1900 + (cct << 5);
   } else cct = -1; // will use kelvin approximation from RGB
-  Bus::setCCT(cct);
+  Bus::setCCT(deriveFromRgb ? -1 : cct);
+  if (deriveFromRgb && cct >= 1900) Bus::setWhiteBalance(cct);
 }
 
 uint32_t BusManager::getPixelColor(unsigned pix) {
@@ -1576,6 +1579,7 @@ uint8_t PolyBus::_2PchannelsAssigned = 0;
 #endif
 // Bus static member definition
 int16_t Bus::_cct = -1;     // -1 means use approximateKelvinFromRGB(), 0-255 is standard, >1900 use colorBalanceFromKelvin()
+uint16_t Bus::_whiteBalance = 0;
 int8_t  Bus::_cctBlend = 0; // -128 to +127
 uint8_t Bus::_gAWM = 255;
 
