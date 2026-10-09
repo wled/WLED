@@ -427,7 +427,13 @@ void realtimeLock(uint32_t timeoutMs, byte md)
   }
 
   if (realtimeTimeout != UINT32_MAX) {
-    realtimeTimeout = (timeoutMs == 255001 || timeoutMs == 65000) ? UINT32_MAX : millis() + timeoutMs;
+    if (timeoutMs == 255001 || timeoutMs == 65000) realtimeTimeout = UINT32_MAX;
+    else {
+      realtimeTimeout = millis() + timeoutMs;
+      // Reserve 0 for cancellation and UINT32_MAX for an indefinite hold.
+      // Move finite deadlines at these two rollover ticks to the next valid tick.
+      if (realtimeTimeout == 0 || realtimeTimeout == UINT32_MAX) realtimeTimeout = 1;
+    }
   }
   realtimeMode = md;
 
@@ -479,8 +485,8 @@ void handleNotifications()
     else                    strip.show();
   }
 
-  //unlock strip when realtime UDP times out
-  if (realtimeMode && millis() > realtimeTimeout) exitRealtime();
+  // Compare finite deadlines across millis() rollover; 0 cancels immediately.
+  if (realtimeMode && realtimeTimeout != UINT32_MAX && (realtimeTimeout == 0 || int32_t(millis() - realtimeTimeout) > 0)) exitRealtime();
 
   //receive UDP notifications
   if (!udpConnected) return;
