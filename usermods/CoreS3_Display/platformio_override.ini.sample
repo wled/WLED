@@ -8,9 +8,9 @@
 ;
 ; Validated runtime basis:
 ;   WLED 17.0.0-devV5 / current main-derived tree
-;   pioarduino 55.03.39
-;   Arduino Core 3.3.9
-;   ESP-IDF 5.5.4
+;   Tasmota Platform 2026.05.50
+;   Arduino Core 3.3.8.260506
+;   ESP-IDF 5.5.4.260407
 ;   M5Stack CoreS3: 16MB Flash + 8MB QUAD PSRAM
 ;
 ; This example preserves:
