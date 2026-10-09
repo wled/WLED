@@ -591,7 +591,8 @@ void BusPwm::show() {
     unsigned duty;
   for (unsigned i = 0; i < numPins; i++) {
     unsigned duty;
-    if (applyGamma) {
+    bool isLinearChannel = cctICused && ((_type == TYPE_ANALOG_2CH && i == 1) || (_type == TYPE_ANALOG_5CH && i == 4));
+    if (applyGamma && !isLinearChannel) {
       duty = (unsigned)(powf((float)_data[i] / 255.0f, gammaCorrectVal) * pwmBri); // apply full resolution gamma correction: way more accurate than using gamma8(_data[i])
     } else {
       duty = (_data[i] * pwmBri) / 255;
