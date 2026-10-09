@@ -702,6 +702,32 @@ M5StackDisplayHardwareBackend::M5StackDisplayHardwareBackend( M5GFX& displayRef 
 
 bool M5StackDisplayHardwareBackend::initializeDisplay( int16_t& screenWidth, int16_t& screenHeight, bool& touchReady ) {
 #if defined(WLED_M5STACK_CORES3) && defined(CONFIG_IDF_TARGET_ESP32S3)
+    static const managed_pin_type coreS3DisplayPins[] = {
+      { 3,  true },   // LCD CS
+      { 35, true },   // LCD MISO / D/C shared
+      { 36, true },   // LCD SCLK
+      { 37, true },   // LCD MOSI
+      { 21, false }   // Touch INT
+    };
+
+    static bool coreS3DisplayPinsAllocated = false;
+
+    if ( !coreS3DisplayPinsAllocated ) {
+      if ( !PinManager::allocateMultiplePins(
+             coreS3DisplayPins,
+             sizeof( coreS3DisplayPins ) / sizeof( coreS3DisplayPins[0] ),
+             PinOwner::UM_Unspecified
+           ) ) {
+        DEBUG_PRINTLN(
+          F( "[CoreS3_Display] ERROR: display/touch pins already in use" )
+        );
+
+        return false;
+      }
+
+      coreS3DisplayPinsAllocated = true;
+    }
+
     CoreS3DisplayGlobalWireRuntime& coreS3Runtime =
       coreS3DisplayGlobalWireRuntime();
 
@@ -713,6 +739,14 @@ bool M5StackDisplayHardwareBackend::initializeDisplay( int16_t& screenWidth, int
       DEBUG_PRINTLN(
         F( "[CoreS3_Display] ERROR: CoreS3 global Wire display initialization failed" )
       );
+
+      PinManager::deallocateMultiplePins(
+        coreS3DisplayPins,
+        sizeof( coreS3DisplayPins ) / sizeof( coreS3DisplayPins[0] ),
+        PinOwner::UM_Unspecified
+      );
+
+      coreS3DisplayPinsAllocated = false;
 
       return false;
     }
