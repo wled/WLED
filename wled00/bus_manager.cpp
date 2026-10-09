@@ -200,14 +200,16 @@ void BusDigital::estimateCurrent() {
     _colorSum *= 3; // sum is sum of max value for each color, need to multiply by three to account for clrUnitsPerChannel being 3*255
     actualMilliampsPerLed = 12; // from testing an actual strip
   }
-  // _colorSum has all the values of color channels summed, max would be getLength()*(3*255 + (255 if hasWhite()): convert to milliAmps
-  uint32_t clrUnitsPerChannel = hasWhite() ? 4*255 : 3*255;
+  // _colorSum contains the physical output channels; normalize to their full-scale current.
+  // The WS2815 model above always uses three RGB channels, regardless of bus capabilities.
+  uint32_t clrUnitsPerChannel = (_milliAmpsPerLed == 255 ? 3 : getNumberOfChannels()) * 255;
   _milliAmpsTotal = ((uint64_t)_colorSum * actualMilliampsPerLed) / clrUnitsPerChannel + getLength(); // add 1mA standby current per LED to total (WS2812: ~0.7mA, WS2815: ~2mA)
 }
 
 void BusDigital::applyBriLimit(uint8_t newBri) {
   // a newBri of 0 means calculate per-bus brightness limit
   _NPBbri = 255; // reset, intermediate value is set below, final value is calculated in bus::show()
+  _colorSum = 0; // reset for next frame, including buses whose per-bus limit is disabled
   if (newBri == 0) {
     if (_milliAmpsLimit == 0 || _milliAmpsTotal == 0) return; // ABL not used for this bus
     newBri = 255;
@@ -226,15 +228,17 @@ void BusDigital::applyBriLimit(uint8_t newBri) {
 
   if (newBri < 255) {
     _NPBbri = newBri; // store value so it can be updated in show() (must be updated even if ABL is not used)
-    uint16_t wwcw = 0;
     unsigned hwLen = _len;
     if (_type == TYPE_WS2812_1CH_X3) hwLen = NUM_ICS_WS2812_1CH_3X(_len); // only needs a third of "RGB" LEDs for NeoPixelBus
+    hwLen += _skip; // NeoPixelBus also contains the sacrificial/status pixels
     for (unsigned i = 0; i < hwLen; i++) {
       uint8_t co = _colorOrderMap.getPixelColorOrder(i+_start, _colorOrder); // need to revert color order for correct color scaling and CCT calc in case white is swapped
-      uint32_t c = PolyBus::getPixelColor(_busPtr, _iType, i, co); // Note: if ABL would be calculated as a seperate loop (as it was before) it is slower but could use original color, making it more color-accurate
-      if (hasCCT()) {
-        uint8_t cctWW, cctCW;
-        Bus::calculateCCT(c, cctWW, cctCW); // calculate CCT before fade (more accurate) | Note: if using "accurate" white calculation mode, approximateKelvinFromRGB can be very inaccurate (white is subtracted)
+      uint16_t wwcw = 0;
+      uint32_t c = PolyBus::getPixelColor(_busPtr, _iType, i, co, &wwcw);
+      if (hasCCT() && _type != TYPE_WS2812_WWA) {
+        // Scale the already-rendered white channels. The global CCT no longer identifies
+        // this pixel's segment, and the legacy RGBW getter cannot preserve both whites.
+        uint8_t cctWW = wwcw, cctCW = wwcw >> 8;
         wwcw = ((cctCW + 1) * newBri) & 0xFF00; // apply brightness to CCT (leave it in upper byte for 16bit NeoPixelBus value)
         wwcw |= ((cctWW + 1) * newBri) >> 8;
       }
@@ -242,8 +246,6 @@ void BusDigital::applyBriLimit(uint8_t newBri) {
       PolyBus::setPixelColor(_busPtr, _iType, i, c, co, wwcw); // repaint all pixels with new brightness
     }
   }
-
-  _colorSum = 0; // reset for next frame
 }
 
 void BusDigital::show() {
@@ -285,7 +287,9 @@ void IRAM_ATTR BusDigital::setPixelColor(unsigned pix, uint32_t c) {
     // if using ABL, sum all color channels to estimate current and limit brightness in show()
     uint8_t r = R(c), g = G(c), b = B(c);
     if (_milliAmpsPerLed < 255) { // normal ABL
-      _colorSum += r + g + b + W(c);
+      // Count only channels that reach the LEDs, including both scaled CCT whites.
+      _colorSum += (hasRGB() ? r + g + b : 0)
+                 + (hasCCT() ? (wwcw & 0xFF) + (wwcw >> 8) : (hasWhite() ? W(c) : 0));
     } else { // wacky WS2815 power model, ignore white channel, use max of RGB (issue #549)
       _colorSum += ((r > g) ? ((r > b) ? r : b) : ((g > b) ? g : b));
     }
@@ -1512,7 +1516,7 @@ void BusManager::initializeABL() {
           uint32_t busMax    = busd.getMaxCurrent();
           if (busMax > ESPshare)  busMax -= ESPshare;
           if (busMax < busLength) busMax  = busLength; // give each LED 1mA, ABL will dim down to minimum
-          if (busDemand == 0) busMax = 0; // no LED current set, disable ABL for this bus
+          if (busDemand == 0 || busd.getMaxCurrent() == 0) busMax = 0; // no LED current or no limit set, disable ABL for this bus
           busd.setCurrentLimit(busMax);
         }
       }
@@ -1579,9 +1583,8 @@ int16_t Bus::_cct = -1;     // -1 means use approximateKelvinFromRGB(), 0-255 is
 int8_t  Bus::_cctBlend = 0; // -128 to +127
 uint8_t Bus::_gAWM = 255;
 
-uint16_t BusDigital::_milliAmpsTotal = 0;
 
 std::vector<std::unique_ptr<Bus>> BusManager::busses;
-uint16_t BusManager::_gMilliAmpsUsed = 0;
+uint32_t BusManager::_gMilliAmpsUsed = 0;
 uint16_t BusManager::_gMilliAmpsMax = ABL_MILLIAMPS_DEFAULT;
 bool BusManager::_useABL = false;

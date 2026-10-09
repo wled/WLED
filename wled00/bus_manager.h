@@ -141,7 +141,7 @@ class Bus {
     virtual unsigned skippedLeds() const                        { return 0; }
     virtual uint16_t getFrequency() const                       { return 0U; }
     virtual uint16_t getLEDCurrent() const                      { return 0; }
-    virtual uint16_t getUsedCurrent() const                     { return 0; }
+    virtual uint32_t getUsedCurrent() const                     { return 0; }
     virtual uint16_t getMaxCurrent() const                      { return 0; }
     virtual uint8_t  getDriverType() const                      { return 0; } // Default to RMT (0) for non-digital buses
     virtual size_t   getBusSize() const                         { return sizeof(Bus); } // currently unused
@@ -261,7 +261,7 @@ class BusDigital : public Bus {
     unsigned skippedLeds() const override    { return _skip; }
     uint16_t getFrequency() const override   { return _frequencykHz; }
     uint16_t getLEDCurrent() const override  { return _milliAmpsPerLed; }
-    uint16_t getUsedCurrent() const override { return _milliAmpsTotal; }
+    uint32_t getUsedCurrent() const override { return _milliAmpsTotal; }
     uint16_t getMaxCurrent() const override  { return _milliAmpsMax; }
     uint8_t  getDriverType() const override  { return _driverType; }
     void     setCurrentLimit(uint16_t milliAmps) { _milliAmpsLimit = milliAmps; }
@@ -287,7 +287,7 @@ class BusDigital : public Bus {
     uint32_t _colorSum; // total color value for the bus, updated in setPixelColor(), used to estimate current
     void    *_busPtr;
 
-    static uint16_t _milliAmpsTotal; // is overwitten/recalculated on each show()
+    uint32_t _milliAmpsTotal = 0; // per-bus estimate; keep values above 65535mA until ABL is applied
 
     inline uint32_t restoreColorLossy(uint32_t c, uint8_t restoreBri) const {
       if (restoreBri < 255) {
@@ -530,7 +530,7 @@ namespace BusManager {
 
   extern std::vector<std::unique_ptr<Bus>> busses;
   //extern std::vector<Bus*> busses;
-  extern uint16_t _gMilliAmpsUsed;
+  extern uint32_t _gMilliAmpsUsed;
   extern uint16_t _gMilliAmpsMax;
   extern bool     _useABL;
 
@@ -543,7 +543,7 @@ namespace BusManager {
     return j;
   }
 
-  inline uint16_t currentMilliamps()            { return _gMilliAmpsUsed + MA_FOR_ESP; }
+  inline uint32_t currentMilliamps()            { return _gMilliAmpsUsed + MA_FOR_ESP; }
   //inline uint16_t ablMilliampsMax()             { unsigned sum = 0; for (auto &bus : busses) sum += bus->getMaxCurrent(); return sum; }
   inline uint16_t ablMilliampsMax()             { return _gMilliAmpsMax; }  // used for compatibility reasons (and enabling virtual global ABL)
   inline void     setMilliampsMax(uint16_t max) { _gMilliAmpsMax = max;}
