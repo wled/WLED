@@ -441,7 +441,6 @@ void exitRealtime() {
   if (realtimeOverride == REALTIME_OVERRIDE_ONCE) realtimeOverride = REALTIME_OVERRIDE_NONE;
   realtimeTimeout = 0; // cancel realtime mode immediately
   realtimeMode = REALTIME_MODE_INACTIVE; // inform UI immediately
-  BusManager::updateGammaUse();
   strip.setBrightness(bri, true);
   realtimeIP[0] = 0;
   if (useMainSegmentOnly) { // unfreeze live segment again

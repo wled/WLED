@@ -1763,7 +1763,7 @@ void WS2812FX::show() {
     return; // no pixels allocated, nothing to show
   }
 
-  BusManager::updateGammaUse();
+  BusManager::updateGammaUse(); // update gamma use (and bus brightness correction) in case something changed
   unsigned long showNow = millis();
   size_t diff = showNow - _lastShow;
 

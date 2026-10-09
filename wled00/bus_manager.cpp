@@ -267,7 +267,6 @@ void BusDigital::setStatusPixel(uint32_t c) {
 }
 
 void BusDigital::setBrightness(uint8_t b) {
-  BusManager::updateGammaUse();
   _bri = b;
   if (_bri > 0 && _bri < 255 && applyGamma)
     _bri = gamma8inv(_bri + 1); // limit min brightness so gamma does not dim to black
@@ -1481,6 +1480,7 @@ void BusManager::off() {
 
 void BusManager::updateGammaUse() {
   applyGamma = gammaCorrectCol && !(realtimeMode && arlsDisableGammaCorrection && !realtimeOverride);
+  BusManager::setBrightness(scaledBri(bri)); // update brightness for all (digital) buses in case gamma usage changed
 }
 
 void BusManager::show() {
