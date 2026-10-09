@@ -287,7 +287,7 @@ class BusDigital : public Bus {
     uint32_t _colorSum; // total color value for the bus, updated in setPixelColor(), used to estimate current
     void    *_busPtr;
 
-    uint32_t _milliAmpsTotal = 0; // per-bus estimate; keep values above 65535mA until ABL is applied
+    static uint32_t _milliAmpsTotal; // is overwritten/recalculated on each show(); 32 bit so large outputs are not truncated
 
     inline uint32_t restoreColorLossy(uint32_t c, uint8_t restoreBri) const {
       if (restoreBri < 255) {

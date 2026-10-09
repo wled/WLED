@@ -228,10 +228,10 @@ void BusDigital::applyBriLimit(uint8_t newBri) {
 
   if (newBri < 255) {
     _NPBbri = newBri; // store value so it can be updated in show() (must be updated even if ABL is not used)
-    unsigned hwLen = _len;
-    if (_type == TYPE_WS2812_1CH_X3) hwLen = NUM_ICS_WS2812_1CH_3X(_len); // only needs a third of "RGB" LEDs for NeoPixelBus
-    hwLen += _skip; // NeoPixelBus also contains the sacrificial/status pixels
-    for (unsigned i = 0; i < hwLen; i++) {
+    // NeoPixelBus indices of this bus' LEDs: skipped (sacrificial/status) pixels at the start are exempt from ABL
+    unsigned first = _skip, last = _skip + _len;
+    if (_type == TYPE_WS2812_1CH_X3) { first = IC_INDEX_WS2812_1CH_3X(first); last = IC_INDEX_WS2812_1CH_3X(last - 1) + 1; } // 1 IC controls 3 LEDs
+    for (unsigned i = first; i < last; i++) {
       uint8_t co = _colorOrderMap.getPixelColorOrder(i+_start, _colorOrder); // need to revert color order for correct color scaling and CCT calc in case white is swapped
       uint16_t wwcw = 0;
       uint32_t c = PolyBus::getPixelColor(_busPtr, _iType, i, co, &wwcw);
@@ -1583,6 +1583,8 @@ int16_t Bus::_cct = -1;     // -1 means use approximateKelvinFromRGB(), 0-255 is
 int8_t  Bus::_cctBlend = 0; // -128 to +127
 uint8_t Bus::_gAWM = 255;
 
+
+uint32_t BusDigital::_milliAmpsTotal = 0;
 
 std::vector<std::unique_ptr<Bus>> BusManager::busses;
 uint32_t BusManager::_gMilliAmpsUsed = 0;
