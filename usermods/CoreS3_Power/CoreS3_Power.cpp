@@ -15,8 +15,8 @@
  * Preserved validated power behavior:
  *   - AW9523B external-5V enable writes (BOOST then BUS).
  *   - Runtime External 5V re-assert after M5GFX initialization.
- *   - AXP2101 power-key IRQ handling for Safe Shutdown.
- *   - Safe Physical Shutdown LED BLACK / cancel-and-restore logic.
+ *   - AXP2101 power-key IRQ handling.
+ *   - WLED standard power transitions for long-press and canceled hold.
  *   - AXP2101 DCDC3 Always-PWM stability setting.
  *   - Concise boot reset / PWRON / PWROFF cause reporting.
  */
@@ -29,7 +29,7 @@
 // ============================================================
 static volatile bool coreS3PowerInitializationCompleteState = false;
 static volatile bool coreS3PowerExternal5VReadyState = false;
-static volatile bool coreS3PowerSafeShutdownMonitorReadyState = false;
+static volatile bool coreS3PowerKeyMonitorReadyState = false;
 
 bool coreS3PowerInitializationComplete()
 {
@@ -41,9 +41,9 @@ bool coreS3PowerExternal5VReady()
   return coreS3PowerExternal5VReadyState;
 }
 
-bool coreS3PowerSafeShutdownMonitorReady()
+bool coreS3PowerKeyMonitorReady()
 {
-  return coreS3PowerSafeShutdownMonitorReadyState;
+  return coreS3PowerKeyMonitorReadyState;
 }
 
 class CoreS3PowerUsermod : public Usermod
@@ -86,9 +86,7 @@ private:
     AXP2101_PKEY_LONG_MASK;
 
   static constexpr unsigned long POWER_KEY_POLL_INTERVAL_MS = 20;
-  static constexpr unsigned long SAFE_SHUTDOWN_FALLBACK_HOLD_MS = 1500;
-  static constexpr unsigned long SAFE_SHUTDOWN_BLACK_REFRESH_MS = 100;
-  static constexpr unsigned long SAFE_SHUTDOWN_SHOW_WAIT_MS = 150;
+  static constexpr unsigned long POWER_KEY_FALLBACK_HOLD_MS = 1500;
   static constexpr unsigned long RUNTIME_POWER_HEALTH_POLL_MS = 10000;
 
   static constexpr uint8_t REG_OUTPUT_P0 = 0x02;
@@ -130,19 +128,18 @@ private:
   bool runtimePowerKeyMonitorAttempted = false;
   bool runtimePowerKeyBusReadyLogged = false;
   bool powerKeyPressed = false;
-  bool safeShutdownBlankActive = false;
-  bool safeShutdownEverTriggered = false;
-  bool safeShutdownLastCanceled = false;
+  bool powerKeyHoldHandled = false;
+  bool powerKeyEverTriggered = false;
+  bool powerKeyLastCanceled = false;
 
   uint8_t axpIrqEnableBefore = 0;
   uint8_t axpIrqEnableAfter = 0;
   uint8_t lastPowerKeyStatus = 0;
-  uint8_t lastSafeShutdownTriggerStatus = 0;
-  uint8_t savedLogicalBrightness = 0;
+  uint8_t lastPowerKeyOffTriggerStatus = 0;
+  uint8_t brightnessBeforePowerKeyHold = 0;
 
   unsigned long powerKeyPressedAt = 0;
   unsigned long lastPowerKeyPoll = 0;
-  unsigned long lastShutdownBlackRefresh = 0;
   unsigned long lastRuntimeI2CFailureLog = 0;
 
   esp_reset_reason_t bootResetReason = ESP_RST_UNKNOWN;
@@ -464,7 +461,7 @@ private:
 
   void serviceRuntimePowerHealth()
   {
-    if (!powerKeyMonitorReady || safeShutdownBlankActive) return;
+    if (!powerKeyMonitorReady || powerKeyHoldHandled) return;
 
     const unsigned long now = millis();
     if (
@@ -508,79 +505,55 @@ private:
     }
   }
 
-  void waitForLedOutputComplete()
+  void beginPowerKeyWledOff(uint8_t triggerStatus)
   {
-    unsigned long waitStart = millis();
-    while (strip.isUpdating() && millis() - waitStart < SAFE_SHUTDOWN_SHOW_WAIT_MS) {
-      delay(1);
-    }
-  }
+    if (powerKeyHoldHandled) return;
 
-  void beginSafeShutdownBlank(uint8_t triggerStatus)
-  {
-    if (safeShutdownBlankActive) return;
-
-    safeShutdownLastCanceled = false;
-    safeShutdownEverTriggered = true;
-    lastSafeShutdownTriggerStatus = triggerStatus;
-    savedLogicalBrightness = bri;
+    powerKeyLastCanceled = false;
+    powerKeyEverTriggered = true;
+    lastPowerKeyOffTriggerStatus = triggerStatus;
+    brightnessBeforePowerKeyHold = bri;
 
     DEBUG_PRINTF(
-      "[CoreS3_Power] Safe shutdown trigger: IRQ=0x%02X%s%s\n",
+      "[CoreS3_Power] Power key WLED off trigger: IRQ=0x%02X%s%s bri=%u\n",
       triggerStatus,
       (triggerStatus & AXP2101_PKEY_LONG_MASK) ? " LONG" : "",
-      (triggerStatus & AXP2101_PKEY_NEGATIVE_MASK) ? " PRESS" : ""
+      (triggerStatus & AXP2101_PKEY_NEGATIVE_MASK) ? " PRESS" : "",
+      brightnessBeforePowerKeyHold
     );
 
-    DEBUG_PRINTF(
-      "[CoreS3_Power] Safe shutdown: WLED bri=%u, strip=%u -> physical 0\n",
-      savedLogicalBrightness,
-      strip.getBrightness()
-    );
-
-    // Keep physical output BLACK without taking ownership of WLED's strip
-    // suspend state.
-    strip.waitForIt();
-    strip.setBrightness(0, true);
-    strip.show();
-    waitForLedOutputComplete();
-
-    safeShutdownBlankActive = true;
-    lastShutdownBlackRefresh = millis();
-
-    DEBUG_PRINTLN(F("[CoreS3_Power] Safe shutdown: BLACK frame sent; physical brightness held at 0"));
-  }
-
-  void maintainSafeShutdownBlank(unsigned long now)
-  {
-    if (!safeShutdownBlankActive || !powerKeyPressed) return;
-    if (now - lastShutdownBlackRefresh < SAFE_SHUTDOWN_BLACK_REFRESH_MS) return;
-
-    lastShutdownBlackRefresh = now;
-    strip.setBrightness(0, true);
-    strip.show();
-    waitForLedOutputComplete();
-  }
-
-  void cancelSafeShutdownBlank()
-  {
-    if (!safeShutdownBlankActive) return;
-
-    DEBUG_PRINTLN(F("[CoreS3_Power] Safe shutdown canceled: restoring LED output"));
-
-    uint8_t restoreBrightness = bri;
-    if (restoreBrightness == 0 && savedLogicalBrightness > 0) {
-      restoreBrightness = savedLogicalBrightness;
+    if (bri > 0) {
+      toggleOnOff();
+      stateUpdated(CALL_MODE_BUTTON);
+      DEBUG_PRINTLN(F("[CoreS3_Power] WLED power-off requested"));
+    }
+    else {
+      DEBUG_PRINTLN(F("[CoreS3_Power] WLED already off; no power-off request needed"));
     }
 
-    strip.setBrightness(restoreBrightness, true);
-    strip.show();
-    waitForLedOutputComplete();
+    powerKeyHoldHandled = true;
+  }
 
-    safeShutdownBlankActive = false;
-    safeShutdownLastCanceled = true;
+  void cancelPowerKeyWledOff()
+  {
+    if (!powerKeyHoldHandled) return;
 
-    DEBUG_PRINTF("[CoreS3_Power] Safe shutdown canceled: restored bri=%u\n", restoreBrightness);
+    DEBUG_PRINTLN(F("[CoreS3_Power] Power key hold canceled"));
+
+    if (brightnessBeforePowerKeyHold > 0 && bri == 0) {
+      toggleOnOff();
+      stateUpdated(CALL_MODE_BUTTON);
+      DEBUG_PRINTLN(F("[CoreS3_Power] WLED power-on requested"));
+    }
+    else if (bri > 0) {
+      DEBUG_PRINTLN(F("[CoreS3_Power] WLED already on; no restore request needed"));
+    }
+    else {
+      DEBUG_PRINTLN(F("[CoreS3_Power] WLED was already off before power-key hold"));
+    }
+
+    powerKeyHoldHandled = false;
+    powerKeyLastCanceled = true;
   }
 
   void servicePhysicalPowerKey()
@@ -591,7 +564,7 @@ private:
       if (!runtimePowerKeyMonitorAttempted || now - lastRuntimeI2CFailureLog >= 1000) {
         if (configureRuntimePowerKeyMonitor()) {
           powerKeyMonitorReady = true;
-          coreS3PowerSafeShutdownMonitorReadyState = true;
+          coreS3PowerKeyMonitorReadyState = true;
         }
         else {
           lastRuntimeI2CFailureLog = now;
@@ -601,7 +574,6 @@ private:
     }
 
     if (now - lastPowerKeyPoll < POWER_KEY_POLL_INTERVAL_MS) {
-      maintainSafeShutdownBlank(now);
       return;
     }
 
@@ -613,7 +585,6 @@ private:
         lastRuntimeI2CFailureLog = now;
         DEBUG_PRINTLN(F("[CoreS3_Power] Runtime PKEY status read FAILED on global Wire / I2C0"));
       }
-      maintainSafeShutdownBlank(now);
       return;
     }
 
@@ -639,30 +610,28 @@ private:
       powerKeyPressedAt = now;
     }
 
-    if ((powerKeyStatus & AXP2101_PKEY_LONG_MASK) && !safeShutdownBlankActive) {
+    if ((powerKeyStatus & AXP2101_PKEY_LONG_MASK) && !powerKeyHoldHandled) {
       powerKeyPressed = true;
       if (powerKeyPressedAt == 0) powerKeyPressedAt = now;
-      beginSafeShutdownBlank(powerKeyStatus);
+      beginPowerKeyWledOff(powerKeyStatus);
     }
 
     if (
       powerKeyPressed &&
-      !safeShutdownBlankActive &&
+      !powerKeyHoldHandled &&
       powerKeyPressedAt > 0 &&
-      now - powerKeyPressedAt >= SAFE_SHUTDOWN_FALLBACK_HOLD_MS
+      now - powerKeyPressedAt >= POWER_KEY_FALLBACK_HOLD_MS
     ) {
-      DEBUG_PRINTLN(F("[CoreS3_Power] Safe shutdown: PRESS timer fallback"));
-      beginSafeShutdownBlank(AXP2101_PKEY_NEGATIVE_MASK);
+      DEBUG_PRINTLN(F("[CoreS3_Power] Power key: PRESS timer fallback"));
+      beginPowerKeyWledOff(AXP2101_PKEY_NEGATIVE_MASK);
     }
 
     if (powerKeyStatus & AXP2101_PKEY_POSITIVE_MASK) {
       powerKeyPressed = false;
       powerKeyPressedAt = 0;
-      cancelSafeShutdownBlank();
+      cancelPowerKeyWledOff();
       return;
     }
-
-    maintainSafeShutdownBlank(now);
   }
 
 public:
@@ -670,7 +639,7 @@ public:
   {
     coreS3PowerInitializationCompleteState = false;
     coreS3PowerExternal5VReadyState = false;
-    coreS3PowerSafeShutdownMonitorReadyState = false;
+    coreS3PowerKeyMonitorReadyState = false;
 
     bootResetReason = esp_reset_reason();
 
@@ -711,8 +680,8 @@ public:
     runtimePowerKeyMonitorAttempted = false;
 
     DEBUG_PRINTLN(F("[CoreS3_Power] Power key monitor: DEFERRED to runtime loop on global Wire / I2C0"));
-    DEBUG_PRINTLN(F("[CoreS3_Power] Safe shutdown: AXP2101 LONG IRQ primary trigger"));
-    DEBUG_PRINTF("[CoreS3_Power] Safe shutdown: PRESS fallback >= %lu ms\n", SAFE_SHUTDOWN_FALLBACK_HOLD_MS);
+    DEBUG_PRINTLN(F("[CoreS3_Power] Power key: AXP2101 LONG IRQ primary trigger"));
+    DEBUG_PRINTF("[CoreS3_Power] Power key: PRESS fallback >= %lu ms\n", POWER_KEY_FALLBACK_HOLD_MS);
     DEBUG_PRINTF("[CoreS3_Power] External 5V: %s\n", external5VEnableSuccess ? "ENABLED" : "FAILED");
 
     coreS3PowerInitializationCompleteState = true;
@@ -759,18 +728,18 @@ public:
       pwmInfo.add("OVP protection unchanged");
     }
 
-    JsonArray shutdownInfo = user.createNestedArray("CoreS3 Safe Shutdown");
+    JsonArray shutdownInfo = user.createNestedArray("CoreS3 Power Key");
     if (!powerKeyMonitorReady) {
       shutdownInfo.add(runtimePowerKeyMonitorAttempted ? "Runtime Wire / I2C0 monitor unavailable" : "Runtime Wire / I2C0 monitor pending");
     }
-    else if (safeShutdownBlankActive) {
-      shutdownInfo.add("BLACK output active - waiting for PMIC off");
+    else if (powerKeyHoldHandled) {
+      shutdownInfo.add("Power key hold active - waiting for PMIC off");
     }
-    else if (safeShutdownLastCanceled) {
-      shutdownInfo.add("ARMED - last shutdown hold canceled");
+    else if (powerKeyLastCanceled) {
+      shutdownInfo.add("ARMED - last power-key hold canceled");
     }
-    else if (safeShutdownEverTriggered) {
-      shutdownInfo.add("ARMED - shutdown BLACK previously triggered");
+    else if (powerKeyEverTriggered) {
+      shutdownInfo.add("ARMED - WLED power-off previously triggered");
     }
     else {
       shutdownInfo.add("ARMED");
@@ -779,7 +748,7 @@ public:
     shutdownInfo.add("Trigger: AXP2101 Long Press IRQ");
 
     char fallbackText[48];
-    snprintf(fallbackText, sizeof(fallbackText), "PRESS fallback: %lu ms", SAFE_SHUTDOWN_FALLBACK_HOLD_MS);
+    snprintf(fallbackText, sizeof(fallbackText), "PRESS fallback: %lu ms", POWER_KEY_FALLBACK_HOLD_MS);
     shutdownInfo.add(fallbackText);
 
     char lastIrqText[40];
@@ -787,7 +756,7 @@ public:
     shutdownInfo.add(lastIrqText);
 
     char triggerIrqText[40];
-    snprintf(triggerIrqText, sizeof(triggerIrqText), "Last BLACK trigger: 0x%02X", lastSafeShutdownTriggerStatus);
+    snprintf(triggerIrqText, sizeof(triggerIrqText), "Last power-off trigger: 0x%02X", lastPowerKeyOffTriggerStatus);
     shutdownInfo.add(triggerIrqText);
 
     char irqText[48];

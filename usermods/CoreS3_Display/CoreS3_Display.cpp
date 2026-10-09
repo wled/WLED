@@ -49,7 +49,7 @@ static const char CORES3_DISPLAY_CONFIG_NAME[] PROGMEM = "CoreS3_Display";
 #if defined(WLED_M5STACK_CORES3) && defined(CONFIG_IDF_TARGET_ESP32S3)
 bool coreS3PowerInitializationComplete();
 bool coreS3PowerExternal5VReady();
-bool coreS3PowerSafeShutdownMonitorReady();
+bool coreS3PowerKeyMonitorReady();
 #endif
 
 
@@ -127,7 +127,7 @@ class CoreS3DisplayUsermod : public Usermod {
   enum RuntimeHealthWarning : uint8_t {
     RUNTIME_HEALTH_WARNING_NONE = 0,
     RUNTIME_HEALTH_WARNING_LED_POWER,
-    RUNTIME_HEALTH_WARNING_POWER_SAFETY,
+    RUNTIME_HEALTH_WARNING_POWER_KEY,
     RUNTIME_HEALTH_WARNING_TOUCH
   };
 
@@ -139,12 +139,12 @@ class CoreS3DisplayUsermod : public Usermod {
   unsigned long runtimeHealthWarningStartMs = 0;
 
   static constexpr uint8_t RUNTIME_HEALTH_SHOWN_LED_POWER = 0x01;
-  static constexpr uint8_t RUNTIME_HEALTH_SHOWN_POWER_SAFETY = 0x02;
+  static constexpr uint8_t RUNTIME_HEALTH_SHOWN_POWER_KEY = 0x02;
   static constexpr uint8_t RUNTIME_HEALTH_SHOWN_TOUCH = 0x04;
 
   // Give the deferred global Wire / I2C0 power-key monitor time to ARM before
-  // declaring Safe Shutdown unavailable.
-  static constexpr unsigned long POWER_SAFETY_WARNING_GRACE_MS = 5000;
+  // declaring the power-key monitor unavailable.
+  static constexpr unsigned long POWER_KEY_WARNING_GRACE_MS = 5000;
   static constexpr unsigned long RUNTIME_HEALTH_WARNING_HOLD_MS = 2200;
 
   // =========================================================
@@ -1843,8 +1843,8 @@ class CoreS3DisplayUsermod : public Usermod {
       case RUNTIME_HEALTH_WARNING_LED_POWER:
         return RUNTIME_HEALTH_SHOWN_LED_POWER;
 
-      case RUNTIME_HEALTH_WARNING_POWER_SAFETY:
-        return RUNTIME_HEALTH_SHOWN_POWER_SAFETY;
+      case RUNTIME_HEALTH_WARNING_POWER_KEY:
+        return RUNTIME_HEALTH_SHOWN_POWER_KEY;
 
       case RUNTIME_HEALTH_WARNING_TOUCH:
         return RUNTIME_HEALTH_SHOWN_TOUCH;
@@ -1858,7 +1858,7 @@ class CoreS3DisplayUsermod : public Usermod {
   RuntimeHealthWarning getNextRuntimeHealthWarning( unsigned long now ) {
 #if defined(WLED_M5STACK_CORES3) && defined(CONFIG_IDF_TARGET_ESP32S3)
     const bool graceExpired =
-      now - runtimeHealthStartMs >= POWER_SAFETY_WARNING_GRACE_MS;
+      now - runtimeHealthStartMs >= POWER_KEY_WARNING_GRACE_MS;
 
     if (
       !( runtimeHealthWarningsShownMask & RUNTIME_HEALTH_SHOWN_LED_POWER ) &&
@@ -1871,11 +1871,11 @@ class CoreS3DisplayUsermod : public Usermod {
     }
 
     if (
-      !( runtimeHealthWarningsShownMask & RUNTIME_HEALTH_SHOWN_POWER_SAFETY ) &&
+      !( runtimeHealthWarningsShownMask & RUNTIME_HEALTH_SHOWN_POWER_KEY ) &&
       graceExpired &&
-      !coreS3PowerSafeShutdownMonitorReady()
+      !coreS3PowerKeyMonitorReady()
     ) {
-      return RUNTIME_HEALTH_WARNING_POWER_SAFETY;
+      return RUNTIME_HEALTH_WARNING_POWER_KEY;
     }
 #endif
 
@@ -1909,14 +1909,14 @@ class CoreS3DisplayUsermod : public Usermod {
       return;
     }
 
-    if ( warning == RUNTIME_HEALTH_WARNING_POWER_SAFETY ) {
+    if ( warning == RUNTIME_HEALTH_WARNING_POWER_KEY ) {
       display.setTextColor( TFT_YELLOW, TFT_BLACK );
       display.setTextSize( 2 );
-      display.drawString( "POWER SAFETY WARNING", screenWidth / 2, 82 );
+      display.drawString( "POWER KEY WARNING", screenWidth / 2, 82 );
 
       display.setTextColor( TFT_WHITE, TFT_BLACK );
       display.setTextSize( 1 );
-      display.drawString( "Safe shutdown unavailable", screenWidth / 2, 122 );
+      display.drawString( "Power key monitor unavailable", screenWidth / 2, 122 );
 
       display.setTextColor( TFT_DARKGREY, TFT_BLACK );
       display.drawString( "Use WLED power control", screenWidth / 2, 151 );
