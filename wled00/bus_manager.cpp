@@ -478,7 +478,7 @@ void BusPwm::setPixelColor(unsigned pix, uint32_t c) {
   uint8_t cctWW, cctCW;
   if (_type != TYPE_ANALOG_3CH) c = autoWhiteCalc(c, cctWW, cctCW);
   // Keep the extracted white level independent of RGB white balance.
-  if (Bus::getWhiteBalance() >= 1900 && (_type == TYPE_ANALOG_3CH || _type == TYPE_ANALOG_4CH)) {
+  if (Bus::getWhiteBalance() >= 1900 && (_type == TYPE_ANALOG_3CH || _type == TYPE_ANALOG_4CH || _type == TYPE_ANALOG_5CH)) {
     c = colorBalanceFromKelvin(Bus::getWhiteBalance(), c); // RGB correction
   }
   uint8_t r = R(c), g = G(c), b = B(c), w = W(c);
