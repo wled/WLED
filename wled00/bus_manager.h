@@ -253,6 +253,7 @@ class BusDigital : public Bus {
     void show() override;
     bool canShow() const override;
     void setStatusPixel(uint32_t c) override;
+    void setBrightness(uint8_t b) override;
     [[gnu::hot]] void setPixelColor(unsigned pix, uint32_t c) override;
     void setColorOrder(uint8_t colorOrder) override;
     [[gnu::hot]] uint32_t getPixelColor(unsigned pix) const override;
@@ -271,6 +272,7 @@ class BusDigital : public Bus {
     bool isI2S(); // true if this bus uses I2S driver
     void begin() override;
     void cleanup();
+    uint32_t restoreColorLossy(uint32_t c, uint8_t restoreBri) const;
 
     static std::vector<LEDType> getLEDTypes();
 
@@ -288,17 +290,6 @@ class BusDigital : public Bus {
     void    *_busPtr;
 
     static uint16_t _milliAmpsTotal; // is overwitten/recalculated on each show()
-
-    inline uint32_t restoreColorLossy(uint32_t c, uint8_t restoreBri) const {
-      if (restoreBri < 255) {
-        uint8_t* chan = (uint8_t*) &c;
-        for (uint_fast8_t i=0; i<4; i++) {
-          uint_fast16_t val = chan[i];
-          chan[i] = ((val << 8) + restoreBri) / (restoreBri + 1); //adding _bri slightly improves recovery / stops degradation on re-scale
-        }
-      }
-      return c;
-    }
 };
 
 
@@ -559,6 +550,7 @@ namespace BusManager {
   void on();
   void off();
 
+  void updateGammaUse();
   [[gnu::hot]] void     setPixelColor(unsigned pix, uint32_t c);
   [[gnu::hot]] uint32_t getPixelColor(unsigned pix);
   void        show();
