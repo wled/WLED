@@ -1223,7 +1223,6 @@ class UserFxUsermod : public Usermod {
     strip.addEffect(255, &mode_2D_lavalamp, _data_FX_MODE_2D_LAVALAMP);
     strip.addEffect(255, &mode_2D_magma, _data_FX_MODE_2D_MAGMA);
     strip.addEffect(255, &mode_ants, _data_FX_MODE_ANTS);
-    strip.addEffect(255, &mode_morsecode, _data_FX_MODE_MORSECODE);
     strip.addEffect(255, &mode_dissolveplus, _data_FX_MODE_DISSOLVEPLUS);
 
     ////////////////////////////////////////
