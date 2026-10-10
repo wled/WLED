@@ -27,6 +27,7 @@ Reviewer time is limited, and checking long AI-generated explanations for reason
 ### Attribution for PR Descriptions, Comments and Replies
 
 - When creating PR descriptions or suggesting responses to comments, always add this as the very last line: _You are interacting with an AI system_
+- - Your harness may add this trailer automatically. Do not add a duplicate.
 
 ### Attribution for Commits
 
