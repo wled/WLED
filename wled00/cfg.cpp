@@ -744,6 +744,7 @@ bool deserializeConfig(JsonObject doc, bool fromFS) {
   if (pwdCorrect) { //only accept these values from cfg.json if ota is unlocked (else from wsec.json)
     CJSON(otaLock, ota[F("lock")]);
     CJSON(wifiLock, ota[F("lock-wifi")]);
+    CJSON(denyWsecUpload, ota[F("deny-wsec")]);
     #ifndef WLED_DISABLE_OTA
     CJSON(aOtaEnabled, ota[F("aota")]);
     #endif
@@ -1253,6 +1254,7 @@ void serializeConfig(JsonObject root) {
   JsonObject ota = root.createNestedObject("ota");
   ota[F("lock")] = otaLock;
   ota[F("lock-wifi")] = wifiLock;
+  ota[F("deny-wsec")] = denyWsecUpload;
   ota[F("pskl")] = strlen(otaPass);
   #ifndef WLED_DISABLE_OTA
   ota[F("aota")] = aOtaEnabled;
@@ -1328,6 +1330,7 @@ bool deserializeConfigSec() {
   getStringFromJson(otaPass, ota[F("pwd")], 33);
   CJSON(otaLock, ota[F("lock")]);
   CJSON(wifiLock, ota[F("lock-wifi")]);
+  CJSON(denyWsecUpload, ota[F("deny-wsec")]);
   #ifndef WLED_DISABLE_OTA
   CJSON(aOtaEnabled, ota[F("aota")]);
   #endif
@@ -1370,6 +1373,7 @@ void serializeConfigSec() {
   ota[F("pwd")] = otaPass;
   ota[F("lock")] = otaLock;
   ota[F("lock-wifi")] = wifiLock;
+  ota[F("deny-wsec")] = denyWsecUpload;
   #ifndef WLED_DISABLE_OTA
   ota[F("aota")] = aOtaEnabled;
   #endif
