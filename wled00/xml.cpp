@@ -315,6 +315,15 @@ void getSettingsJS(byte subPage, Print& settingsScript)
       printSetClassElementHTML(settingsScript,PSTR("sip"),0,(char*)F("Not connected"));
     }
 
+    #if defined(ARDUINO_ARCH_ESP32) && defined(LWIP_IPV6) && ESP_IDF_VERSION_MAJOR >= 5
+    if (WLEDNetwork.hasLinkLocalIPv6() || WLEDNetwork.hasGlobalIPv6())
+    {
+      String s6 = WLEDNetwork.hasGlobalIPv6() ? WLEDNetwork.localIPv6Global().toString() : WLEDNetwork.localIPv6LinkLocal().toString();
+      printSetClassElementHTML(settingsScript,PSTR("sip6"),0,s6.c_str());
+      settingsScript.print(F("gId('sip6d').style.display='';"));
+    }
+    #endif
+
     if (WiFi.softAPIP()[0] != 0) //is active
     {
       char s[16];
