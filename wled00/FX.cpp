@@ -5081,6 +5081,150 @@ void mode_FlowStripe(void) {
 } // mode_FlowStripe()
 static const char _data_FX_MODE_FLOWSTRIPE[] PROGMEM = "Flow Stripe@Hue speed,Effect speed;;!;pal=11";
 
+
+/*
+*  Morse Code by Bob Loeffler (#5252) - size optimized and extended by @dedehai
+*  Adapted from code by automaticaddison.com and optimized using claude.ai
+*/
+
+// Bit manipulation macros
+#define SET_BIT8(arr, i) ((arr)[(i) >> 3] |= (1 << ((i) & 7)))
+#define GET_BIT8(arr, i) (((arr)[(i) >> 3] & (1 << ((i) & 7))) != 0)
+
+// Morse lookup as a binary tree: the index in the char array is the morse code (0 = dot, 1 = dash) with a leading "1"
+// for example the second char is 'E' at index 2 (binary 10), discard the "1" -> 0 (dot)
+// Finding the Morse code for a character can be done by finding the index using strchr()
+// Tree structure: the char at index i has its "dot" child at 2i and its "dash" child at 2i+1
+static const char morseTree[] =
+  "  ETIANMSURWDKGO" "HVF L PJBXCYZQ  " "54 3   2& +    1" "6=/   ( 7   8 90" // note: 16-char block strings are concatenated at compile time
+  "            ?   " "     .    @   ' " " -         ! )  " "   ,    :";
+
+#define MORSE_MAX_LEN  1023
+#define MORSE_WORD_GAP 7    // 7 empty pixels in a row mark the end of a word
+
+struct MorseData {
+  uint16_t hash;                               // detects text / option changes
+  uint16_t length;                             // pattern length in pixels
+  uint8_t  words;                              // word count (for color spacing)
+  uint8_t  bits[(MORSE_MAX_LEN + 7) / 8];      // 1 bit per pixel
+};
+
+// Append 'count' pixels (lit or empty) to the pattern
+static void morse_put(MorseData &m, bool on, uint8_t count) {
+  while (count-- && m.length < MORSE_MAX_LEN) {
+    if (on) SET_BIT8(m.bits, m.length);
+    m.length++;
+  }
+}
+
+// Append one character; idx = index of the character in morseTree
+static void morse_addchar(MorseData &m, uint8_t idx) {
+  uint8_t bit = 0x40;
+  while (!(idx & bit)) bit >>= 1;               // skip to the leading 1 (marker bit)
+  while (bit >>= 1) {                           // one pass per dot/dash
+    morse_put(m, true, (idx & bit) ? 3 : 1);    // dot = 1 pixel, dash = 3 pixels
+    morse_put(m, false, 1);                     // 1 gap between elements
+  }
+  morse_put(m, false, 2);                       // +2 = 3 gaps between letters
+}
+
+static void mode_morsecode(void) {
+  if (SEGLEN < 1) FX_FALLBACK_STATIC;
+  if (!SEGENV.allocateData(sizeof(MorseData))) FX_FALLBACK_STATIC;
+  MorseData *m = reinterpret_cast<MorseData*>(SEGENV.data);
+
+  // Get the text to display
+  char text[WLED_MAX_SEGNAME_LEN+1];
+  if (SEGMENT.name && *SEGMENT.name) strlcpy(text, SEGMENT.name, sizeof(text));
+  else strcpy_P(text, PSTR("I Love WLED!"));
+
+  // 16-bit hash of text + option flags decides whether to rebuild the pattern
+  uint16_t hash = SEGMENT.check2 | (SEGMENT.check3 << 1);
+  for (const char *c = text; *c; c++) hash = hash * 33 + *c;
+
+  // ---- Build the pattern (first call, or text/options changed) ----
+  if (SEGENV.call == 0 || hash != m->hash) {
+    m->hash = hash;
+    m->length = 0;
+    memset(m->bits, 0, sizeof(m->bits));
+    uint8_t words = 1;
+
+    for (const char *c = text; *c && m->length <= MORSE_MAX_LEN - 24; c++) {
+      char ch = toupper(*c);
+      if (ch == ' ') {                                  // 3 gaps after the letter + 4 = 7 between words
+        words++;
+        morse_put(*m, false, 4);
+        continue;
+      }
+      if (!isalnum(ch) && !SEGMENT.check2) continue;    // punctuation is optional
+      const char *p = strchr(morseTree, ch);
+      uint8_t idx = p - morseTree;                      // index of the character in morseTree = char morse code in binary
+      if (p) morse_addchar(*m, idx);
+    }
+
+    if (SEGMENT.check3) morse_addchar(*m, 42);          // end of message ".-.-."
+    morse_put(*m, false, MORSE_WORD_GAP+4);             // double word gap at end of message
+    m->words = words;
+    SEGENV.aux0 = 0;                                    // restart
+  }
+
+  // Timing: advance one step per tick
+  uint32_t it = strip.now / (50 + (255 - SEGMENT.speed) * 3);
+  if (SEGENV.step != it) { SEGENV.aux0++; SEGENV.step = it; }
+
+  const uint16_t length = m->length;                  // length of the Morse code pattern in pixels
+  const uint16_t scroll      = SEGENV.aux0 % length;  // pattern index currently shown on pixel 0
+  const uint8_t  wordSpacing = 255 / m->words;        // spread word colors evenly
+  const uint8_t  hueStep     = SEGMENT.custom3;       // hue change per pixel, 0 = color by word
+  const bool     useWheel    = SEGMENT.palette > 0;   // otherwise use the selected palette
+
+  // Flash mode: whole strip blinks the message
+  if (SEGMENT.check1) {
+    for (int i = 0; i < SEGLEN; i++) {
+      uint8_t colorPos;
+      colorPos = i * hueStep;
+      bool lightUp = GET_BIT8(m->bits, SEGENV.aux0 % length);
+      SEGMENT.setPixelColor(i, lightUp ? SEGMENT.color_wheel(colorPos) : BLACK);
+    }
+    return;
+  }
+  // Scroll mode: paint the message onto the strip with scrolling
+  SEGMENT.fill(BLACK);
+  int word = 0;
+  int emptyRun = 0;
+
+  for (uint16_t index = 0; index < length; index++) {
+    if (!GET_BIT8(m->bits, index)) {
+      emptyRun++;
+      if (emptyRun == MORSE_WORD_GAP) word++; // word gap detected, count word (for coloring below)
+      continue; // skip non-lit pixels
+    }
+    emptyRun = 0;
+
+    // Scrolling means pattern index N is shown on pixel (N - scroll), wrapped around.
+    // If the strip is longer than the pattern, the pattern repeats every 'length' pixels.
+    int firstPixel = (index + length - scroll) % length;
+
+    for (int pixel = firstPixel; pixel < SEGLEN; pixel += length) {
+      uint8_t colorPos;
+
+      if (hueStep == 0) {                           // color by word: each word gets its own color
+        colorPos = word * wordSpacing;
+        if (useWheel) colorPos += SEGENV.aux0 / 4;  // slowly cycle the hue
+      } else {                                      // gradient along the strip, hueStep per pixel
+        colorPos = pixel * hueStep;
+        if (useWheel) colorPos += SEGENV.aux0;      // cycle the hue as it scrolls
+      }
+
+      SEGMENT.setPixelColor(pixel, SEGMENT.color_wheel(colorPos)); // uses HSV color if pal=0, use palette otherwise
+    }
+  }
+}
+static const char _data_FX_MODE_MORSECODE[] PROGMEM = "Morse Code@!,,,,Color,Flash,Punctuation,EndOfMessage;;!;1;sx=192,c3=0,o2=1";
+
+#undef SET_BIT8
+#undef GET_BIT8
+
 /*
   Shimmer effect: moves a gradient with optional modulators across the strip at a given interval, up to 60 seconds
   It can be used as an overlay to other effects or standalone
@@ -11186,6 +11330,7 @@ void WS2812FX::setupEffectData() {
   addEffect(FX_MODE_WAVESINS, &mode_wavesins, _data_FX_MODE_WAVESINS);
   addEffect(FX_MODE_ROCKTAVES, &mode_rocktaves, _data_FX_MODE_ROCKTAVES);
   addEffect(FX_MODE_SHIMMER, &mode_shimmer, _data_FX_MODE_SHIMMER);
+  addEffect(FX_MODE_MORSECODE, &mode_morsecode, _data_FX_MODE_MORSECODE);
 
   // --- 2D  effects ---
 #ifndef WLED_DISABLE_2D
