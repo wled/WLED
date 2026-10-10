@@ -6886,7 +6886,7 @@ void mode_gravcenter_base(unsigned mode) {
   if(mode == 2) offset = 0;  // Gravimeter
   if (tempsamp >= gravcen->topLED + offset) gravcen->topLED = tempsamp-offset;
   else if (gravcen->gravityCounter % gravity == 0) gravcen->topLED--;
-  
+
   if(mode == 1) {  //Gravcentric
     for (int i=0; i<tempsamp; i++) {
       uint8_t index = segmentSampleAvg*24+strip.now/200;
@@ -6901,7 +6901,15 @@ void mode_gravcenter_base(unsigned mode) {
   else if(mode == 2) { //Gravimeter
     for (int i=0; i<tempsamp; i++) {
       uint8_t index = perlin8(i*segmentSampleAvg+strip.now, 5000+i*segmentSampleAvg);
-      SEGMENT.setPixelColor(i, color_blend(SEGCOLOR(1), SEGMENT.color_from_palette(index, false, PALETTE_SOLID_WRAP, 0), uint8_t(segmentSampleAvg*8)));
+      int16_t blend = int16_t(segmentSampleAvg * 8.0f);
+      int16_t overflow = 0;
+      if (blend > 255) { overflow = blend - 255; blend = 255; }
+      CRGBW color = color_blend(SEGCOLOR(1), SEGMENT.color_from_palette(index, false, PALETTE_SOLID_WRAP, 0), uint8_t(blend));
+      if (overflow > 0) {
+        CRGBW addColor = fast_color_scale(color, overflow);
+        color.r += addColor.r; color.g += addColor.g; color.b += addColor.b; color.w += addColor.w; // note: we want colors to overflow so cant use color_add()
+      }
+      SEGMENT.setPixelColor(i, color);
     }
     if (gravcen->topLED > 0) {
       SEGMENT.setPixelColor(gravcen->topLED, SEGMENT.color_from_palette(strip.now, false, PALETTE_SOLID_WRAP, 0));
