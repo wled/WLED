@@ -5158,8 +5158,9 @@ static void mode_morsecode(void) {
       }
       if (!isalnum(ch) && !SEGMENT.check2) continue;    // punctuation is optional
       const char *p = strchr(morseTree, ch);
+      if (!p) continue;                                 // skip characters not in the morseTree
       uint8_t idx = p - morseTree;                      // index of the character in morseTree = char morse code in binary
-      if (p) morse_addchar(*m, idx);
+      morse_addchar(*m, idx);
     }
 
     if (SEGMENT.check3) morse_addchar(*m, 42);          // end of message ".-.-."
