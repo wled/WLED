@@ -43,6 +43,18 @@ IPAddress WLEDNetworkClass::gatewayIP()
   return INADDR_NONE;
 }
 
+// directed broadcast address of the active interface (host bits set to one).
+// Kept here so that all callers share one implementation - including whatever
+// this needs to become once IPv6 is supported.
+IPAddress WLEDNetworkClass::broadcastIP()
+{
+  IPAddress ip = localIP();
+  if (ip[0] == 0) {
+    return IPAddress(255, 255, 255, 255); // not connected yet: limited broadcast
+  }
+  return IPAddress(uint32_t(ip) | ~uint32_t(subnetMask()));
+}
+
 void WLEDNetworkClass::localMAC(uint8_t* MAC)
 {
 #if defined(ARDUINO_ARCH_ESP32) && defined(WLED_USE_ETHERNET)
