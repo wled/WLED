@@ -20,6 +20,11 @@ static uint16_t pollReplyCount = 0;                                // count numb
  * E1.31 handler
  */
 
+// Forget the last stream's sequence numbers, called when realtime mode ends
+void resetE131SequenceNumbers() {
+  memset(e131LastSequenceNumber, 0, sizeof(e131LastSequenceNumber));
+}
+
 //DDP protocol support, called by handleE131Packet
 //handles RGB data only
 static void handleDDPPacket(e131_packet_t* p, size_t packetLen) {
