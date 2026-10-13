@@ -25,14 +25,19 @@ class Animated_Staircase : public Usermod {
     unsigned int topMaxDist        = 50;    // default maximum measured distance in cm, top
     unsigned int bottomMaxDist     = 50;    // default maximum measured distance in cm, bottom
     bool togglePower               = false; // toggle power on/off with staircase on/off
+    bool enabledSentinel           = false; // keep the first and last segment dimmed when on
+    unsigned int sentinelDimOpacity = 128;  // opacity for dimmed sentinel segments (0-255)
     bool topAPinInvert             = false; // invert output of top sensor
     bool bottomAPinInvert          = false; // invert output of bottom sensor
 
     /* runtime variables */
     bool initDone = false;
+    bool managedStateApplied = false; // true after enable(true) applied staircase segment state
 
     // Time between checking of the sensors
     const unsigned int scanDelay = 100;
+    // Minimum loop interval while strip.isUpdating() stays true (long/busy strips)
+    const unsigned int activeUpdateIntervalMs = 200;
 
     // Lights on or off.
     // Flipping this will start a transition.
@@ -57,6 +62,9 @@ class Animated_Staircase : public Usermod {
 
     // Last time the lights were switched on or off
     unsigned long lastSwitchTime = 0;
+
+    // Last time loop() ran (for strip.isUpdating() throttling)
+    unsigned long lastLoopRun = 0;
 
     // segment id between onIndex and offIndex are on.
     // controll the swipe by setting/moving these indices around.
@@ -93,6 +101,8 @@ class Animated_Staircase : public Usermod {
     static const char _topEchoCm[];
     static const char _bottomEchoCm[];
     static const char _togglePower[];
+    static const char _enabledSentinel[];
+    static const char _sentinelDimOpacity[];
     static const char _topPIRorTrigger_pin_invert[];
     static const char _bottomPIRorTrigger_pin_invert[];
 
@@ -107,16 +117,103 @@ class Animated_Staircase : public Usermod {
 #endif
     }
 
+    void getSentinelSegmentIds(byte &firstSegId, byte &lastSegId) const {
+      firstSegId = minSegmentId;
+      lastSegId = minSegmentId;
+      bool foundFirst = false;
+      for (int i = minSegmentId; i < maxSegmentId; i++) {
+        if (!strip.getSegment(i).isActive()) continue;
+        if (!foundFirst) {
+          firstSegId = i;
+          foundFirst = true;
+        }
+        lastSegId = i;
+      }
+    }
+
+    // First active segment .. last active+1 — not main segment (may be mid-strip).
+    void refreshManagedSegmentRange() {
+      minSegmentId = 0;
+      maxSegmentId = 0;
+      bool foundFirst = false;
+      for (unsigned i = 0; i < strip.getSegmentsNum(); i++) {
+        if (!strip.getSegment(i).isActive()) continue;
+        if (!foundFirst) {
+          minSegmentId = i;
+          foundFirst = true;
+        }
+        maxSegmentId = i + 1;
+      }
+      if (!foundFirst) {
+        minSegmentId = 0;
+        maxSegmentId = 1;
+      }
+    }
+
+    // Collapsed swipe cursor (stairs logically off), ready for next ON swipe.
+    void resetSwipeIndices() {
+      onIndex = minSegmentId;
+      offIndex = minSegmentId;
+      on = false;
+    }
+
+    // Apply the first ON-swipe step and refresh segments immediately.
+    void beginOnSwipe() {
+      if (swipe == SWIPE_UP) {
+        onIndex = minSegmentId;
+        offIndex = minSegmentId + 1;
+        if (offIndex > maxSegmentId) offIndex = maxSegmentId;
+      } else {
+        onIndex = (maxSegmentId > minSegmentId) ? maxSegmentId - 1 : minSegmentId;
+        offIndex = maxSegmentId;
+      }
+      on = true;
+      lastTime = millis();
+      updateSegments();
+    }
+
+    // Restore full opacity on sentinel ends after sentinel control stops.
+    void restoreSentinelOpacity() {
+      byte firstSegId, lastSegId;
+      getSentinelSegmentIds(firstSegId, lastSegId);
+      Segment &firstSeg = strip.getSegment(firstSegId);
+      if (firstSeg.isActive()) firstSeg.setOpacity(255);
+      if (lastSegId != firstSegId) {
+        Segment &lastSeg = strip.getSegment(lastSegId);
+        if (lastSeg.isActive()) lastSeg.setOpacity(255);
+      }
+    }
+
+    void restoreManagedSegmentState() {
+      for (int i = 0; i <= strip.getLastActiveSegmentId(); i++) {
+        Segment &seg = strip.getSegment(i);
+        if (!seg.isActive()) continue; // skip vector gaps
+        seg.setOption(SEG_OPTION_ON, true);
+      }
+      if (enabledSentinel) restoreSentinelOpacity();
+      strip.trigger();
+      stateChanged = true;
+      colorUpdated(CALL_MODE_DIRECT_CHANGE);
+      managedStateApplied = false;
+    }
+
     void updateSegments() {
+      byte firstSegId, lastSegId;
+      getSentinelSegmentIds(firstSegId, lastSegId);
       for (int i = minSegmentId; i < maxSegmentId; i++) {
         Segment &seg = strip.getSegment(i);
         if (!seg.isActive()) continue; // skip gaps
-        if (i >= onIndex && i < offIndex) {
+        bool inSwipe = (i >= onIndex && i < offIndex);
+        bool isFirst = (i == firstSegId);
+        bool isLast = (i == lastSegId);
+        bool isSentinel = isFirst || isLast;
+
+        if (inSwipe) {
           seg.setOption(SEG_OPTION_ON, true);
-          // We may need to copy mode and colors from segment 0 to make sure
-          // changes are propagated even when the config is changed during a wipe
-          // seg.setMode(mainsegment.mode);
-          // seg.setColor(0, mainsegment.colors[0]);
+          if (enabledSentinel && isSentinel) seg.setOpacity(255);
+        } else if (enabledSentinel && isSentinel) {
+          seg.setOption(SEG_OPTION_ON, true);
+          seg.setOpacity(sentinelDimOpacity);
         } else {
           seg.setOption(SEG_OPTION_ON, false);
         }
@@ -162,7 +259,7 @@ class Animated_Staircase : public Usermod {
 
     bool readPIRPin(int8_t pin, bool invert) {
       if (pin < 0) return false;
-        bool v = digitalRead(pin);
+      bool v = digitalRead(pin);
       return invert ? !v : v;
     }
 
@@ -182,7 +279,11 @@ class Animated_Staircase : public Usermod {
             (topPIRorTriggerPin<0 ? false : readPIRPin(topPIRorTriggerPin, topAPinInvert)) :
             ultrasoundRead(topPIRorTriggerPin, topEchoPin, topMaxDist*59)   // cm to us
           );
-     
+
+        // Detect false-to-true edges before updating latched state
+        bool bottomRise = bottomSensorRead && !bottomSensorState;
+        bool topRise = topSensorRead && !topSensorState;
+
         if (bottomSensorRead != bottomSensorState) {
           bottomSensorState = bottomSensorRead; // change previous state
           sensorChanged = true;
@@ -201,30 +302,33 @@ class Animated_Staircase : public Usermod {
         topSensorWrite = false;
         bottomSensorWrite = false;
 
-        if (topSensorRead != bottomSensorRead) {
+        if (bottomRise || topRise) {
           lastSwitchTime = millis();
 
-          if (on) {
-            lastSensor = topSensorRead;
-          } else {
+          // lastSensor true = bottom (swipe up), false = top (swipe down).
+          // Tie: both rose in the same scan -> prefer bottom / swipe up.
+          if (bottomRise) lastSensor = true;
+          else            lastSensor = false;
+
+          if (!on) {
             if (togglePower && onIndex == offIndex && offMode) toggleOnOff(); // toggle power on if off
-            // If the bottom sensor triggered, we need to swipe up, ON
-            swipe = bottomSensorRead;
+            swipe = lastSensor;
 
             DEBUG_PRINT(F("ON -> Swipe "));
             DEBUG_PRINTLN(swipe ? F("up.") : F("down."));
 
             if (onIndex == offIndex) {
-              // Position the indices for a correct on-swipe
-              if (swipe == SWIPE_UP) {
-                onIndex = minSegmentId;
-              } else {
-                onIndex = maxSegmentId;
-              }
-              offIndex = onIndex;
+              // Fully off: seed start and turn first step on immediately
+              beginOnSwipe();
+            } else {
+              // Mid off-swipe: keep current lit range, reverse to ON again
+              on = true;
+              lastTime = millis() - segment_delay_ms;
             }
-            on = true;
           }
+        } else if (bottomSensorState || topSensorState) {
+          // Keep on-time anchored to last activity while a sensor stays high
+          lastSwitchTime = millis();
         }
       }
       return sensorChanged;
@@ -236,8 +340,9 @@ class Animated_Staircase : public Usermod {
         if (bottomSensorState || topSensorState) return;
 
         // Swipe OFF in the direction of the last sensor detection
-        swipe = lastSensor;
+        swipe = !lastSensor;
         on = false;
+        lastTime = millis() - segment_delay_ms; // allow first OFF step on next updateSwipe()
 
         DEBUG_PRINT(F("OFF -> Swipe "));
         DEBUG_PRINTLN(swipe ? F("up.") : F("down."));
@@ -302,24 +407,18 @@ class Animated_Staircase : public Usermod {
           pinMode(topPIRorTriggerPin, OUTPUT);
           pinMode(topEchoPin, INPUT);
         }
-        onIndex  = minSegmentId = strip.getMainSegmentId(); // it may not be the best idea to start with main segment as it may not be the first one
-        offIndex = maxSegmentId = strip.getLastActiveSegmentId() + 1;
+        refreshManagedSegmentRange();
+        resetSwipeIndices();
 
         // shorten the strip transition time to be equal or shorter than segment delay
         transitionDelay = segment_delay_ms;
         strip.setTransition(segment_delay_ms);
-        strip.trigger();
-      } else {
+        updateSegments(); // apply off + optional sentinel state immediately
+        managedStateApplied = true;
+      } else if (enabled) {
         if (togglePower && !on && offMode) toggleOnOff(); // toggle power on if off
-        // Restore segment options
-        for (int i = 0; i <= strip.getLastActiveSegmentId(); i++) {
-          Segment &seg = strip.getSegment(i);
-          if (!seg.isActive()) continue; // skip vector gaps
-          seg.setOption(SEG_OPTION_ON, true);
-        }
-        strip.trigger();  // force strip update
-        stateChanged = true;  // inform external devices/UI of change
-        colorUpdated(CALL_MODE_DIRECT_CHANGE);
+        if (managedStateApplied) restoreManagedSegmentState();
+        resetSwipeIndices();
         DEBUG_PRINTLN(F("Animated Staircase disabled."));
       }
       enabled = enable;
@@ -346,16 +445,19 @@ class Animated_Staircase : public Usermod {
         topEchoPin = -1;
         bottomPIRorTriggerPin = -1;
         bottomEchoPin = -1;
+        if (managedStateApplied) restoreManagedSegmentState();
         enabled = false;
+      } else {
+        enable(enabled);
       }
-      enable(enabled);
       initDone = true;
     }
 
     void loop() {
-      if (!enabled || strip.isUpdating()) return;
-      minSegmentId = strip.getMainSegmentId();  // it may not be the best idea to start with main segment as it may not be the first one
-      maxSegmentId = strip.getLastActiveSegmentId() + 1;
+      // on long/active strips isUpdating() may stay true; still run at least every activeUpdateIntervalMs
+      if (!enabled || (strip.isUpdating() && (millis() - lastLoopRun < activeUpdateIntervalMs))) return;
+      lastLoopRun = millis();
+      refreshManagedSegmentRange();
       checkSensors();
       if (on) autoPowerOff();
       updateSwipe();
@@ -449,6 +551,7 @@ class Animated_Staircase : public Usermod {
       if (staircase.isNull()) {
         staircase = root.createNestedObject(FPSTR(_name));
       }
+
       staircase[FPSTR(_enabled)]                       = enabled;
       staircase[FPSTR(_segmentDelay)]                  = segment_delay_ms;
       staircase[FPSTR(_onTime)]                        = on_time_ms / 1000;
@@ -461,8 +564,11 @@ class Animated_Staircase : public Usermod {
       staircase[FPSTR(_topEchoCm)]                     = topMaxDist;
       staircase[FPSTR(_bottomEchoCm)]                  = bottomMaxDist;
       staircase[FPSTR(_togglePower)]                   = togglePower;
+      staircase[FPSTR(_enabledSentinel)]               = enabledSentinel;
+      staircase[FPSTR(_sentinelDimOpacity)]            = sentinelDimOpacity;
       staircase[FPSTR(_topPIRorTrigger_pin_invert)]    = topAPinInvert;
       staircase[FPSTR(_bottomPIRorTrigger_pin_invert)] = bottomAPinInvert;
+
       DEBUG_PRINTLN(F("Staircase config saved."));
     }
 
@@ -474,13 +580,14 @@ class Animated_Staircase : public Usermod {
     bool readFromConfig(JsonObject& root) {
       bool oldUseUSSensorTop = useUSSensorTop;
       bool oldUseUSSensorBottom = useUSSensorBottom;
-      bool oldTopAPinInvert = topAPinInvert;
-      bool oldBottomAPinInvert = bottomAPinInvert;
       int8_t oldTopAPin = topPIRorTriggerPin;
       int8_t oldTopBPin = topEchoPin;
       int8_t oldBottomAPin = bottomPIRorTriggerPin;
       int8_t oldBottomBPin = bottomEchoPin;
-     
+      bool oldEnabledSentinel = enabledSentinel;
+      unsigned int oldSentinelDimOpacity = sentinelDimOpacity;
+      bool changedSentinel = false;
+
       JsonObject top = root[FPSTR(_name)];
       if (top.isNull()) {
         DEBUG_PRINT(FPSTR(_name));
@@ -513,6 +620,11 @@ class Animated_Staircase : public Usermod {
 
       togglePower = top[FPSTR(_togglePower)] | togglePower;  // staircase toggles power on/off
 
+      enabledSentinel = top[FPSTR(_enabledSentinel)] | enabledSentinel;
+      sentinelDimOpacity = top[FPSTR(_sentinelDimOpacity)] | sentinelDimOpacity;
+      sentinelDimOpacity = min(255u, sentinelDimOpacity);
+      changedSentinel = (oldEnabledSentinel != enabledSentinel) || (oldSentinelDimOpacity != sentinelDimOpacity);
+
       DEBUG_PRINT(FPSTR(_name));
       if (!initDone) {
         // first run: reading from cfg.json
@@ -534,9 +646,11 @@ class Animated_Staircase : public Usermod {
           PinManager::deallocatePin(oldBottomBPin, PinOwner::UM_AnimatedStaircase);
         }
         if (changed) setup();
+        if (oldEnabledSentinel && !enabledSentinel && managedStateApplied) restoreSentinelOpacity();
+        if (changedSentinel && enabled) updateSegments();
       }
       // use "return !top["newestParameter"].isNull();" when updating Usermod with new features
-      return !top[FPSTR(_togglePower)].isNull();
+      return !top[FPSTR(_sentinelDimOpacity)].isNull();
     }
 
     /*
@@ -579,6 +693,8 @@ const char Animated_Staircase::_bottomEcho_pin[]            PROGMEM = "bottomEch
 const char Animated_Staircase::_topEchoCm[]                 PROGMEM = "top-dist-cm";
 const char Animated_Staircase::_bottomEchoCm[]              PROGMEM = "bottom-dist-cm";
 const char Animated_Staircase::_togglePower[]               PROGMEM = "toggle-on-off";
+const char Animated_Staircase::_enabledSentinel[]           PROGMEM = "enabled-sentinel";
+const char Animated_Staircase::_sentinelDimOpacity[]        PROGMEM = "sentinel-dim-opacity";
 
 static Animated_Staircase animated_staircase;
 REGISTER_USERMOD(animated_staircase);
