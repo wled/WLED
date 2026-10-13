@@ -10977,36 +10977,34 @@ static const float LIQ_PHI   [16] = { 0.00f, 1.30f, 2.60f, 3.90f, 5.20f, 6.30f, 
 static const float LIQ_DIR   [16] = { 1, -1, 1, -1, 1, -1, 1, -1, 1, -1, 1, -1, 1, -1, 1, -1 };
 
 void mode_liquid(void) {
-  if (SEGLEN < 1) {
-    return;
-  }
+  if (SEGLEN <= 1) FX_FALLBACK_STATIC;
 
-  const unsigned len    = SEGLEN;
-  const unsigned waves  = SEGMENT.intensity / 16;      // "Waves": 0..15
+  unsigned len    = SEGLEN;
+  unsigned waves  = SEGMENT.intensity / 16;      // "Waves": 0..15
   if (waves == 0) {                                    // no waves -> off
     SEGMENT.fill(0);
     return;
   }
 
   // Slider parameters
-  const float cscale = 5.0f - (float)SEGMENT.custom1 / 51.0f;  // "Wavelength" spatial scale
-  const float center = (float)SEGMENT.custom2 / 255.0f;        // "Shimmer Height"
-  const float hw     = 0.30f * (float)SEGMENT.custom3 / 31.0f; // "Shimmer Width" (0 = off)
-  const float times  = (float)SEGMENT.speed * 2.0f / 255.0f;   // "Speed" (0 = frozen)
+  float cscale = 5.0f - (float)SEGMENT.custom1 / 51.0f;  // "Wavelength" spatial scale
+  float center = (float)SEGMENT.custom2 / 255.0f;        // "Shimmer Height"
+  float hw     = 0.30f * (float)SEGMENT.custom3 / 31.0f; // "Shimmer Width" (0 = off)
+  float times  = (float)SEGMENT.speed * 2.0f / 255.0f;   // "Speed" (0 = frozen)
 
   // Well colors (RGBW32 -> RGB)
-  const unsigned pR = (SEGCOLOR(0) >> 16) & 0xFF, pG = (SEGCOLOR(0) >> 8) & 0xFF, pB = SEGCOLOR(0) & 0xFF;
-  const unsigned sR = (SEGCOLOR(1) >> 16) & 0xFF, sG = (SEGCOLOR(1) >> 8) & 0xFF, sB = SEGCOLOR(1) & 0xFF;
-  const unsigned tR = (SEGCOLOR(2) >> 16) & 0xFF, tG = (SEGCOLOR(2) >> 8) & 0xFF, tB = SEGCOLOR(2) & 0xFF;
+  unsigned pR = (SEGCOLOR(0) >> 16) & 0xFF, pG = (SEGCOLOR(0) >> 8) & 0xFF, pB = SEGCOLOR(0) & 0xFF;
+  unsigned sR = (SEGCOLOR(1) >> 16) & 0xFF, sG = (SEGCOLOR(1) >> 8) & 0xFF, sB = SEGCOLOR(1) & 0xFF;
+  unsigned tR = (SEGCOLOR(2) >> 16) & 0xFF, tG = (SEGCOLOR(2) >> 8) & 0xFF, tB = SEGCOLOR(2) & 0xFF;
 
-  const float now = (float)strip.now;
+  float now = (float)strip.now;
 
   // Field time.  Absolute seconds since boot scale by speed: the wave phases
   // are absolute (2*pi*f*t), so the animation origin is fixed and the speed
   // slider only slows or speeds the apparent motion (0 = frozen in place).
-  const float t = now / 1000.0f * times;
+  float t = now / 1000.0f * times;
 
-  const float twoPi = M_TWOPI;
+  float twoPi = M_TWOPI;
 
   // Calculate color for all pixels
   for (unsigned px = 0; px < len; px++) {
@@ -11014,11 +11012,11 @@ void mode_liquid(void) {
     for (unsigned k = 0; k < waves; k++) {
       float cycle = k + 1;  
       float direction = k % 2 != 0 ? -1 : 1;
-      const float phase = twoPi * cycle * cscale * (float)px * direction / (float)len
+      float phase = twoPi * cycle * cscale * (float)px * direction / (float)len
                         + twoPi * LIQ_FREQ[k] * t
                         + LIQ_PHI[k];
-      const float bri = 0.5f + 0.5f * sin_t(phase);      // 0..1
-      const float w   = LIQ_AMPS[k];
+      float bri = 0.5f + 0.5f * sin_t(phase);      // 0..1
+      float w   = LIQ_AMPS[k];
       if (k & 1) {
         // Add individual wave to secondary color brightness
         secondary += w * bri;
@@ -11034,12 +11032,12 @@ void mode_liquid(void) {
     }
 
     // Wave color: amplitude-weighted blend of the two colors (0..1)
-    const float r = ((float)pR * primary + (float)sR * secondary) / ampSum;
-    const float g = ((float)pG * primary + (float)sG * secondary) / ampSum;
-    const float b = ((float)pB * primary + (float)sB * secondary) / ampSum;
+    float r = ((float)pR * primary + (float)sR * secondary) / ampSum;
+    float g = ((float)pG * primary + (float)sG * secondary) / ampSum;
+    float b = ((float)pB * primary + (float)sB * secondary) / ampSum;
 
     // Shimmer band gate (linear band around `center`, half-width `hw`), on mean brightness
-    const float br   = briSum / (float)waves; // 0..1
+    float br   = briSum / (float)waves; // 0..1
     float gate = 0.0f;
     if (hw > 0.0f) {
       float d = br - center;
@@ -11051,7 +11049,7 @@ void mode_liquid(void) {
       }
     }
     // Calculate amount of 'shimmer' to be mixed into the color
-    const unsigned mix = (unsigned)(gate * 255.0f * 0.3f); // max 30% mix to avoid too much flashing
+    unsigned mix = (unsigned)(gate * 255.0f * 0.3f); // max 30% mix to avoid too much flashing
 
     // Final: wave color blended toward the Tertiary shimmer color
     SEGMENT.setPixelColor((int)px,
