@@ -1,0 +1,28 @@
+{
+  "name": "INA228_v2",
+  "version": "1.0.0",
+  "description": "WLED v2 usermod for INA228 power monitoring IC",
+  "keywords": "INA228, power, current, voltage, sensor",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/Aircoookie/WLED.git"
+  },
+  "authors": [
+    {
+      "name": "WLED Community"
+    }
+  ],
+  "license": "MIT",
+  "frameworks": "arduino",
+  "platforms": "*",
+  "build": { 
+    "libArchive": false 
+  },
+  "dependencies": [
+    {
+      "owner": "robtillaart",
+      "name": "INA228",
+      "version": "^0.4.0"
+    }
+  ]
+}
