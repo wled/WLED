@@ -1876,7 +1876,8 @@ void WS2812FX::show() {
   // WARNING: as WLED doesn't handle CCT on pixel level but on Segment level instead
   // we need to keep track of each pixel's CCT when blending segments (if CCT is present)
   // and then set appropriate CCT from that pixel during paint (see below).
-  if ((hasCCTBus() || correctWB) && !cctFromRgb)
+  // RGB white balance needs the segment temperature even when physical whites derive CCT from RGB
+  if (correctWB || (hasCCTBus() && !cctFromRgb))
     _pixelCCT = static_cast<uint8_t*>(allocate_buffer(totalLen * sizeof(uint8_t), BFRALLOC_PREFER_PSRAM)); // allocate CCT buffer if necessary, prefer PSRAM
   if (_pixelCCT) memset(_pixelCCT, 127, totalLen); // set neutral (50:50) CCT
 
@@ -1895,6 +1896,7 @@ void WS2812FX::show() {
 
   // paint actual pixels
   int oldCCT = Bus::getCCT(); // store original CCT value (since it is global)
+  uint16_t oldWhiteBalance = Bus::getWhiteBalance();
   // when cctFromRgb is true we implicitly calculate WW and CW from RGB values (cct==-1)
   if (cctFromRgb) BusManager::setSegmentCCT(-1);
   // use color gamma correction if enabled, not in realtime mode with gamma disabled or currently overriding RT mode
@@ -1903,8 +1905,8 @@ void WS2812FX::show() {
   for (size_t i = 0; i < totalLen; i++) {
     // when correctWB is true setSegmentCCT() will convert CCT into K with which we can then
     // correct/adjust RGB value according to desired CCT value, it will still affect actual WW/CW ratio
-    if (_pixelCCT) { // cctFromRgb already exluded at allocation
-      if (i == 0 || _pixelCCT[i-1] != _pixelCCT[i]) BusManager::setSegmentCCT(_pixelCCT[i], correctWB);
+    if (_pixelCCT) { // with cctFromRgb, only RGB white balance uses the segment temperature
+      if (i == 0 || _pixelCCT[i-1] != _pixelCCT[i]) BusManager::setSegmentCCT(_pixelCCT[i], correctWB, cctFromRgb);
     }
 
     uint32_t c = _pixels[i]; // need a copy, do not modify _pixels directly (no byte access allowed on ESP32)
@@ -1913,6 +1915,7 @@ void WS2812FX::show() {
     BusManager::setPixelColor(getMappedPixelIndex(i), c);
   }
   Bus::setCCT(oldCCT);  // restore old CCT for ABL adjustments
+  Bus::setWhiteBalance(oldWhiteBalance);
 
   p_free(_pixelCCT);
   _pixelCCT = nullptr;

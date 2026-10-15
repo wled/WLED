@@ -202,7 +202,10 @@ class Bus {
     static inline int16_t  getCCT()                   { return _cct; }
     static inline void     setGlobalAWMode(uint8_t m) { if (m < 5) _gAWM = m; else _gAWM = AW_GLOBAL_DISABLED; }
     static inline uint8_t  getGlobalAWMode()          { return _gAWM; }
-    static inline void     setCCT(int16_t cct)        { _cct = cct; }
+    static inline void     setCCT(int16_t cct)        { _cct = cct; _whiteBalance = 0; }
+    // Retain legacy Kelvin CCT correction while permitting independent RGB tint.
+    static inline uint16_t getWhiteBalance()         { return _whiteBalance ? _whiteBalance : (_cct >= 1900 ? _cct : 0); }
+    static inline void     setWhiteBalance(uint16_t kelvin) { _whiteBalance = kelvin; }
     static inline int8_t   getCCTBlend()              { return (_cctBlend * 100 + (_cctBlend >= 0 ? 64 : -64)) / 127; } // returns -100 to +100, +/-100% = +/-127. +/-64 for rounding 
     static inline void     setCCTBlend(int8_t b) {    // input is -100 to +100
       _cctBlend = (std::max(-100, std::min(100, (int)b)) * 127 + (b >= 0 ? 50 : -50)) / 100; // +/-50 for rounding, b=+/-100% -> +/-127
@@ -234,6 +237,7 @@ class Bus {
     //    [0,255] is the exact CCT value where 0 means warm and 255 cold
     //    [1900,10060] only for color correction expressed in K (colorBalanceFromKelvin())
     static int16_t _cct;
+    static uint16_t _whiteBalance; // independent RGB correction in Kelvin, 0 uses legacy CCT behavior
     // _cctBlend determines WW/CW blending, see calculateCCT()
     //  < 0 - linear blending in center, single white at both ends, single white zone extends with decreased value (-127 min)
     //    0 - linear (CCT 127 => 50% warm, 50% cold)
@@ -565,9 +569,9 @@ namespace BusManager {
   bool        canAllShow();
   inline void setStatusPixel(uint32_t c) { for (auto &bus : busses) bus->setStatusPixel(c);}
   inline void setBrightness(uint8_t b)   { for (auto &bus : busses) bus->setBrightness(b); }
-  // for setSegmentCCT(), cct can only be in [-1,255] range; allowWBCorrection will convert it to K
+  // cct is in [-1,255]; RGB correction can use its Kelvin value independently of RGB-derived white CCT
   // WARNING: setSegmentCCT() is a misleading name!!! much better would be setGlobalCCT() or just setCCT()
-  void           setSegmentCCT(int16_t cct, bool allowWBCorrection = false);
+  void           setSegmentCCT(int16_t cct, bool allowWBCorrection = false, bool deriveFromRgb = false);
   inline int16_t getSegmentCCT()         { return Bus::getCCT(); }
   inline Bus*    getBus(size_t busNr)    { return busNr < busses.size() ? busses[busNr].get() : nullptr; }
   inline size_t  getNumBusses()          { return busses.size(); }
