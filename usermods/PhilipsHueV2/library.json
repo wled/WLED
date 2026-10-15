@@ -1,0 +1,6 @@
+{
+  "name": "PhilipsHueV2",
+  "build": { "libArchive": false },
+  "frameworks": "arduino",
+  "platforms": "espressif32"
+}
