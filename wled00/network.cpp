@@ -339,8 +339,23 @@ void fillMAC2Str(char *str, const uint8_t *mac) {
 void fillStr2MAC(uint8_t *mac, const char *str) {
   for (int i = 0; i < 6; i++) *mac++ = 0;     // clear
   if (!str) return;                           // null string
-  uint64_t MAC = strtoull(str, nullptr, 16);
-  for (int i = 0; i < 6; i++) { *--mac = MAC & 0xFF; MAC >>= 8; }
+  // accept ":" / "-" / spaces; require exactly 12 hex digits
+  uint8_t nib[12];
+  int n = 0;
+  for (; *str; str++) {
+    char c = *str;
+    if (c == ':' || c == '-' || c == ' ') continue;
+    uint8_t v;
+    if      (c >= '0' && c <= '9') v = c - '0';
+    else if (c >= 'a' && c <= 'f') v = c - 'a' + 10;
+    else if (c >= 'A' && c <= 'F') v = c - 'A' + 10;
+    else return;
+    if (n >= 12) return;
+    nib[n++] = v;
+  }
+  if (n != 12) return;
+  mac -= 6;
+  for (int i = 0; i < 6; i++) mac[i] = (nib[i*2] << 4) | nib[i*2+1];
 }
 
 
