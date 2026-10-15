@@ -30,13 +30,6 @@
   #define BLE_TIME_BETWEEN_SCANS_SEC 5
 #endif
 
-#define WLED_DEBOUNCE_THRESHOLD \
-  50  // only consider button input of at least 50ms as valid (debouncing)
-#define WLED_LONG_PRESS \
-  600  // long press if button is released after held for at least 600ms
-#define WLED_DOUBLE_PRESS \
-  350  // double press if another press within 350ms after a short press
-
 class PixelsDiceTrayUsermod : public Usermod {
  private:
   bool enabled = true;
@@ -482,7 +475,7 @@ class PixelsDiceTrayUsermod : public Usermod {
       }
       buttons[b].pressedBefore = true;
 
-      if (now - buttons[b].pressedTime > WLED_LONG_PRESS) {  //long press
+      if (now - buttons[b].pressedTime > buttonLongPressMs) {  //long press
         menu_ctrl.HandleButton(ButtonType::LONG, b);
         buttons[b].longPressed = true;
         return true;
@@ -490,7 +483,7 @@ class PixelsDiceTrayUsermod : public Usermod {
     } else if (!isButtonPressed(b) && buttons[b].pressedBefore) {  //released
 
       long dur = now - buttons[b].pressedTime;
-      if (dur < WLED_DEBOUNCE_THRESHOLD) {
+      if (dur < buttonDebounceMs) {
         buttons[b].pressedBefore = false;
         return true;
       }  //too short "press", debounce
@@ -499,7 +492,7 @@ class PixelsDiceTrayUsermod : public Usermod {
       buttons[b].waitTime = 0;
 
       if (!buttons[b].longPressed) {  //short press
-        // if this is second release within 350ms it is a double press (buttonWaitTime!=0)
+        // if this is second release within double press time it is a double press (buttonWaitTime!=0)
         if (doublePress) {
           menu_ctrl.HandleButton(ButtonType::DOUBLE, b);
         } else {
@@ -509,8 +502,8 @@ class PixelsDiceTrayUsermod : public Usermod {
       buttons[b].pressedBefore = false;
       buttons[b].longPressed = false;
     }
-    // if 350ms elapsed since last press/release it is a short press
-    if (buttons[b].waitTime && now - buttons[b].waitTime > WLED_DOUBLE_PRESS &&
+    // if double press time elapsed since last press/release it is a short press
+    if (buttons[b].waitTime && now - buttons[b].waitTime > buttonDoublePressMs &&
         !buttons[b].pressedBefore) {
       buttons[b].waitTime = 0;
       menu_ctrl.HandleButton(ButtonType::SINGLE, b);

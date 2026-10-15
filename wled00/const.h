@@ -653,6 +653,22 @@ static_assert(WLED_MAX_BUSSES <= 32, "WLED_MAX_BUSSES exceeds hard limit");
 
 #define TOUCH_THRESHOLD 32 // limit to recognize a touch, higher value means more sensitive
 
+#define WLED_DEBOUNCE_MAX           100 // settings limits for button timings (buttonDebounceMs, buttonLongPressMs, buttonDoublePressMs, buttonRepeatDelayMs, buttonRepeatIntervalMs)
+#define WLED_LONG_PRESS_MIN         200
+#define WLED_LONG_PRESS_MAX        4000 // must stay below WLED_LONG_AP (button.cpp)
+#define WLED_DOUBLE_PRESS_MIN       100
+#define WLED_DOUBLE_PRESS_MAX      1000
+static_assert(WLED_DEBOUNCE_MAX > 0, "debounce max must be positive");
+static_assert(WLED_LONG_PRESS_MIN < WLED_LONG_PRESS_MAX, "long press min must be below max");
+static_assert(WLED_DOUBLE_PRESS_MIN < WLED_DOUBLE_PRESS_MAX, "double press min must be below max");
+static_assert(WLED_LONG_PRESS_MIN > WLED_DEBOUNCE_MAX, "long press must be longer than the debounce time");
+#define WLED_LONG_REPEAT_DELAY_MIN     100 // buttonRepeatDelayMs must also be >= buttonRepeatIntervalMs (enforced where settings are read)
+#define WLED_LONG_REPEAT_DELAY_MAX    4000
+#define WLED_LONG_REPEAT_INTERVAL_MIN  100
+#define WLED_LONG_REPEAT_INTERVAL_MAX 4000
+static_assert(WLED_LONG_REPEAT_DELAY_MIN < WLED_LONG_REPEAT_DELAY_MAX, "repeat delay min must be below max");
+static_assert(WLED_LONG_REPEAT_INTERVAL_MIN < WLED_LONG_REPEAT_INTERVAL_MAX, "repeat interval min must be below max");
+static_assert(WLED_LONG_REPEAT_INTERVAL_MAX <= WLED_LONG_REPEAT_DELAY_MAX, "raising the repeat delay to the repeat interval must stay within the delay range");
 // Size of buffer for API JSON object (increase for more segments)
 #ifdef ESP8266
   #define JSON_BUFFER_SIZE 10240
