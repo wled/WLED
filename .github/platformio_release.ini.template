@@ -13,6 +13,10 @@
 ; Do NOT commit a generated platformio_release.ini (it's in .gitignore).
 ; ----------------------------------------------------------------------------
 
+[env]
+extra_scripts = ${scripts_defaults.extra_scripts}
+                post:pio-scripts/factory_bin.py
+
 [platformio]
 default_envs = nodemcuv2
                esp8266_2m
