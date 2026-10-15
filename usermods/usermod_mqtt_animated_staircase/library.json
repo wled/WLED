@@ -1,0 +1,9 @@
+{
+  "name": "MQTT_Animated_Staircase",
+  "version": "1.0.0",
+  "description": "Custom animated staircase usermod",
+  "build": {
+    "srcDir": ".",
+    "libArchive": false
+  }
+}
