@@ -84,4 +84,40 @@ bool WLEDNetworkClass::isEthernet()
   return false;
 }
 
+#if defined(ARDUINO_ARCH_ESP32) && defined(LWIP_IPV6) && ESP_IDF_VERSION_MAJOR >= 5
+void WLEDNetworkClass::enableIPv6()
+{
+#if defined(WLED_USE_ETHERNET)
+  ETH.enableIPv6();
+#endif
+  WiFi.enableIPv6();
+}
+
+bool WLEDNetworkClass::hasLinkLocalIPv6()
+{
+  return localIPv6LinkLocal() != IN6ADDR_ANY;
+}
+
+bool WLEDNetworkClass::hasGlobalIPv6()
+{
+  return localIPv6Global() != IN6ADDR_ANY;
+}
+
+IPAddress WLEDNetworkClass::localIPv6LinkLocal()
+{
+#if defined(WLED_USE_ETHERNET)
+  if (isEthernet()) return ETH.linkLocalIPv6();
+#endif
+  return WiFi.linkLocalIPv6();
+}
+
+IPAddress WLEDNetworkClass::localIPv6Global()
+{
+#if defined(WLED_USE_ETHERNET)
+  if (isEthernet()) return ETH.globalIPv6();
+#endif
+  return WiFi.globalIPv6();
+}
+#endif
+
 WLEDNetworkClass WLEDNetwork;
