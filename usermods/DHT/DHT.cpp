@@ -57,13 +57,15 @@
 
 DHT_nonblocking dht_sensor(DHTPIN, DHTTYPE);
 
-class UsermodDHT : public Usermod {
+class UsermodDHT : public Usermod, public Sensor {
   private:
+    static const char _name[];
     unsigned long nextReadTime = 0;
     unsigned long lastReadTime = 0;
-    float humidity, temperature = 0;
+    float tempC = 0, humidity = 0, temperature = 0;
     bool initializing = true;
     bool disabled = false;
+    bool isSensorReady = false;
     #ifdef USERMOD_DHT_MQTT
     char dhtMqttTopic[64];
     size_t dhtMqttTopicLen;
@@ -79,6 +81,8 @@ class UsermodDHT : public Usermod {
     #endif
 
   public:
+    UsermodDHT() : Sensor{_name, 2} {}
+
     void setup() {
       nextReadTime = millis() + USERMOD_DHT_FIRST_MEASUREMENT_AT;
       lastReadTime = millis();
@@ -112,13 +116,13 @@ class UsermodDHT : public Usermod {
       }
       #endif
 
-      float tempC;
       if (dht_sensor.measure(&tempC, &humidity)) {
         #ifdef USERMOD_DHT_CELSIUS
         temperature = tempC;
         #else
         temperature = tempC * 9 / 5 + 32;
         #endif
+        isSensorReady = true;
 
         #ifdef USERMOD_DHT_MQTT
         // 10^n where n is number of decimal places to display in mqtt message. Please adjust buff size together with this constant
@@ -168,6 +172,7 @@ class UsermodDHT : public Usermod {
 
       if (((millis() - lastReadTime) > 10*USERMOD_DHT_MEASUREMENT_INTERVAL)) {
         disabled = true;
+        isSensorReady = false;
       }
     }
 
@@ -242,7 +247,17 @@ class UsermodDHT : public Usermod {
       return USERMOD_ID_DHT;
     }
 
+    uint8_t getSensorCount() override { return 1; }
+    Sensor *getSensor(uint8_t) override { return this; }
+
+  private:
+    bool do_isSensorReady() override { return isSensorReady; }
+    SensorValue do_getSensorChannelValue(uint8_t index) override { return index == 0 ? humidity : tempC; }
+    const SensorChannelProps &do_getSensorChannelProperties(uint8_t index) override { return _channelProps[index]; }
+    const SensorChannelPropsArray<2> _channelProps = { makeChannelProps_Humidity(), makeChannelProps_Temperature() };
 };
+
+const char UsermodDHT::_name[] PROGMEM = "DHT";
 
 
 static UsermodDHT dht;
