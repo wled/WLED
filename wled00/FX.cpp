@@ -10014,14 +10014,15 @@ void mode_particleHourglass(void) {
   PartSys->updateSystem(); // update system properties (dimensions and data pointers)
   settingTracker = reinterpret_cast<uint32_t *>(PartSys->PSdataEnd);  //assign data pointer
   direction = reinterpret_cast<bool *>(PartSys->PSdataEnd + 4);  //assign data pointer
-  PartSys->setUsedParticles(1 + ((SEGMENT.intensity * 255) >> 8));
+  const bool fillMode = SEGMENT.intensity == 0; // fill mode drops the particle from outside, filling up the strip
+  PartSys->setUsedParticles(fillMode ? 255 : 1 + ((SEGMENT.intensity * 255) >> 8));
   PartSys->setMotionBlur(SEGMENT.custom2); // anable motion blur
   PartSys->setGravity(map(SEGMENT.custom3, 0, 31, 1, 30));
   PartSys->enableParticleCollisions(true, 64); // hardness value (found by experimentation on different settings)
 
   uint32_t colormode = SEGMENT.custom1 >> 5; // 0-7
 
-  if (SEGMENT.intensity != *settingTracker) { // initialize
+  if (SEGMENT.call == 0 || SEGMENT.intensity != *settingTracker) { // initialize
     *settingTracker = SEGMENT.intensity;
     for (uint32_t i = 0; i < PartSys->usedParticles; i++) {
       PartSys->particleFlags[i].reversegrav = true; // resting particles dont fall
@@ -10079,7 +10080,10 @@ void mode_particleHourglass(void) {
       PartSys->particleFlags[i].collide = true;
       PartSys->particleFlags[i].perpetual = true;
       PartSys->particles[i].ttl = 260;
-      PartSys->particles[i].x = calcTargetPos(i);
+      if (fillMode)
+        PartSys->particles[i].x = PartSys->maxX << 2; // place far outside, we bring them in when dropped
+      else
+        PartSys->particles[i].x = calcTargetPos(i);
       PartSys->particleFlags[i].fixed = true;
     }
   }
@@ -10094,8 +10098,12 @@ void mode_particleHourglass(void) {
       if (SEGENV.aux0 < PartSys->usedParticles) {
         PartSys->particleFlags[SEGENV.aux0].reversegrav = *direction; // let this particle fall or rise
         PartSys->particleFlags[SEGENV.aux0].fixed = false; // unpin
+        if (fillMode) {
+          int dropPosition = PartSys->particleFlags[SEGENV.aux0].reversegrav ? -5 * PS_P_RADIUS_1D : PartSys->maxX + 5 * PS_P_RADIUS_1D;
+          PartSys->particles[SEGENV.aux0].x = dropPosition; // place just outside the strip so particle moves into view
+        }
       }
-      else { // overflow
+      else { // last particle has been dropped
         *direction = !(*direction); // flip direction
         SEGENV.aux1 = (SEGMENT.check2) * SEGMENT.vLength() + 100; // set restart countdown, make it short if auto start is unchecked
       }
