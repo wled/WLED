@@ -1,0 +1,15 @@
+{
+  "name": "AnimatedStaircase_VL53L0X",
+  "version": "1.0.0",
+  "build": {
+    "libArchive": false
+  },
+  "dependencies": [
+    {
+      "name": "VL53L0X",
+      "build": {
+        "libArchive": false
+      }
+    }
+  ]
+}
