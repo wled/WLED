@@ -10990,6 +10990,130 @@ void mode_slow_transition(void) {
 }
 static const char _data_FX_MODE_SLOW_TRANSITION[] PROGMEM = "Slow Transition@Time (min),,,,,,Sweep;!;!;1;pal=2,sx=0,ix=0";
 
+////////////////////////
+//     Liquid         //
+////////////////////////
+/*
+ * Liquid: a calm, waving effect for 1-D strips. The field is the amplitude-
+ * weighted sum of up to 16 travelling sine waves (of decaying amplitude, rising frequency and alternating direction)
+ * rendered into the Primary and Secondary color wells (even / odd-indexed waves).
+ * Additionally, a 'shimmer' effect takes place within a configurable band around a configurable wave height,
+ * mimicking 'catching the light' of the wave, blending the pixel toward the Tertiary color.
+ *
+ * Sliders (0..255; "Shimmer Width" uses the 0..31 slider on WLED 17):
+ *   0  Speed           wave motion (0 = frozen in place)
+ *   1  Waves           number of active waves (byte / 16; 0 = off)
+ *   2  Wavelength      spatial scale (0 = tiny waves; 255 = enormous but flat waves)
+ *   3  Shimmer Height  weight height around which shimmer effect occurs, as a fraction (0..1) of field brightness.
+ *   4  Shimmer Width   band half-width (0 = shimmer off; 31 = 0.2 brightness) around shimmer height
+ * Colors:
+ *   Primary    even-indexed waves
+ *   Secondary  odd-indexed waves
+ *   Tertiary   shimmer / "caught light" color
+ *
+ * Wave table (index k): spatial cycles per strip, relative amplitude, Hz,
+ * direction, and a fixed phase offset in radians.
+ *
+ * AI assistance: yes
+ * What AI drafted: effect code based on my own sine wave logic/math
+ * What I verified: the logic, line by line (I understand it) the effect on ESP32 + WS2814 RGBW
+ * Unsure about: well color bit shifts, typecasts
+ */
+static const float LIQ_CYCLES[16] = { 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16 };
+static const float LIQ_AMPS  [16] = { 0.35f, 0.28f, 0.22f, 0.18f, 0.15f, 0.12f, 0.10f, 0.08f,
+                                      0.07f, 0.06f, 0.05f, 0.05f, 0.04f, 0.04f, 0.03f, 0.03f };
+static const float LIQ_FREQ  [16] = { 0.080f, 0.130f, 0.200f, 0.300f, 0.420f, 0.550f, 0.700f, 0.850f,
+                                      1.000f, 1.150f, 1.300f, 1.400f, 1.500f, 1.600f, 1.700f, 1.800f };
+static const float LIQ_PHI   [16] = { 0.00f, 1.30f, 2.60f, 3.90f, 5.20f, 6.30f, 7.40f, 8.60f,
+                                      9.70f, 10.80f, 11.90f, 13.00f, 14.10f, 15.20f, 16.30f, 17.40f };
+static const float LIQ_DIR   [16] = { 1, -1, 1, -1, 1, -1, 1, -1, 1, -1, 1, -1, 1, -1, 1, -1 };
+
+void mode_liquid(void) {
+  if (SEGLEN < 1) {
+    return;
+  }
+
+  const unsigned len    = SEGLEN;
+  const unsigned waves  = SEGMENT.intensity / 16;      // "Waves": 0..15
+  if (waves == 0) {                                    // no waves -> off
+    SEGMENT.fill(0);
+    return;
+  }
+
+  // Slider parameters
+  const float cscale = 5.0f - (float)SEGMENT.custom1 / 51.0f;  // "Wavelength" spatial scale
+  const float center = (float)SEGMENT.custom2 / 255.0f;        // "Shimmer Height"
+  const float hw     = 0.30f * (float)SEGMENT.custom3 / 31.0f; // "Shimmer Width" (0 = off)
+  const float times  = (float)SEGMENT.speed * 2.0f / 255.0f;   // "Speed" (0 = frozen)
+
+  // Well colors (RGBW32 -> RGB)
+  const unsigned pR = (SEGCOLOR(0) >> 16) & 0xFF, pG = (SEGCOLOR(0) >> 8) & 0xFF, pB = SEGCOLOR(0) & 0xFF;
+  const unsigned sR = (SEGCOLOR(1) >> 16) & 0xFF, sG = (SEGCOLOR(1) >> 8) & 0xFF, sB = SEGCOLOR(1) & 0xFF;
+  const unsigned tR = (SEGCOLOR(2) >> 16) & 0xFF, tG = (SEGCOLOR(2) >> 8) & 0xFF, tB = SEGCOLOR(2) & 0xFF;
+
+  const float now = (float)strip.now;
+
+  // Field time.  Absolute seconds since boot scale by speed: the wave phases
+  // are absolute (2*pi*f*t), so the animation origin is fixed and the speed
+  // slider only slows or speeds the apparent motion (0 = frozen in place).
+  const float t = now / 1000.0f * times;
+
+  const float twoPi = M_TWOPI;
+
+  // Calculate color for all pixels
+  for (unsigned px = 0; px < len; px++) {
+    float primary = 0.0f, secondary = 0.0f, ampSum = 0.0f, briSum = 0.0f;
+    for (unsigned k = 0; k < waves; k++) {
+      const float phase = twoPi * LIQ_CYCLES[k] * cscale * (float)px * LIQ_DIR[k] / (float)len
+                        + twoPi * LIQ_FREQ[k] * t
+                        + LIQ_PHI[k];
+      const float bri = 0.5f + 0.5f * sin_t(phase);      // 0..1
+      const float w   = LIQ_AMPS[k];
+      if (k & 1) {
+        // Add individual wave to secondary color brightness
+        secondary += w * bri;
+      } else {
+        // Add individual wave to primary color brightness
+        primary += w * bri;
+      }
+      ampSum += w;
+      briSum += bri;
+    }
+    if (ampSum <= 0.0f) {
+      ampSum = 1.0f;
+    }
+
+    // Wave color: amplitude-weighted blend of the two colors (0..1)
+    const float r = ((float)pR * primary + (float)sR * secondary) / ampSum;
+    const float g = ((float)pG * primary + (float)sG * secondary) / ampSum;
+    const float b = ((float)pB * primary + (float)sB * secondary) / ampSum;
+
+    // Shimmer band gate (linear band around `center`, half-width `hw`), on mean brightness
+    const float br   = briSum / (float)waves; // 0..1
+    float gate = 0.0f;
+    if (hw > 0.0f) {
+      float d = br - center;
+      if (d < 0.0f) {
+        d = -d; // make absolute
+      }
+      if (d < hw) {
+        gate = (hw - d) / hw; // 0 at edges, 1 at center
+      }
+    }
+    // Calculate amount of 'shimmer' to be mixed into the color
+    const unsigned mix = (unsigned)(gate * 255.0f * 0.3f); // max 30% mix to avoid too much flashing
+
+    // Final: wave color blended toward the Tertiary shimmer color
+    SEGMENT.setPixelColor((int)px,
+      (unsigned)(((r * (float)(255 - mix)) + (float)tR * (float)mix) / 255.0f + 0.5f),
+      (unsigned)(((g * (float)(255 - mix)) + (float)tG * (float)mix) / 255.0f + 0.5f),
+      (unsigned)(((b * (float)(255 - mix)) + (float)tB * (float)mix) / 255.0f + 0.5f));
+  }
+}
+static const char _data_FX_MODE_LIQUID[] PROGMEM =
+  "Liquid@Speed,Waves,Wavelength,Shimmer Height,Shimmer Width;!,!,!;;;sx=128,ix=128,c1=128,c2=227,c3=10";
+
+
 //////////////////////////////////////////////////////////////////////////////////////////
 // mode data
 static const char _data_RESERVED[] PROGMEM = "RSVD";
@@ -11105,7 +11229,7 @@ void WS2812FX::setupEffectData() {
   addEffect(FX_MODE_COLORTWINKLE, &mode_colortwinkle, _data_FX_MODE_COLORTWINKLE);
   addEffect(FX_MODE_LAKE, &mode_lake, _data_FX_MODE_LAKE);
   addEffect(FX_MODE_METEOR, &mode_meteor, _data_FX_MODE_METEOR);
-  //addEffect(FX_MODE_METEOR_SMOOTH, &mode_meteor_smooth, _data_FX_MODE_METEOR_SMOOTH); // merged with mode_meteor 
+  //addEffect(FX_MODE_METEOR_SMOOTH, &mode_meteor_smooth, _data_FX_MODE_METEOR_SMOOTH); // merged with mode_meteor
   addEffect(FX_MODE_RAILWAY, &mode_railway, _data_FX_MODE_RAILWAY);
   addEffect(FX_MODE_RIPPLE, &mode_ripple, _data_FX_MODE_RIPPLE);
   addEffect(FX_MODE_TWINKLEFOX, &mode_twinklefox, _data_FX_MODE_TWINKLEFOX);
@@ -11123,7 +11247,7 @@ void WS2812FX::setupEffectData() {
   addEffect(FX_MODE_SPARKLE, &mode_sparkle, _data_FX_MODE_SPARKLE);
   addEffect(FX_MODE_GLITTER, &mode_glitter, _data_FX_MODE_GLITTER);
   addEffect(FX_MODE_SOLID_GLITTER, &mode_solid_glitter, _data_FX_MODE_SOLID_GLITTER);
-  addEffect(FX_MODE_MULTI_COMET, &mode_multi_comet, _data_FX_MODE_MULTI_COMET);  
+  addEffect(FX_MODE_MULTI_COMET, &mode_multi_comet, _data_FX_MODE_MULTI_COMET);
   #ifdef WLED_PS_DONT_REPLACE_1D_FX
   addEffect(FX_MODE_ROLLINGBALLS, &mode_rolling_balls, _data_FX_MODE_ROLLINGBALLS);
   addEffect(FX_MODE_STARBURST, &mode_starburst, _data_FX_MODE_STARBURST);
@@ -11149,13 +11273,14 @@ void WS2812FX::setupEffectData() {
   addEffect(FX_MODE_SINEWAVE, &mode_sinewave, _data_FX_MODE_SINEWAVE);
   addEffect(FX_MODE_PHASEDNOISE, &mode_phased_noise, _data_FX_MODE_PHASEDNOISE);
   addEffect(FX_MODE_FLOW, &mode_flow, _data_FX_MODE_FLOW);
-  addEffect(FX_MODE_CHUNCHUN, &mode_chunchun, _data_FX_MODE_CHUNCHUN);  
+  addEffect(FX_MODE_CHUNCHUN, &mode_chunchun, _data_FX_MODE_CHUNCHUN);
   addEffect(FX_MODE_WASHING_MACHINE, &mode_washing_machine, _data_FX_MODE_WASHING_MACHINE);
   addEffect(FX_MODE_BLENDS, &mode_blends, _data_FX_MODE_BLENDS);
   addEffect(FX_MODE_TV_SIMULATOR, &mode_tv_simulator, _data_FX_MODE_TV_SIMULATOR);
   addEffect(FX_MODE_DYNAMIC_SMOOTH, &mode_dynamic_smooth, _data_FX_MODE_DYNAMIC_SMOOTH);
   addEffect(FX_MODE_PACMAN, &mode_pacman, _data_FX_MODE_PACMAN);
   addEffect(FX_MODE_SLOW_TRANSITION, &mode_slow_transition, _data_FX_MODE_SLOW_TRANSITION);
+  addEffect(FX_MODE_LIQUID, &mode_liquid, _data_FX_MODE_LIQUID);
 
   // --- 1D audio effects ---
   addEffect(FX_MODE_PIXELS, &mode_pixels, _data_FX_MODE_PIXELS);
