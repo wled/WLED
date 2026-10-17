@@ -14,6 +14,7 @@ public:
   IPAddress localIP();
   IPAddress subnetMask();
   IPAddress gatewayIP();
+  IPAddress broadcastIP();
   void localMAC(uint8_t* MAC);
   bool isConnected();
   bool isEthernet();

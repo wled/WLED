@@ -193,8 +193,7 @@ void notify(byte callMode, bool followUp)
 #endif
   {
     DEBUG_PRINTLN(F("UDP sending packet."));
-    IPAddress broadcastIp = ~uint32_t(WLEDNetwork.subnetMask()) | uint32_t(WLEDNetwork.gatewayIP());
-    notifierUdp.beginPacket(broadcastIp, udpPort);
+    notifierUdp.beginPacket(WLEDNetwork.broadcastIP(), udpPort);
     notifierUdp.write(udpOut, WLEDPACKETSIZE); // TODO: add actual used buffer size
     notifierUdp.endPacket();
   }
