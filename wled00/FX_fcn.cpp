@@ -225,7 +225,7 @@ void Segment::resetIfRequired() {
 
 void Segment::loadPalette(CRGBPalette16 &targetPalette, uint8_t pal) {
   // there is one randomly generated palette (1) followed by 4 palettes created from segment colors (2-5)
-  // those are followed by 7 fastled palettes (6-12) and 59 gradient palettes (13-71)
+  // those are followed by 7 fastled palettes (6-12) and GRADIENT_PALETTE_COUNT built in gradient palettes
   // then come user custom palettes (IDs <=200) and usermod palettes (IDs 201-255), both growing downward from their respective base IDs
   // palette 0 is a varying palette depending on effect and may be replaced by segment's color if so
   // instructed in color_from_palette()
@@ -2411,5 +2411,5 @@ const char JSON_palette_names[] PROGMEM = R"=====([
 "Magenta","Magred","Yelmag","Yelblu","Orange & Teal","Tiamat","April Night","Orangery","C9","Sakura",
 "Aurora","Atlantica","C9 2","C9 New","Temperature","Aurora 2","Retro Clown","Candy","Toxy Reaf","Fairy Reaf",
 "Semi Blue","Pink Candy","Red Reaf","Aqua Flash","Yelblu Hot","Lite Light","Red Flash","Blink Red","Red Shift","Red Tide",
-"Candy2","Traffic Light"
+"Candy2","Traffic Light","Fireworks"
 ])=====";
