@@ -5900,31 +5900,42 @@ static const char _data_FX_MODE_2DNOISE[] PROGMEM = "Noise2D@!,Scale;;!;2";
 //////////////////////////////
 //     2D Plasma Ball       //
 //////////////////////////////
-void mode_2DPlasmaball(void) {                   // By: Stepko https://editor.soulmatelights.com/gallery/659-plasm-ball , Modified by: Andrew Tuline
+void mode_2DPlasmaball(void) {                   // By: Stepko https://editor.soulmatelights.com/gallery/659-plasm-ball , Modified by: Andrew Tuline, optimized by: softhack007
   if (!strip.isMatrix || !SEGMENT.is2D()) FX_FALLBACK_STATIC; // not a 2D set-up
 
   const int cols = SEG_W;
-  const int rows = SEG_H;
+  const int rows = min(SEG_H, 256U); // effect does not support more than 256 pixel rows
+  uint8_t noisebuf[256];
+
+  unsigned noiseInterval=30;
+  // scale noise interval down for larger dimensions, so the look stays similar to 28x28
+  const unsigned minDim = min(cols,rows);
+  if (minDim > 28) {
+    noiseInterval = (30 * 28 + 15) / minDim;         // scale interval so that 30 * 28 = noiseInterval * minDim
+    noiseInterval = constrain(noiseInterval, 5, 32); // keep the result in a useful range
+  }
 
   SEGMENT.fadeToBlackBy(SEGMENT.custom1>>2);
   uint_fast32_t t = (strip.now * 8) / (256 - SEGMENT.speed);  // optimized to avoid float
-  for (int i = 0; i < cols; i++) {
-    unsigned thisVal = perlin8(i * 30, t, t);
-    unsigned thisMax = map(thisVal, 0, 255, 0, cols-1);
-    for (int j = 0; j < rows; j++) {
-      unsigned thisVal_ = perlin8(t, j * 30, t);
-      unsigned thisMax_ = map(thisVal_, 0, 255, 0, rows-1);
-      int x = (i + thisMax_ - cols / 2);
-      int y = (j + thisMax - cols / 2);
-      int cx = (i + thisMax_);
-      int cy = (j + thisMax);
 
-      SEGMENT.addPixelColorXY(i, j, ((x - y > -2) && (x - y < 2)) ||
-                                    ((cols - 1 - x - y) > -2 && (cols - 1 - x - y < 2)) ||
-                                    (cols - cx == 0) ||
-                                    (cols - 1 - cx == 0) ||
-                                    ((rows - cy == 0) ||
-                                    (rows - 1 - cy == 0)) ? ColorFromPalette(SEGPALETTE, beat8(5), thisVal, LINEARBLEND) : CRGB::Black);
+  // cache for inner loop noise, so we avoid calculating the same values for each row
+  for (int j = 0; j < rows; j++) noisebuf[j] = perlin8(t, j * noiseInterval, t);
+
+  for (int i = 0; i < cols; i++) {
+    unsigned colNoise = perlin8(i * noiseInterval, t, t);
+    int yShift = map(colNoise, 0, 255, 0, rows-1);        // column-driven wobble moves lines vertically
+    for (int j = 0; j < rows; j++) {
+      unsigned rowNoise = noisebuf[j];                    // use cached noise - 50% speedup
+      int xShift = map(rowNoise, 0, 255, 0, cols-1);      // row-driven wobble moves lines horizontally
+      // position relative to the panel center (plus wobble)
+      int dx = i + xShift - cols;
+      int dy = j + yShift - rows;
+
+      bool isLit = (abs(dx - dy) < 2) ||
+                   (abs(dx + dy + 1) < 2) ||
+                   (dx == 0) || (dx == -1) ||
+                   (dy == 0) || (dy == -1);
+      if (isLit) SEGMENT.addPixelColorXY(i, j, ColorFromPalette(SEGPALETTE, beat8(5), colNoise, LINEARBLEND)); // optimization: only add non-black pixels 
     }
   }
   SEGMENT.blur(SEGMENT.custom2>>5);
