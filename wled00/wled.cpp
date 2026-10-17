@@ -1047,6 +1047,7 @@ void WLED::handleConnection()
       }
     }
   } else if (!interfacesInited) { //newly connected
+    if (WLEDNetwork.isEthernet()) showWelcomePage = false;
     DEBUG_PRINTLN();
     DEBUG_PRINT(F("Connected! IP address: "));
     DEBUG_PRINTLN(WLEDNetwork.localIP());

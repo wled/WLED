@@ -827,6 +827,7 @@ void serveSettings(AsyncWebServerRequest* request, bool post) {
   String contentType = FPSTR(CONTENT_TYPE_HTML);
   const uint8_t* content;
   size_t len;
+  uint16_t eTagSuffix = 0;
 
   switch (subPage) {
     case SUBPAGE_WIFI    :  content = PAGE_settings_wifi; len = PAGE_settings_wifi_length; break;
@@ -866,8 +867,13 @@ void serveSettings(AsyncWebServerRequest* request, bool post) {
     case SUBPAGE_PINREQ  :  content = PAGE_settings_pin;  len = PAGE_settings_pin_length; code = 401;                 break;
     case SUBPAGE_CSS     :  content = PAGE_settingsCss;   len = PAGE_settingsCss_length;  contentType = FPSTR(CONTENT_TYPE_CSS); break;
     case SUBPAGE_JS      :  serveSettingsJS(request); return;
-    case SUBPAGE_WELCOME :  content = PAGE_welcome;       len = PAGE_welcome_length;       break;
+    case SUBPAGE_WELCOME :  {
+      content = PAGE_welcome;
+      len = PAGE_welcome_length;
+      eTagSuffix = 0xFFFF;
+      break;
+    }
     default:                content = PAGE_settings;      len = PAGE_settings_length;      break;
   }
-  handleStaticContent(request, "", code, contentType, content, len);
+  handleStaticContent(request, "", code, contentType, content, len, true, eTagSuffix);
 }
