@@ -376,6 +376,7 @@ void getSettingsJS(byte subPage, Print& settingsScript)
       char sl[4] = "SL"; sl[2] = offset+s; sl[3] = 0; //skip 1st LED
       char rf[4] = "RF"; rf[2] = offset+s; rf[3] = 0; //off refresh
       char aw[4] = "AW"; aw[2] = offset+s; aw[3] = 0; //auto white mode
+      char wk[4] = "WK"; wk[2] = offset+s; wk[3] = 0; //W channel color temperature (Kelvin, 0 = off)
       char wo[4] = "WO"; wo[2] = offset+s; wo[3] = 0; //swap channels
       char sp[4] = "SP"; sp[2] = offset+s; sp[3] = 0; //bus clock speed
       char la[4] = "LA"; la[2] = offset+s; la[3] = 0; //LED current
@@ -397,6 +398,7 @@ void getSettingsJS(byte subPage, Print& settingsScript)
       printSetFormValue(settingsScript,sl,bus->skippedLeds());
       printSetFormCheckbox(settingsScript,rf,bus->isOffRefreshRequired());
       printSetFormValue(settingsScript,aw,bus->getAutoWhiteMode());
+      printSetFormValue(settingsScript,wk,bus->getWhiteKelvin());
       printSetFormValue(settingsScript,wo,bus->getColorOrder() >> 4);
       unsigned speed = bus->getFrequency();
       if (bus->isPWM()) {
