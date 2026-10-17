@@ -62,9 +62,9 @@ bool deserializeConfig(JsonObject doc, bool fromFS) {
   JsonObject nw = doc["nw"];
 #ifndef WLED_DISABLE_ESPNOW
   CJSON(enableESPNow, nw[F("espnow")]);
-  linked_remotes.clear();
   JsonVariant lrem = nw[F("linked_remote")];
   if (!lrem.isNull()) {
+    linked_remotes.clear();
      if (lrem.is<JsonArray>()) {
       for (size_t i = 0; i < lrem.size(); i++) {
         std::array<char, 13> entry{};
@@ -180,13 +180,13 @@ bool deserializeConfig(JsonObject doc, bool fromFS) {
   uint16_t total = hw_led[F("total")] | strip.getLengthTotal();
   uint16_t ablMilliampsMax = hw_led[F("maxpwr")] | BusManager::ablMilliampsMax();
   BusManager::setMilliampsMax(ablMilliampsMax);
-  Bus::setGlobalAWMode(hw_led[F("rgbwm")] | AW_GLOBAL_DISABLED);
+  Bus::setGlobalAWMode(hw_led[F("rgbwm")] | Bus::getGlobalAWMode());
   CJSON(strip.correctWB, hw_led["cct"]);
   CJSON(strip.cctFromRgb, hw_led[F("cr")]);
   CJSON(cctICused, hw_led[F("ic")]);
   uint8_t cctBlending = hw_led[F("cb")] | Bus::getCCTBlend();
   Bus::setCCTBlend(cctBlending);
-  unsigned targetFPS = hw_led["fps"] | WLED_FPS;
+  unsigned targetFPS = hw_led["fps"] | strip.getTargetFps();
   strip.setTargetFps(targetFPS); //unlimited if 0, default 42 FPS
 
   #ifndef WLED_DISABLE_2D
@@ -528,12 +528,10 @@ bool deserializeConfig(JsonObject doc, bool fromFS) {
   CJSON(strip.autoSegments, light[F("aseg")]);
 
   CJSON(gammaCorrectVal, light["gc"]["val"]); // default 2.2
-  float light_gc_bri = light["gc"]["bri"] | 1.0f; // default to 1.0 (false)
-  float light_gc_col = light["gc"]["col"] | gammaCorrectVal; // default to gammaCorrectVal (true)
-  if (light_gc_bri != 1.0f) gammaCorrectBri = true;
-  else                      gammaCorrectBri = false;
-  if (light_gc_col != 1.0f) gammaCorrectCol = true;
-  else                      gammaCorrectCol = false;
+  JsonVariant gc_bri = light["gc"]["bri"]; // 1.0 = off, absent = keep current
+  JsonVariant gc_col = light["gc"]["col"];
+  if (!gc_bri.isNull()) gammaCorrectBri = (gc_bri.as<float>() != 1.0f);
+  if (!gc_col.isNull()) gammaCorrectCol = (gc_col.as<float>() != 1.0f);
   if (gammaCorrectVal < 0.1f || gammaCorrectVal > 3) {
     gammaCorrectVal = 1.0f; // no gamma correction
     gammaCorrectBri = false;
