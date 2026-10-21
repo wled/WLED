@@ -261,7 +261,7 @@ private:
   }
 
   void _setMaskToLeds() {
-    for(int i = 0; i <= umSSDRLength; i++) {
+    for(int i = 0; i < umSSDRLength; i++) {
       if ((!umSSDRInverted && !umSSDRMask[i]) || (umSSDRInverted && umSSDRMask[i])) {
         strip.setPixelColor(i, 0x000000);
       }
@@ -269,7 +269,7 @@ private:
   }
 
   void _setAllFalse() {
-    for(int i = 0; i <= umSSDRLength; i++) {
+    for(int i = 0; i < umSSDRLength; i++) {
       umSSDRMask[i] = false;
     }
   }
@@ -386,11 +386,8 @@ public:
      */
   void setup() {
     umSSDRLength = strip.getLengthTotal();
-    if (umSSDRMask != 0) {
-      umSSDRMask = (bool*) realloc(umSSDRMask, umSSDRLength * sizeof(bool));
-    } else {
-      umSSDRMask = (bool*) malloc(umSSDRLength * sizeof(bool));
-    }
+    umSSDRMask = (bool*) d_malloc(umSSDRLength * sizeof(bool));
+    if (!umSSDRMask) umSSDRLength = 0;
     _setAllFalse();
 
     #ifdef USERMOD_SN_PHOTORESISTOR
@@ -439,7 +436,8 @@ public:
   }
 
   void handleOverlayDraw() {
-    if (umSSDRDisplayTime) {
+    // the first overlay draw happens in beginStrip(), before setup() has allocated the mask
+    if (umSSDRDisplayTime && umSSDRMask) {
       _overlaySevenSegmentDraw();
     }
   }
