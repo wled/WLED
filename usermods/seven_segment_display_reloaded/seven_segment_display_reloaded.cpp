@@ -261,7 +261,7 @@ private:
   }
 
   void _setMaskToLeds() {
-    for(int i = 0; i < umSSDRLength; i++) {
+    for (int i = 0; i < umSSDRLength; i++) {
       if ((!umSSDRInverted && !umSSDRMask[i]) || (umSSDRInverted && umSSDRMask[i])) {
         strip.setPixelColor(i, 0x000000);
       }
@@ -269,7 +269,7 @@ private:
   }
 
   void _setAllFalse() {
-    for(int i = 0; i < umSSDRLength; i++) {
+    for (int i = 0; i < umSSDRLength; i++) {
       umSSDRMask[i] = false;
     }
   }
@@ -386,7 +386,7 @@ public:
      */
   void setup() {
     umSSDRLength = strip.getLengthTotal();
-    umSSDRMask = (bool*) d_malloc(umSSDRLength * sizeof(bool));
+    umSSDRMask = (bool*)d_malloc(umSSDRLength * sizeof(bool));
     if (!umSSDRMask) umSSDRLength = 0;
     _setAllFalse();
 
@@ -437,9 +437,16 @@ public:
 
   void handleOverlayDraw() {
     // the first overlay draw happens in beginStrip(), before setup() has allocated the mask
-    if (umSSDRDisplayTime && umSSDRMask) {
-      _overlaySevenSegmentDraw();
+    if (!umSSDRDisplayTime || !umSSDRMask) return;
+    if (umSSDRLength != strip.getLengthTotal()) { // the LED count can change at runtime without a reboot
+      umSSDRLength = strip.getLengthTotal();
+      umSSDRMask = (bool*)d_realloc_malloc(umSSDRMask, umSSDRLength * sizeof(bool));
+      if (!umSSDRMask) {
+        umSSDRLength = 0;
+        return;
+      }
     }
+    _overlaySevenSegmentDraw();
   }
 
 /*
