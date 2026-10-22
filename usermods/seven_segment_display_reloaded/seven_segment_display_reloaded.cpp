@@ -174,7 +174,7 @@ private:
   void _showElements(String *map, int timevar, bool isColon, bool removeZero
 
 ) {
-    if ((map != nullptr) && (*map != nullptr) && !(*map).equals("")) {
+    if ((map != nullptr) && !map->isEmpty()) {
       int length = String(timevar).length();
       bool addZero = false;
       if (length == 1) {
