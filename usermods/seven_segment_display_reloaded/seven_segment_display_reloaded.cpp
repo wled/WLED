@@ -143,7 +143,7 @@ private:
           _showElements(&umSSDRMonths, timeVar, 0, 0);
           break;
         case 'y':
-          timeVar = second(localTime);
+          timeVar = year(localTime) % 100;
           _showElements(&umSSDRYears, timeVar, 0, 0);
           break;
         case 'Y':
