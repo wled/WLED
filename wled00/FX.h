@@ -813,7 +813,6 @@ class Segment {
 // main "strip" class (108 bytes)
 class WS2812FX {
   typedef void (*mode_ptr)(); // pointer to mode function
-  typedef void (*show_callback)(); // pre show callback
   typedef struct ModeData {
     uint8_t     _id;   // mode (effect) id
     mode_ptr    _fcn;  // mode (effect) function
@@ -851,7 +850,6 @@ class WS2812FX {
       _segment_index(0),
       _mainSegment(0),
       _modeCount(MODE_COUNT),
-      _callback(nullptr),
       customMappingTable(nullptr),
       customMappingSize(0),
       _lastShow(0),
@@ -904,7 +902,6 @@ class WS2812FX {
     inline void setPixelColor(unsigned n, CRGB c) const       { setPixelColor(n, c.red, c.green, c.blue); }
     inline void fill(uint32_t c) const                        { for (size_t i = 0; i < getLengthTotal(); i++) setPixelColor(i, c); } // fill whole strip with color (inline)
     inline void trigger()                                     { _triggered = true; }  // Forces the next frame to be computed on all active segments.
-    inline void setShowCallback(show_callback cb)             { _callback = cb; }
     inline void setTransition(uint16_t t)                     { _transitionDur = t; } // sets transition time (in ms)
     inline void appendSegment(uint16_t sStart=0, uint16_t sStop=30, uint16_t sStartY = 0, uint16_t sStopY = 1)
                                                               { if (_segments.size() < getMaxSegments()) _segments.emplace_back(sStart,sStop,sStartY,sStopY); }
@@ -1042,8 +1039,6 @@ class WS2812FX {
     uint8_t                  _modeCount;
     std::vector<mode_ptr>    _mode;     // SRAM footprint: 4 bytes per element
     std::vector<const char*> _modeData; // mode (effect) name and its slider control data array
-
-    show_callback _callback;
 
     uint16_t* customMappingTable;
     uint16_t  customMappingSize;

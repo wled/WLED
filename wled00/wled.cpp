@@ -604,7 +604,6 @@ void WLED::beginStrip()
   strip.finalizeInit(); // busses created during deserializeConfig() if config existed
   strip.makeAutoSegments();
   strip.setBrightness(0);
-  strip.setShowCallback(handleOverlayDraw);
   doInitBusses = false;
 
   // init offMode and relay
