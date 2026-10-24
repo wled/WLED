@@ -285,6 +285,17 @@ class UsermodOLED72x40 : public Usermod {
         }
       }
 
+      // Wake the panel so a settings change is visible, and so re-enabling a
+      // usermod that was blanked on disable does not wait for the timeout guard in loop().
+      if (enabled && !setupFailed && initDone && u8g2) {
+        lastInteraction = millis();
+        lastUpdate = 0;
+        if (displayState == OFF) {
+          u8g2->setPowerSave(0);
+          displayState = DASHBOARD;
+        }
+      }
+
       if (initDone && u8g2) u8g2->setFlipMode(flipDisplay ? 1 : 0);
       return configComplete;
     }
