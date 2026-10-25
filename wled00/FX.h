@@ -849,7 +849,6 @@ class Segment {
 // main "strip" class (108 bytes)
 class WS2812FX {
   typedef void (*mode_ptr)(); // pointer to mode function
-  typedef void (*show_callback)(); // pre show callback
   typedef struct ModeData {
     uint8_t     _id;   // mode (effect) id
     mode_ptr    _fcn;  // mode (effect) function
@@ -892,8 +891,7 @@ class WS2812FX {
       customMappingSize(0),
       customMappingTable(nullptr),
       _lastShow(0),
-      _lastServiceShow(0),
-      _callback(nullptr)
+      _lastServiceShow(0)
     {
       _mode.reserve(_modeCount);     // allocate memory to prevent initial fragmentation (does not increase size())
       _modeData.reserve(_modeCount); // allocate memory to prevent initial fragmentation (does not increase size())
@@ -942,7 +940,6 @@ class WS2812FX {
     inline void setPixelColor(unsigned n, CRGB c) const       { setPixelColor(n, c.red, c.green, c.blue); }
     inline void fill(uint32_t c) const                        { for (size_t i = 0; i < getLengthTotal(); i++) setPixelColor(i, c); } // fill whole strip with color (inline)
     inline void trigger()                                     { _triggered = true; }  // Forces the next frame to be computed on all active segments.
-    inline void setShowCallback(show_callback cb)             { _callback = cb; }
     inline void setTransition(uint16_t t)                     { _transitionDur = t; } // sets transition time (in ms)
     inline void appendSegment(uint16_t sStart=0, uint16_t sStop=30, uint16_t sStartY = 0, uint16_t sStopY = 1)
                                                               { if (_segments.size() < getMaxSegments()) _segments.emplace_back(sStart,sStop,sStartY,sStopY); }
@@ -1087,7 +1084,6 @@ class WS2812FX {
 
     unsigned long _lastShow;
     unsigned long _lastServiceShow;
-    show_callback _callback;
 
     friend class Segment;
 };
