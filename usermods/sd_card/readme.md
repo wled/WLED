@@ -5,6 +5,7 @@
 - choose the way your SD is connected
   1. via `-D WLED_USE_SD_MMC` when connected via MMC
   2. via `-D WLED_USE_SD_SPI` when connected via SPI (use usermod page to setup SPI pins)
+  3. Customize pins with the following `-D UM_SD_SELECT=16 -D UM_SD_CLOCK=14 -D UM_SD_POCI=36 -D UM_SD_PICO=15`
 
 ### Test
 - enable `-D SD_PRINT_HOME_DIR` and `-D WLED_DEBUG`

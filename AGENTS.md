@@ -9,7 +9,41 @@ See also: `.github/copilot-instructions.md`, `.github/agent-build.instructions.m
 
 Always reference these instructions - including coding guidelines in `docs/` - first and fallback to search or bash commands only when you encounter unexpected information that does not match the info here.
 
+## Required User Agreement
+
+Before editing files, committing, pushing, or opening a PR, show the human you're working with this notice and wait for an explicit yes in the current conversation:
+
+> WLED welcomes AI-assisted contributions, but not unreviewed ones. I'll only edit, commit, push, or open a PR once you confirm you'll review, understand, and take responsibility for the result. Do you agree?
+
+A generic "go ahead" or silence doesn't count - get a clear yes. Until then, you may read files and answer questions, but do not modify files in the repository or make changes on GitHub.
+
+### No agent-posted replies or issues
+
+Reviewer time is limited, and checking long AI-generated explanations for reasoning errors and hallucinations is costly. Even after the user agreement is confirmed:
+
+- **Never post** replies to reviewer comments or discussions, and **never create issue tickets**, on the user's behalf. You may help the user draft the text locally; the human reviews it and posts it themselves.
+- Creating or updating pull requests remains allowed (after the user agreement is confirmed). Keep PR descriptions concise and factual, and include a summary written by the user in their own words, leading with what they want to achieve or what bothers them in plain language, as described in [CONTRIBUTING.md](CONTRIBUTING.md#opening-issues--feature-requests).
+
+### Attribution for PR Descriptions, Comments and Replies
+
+- When creating PR descriptions or suggesting responses to comments, always add this as the very last line: _You are interacting with an AI system_
+- - Your harness may add this trailer automatically. Do not add a duplicate.
+
+### Attribution for Commits
+
+For every commit you create in this repository, ensure the commit message includes a `Co-authored-by:` trailer identifying the large language model and agent platform:
+
+```text
+Co-authored-by: MODEL NAME/VERSION (AGENT PLATFORM) <COAUTHOR EMAIL>
+```
+- Your harness may add this trailer automatically. Do not add a duplicate; ensure the resulting trailer identifies both the model and platform.
+- Replace the placeholders with the model name/version reported by your runtime and the agent platform (e.g. Codex, Claude Code). Write `unknown` for unavailable model details; do not guess.
+- Use the platform's configured co-author email, or `agent@example.invalid` if none is available.
+- Include exactly one trailer per distinct platform/model pair that contributed to the commit, after a blank line at the end of the commit message. Preserve existing human co-author trailers.
+
 ## Build Commands
+
+Note: also read `AGENTS.local.md` if present (gitignored personal learnings file; it supplements this document).
 
 | Command | Purpose | Timeout |
 |---|---|---|
@@ -67,8 +101,7 @@ docs/                # Coding convention docs
 ### Branch / Release Structure
 
 ```text
-main                # Main development trunk (daily/nightly) 17.0.0-dev. Target branch for PRs.
-  ├── V5            # special branch: code rework for esp-idf 5.5.x and new MCU types: esp32-c5, esp32-c6, esp32-p4 (unstable)
+main                # Main development trunk (daily/nightly) 17.0.0-devV5. Target branch for PRs.
 16_x                # maintenance for release 16.0.x
 0_15_x              # maintenance (bugfixes only) for previous release 0.15.x
 (tag) v0.14.4       # old version 0.14.4 (no maintenance)
@@ -78,11 +111,20 @@ main                # Main development trunk (daily/nightly) 17.0.0-dev. Target 
 
 ## C++ Code Style (wled00/, usermods/)
 
+### General
+
+- Follow the existing style in the file you are editing
+- Avoid unexplained "magic numbers". For repeated numbers that have the same meaning, prefer named constants (`constexpr`) or C-style `#define` constants.
+- If possible, **use `static` for local (C-style) variables and functions** to keep the global namespace clean
+- When moving global items to another scope, do not leave comments such as `// lastMqttReconnectAttempt is now private to wled.cpp - see there`. These comments create technical debt for maintenance and will inevitably become out of date. As a rule of thumb: **describe the code as it is, not the code as it was**.
+- Describe logic/reasoning behind non-standard patterns and complex solutions.
+
 ### Formatting
 - **2-space indentation** (no tabs in C++ files)
 - K&R brace style preferred (opening brace on same line)
 - Single-statement `if` bodies may omit braces: `if (a == b) doStuff(a);`
 - Space after keywords (`if (...)`, `for (...)`), no space before function parens (`doStuff(a)`)
+- Prefer compact function parameter lists and `if` conditions; avoid putting each parameter or part of a condition on its own line. Wrap very long parameter lists when needed.
 - No enforced line-length limit
 
 ### Comments
@@ -103,6 +145,14 @@ main                # Main development trunk (daily/nightly) 17.0.0-dev. Target 
 - Project headers first, then platform/Arduino, then third-party
 - Platform-conditional includes wrapped in `#ifdef ARDUINO_ARCH_ESP32` / `#ifdef ESP8266`
 
+### Debug Output
+
+- Use `DEBUG_PRINTF()` / `DEBUG_PRINTLN()` / `DEBUG_PRINT()` for developer diagnostics and debug output (compiled out unless -D WLED_DEBUG)
+- wled00/wled.h defines these macros. They compile to no output when debug output is disabled, keeping normal serial interfaces clean.
+- Do not use direct `Serial.print()`, `Serial.println()`, `Serial.printf()`, or `Serial.write()` calls unless there is a technical justification for not using DEBUG_... macros.
+
+See docs/cpp.instructions.md section Error Handling for more information.
+
 ### Types and Const
 - Prefer `const &` for read-only function parameters
 - Mark getter/query methods `const`; use `static` for methods not accessing instance state
@@ -114,7 +164,7 @@ main                # Main development trunk (daily/nightly) 17.0.0-dev. Target 
 - **No C++ exceptions** — some builds disable them
 - Use return codes (`false`, `-1`) and global flags (`errorFlag = ERR_LOW_MEM`)
 - Use early returns as guard clauses: `if (!enabled || (strip.isUpdating() && (millis() - last_time < MAX_USERMOD_DELAY))) return;`
-- Debug output: `DEBUG_PRINTF()` / `DEBUG_PRINTLN()` (compiled out unless `-D WLED_DEBUG`)
+- Debug output: `DEBUG_PRINTF()` / `DEBUG_PRINTLN()` (see previous section)
 
 ### Strings and Memory
 - Use `F("string")` for string constants (saves RAM on ESP8266)
@@ -124,16 +174,20 @@ main                # Main development trunk (daily/nightly) 17.0.0-dev. Target 
 - No VLAs — use fixed arrays or heap allocation
 - Call `reserve()` on strings/vectors to pre-allocate and avoid fragmentation
 
-#### ESP32 PSRAM guidelines
+### ESP32 PSRAM guidelines
 
-- **Check availability**: Test chip availability with `psramFound() && ESP.getPsramSize() > 0` before assuming PSRAM is present. Never rely on `BOARD_HAS_PSRAM`only.
-- **DMA compatibility**: on ESP32 (classic), PSRAM buffers are **not DMA-capable**. On ESP32-S3 with octal PSRAM (`CONFIG_SPIRAM_MODE_OCT`), PSRAM buffers *can* be used with DMA when `CONFIG_SOC_PSRAM_DMA_CAPABLE` is defined.
-- **Fragmentation**: PSRAM allocations fragment less than DRAM because the region is larger. But avoid mixing small and large allocations in PSRAM — small allocations waste the MMU page granularity.
-- **Performance**: Prefer DRAM (or IRAM) for hot-path data that is *frequently* used. Prefer PSRAM for capacity-oriented buffers where slightly slower access times can be tolerated.
+- **Check availability**: Use `psramFound() && ESP.getPsramSize() > 0`; never rely on `BOARD_HAS_PSRAM` alone.
+- **DMA**: Not possible on ESP32 classic. S3 can do it in hardware (see next bullet), but descriptors must stay in DRAM and bandwidth is poor while the CPU also uses PSRAM. Keeping DMA buffers in DRAM is usually better for performance.
+   - On ESP32-S3 with octal PSRAM (`CONFIG_SPIRAM_MODE_OCT`), PSRAM buffers *can* be used with DMA when `CONFIG_SOC_PSRAM_DMA_CAPABLE` is defined.
+- **Cache**: PSRAM shares the CPU cache with flash (~32 KB data cache by default). Hot working sets below that run near DRAM speed. Large or random-access buffers run at raw PSRAM speed, and big sweeps can evict cached code and slow down everything.
+- **Flash writes**: PSRAM is inaccessible while the flash cache is off. ISRs that run during flash writes must use only DRAM or IRAM data, and they must be declared with `IRAM_ATTR` so instructions don't  need to be fetched from flash while writing.
+- **Performance**: Prefer DRAM (or IRAM) for hot-path data that is *frequently* used. Prefer PSRAM for capacity-oriented buffers where slightly slower access times can be tolerated. Small hot working sets (<~32 KB) in PSRAM can run near DRAM speed, especially when accessed sequentially.
 
-Background Info:
+#### Background Info:
 
-- PSRAM access is up to 15× slower than DRAM on ESP32 (dual-SPI bus), 3–10× slower than DRAM on ESP32-S3/-S2 with quad-SPI bus. On ESP32-S3 with octal PSRAM (`CONFIG_SPIRAM_MODE_OCT`), the penalty is smaller (~2×) because the 8-line DTR bus can transfer 8 bits in parallel. On ESP32-P4 with hex PSRAM (`CONFIG_SPIRAM_MODE_HEX`), the 16-line bus runs at 200 MHz which brings it on-par with DRAM.
+- PSRAM access is up to 15× slower than DRAM on ESP32 (dual-SPI bus), 3–10× slower than DRAM on ESP32-S3/-S2 with quad-SPI bus. On ESP32-S3 with octal PSRAM (`CONFIG_SPIRAM_MODE_OCT`), the penalty is smaller (~2×) because the 8-line DTR bus can transfer 8 bits in parallel. On ESP32-P4 with hex PSRAM (`CONFIG_SPIRAM_MODE_HEX`), the 16-line bus runs at 200 MHz which brings it on-par with DRAM. These values are rough estimates only.
+- PSRAM uses the CPU data cache (typically ~32 KB) that is also shared with flash. Small hot working sets (<~32 KB) run near DRAM speed; larger or random-access buffers fall back to raw PSRAM speed, and big PSRAM sweeps can evict cached flash code and slow down everything else. Keep hot data in DRAM and use PSRAM for large buffers that are accessed sequentially (Espressif's ESP-IDF external RAM guide, "Restrictions").
+- Caching read-only files in PSRAM is usually not faster, because flash and PSRAM share the same SPI bus and often run at same speeds. Minor gains are still possible on ESP32-S3 when CONFIG_SOC_PSRAM_DMA_CAPABLE and CONFIG_SPIRAM_MODE_OCT are enabled. Better performance potential is expected on ESP32-P4 with CONFIG_SOC_MEMSPI_FLASH_PSRAM_INDEPENDENT. In special cases, file caching can still help by reducing interrupt contention (for example RMT refill pressure) and preventing visible LED flashing.
 - Consider that ESP32 often crashes when the largest available DRAM chunk gets below 10 KB.
 
 ### Preprocessor / Feature Flags
@@ -161,6 +215,7 @@ Background Info:
 
 - Use FreeRTOS mutexes, semaphores or queues when true concurrent access from multiple FreeRTOS tasks is possible, and race-conditions can lead to unexpected behaviour.
 - **Avoid `portENTER_CRITICAL()` / `portEXIT_CRITICAL()`**, as these functions stall the complete system and may cause LEDs flickering. Prefer FreeRTOS mutexes, semaphores or queues.
+- Don't use `portMAX_DELAY` when waiting to acquire a mutex - this can lock the task indefinitely. Find a reasonable max waiting time, and handle mutex timeouts gracefully.
 - **Important**: Not every shared resource needs a mutex. Some synchronization is guaranteed by the overall control flow, for example when function calls are sequenced within the same loop iteration.
 - Consider using `std::atomic` or RAII scoped guards as alternatives to mutexes, semaphores or queues.
 
@@ -172,9 +227,17 @@ Background Info:
 - After editing, run `npm run build` to regenerate headers
 - **Never edit** `wled00/html_*.h` or `wled00/js_*.h` directly
 
-## Usermod Pattern
+## Usermods
+ 
+### Source Code Location
 
-Usermods live in `usermods/<name>/` with a `.cpp`, optional `.h`, `library.json`, and `readme.md`.
+* **In-Tree Usermods** live in `usermods/<name>/` with a `.cpp`, optional `.h`, `library.json`, and `readme.md`.  An example is in `usermods/EXAMPLE`
+* **Out-Of-Tree Usermods** live in a separate public repository. They use the same pattern as in-tree usermods.
+
+* [Official out-of-tree usermods list](https://kno.wled.ge/advanced/community-usermods/#index)
+* [Writing an out-of-tree usermod](https://kno.wled.ge/advanced/custom-features/#writing-a-usermod)
+
+### Usermod Pattern
 
 ```cpp
 class MyUsermod : public Usermod {
@@ -202,12 +265,28 @@ refer to detailed examples in `usermods/EXAMPLE/`, `usermods/user_fx/` and [in t
 - Store repeated strings as `static const char[] PROGMEM`
 - Add usermod IDs to `wled00/const.h` **only when a unique ID is required** (see below)
 
+### Pin ownership via `pinManager`
+- Before performing any operation on I/O pins, the usermod must allocate its pins from the `pinManager`.
+- I/O pins are allocated via `PinManager::allocatePin(byte gpio, bool output, PinOwner tag)` (or `PinManager::allocateMultiplePins()`), and returned via `PinManager::deallocatePin()` when re-configuring pin numbers.
+- If the usermod does not register a unique usermod ID, use `PinOwner::UM_Unspecified` as PinOwner tag for generic pin use.
+- `PinManager::allocatePin()` will return an error code in case that a pin is already assigned to another WLED function.
+- You can use `-1` = `255` for unconfigured / unassigned pin functions.
+- Check for valid pin numbers with `PinManager::isPinOk(byte gpio, bool output)`; this function knows which GPI(O) pins are possible on your specific MCU.
+
+#### I2C (Wire) and SPI busses
+
+- PIN numbers for I2C and SPI busses are configured globally in the 'Global I2C & SPI' part of the usermod settings page.
+- Usually, a usermod will not start the I2C or SPI units explicitly, since they are already initialised when WLED starts.
+- Don't call `Wire.begin()` in your `Usermod::setup()`, as this may break other usermods that need the I2C bus.
+- Don't allocate `Wire` I2C pins to the usermod - it would cause a pin conflict, as global I2C pins are already allocated to `PinOwner::HW_I2C`.
+- Use this pattern to check for an incomplete I2C setup: `if (i2c_scl<0 || i2c_sda<0) {enabled = false; return;}`.
+
 ### Usermod IDs
 
 A unique ID (registered in `wled00/const.h` and overriding `getId()`) is **only required** when a usermod needs one or more of the following:
 
 1. **Inter-usermod communication** — another usermod or an FX effect calls `UsermodManager::lookup(mod_id)` or `UsermodManager::getUMData(..., mod_id)` to find or request data from this specific usermod.
-2. **Pin ownership via `pinManager`** — the usermod allocates GPIO pins through `pinManager`. Pin ownership is tracked by `PinOwner` enum values that map directly to `USERMOD_ID_*` constants (see `wled00/pin_manager.h`). This prevents pin-conflict bugs.
+2. **Pin ownership via `PinManager`** — the usermod allocates GPIO pins through `pinManager`. Pin ownership is tracked by `PinOwner` enum values that map directly to `USERMOD_ID_*` constants (see `wled00/pin_manager.h`). This prevents pin-conflict bugs.
 3. **Identification in JSON info** — `UsermodManager::addToJsonInfo` emits each mod's ID into the `"um"` array; a unique ID makes the mod identifiable in that output.
 
 If none of the above apply, the usermod may omit `getId()` (or return the default `USERMOD_ID_UNSPECIFIED`) and does **not** need an entry in `const.h`.
@@ -215,10 +294,16 @@ If none of the above apply, the usermod may omit `getId()` (or return the defaul
 ### Usermod `loop()`
 
 - Called once per main loop iteration. Usermods should simply `return` when `!enabled`.
-- Frequency of calls varies with system load:
+- Avoid blocking calls or `delay()` in the usermod `loop()` - delays block the WLED main loop and lead to effect stuttering.
+- Frequency of Usermod `loop()` calls varies with system load:
     * up to 2000 times/sec with few LEDs and little background activity,
     * between 20 and 300 times/second during high workload from effects and other usermods,
     * (worst case) down to 1-3 times/sec during FS activity or when serving lots of network API requests.
+
+### See Also
+* https://kno.wled.ge/advanced/custom-features/#usermods
+* https://kno.wled.ge/advanced/community-usermods/#index
+* generic instructions for Debug Output, as per previous section in this file.
 
 ## CI/CD
 
@@ -233,16 +318,22 @@ No automated linting is configured. Match existing code style in files you edit.
 ## General Rules
 
 - Important: Repository language is **English**. This applies to source code (including comments), commit messages and any kind of documentation for developer or users.
+- Provide references when making analyses or recommendations. Support factual claims with verifiable citations, references or concrete evidence; **never fabricate citations**.
 - The `docs/` folder is for developer/contributor information (coding conventions, architecture, etc.). User documentation is maintained in the [wled/WLED-Docs](https://github.com/wled/WLED-Docs) repository.
 - Never edit or commit auto-generated `wled00/html_*.h` / `wled00/js_*.h`.
-- When updating an existing PR, retain the original description. Only modify it to ensure technical accuracy. Add change logs after the existing description.
-- No force-push on open PRs!
-- Important: **Changes to `platformio.ini` require maintainer approval**!
-- PRs should respect `.gitignore` and not upload files like  `platformio_override.ini`. PR authors may add buildenv examples for custom boards into `platformio_override.ini.sample`.
 - Remove dead/unused code — justify or delete it.
 - Verify feature-flag spelling exactly (misspellings are silently ignored by preprocessor).
-- Provide references when making analyses or recommendations. Support factual claims with verifiable citations, references or concrete evidence; **never fabricate citations**.
-- **Highlight user-visible breaking changes and ripple effects** during reviews. Ask for confirmation that these were introduced intentionally.
+- Important: **Changes to `platformio.ini` require maintainer approval**!
+- PRs should respect `.gitignore` and not upload files like  `platformio_override.ini`. PR authors may add buildenv examples for custom boards into `platformio_override.ini.sample`.
+- When updating an existing PR, retain the original description. Only modify it to ensure technical accuracy. Add change logs after the existing description.
+
+### Pull Request Expectations
+- **No force-push** on open PRs!
+- Every pull request needs a **clear description of what changed and why**. If the change affects user-visible behavior, describe the expected impact. Link to related issues where applicable.
+- Best practice: Consider adding screenshots to showcase new features.
+- **Do not prefix the PR title** with `fix:`, `feat:`, `doc:` or other keywords meant to define the type of PR. Use combinations of labels (`bug`, `enhancement`, `effect`, `usermod`, `slop`, etc.) instead.
+- **Do not fix trailing whitespace** or perform pretty-formatting in unrelated code. Such fixes can lead to merge conflicts when other forks want to cherry-pick changes. A separate PR should be used for whitespace optimisation and pretty-formatting.
+- Important: **Fully or partially AI coded PRs MUST be declared clearly** in the description - in addition to comments markers in the source code (see Comments section).
 
 ### Security Hardening
 
@@ -253,12 +344,23 @@ multicast/broadcast, firewall-isolated deployment assumed).
 
 ### Attribution for AI-generated code
 
-Using AI-generated code can hide the source of the inspiration / knowledge / sources it used.
+Using AI-generated code can obscure the original source or logic of a solution. It may even create hidden licensing risks if sources cannot be verified independently.
 
-- Document attribution of inspiration / knowledge / sources used in the code, e.g. link to GitHub repositories or other websites describing the principles / algorithms used.
-- When a larger block of code is generated by an AI tool, embed it into `// AI: below section was generated by an AI` ... `// AI: end` comments (see Comments section).
-- Every non-trivial AI-generated function should have a brief comment describing what it does. Explain parameters when their names alone are not self-explanatory.
-- AI-generated code must be well documented with meaningful comments that explain intent, assumptions, and non-obvious logic. Do not rephrase source code; explain concepts and reasoning.
+- If your agent activity has referenced specific external sources (e.g., science papers, Wikipedia, or documentation) to derive the solution, include these references to allow for independent verification.
+- While standard coding patterns require no further explanation, please describe the logic or architectural reasoning behind any unconventional or complex solutions.
+- Use the required source code comment markers for non-trivial AI generated code blocks (see Comments section).
+- Every non-trivial AI-generated function should have a *brief* comment summarizing what it does. Explain parameters when their names alone are not self-explanatory. Do not rephrase source code; explain non-standard concepts and reasoning.
+
+### Guardrails for Coding Agents
+
+These apply to any coding agent (Copilot or otherwise) acting on a contributor's behalf in this repository:
+
+- **Confirm before you commit.** Make sure the human understands and can explain the change - especially root-cause claims or refactors - before you open a PR.
+- **Stay scoped, but don't dodge architecture.** Touch only what the task requires, and flag broader fixes to the human instead of silently expanding the change. But don't use "keep it minimal" as an excuse to avoid a needed core-level discussion - if the clean fix requires a new core capability or interface, say so and propose it, rather than bolting on a weak hook, monkey-patch, or board-specific workaround just to keep the diff small.
+- **Warning: avoid overconfident root-cause claims.** When drafting issue tickets or PR descriptions, don't state a root cause with confidence unless you've actually traced the code path or reproduced the failure. A plausible-sounding explanation is not the same as a verified one - overconfident claims that later "dissolve into nothing" under review waste maintainer time and damage trust in the whole PR. When in doubt, say so explicitly.
+- **State what's tested.** Distinguish "verified" from "should work based on reading the code" in the PR description.
+- **Disclose AI involvement.** Declare AI assistance in the PR description.
+- **Let issues start non-technical.** When helping draft an issue or feature request, elicit the human's objective or observation in plain language first - don't lead with a proposed code path or fix. Maintainers are better positioned than you to map that objective onto a technical solution.
 
 ### Supporting Reviews and Discussions
 

@@ -452,8 +452,13 @@ BusPwm::BusPwm(const BusConfig &bc)
       pinMode(_pins[i], OUTPUT);
       #else
       unsigned channel = _ledcStart + i;
+      #if ESP_IDF_VERSION < ESP_IDF_VERSION_VAL(5, 0, 0)
       ledcSetup(channel, _frequency, _depth - (dithering*4)); // with dithering _frequency doesn't really matter as resolution is 8 bit
       ledcAttachPin(_pins[i], channel);
+      #else
+      ledcAttachChannel(_pins[i], _frequency,  _depth - (dithering*4), channel);
+      // LEDC timer reset credit @dedehai
+      #endif
       // LEDC timer reset credit @dedehai
       uint8_t group = (channel / 8), timer = ((channel / 2) % 4); // same fromula as in ledcSetup()
       ledc_timer_rst((ledc_mode_t)group, (ledc_timer_t)timer); // reset timer so all timers are almost in sync (for phase shift)
@@ -585,10 +590,23 @@ void BusPwm::show() {
     unsigned ch = channel%8;  // group channel
     // directly write to LEDC struct as there is no HAL exposed function for dithering
     // duty has 20 bit resolution with 4 fractional bits (24 bits in total)
+    #if defined(CONFIG_IDF_TARGET_ESP32C5) || defined(CONFIG_IDF_TARGET_ESP32C6) || defined(CONFIG_IDF_TARGET_ESP32C61) || defined(CONFIG_IDF_TARGET_ESP32P4)
+    // TODO: we need a full rewrite of the "analog LEDs" driver!
+    //   see https://github.com/wled/WLED/pull/5048#discussion_r2794185845
+
+    // the .duty_init.duty member seems to only affect fade operations, and its necessary to also trigger an update with
+    // LEDC.channel_group[gr].channel[ch].conf0.para_up = 1;
+    // --> research latest (V5.5.x) esp-idf documentation on how to set the duty cycle registers (by API calls?).
+    //    https://docs.espressif.com/projects/esp-idf/en/v5.5.2/esp32c5/api-reference/peripherals/ledc.html#_CPPv424ledc_set_duty_and_update11ledc_mode_t14ledc_channel_t8uint32_t8uint32_t
+    //   LEDC.channel_group[gr].channel[ch].duty_init.duty = duty << ((!dithering)*4);  // C5 LEDC struct uses duty_init, but requires additional steps to activate
+    // TODO: find out if / how dithering support can be implemented on P4
+    ledc_set_duty_and_update((ledc_mode_t)gr, (ledc_channel_t)ch, duty >> bitShift, hPoint >> bitShift);
+    #else
     LEDC.channel_group[gr].channel[ch].duty.duty = duty << ((!dithering)*4);  // lowest 4 bits are used for dithering, shift by 4 bits if not using dithering
     LEDC.channel_group[gr].channel[ch].hpoint.hpoint = hPoint >> bitShift;    // hPoint is at _depth resolution (needs shifting if dithering)
     ledc_update_duty((ledc_mode_t)gr, (ledc_channel_t)ch);
-    #endif
+    #endif // ESP32C5
+    #endif // 8266
 
     if (!_reversed) hPoint += duty;
     hPoint += deadTime;        // offset to cascade the signals
@@ -623,7 +641,11 @@ void BusPwm::deallocatePins() {
     #ifdef ESP8266
     digitalWrite(_pins[i], LOW); //turn off PWM interrupt
     #else
+    #if ESP_IDF_VERSION < ESP_IDF_VERSION_VAL(5, 0, 0)
     if (_ledcStart < WLED_MAX_ANALOG_CHANNELS) ledcDetachPin(_pins[i]);
+    #else
+    if (_ledcStart < WLED_MAX_ANALOG_CHANNELS) ledcDetach(_pins[i]);
+    #endif
     #endif
   }
   #ifdef ARDUINO_ARCH_ESP32
@@ -744,7 +766,7 @@ size_t BusNetwork::getPins(uint8_t* pinArray) const {
 #ifdef ARDUINO_ARCH_ESP32
 void BusNetwork::resolveHostname() {
   static std::shared_ptr<AsyncDNS> DNSlookup; // TODO: make this dynamic? requires to handle the callback properly
-  if (Network.isConnected()) {
+  if (WLEDNetwork.isConnected()) {
     IPAddress clnt;
     if (strlen(cmDNS) > 0) {
       clnt = MDNS.queryHost(_hostname);
@@ -857,6 +879,11 @@ BusHub75Matrix::BusHub75Matrix(const BusConfig &bc) : Bus(bc.type, bc.start, bc.
     else if (mxconfig.chain_length * mxconfig.mx_width > 64)  mxconfig.setPixelColorDepthBits(4);
     else mxconfig.setPixelColorDepthBits(8);
   } else mxconfig.setPixelColorDepthBits(8);
+#else
+  if (physicalPanelWidth * physicalPanelHeight * mxconfig.chain_length > 192*64)
+    mxconfig.setPixelColorDepthBits(6); // reduce RAM usage for large panels, for the price of reduced color quality (18bit)
+  else
+    mxconfig.setPixelColorDepthBits(8); // default color resolution = 24bit
 #endif
 
 
@@ -910,6 +937,14 @@ BusHub75Matrix::BusHub75Matrix(const BusConfig &bc) : Bus(bc.type, bc.start, bc.
                     7, 48, 6, 47, 2,   //  A_PIN,  B_PIN,  C_PIN,  D_PIN,  E_PIN,
                     21, 4, 5 };        // LAT_PIN, OE_PIN,CLK_PIN
 
+  #elif defined(SEENGREAT_MATRIX_S3_PINOUT)
+  DEBUGBUS_PRINTLN("MatrixPanel_I2S_DMA - Seengreat RGB Matrix HUB75 S3 pinout");
+  // https://seengreat.com/wiki/214 (dedicated HUB75 board, SKU 260612 - NOT the same board/pinout as SEENGREAT_V1/V2_S3_PINOUT above)
+  mxconfig.gpio = {  5,  4,  6,        // R1_PIN, G1_PIN, B1_PIN,
+                    15,  7, 17,        // R2_PIN, G2_PIN, B2_PIN,
+                     8, 18, 10,  9, 16,//  A_PIN,  B_PIN,  C_PIN,  D_PIN,  E_PIN,
+                    11, 13, 12 };      // LAT_PIN, OE_PIN,CLK_PIN
+
   #else
   DEBUGBUS_PRINTLN("MatrixPanel_I2S_DMA - S3 generic pinout");
   // HUB75_I2S_CFG::i2s_pins _pins={R1_PIN, G1_PIN, B1_PIN, R2_PIN, G2_PIN, B2_PIN, A_PIN, B_PIN, C_PIN, D_PIN, E_PIN, LAT_PIN, OE_PIN, CLK_PIN};
@@ -918,7 +953,7 @@ BusHub75Matrix::BusHub75Matrix(const BusConfig &bc) : Bus(bc.type, bc.start, bc.
 
 #elif defined(CONFIG_IDF_TARGET_ESP32)
   // generic ESP32 pinouts
-  #if defined(BOARD_HAS_PSRAM) // all ESP32 pinouts require gpio 16 or 17, which are controling PSRAM
+  #if defined(BOARD_HAS_PSRAM) // all ESP32 pinouts require gpio 16 or 17, which are controlling PSRAM
     #warning "ESP32 HUB75 pinout is not compatible with PSRAM boards."
   #endif
   #if defined(ESP32_FORUM_PINOUT) || defined(FORUM_ESP32_PINOUT) // Common format for boards designed for SmartMatrix
@@ -987,7 +1022,7 @@ BusHub75Matrix::BusHub75Matrix(const BusConfig &bc) : Bus(bc.type, bc.start, bc.
     DEBUGBUS_PRINTF("MatrixPanel_I2S_DMA = unsupported color order %u\n", bc.colorOrder);
   }
 
-  DEBUGBUS_PRINTF("MatrixPanel_I2S_DMA config - %ux%u length: %u\n", mxconfig.mx_width, mxconfig.mx_height, mxconfig.chain_length);
+  DEBUGBUS_PRINTF("MatrixPanel_I2S_DMA config - %ux%u length: %u, %d bits per pixel.\n", mxconfig.mx_width, mxconfig.mx_height, mxconfig.chain_length, 3 * mxconfig.getPixelColorDepthBits());
   DEBUGBUS_PRINTF("R1_PIN=%u, G1_PIN=%u, B1_PIN=%u, R2_PIN=%u, G2_PIN=%u, B2_PIN=%u, A_PIN=%u, B_PIN=%u, C_PIN=%u, D_PIN=%u, E_PIN=%u, LAT_PIN=%u, OE_PIN=%u, CLK_PIN=%u\n",
                 mxconfig.gpio.r1, mxconfig.gpio.g1, mxconfig.gpio.b1, mxconfig.gpio.r2, mxconfig.gpio.g2, mxconfig.gpio.b2,
                 mxconfig.gpio.a, mxconfig.gpio.b, mxconfig.gpio.c, mxconfig.gpio.d, mxconfig.gpio.e, mxconfig.gpio.lat, mxconfig.gpio.oe, mxconfig.gpio.clk);
@@ -1003,7 +1038,7 @@ BusHub75Matrix::BusHub75Matrix(const BusConfig &bc) : Bus(bc.type, bc.start, bc.
   this->_len = (display->width() * display->height()); // note: this returns correct number of pixels but incorrect dimensions if using virtual display (updated below)
 
   DEBUGBUS_PRINTF("Length: %u\n", _len);
-  if (this->_len >= MAX_LEDS) {
+  if (this->_len > MAX_LEDS) {
     DEBUGBUS_PRINTLN("MatrixPanel_I2S_DMA Too many LEDS - playing safe");
     return;
   }
@@ -1032,8 +1067,9 @@ BusHub75Matrix::BusHub75Matrix(const BusConfig &bc) : Bus(bc.type, bc.start, bc.
     _valid = true;
     display->clearScreen();   // initially clear the screen buffer
     DEBUGBUS_PRINTLN("MatrixPanel_I2S_DMA clear ok");
-
+    #ifdef WLED_HUB75_EXTRA_BUFFER
     if (_ledBuffer) d_free(_ledBuffer);                 // should not happen
+    #endif
     if (_ledsDirty) d_free(_ledsDirty);                 // should not happen
     DEBUGBUS_PRINTLN("MatrixPanel_I2S_DMA allocate memory");
     _ledsDirty = (byte*) d_malloc(getBitArrayBytes(_len));  // create LEDs dirty bits
@@ -1048,9 +1084,10 @@ BusHub75Matrix::BusHub75Matrix(const BusConfig &bc) : Bus(bc.type, bc.start, bc.
       return;  //  fail is we cannot get memory for the buffer
     }
     setBitArray(_ledsDirty, _len, false);             // reset dirty bits
-
+    #ifdef WLED_HUB75_EXTRA_BUFFER
     // create LEDs buffer (initialized to BLACK), prefer DRAM if enough heap is available (faster in case global _pixels buffer is in PSRAM as not both will fit the cache)
     _ledBuffer = static_cast<CRGB*>(allocate_buffer(_len * sizeof(CRGB), BFRALLOC_PREFER_DRAM | BFRALLOC_CLEAR));
+    #endif
   }
 
   PANEL_CHAIN_TYPE chainType = CHAIN_NONE; // default for quarter-scan panels that do not use chaining
@@ -1097,20 +1134,24 @@ BusHub75Matrix::BusHub75Matrix(const BusConfig &bc) : Bus(bc.type, bc.start, bc.
 
   DEBUGBUS_PRINT(F("MatrixPanel_I2S_DMA "));
   DEBUGBUS_PRINTF_P(PSTR("%sstarted, width=%u, %u pixels.\n"), _valid? "":"not ", _panelWidth, _len);
-
-  if (_ledBuffer != nullptr) DEBUGBUS_PRINTLN(F("MatrixPanel_I2S_DMA LEDS buffer enabled."));
-  if (_ledsDirty != nullptr) DEBUGBUS_PRINTLN(F("MatrixPanel_I2S_DMA LEDS dirty bit optimization enabled."));
-  if ((_ledBuffer != nullptr) || (_ledsDirty != nullptr)) {
-    DEBUGBUS_PRINT(F("MatrixPanel_I2S_DMA LEDS buffer uses "));
-    DEBUGBUS_PRINT((_ledBuffer? _len*sizeof(CRGB) :0) + (_ledsDirty? getBitArrayBytes(_len) :0));
-    DEBUGBUS_PRINTLN(F(" bytes."));
+  #ifdef WLED_HUB75_EXTRA_BUFFER
+  if (_ledBuffer != nullptr) {
+    DEBUGBUS_PRINTLN(F("MatrixPanel_I2S_DMA extra buffer enabled."));
+    DEBUGBUS_PRINT(F("Extra buffer uses "));
+    DEBUGBUS_PRINT(_len*sizeof(CRGB));
+  }
+  #endif
+  if (_ledsDirty != nullptr) {
+    DEBUGBUS_PRINTLN(F("MatrixPanel_I2S_DMA LEDS dirty bit optimization enabled."));
+    DEBUGBUS_PRINT(F("Dirty buffer uses "));
+    DEBUGBUS_PRINT((getBitArrayBytes(_len)));
   }
 }
 
 void IRAM_ATTR BusHub75Matrix::setPixelColor(unsigned pix, uint32_t c) {
   if (!_valid) return; // note: no need to check pix >= _len as that is checked in containsPixel()
   // if (_cct >= 1900) c = colorBalanceFromKelvin(_cct, c); //color correction from CCT
-
+  #ifdef WLED_HUB75_EXTRA_BUFFER
   if (_ledBuffer) {
     CRGB fastled_col = CRGB(c);
     if (_ledBuffer[pix] != fastled_col) {
@@ -1118,6 +1159,9 @@ void IRAM_ATTR BusHub75Matrix::setPixelColor(unsigned pix, uint32_t c) {
       setBitInArray(_ledsDirty, pix, true);  // flag pixel as "dirty"
     }
   }
+  #else
+  if (false) {} // placeholder
+  #endif
   else {
     if ((c == IS_BLACK) && (getBitFromArray(_ledsDirty, pix) == false)) return; // ignore black if pixel is already black
     setBitInArray(_ledsDirty, pix, c != IS_BLACK);                              // dirty = true means "color is not BLACK"
@@ -1140,10 +1184,14 @@ void IRAM_ATTR BusHub75Matrix::setPixelColor(unsigned pix, uint32_t c) {
 
 uint32_t BusHub75Matrix::getPixelColor(unsigned pix) const {
   if (!_valid) return IS_BLACK; // note: no need to check pix >= _len as that is checked in containsPixel()
+  #ifdef WLED_HUB75_EXTRA_BUFFER
   if (_ledBuffer)
     return uint32_t(_ledBuffer[pix]);  // fastled-slim already returns RGB, no need to mask out the upper byte
   else
     return getBitFromArray(_ledsDirty, pix) ? IS_DARKGREY: IS_BLACK;   // just a hack - we only know if the pixel is black or not
+  #else
+  return getBitFromArray(_ledsDirty, pix) ? IS_DARKGREY: IS_BLACK;   // just a hack - we only know if the pixel is black or not
+  #endif
 }
 
 void BusHub75Matrix::setBrightness(uint8_t b) {
@@ -1153,6 +1201,7 @@ void BusHub75Matrix::setBrightness(uint8_t b) {
 }
 
 void BusHub75Matrix::show(void) {
+  #ifdef WLED_HUB75_EXTRA_BUFFER
   if (!_valid) return;
   if (_ledBuffer) {
     // write out buffered LEDs
@@ -1172,6 +1221,9 @@ void BusHub75Matrix::show(void) {
     }
     setBitArray(_ledsDirty, _len, false);  // buffer shown - reset all dirty bits
   }
+  #endif
+  // show() is a no-op if WLED_HUB75_EXTRA_BUFFER is not defined: pixels were already written directly in setPixelColor(),
+  // the DMA driver handles continuous refresh asynchronously
 }
 
 void BusHub75Matrix::cleanup() {
@@ -1189,7 +1241,9 @@ void BusHub75Matrix::cleanup() {
   #else  // runtime reconfiguration is not working on -S3, request reboot from user instead
     errorFlag = ERR_REBOOT_NEEDED;
   #endif
+  #ifdef WLED_HUB75_EXTRA_BUFFER
   if (_ledBuffer != nullptr) d_free(_ledBuffer); _ledBuffer = nullptr;
+  #endif
   if (_ledsDirty != nullptr) d_free(_ledsDirty); _ledsDirty = nullptr;
 }
 
@@ -1339,6 +1393,10 @@ void BusManager::removeAll() {
 // since I2S outputs are known only during config of buses, lets just assume RMT is used for digital buses
 // unused RMT channels should have no effect
 void BusManager::esp32RMTInvertIdle() {
+#if defined(CONFIG_IDF_TARGET_ESP32C5) || defined(CONFIG_IDF_TARGET_ESP32C6) || defined(CONFIG_IDF_TARGET_ESP32C61) || defined(CONFIG_IDF_TARGET_ESP32P4)
+  // ESP32-C5/C6/P4 use shared RMT method - idle level inversion not supported
+  return;
+#else
   bool idle_out;
   unsigned rmt = 0;
   unsigned u = 0;
@@ -1356,6 +1414,7 @@ void BusManager::esp32RMTInvertIdle() {
     rmt_set_idle_level(ch, idle_out, lvl);
     u++;
   }
+#endif
 }
 #endif
 

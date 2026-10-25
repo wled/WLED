@@ -1,0 +1,43 @@
+; Options
+; -------
+;; see readme.md
+
+
+;; simple examples how to configure this usermod -> add to your platformio_override.ini
+
+[env:esp32_sdcard_spi]
+extends = env:esp32dev
+custom_usermods = ${env:esp32dev.custom_usermods} sd_card
+build_flags = ${env:esp32dev.build_flags}
+			  -D WLED_USE_SD_SPI
+
+[env:esp32_sdcard_mmc]
+extends = env:esp32dev
+custom_usermods = ${env:esp32dev.custom_usermods} sd_card
+build_flags = ${env:esp32dev.build_flags}
+			  -D WLED_USE_SD_MMC
+
+[env:esp32S3_sdcard_spi]
+extends = env:esp32s3dev_8MB_opi
+custom_usermods = ${env:esp32s3dev_8MB_opi.custom_usermods} sd_card
+build_flags = ${env:esp32s3dev_8MB_opi.build_flags}
+			  -D WLED_USE_SD_SPI
+
+[env:esp32S3_sdcard_mmc]
+extends = env:esp32s3_4M_qspi
+custom_usermods = ${env:esp32s3_4M_qspi.custom_usermods} sd_card
+build_flags = ${env:esp32s3_4M_qspi.build_flags}
+			  -D WLED_USE_SD_MMC
+
+
+[env:esp32C3_sdcard_SPI]
+extends = env:esp32c3dev
+custom_usermods = ${env:esp32c3dev.custom_usermods} sd_card
+build_flags = ${env:esp32c3dev.build_flags}
+			  -D WLED_USE_SD_SPI
+
+[env:esp32S2_sdcard_SPI]
+extends = env:lolin_s2_mini
+custom_usermods = ${env:lolin_s2_mini.custom_usermods} sd_card
+build_flags = ${env:lolin_s2_mini.build_flags}
+			  -D WLED_USE_SD_SPI

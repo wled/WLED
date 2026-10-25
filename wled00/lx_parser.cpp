@@ -16,24 +16,24 @@ bool parseLx(int lxValue, byte* rgbw)
   if (lxValue < 200000000) {
     // Loxone RGB
     ok = true;
-    lxRed = round((lxValue % 1000) * 2.55);
-    lxGreen = round(((lxValue / 1000) % 1000) * 2.55);
-    lxBlue = round(((lxValue / 1000000) % 1000) * 2.55);
+    lxRed = round((lxValue % 1000) * 2.55f);
+    lxGreen = round(((lxValue / 1000) % 1000) * 2.55f);
+    lxBlue = round(((lxValue / 1000000) % 1000) * 2.55f);
   } else if ((lxValue >= 200000000) && (lxValue <= 201006500)) {
     // Loxone Lumitech
     ok = true;
-    float tmpBri = floor((lxValue - 200000000) / 10000);
+    float tmpBri = (lxValue - 200000000) / 10000;
     uint16_t ct = (lxValue - 200000000) - (((uint8_t)tmpBri) * 10000);
 
     tmpBri *= 2.55f;
-    tmpBri = constrain(tmpBri, 0, 255);
+    tmpBri = constrain(tmpBri, 0, 255) / 255.0f; // normalize 0.0-1.0
 
     colorKtoRGB(ct, rgbw);
     lxRed = rgbw[0]; lxGreen = rgbw[1]; lxBlue = rgbw[2];
 
-    lxRed *= (tmpBri/255);
-    lxGreen *= (tmpBri/255);
-    lxBlue *= (tmpBri/255);
+    lxRed *= tmpBri;
+    lxGreen *= tmpBri;
+    lxBlue *= tmpBri;
   }
 
   if (ok) {

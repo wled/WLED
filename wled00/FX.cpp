@@ -56,7 +56,7 @@
   float    *fftBin = nullptr;
   um_data_t *um_data = getAudioData();
   volumeSmth    = *(float*)   um_data->u_data[0];
-  volumeRaw     = *(float*)   um_data->u_data[1];
+  volumeRaw     = *(int16_t*)   um_data->u_data[1];
   fftResult     =  (uint8_t*) um_data->u_data[2];
   samplePeak    = *(uint8_t*) um_data->u_data[3];
   FFT_MajorPeak = *(float*)   um_data->u_data[4];
@@ -1179,7 +1179,7 @@ void mode_running_random(void) {
   uint16_t PRNG16 = SEGENV.aux0;
 
   unsigned z = it % zoneSize;
-  bool nzone = (!z && it != SEGENV.aux1);
+  bool nzone = (!z && (it & 0xFFFF) != SEGENV.aux1);
   for (int i=SEGLEN-1; i >= 0; i--) {
     if (nzone || z >= zoneSize) {
       unsigned lastrand = PRNG16 >> 8;
@@ -1198,7 +1198,7 @@ void mode_running_random(void) {
     z++;
   }
 
-  SEGENV.aux1 = it;
+  SEGENV.aux1 = it & 0xFFFF;
 }
 static const char _data_FX_MODE_RUNNING_RANDOM[] PROGMEM = "Stream@!,Zone size;;!";
 
@@ -3150,8 +3150,8 @@ static const char _data_FX_MODE_ROLLINGBALLS[] PROGMEM = "Rolling Balls@!,# of b
 *   aux1 is the main counter for timing.
 */
 typedef struct PacManChars {
-  signed    pos;
-  signed    topPos;     // LED position of farthest PacMan has moved
+  int       pos;
+  int       topPos;     // LED position of farthest PacMan has moved
   uint32_t  color;
   bool      direction;  // true = moving away from first LED
   bool      blue;       // used for ghosts only
@@ -3159,16 +3159,16 @@ typedef struct PacManChars {
 } pacmancharacters_t;
 
 static void mode_pacman(void) {
-  constexpr unsigned ORANGEYELLOW = 0xFFCC00;
-  constexpr unsigned PURPLEISH    = 0xB000B0;
-  constexpr unsigned ORANGEISH    = 0xFF8800;
-  constexpr unsigned WHITEISH     = 0x999999;
-  constexpr unsigned PACMAN = 0;   // PacMan is character[0]
+  constexpr uint32_t ORANGEYELLOW = 0xFFCC00;
+  constexpr uint32_t PURPLEISH    = 0xB000B0;
+  constexpr uint32_t ORANGEISH    = 0xFF8800;
+  constexpr uint32_t WHITEISH     = 0x999999;
+  constexpr uint32_t PACMAN = 0;   // PacMan is character[0]
   constexpr uint32_t ghostColors[] = {RED, PURPLEISH, CYAN, ORANGEISH};
 
-  unsigned maxPowerDots = min(SEGLEN / 10U, 255U);  // cap the max so packed state fits in 8 bits
-  unsigned numPowerDots = map(SEGMENT.intensity, 0, 255, 1, maxPowerDots);
-  unsigned numGhosts = map(SEGMENT.custom3, 0, 31, 2, 8);
+  uint32_t maxPowerDots = min(SEGLEN / 10U, 255U);  // cap the max so packed state fits in 8 bits
+  uint32_t numPowerDots = map(SEGMENT.intensity, 0, 255, 1, maxPowerDots);
+  uint32_t numGhosts = map(SEGMENT.custom3, 0, 31, 2, 8);
   bool smearMode = SEGMENT.check2;
 
   // Pack two 8-bit values into one 16-bit field (stored in SEGENV.aux0)
@@ -3177,7 +3177,7 @@ static void mode_pacman(void) {
   SEGENV.aux0 = combined_value;
 
   // Allocate segment data
-  unsigned dataSize = sizeof(pacmancharacters_t) * (numGhosts + maxPowerDots + 1);    // +1 is the PacMan character
+  uint32_t dataSize = sizeof(pacmancharacters_t) * (numGhosts + maxPowerDots + 1);    // +1 is the PacMan character
   if (SEGLEN <= 16 + (2*numGhosts) || !SEGENV.allocateData(dataSize)) FX_FALLBACK_STATIC;
   pacmancharacters_t *character = reinterpret_cast<pacmancharacters_t *>(SEGENV.data);
 
@@ -3185,7 +3185,7 @@ static void mode_pacman(void) {
   // On first call (or after settings change), `topPos` is not known yet, so fall back to the full segment length in that case.
   int maxBlinkPos = (SEGENV.call == 0) ? (int)SEGLEN - 1 : character[PACMAN].topPos;
   if (maxBlinkPos < 20) maxBlinkPos = 20;
-  int startBlinkingGhostsLED = (SEGLEN < 64)
+  int startBlinkingGhostsLED = (SEGLEN < 64U)
     ? (int)SEGLEN / 3
     : map(SEGMENT.custom1, 0, 255, 20, maxBlinkPos);
 
@@ -3199,19 +3199,19 @@ static void mode_pacman(void) {
     character[PACMAN].blue = false;
 
     // Initialize ghosts with alternating colors
-    for (int i = 1; i <= numGhosts; i++) {
+    for (uint32_t i = 1; i <= numGhosts; i++) {
       character[i].color = ghostColors[(i-1) % 4];
-      character[i].pos = -2 * (i + 1);
+      character[i].pos = -2 * int32_t(i + 1);
       character[i].direction = true;
       character[i].blue = false;
     }
 
     // Initialize power dots
-    for (int i = 0; i < numPowerDots; i++) {
+    for (uint32_t i = 0; i < numPowerDots; i++) {
       character[i + numGhosts + 1].color = ORANGEYELLOW;
       character[i + numGhosts + 1].eaten = false;
     }
-    character[numGhosts + 1].pos = SEGLEN - 1;  // Last power dot at end
+    character[numGhosts + 1].pos = int32_t(SEGLEN - 1);  // Last power dot at end
   }
 
   if (strip.now > SEGENV.step) {
@@ -3225,50 +3225,50 @@ static void mode_pacman(void) {
   // Draw white dots in front of PacMan if option selected
   if (SEGMENT.check1) {
     int step = SEGMENT.check3 ? 1 : 2;  // Compact or spaced dots
-    for (int i = SEGLEN - 1; i > character[PACMAN].topPos; i -= step) {
+    for (int i = (int32_t)(SEGLEN - 1); i > character[PACMAN].topPos; i -= step) {
       SEGMENT.setPixelColor(i, WHITEISH);
     }
   }
 
   // Update power dot positions dynamically
   uint32_t everyXLeds = (((uint32_t)SEGLEN - 10U) << 8) / numPowerDots;    // Fixed-point spacing for power dots: use 32-bit math to avoid overflow on long segments.
-  for (int i = 1; i < numPowerDots; i++) {
-    character[i + numGhosts + 1].pos = 10 + ((i * everyXLeds) >> 8);
+  for (uint32_t i = 1; i < numPowerDots; i++) {
+    character[i + numGhosts + 1].pos = int32_t(10 + ((i * everyXLeds) >> 8));
   }
 
   // Blink power dots every 10 ticks
-  if (SEGENV.aux1 % 10 == 0) {
+  if (SEGENV.aux1 % 10U == 0) {
     uint32_t dotColor = (character[numGhosts + 1].color == ORANGEYELLOW) ? BLACK : ORANGEYELLOW;
-    for (int i = 0; i < numPowerDots; i++) {
+    for (uint32_t i = 0; i < numPowerDots; i++) {
       character[i + numGhosts + 1].color = dotColor;
     }
   }
 
   // Blink blue ghosts when nearing start
-  if (SEGENV.aux1 % 15 == 0 && character[1].blue && character[PACMAN].pos <= startBlinkingGhostsLED) {
+  if (SEGENV.aux1 % 15U == 0 && character[1].blue && character[PACMAN].pos <= startBlinkingGhostsLED) {
     uint32_t ghostColor = (character[1].color == BLUE) ? WHITEISH : BLUE;
-    for (int i = 1; i <= numGhosts; i++) {
+    for (uint32_t i = 1; i <= numGhosts; i++) {
       character[i].color = ghostColor;
     }
   }
 
   // Draw uneaten power dots
-  for (int i = 0; i < numPowerDots; i++) {
-    if (!character[i + numGhosts + 1].eaten && (unsigned)character[i + numGhosts + 1].pos < SEGLEN) {
+  for (uint32_t i = 0; i < numPowerDots; i++) {
+    if (!character[i + numGhosts + 1].eaten && (uint32_t)character[i + numGhosts + 1].pos < SEGLEN) {
       SEGMENT.setPixelColor(character[i + numGhosts + 1].pos, character[i + numGhosts + 1].color);
     }
   }
 
   // Check if PacMan ate a power dot
-  for (int j = 0; j < numPowerDots; j++) {
+  for (uint32_t j = 0; j < numPowerDots; j++) {
     auto &dot = character[j + numGhosts + 1];
     if (character[PACMAN].pos == dot.pos && !dot.eaten) {
       // Reverse all characters - PacMan now chases ghosts
-      for (int i = 0; i <= numGhosts; i++) {
+      for (uint32_t i = 0; i <= numGhosts; i++) {
         character[i].direction = false;
       }
       // Turn ghosts blue
-      for (int i = 1; i <= numGhosts; i++) {
+      for (uint32_t i = 1; i <= numGhosts; i++) {
         character[i].color = BLUE;
         character[i].blue = true;
       }
@@ -3280,17 +3280,17 @@ static void mode_pacman(void) {
   // Reset when PacMan reaches start with blue ghosts
   if (character[1].blue && character[PACMAN].pos <= 0) {
     // Reverse direction back
-    for (int i = 0; i <= numGhosts; i++) {
+    for (uint32_t i = 0; i <= numGhosts; i++) {
       character[i].direction = true;
     }
     // Reset ghost colors
-    for (int i = 1; i <= numGhosts; i++) {
+    for (uint32_t i = 1; i <= numGhosts; i++) {
       character[i].color = ghostColors[(i-1) % 4];
       character[i].blue = false;
     }
     // Reset power dots if last one was eaten
     if (character[numGhosts + 1].eaten) {
-      for (int i = 0; i < numPowerDots; i++) {
+      for (uint32_t i = 0; i < numPowerDots; i++) {
         character[i + numGhosts + 1].eaten = false;
       }
       character[PACMAN].topPos = 0;    // set the top position of PacMan to LED 0 (beginning of the segment)
@@ -3298,24 +3298,24 @@ static void mode_pacman(void) {
   }
 
   // Update and draw characters based on speed setting
-  bool updatePositions = (SEGENV.aux1 % map(SEGMENT.speed, 0, 255, 15, 1) == 0);
+  bool updatePositions = (SEGENV.aux1 % uint32_t(map(SEGMENT.speed, 0, 255, 15, 1)) == 0);
 
   // update positions of characters if it's time to do so
   if (updatePositions) {
     character[PACMAN].pos += character[PACMAN].direction ? 1 : -1;
-    for (int i = 1; i <= numGhosts; i++) {
+    for (uint32_t i = 1; i <= numGhosts; i++) {
       character[i].pos += character[i].direction ? 1 : -1;
     }
   }
 
   // Draw PacMan
-  if ((unsigned)character[PACMAN].pos < SEGLEN) {
+  if ((uint32_t)character[PACMAN].pos < SEGLEN) {
     SEGMENT.setPixelColor(character[PACMAN].pos, character[PACMAN].color);
   }
 
   // Draw ghosts
-  for (int i = 1; i <= numGhosts; i++) {
-    if ((unsigned)character[i].pos < SEGLEN) {
+  for (uint32_t i = 1; i <= numGhosts; i++) {
+    if ((uint32_t)character[i].pos < SEGLEN) {
       SEGMENT.setPixelColor(character[i].pos, character[i].color);
     }
   }
@@ -5157,6 +5157,54 @@ static const char _data_FX_MODE_SHIMMER[] PROGMEM = "Shimmer@Speed,Interval,Size
 //***************************  2D routines  ***********************************
 
 
+/////////////////////////////
+//    2D Analog Clock      //
+/////////////////////////////
+void mode_2DAnalogClock(void) {                  // By Andras Fekete (bandi13)
+  if (!strip.isMatrix || !SEGMENT.is2D()) FX_FALLBACK_STATIC; // not a 2D set-up
+  const int cols = SEG_W;
+  const int rows = SEG_H;
+
+  // use odd sized circle, to have a well-defined center pixel
+  const int centerX = (cols - 1) / 2;
+  const int centerY = (rows - 1) / 2;
+
+  const int radius = min(centerX, centerY);
+  const bool soft = radius > 6 && SEGMENT.check2;
+
+  SEGMENT.fadeToBlackBy(240);
+  SEGMENT.drawCircle(centerX, centerY, radius, DARKGREY, soft);
+  if (radius > 8) SEGMENT.drawCircle(centerX, centerY, radius-1, DARKGREY, soft); // thicker circle
+
+  unsigned hoursInDay =  hour(localTime) % 12;  // analog clock is always 12 hours not 24 hours
+  unsigned minutesInDay = minute(localTime);
+  unsigned secondsInDay = second(localTime);
+
+  float hourAngle = radians(30.0f * (hoursInDay + minutesInDay / 60.0f) - 90.0f);
+  int hourLen = radius / 2;
+  int hourX = centerX + hourLen * cos_t(hourAngle);
+  int hourY = centerY + hourLen * sin_t(hourAngle);
+
+  float minuteAngle = radians(6.0f * (minutesInDay + secondsInDay / 60.0f) - 90.0f);
+  int minuteLen = (radius * 7) / 10;
+  int minuteX = centerX + minuteLen * cos_t(minuteAngle);
+  int minuteY = centerY + minuteLen * sin_t(minuteAngle);
+
+  if (SEGMENT.check1) {
+    float secondAngle = radians(6.0f * secondsInDay - 90.0f);
+    int secondLen = (radius * 9) / 10;
+    int secondX = centerX + secondLen * cos_t(secondAngle);
+    int secondY = centerY + secondLen * sin_t(secondAngle);
+    SEGMENT.drawLine(centerX, centerY, secondX, secondY, SEGCOLOR(2) != BLACK ? SEGCOLOR(2) : BLUE, soft);
+  }
+
+  SEGMENT.drawLine(centerX, centerY, minuteX, minuteY, SEGCOLOR(1) != BLACK ? SEGCOLOR(1) : GREEN, soft);
+  SEGMENT.drawLine(centerX, centerY, hourX, hourY, SEGCOLOR(0) != BLACK ? SEGCOLOR(0) : RED, soft);
+
+} // mode_2DAnalogClock()
+static const char _data_FX_MODE_2DANALOGCLOCK[] PROGMEM = "Analog Clock 2D@,,,,,Seconds,Soft;Hour,Minute,Second;;2;o1=1,o2=1";
+
+
 // Black hole
 void mode_2DBlackHole(void) {            // By: Stepko https://editor.soulmatelights.com/gallery/1012 , Modified by: Andrew Tuline
   if (!strip.isMatrix || !SEGMENT.is2D()) FX_FALLBACK_STATIC; // not a 2D set-up
@@ -5852,31 +5900,42 @@ static const char _data_FX_MODE_2DNOISE[] PROGMEM = "Noise2D@!,Scale;;!;2";
 //////////////////////////////
 //     2D Plasma Ball       //
 //////////////////////////////
-void mode_2DPlasmaball(void) {                   // By: Stepko https://editor.soulmatelights.com/gallery/659-plasm-ball , Modified by: Andrew Tuline
+void mode_2DPlasmaball(void) {                   // By: Stepko https://editor.soulmatelights.com/gallery/659-plasm-ball , Modified by: Andrew Tuline, optimized by: softhack007
   if (!strip.isMatrix || !SEGMENT.is2D()) FX_FALLBACK_STATIC; // not a 2D set-up
 
   const int cols = SEG_W;
-  const int rows = SEG_H;
+  const int rows = min(SEG_H, 256U); // effect does not support more than 256 pixel rows
+  uint8_t noisebuf[256];
+
+  unsigned noiseInterval=30;
+  // scale noise interval down for larger dimensions, so the look stays similar to 28x28
+  const unsigned minDim = min(cols,rows);
+  if (minDim > 28) {
+    noiseInterval = (30 * 28 + 15) / minDim;         // scale interval so that 30 * 28 = noiseInterval * minDim
+    noiseInterval = constrain(noiseInterval, 5, 32); // keep the result in a useful range
+  }
 
   SEGMENT.fadeToBlackBy(SEGMENT.custom1>>2);
   uint_fast32_t t = (strip.now * 8) / (256 - SEGMENT.speed);  // optimized to avoid float
-  for (int i = 0; i < cols; i++) {
-    unsigned thisVal = perlin8(i * 30, t, t);
-    unsigned thisMax = map(thisVal, 0, 255, 0, cols-1);
-    for (int j = 0; j < rows; j++) {
-      unsigned thisVal_ = perlin8(t, j * 30, t);
-      unsigned thisMax_ = map(thisVal_, 0, 255, 0, rows-1);
-      int x = (i + thisMax_ - cols / 2);
-      int y = (j + thisMax - cols / 2);
-      int cx = (i + thisMax_);
-      int cy = (j + thisMax);
 
-      SEGMENT.addPixelColorXY(i, j, ((x - y > -2) && (x - y < 2)) ||
-                                    ((cols - 1 - x - y) > -2 && (cols - 1 - x - y < 2)) ||
-                                    (cols - cx == 0) ||
-                                    (cols - 1 - cx == 0) ||
-                                    ((rows - cy == 0) ||
-                                    (rows - 1 - cy == 0)) ? ColorFromPalette(SEGPALETTE, beat8(5), thisVal, LINEARBLEND) : CRGB::Black);
+  // cache for inner loop noise, so we avoid calculating the same values for each row
+  for (int j = 0; j < rows; j++) noisebuf[j] = perlin8(t, j * noiseInterval, t);
+
+  for (int i = 0; i < cols; i++) {
+    unsigned colNoise = perlin8(i * noiseInterval, t, t);
+    int yShift = map(colNoise, 0, 255, 0, rows-1);        // column-driven wobble moves lines vertically
+    for (int j = 0; j < rows; j++) {
+      unsigned rowNoise = noisebuf[j];                    // use cached noise - 50% speedup
+      int xShift = map(rowNoise, 0, 255, 0, cols-1);      // row-driven wobble moves lines horizontally
+      // position relative to the panel center (plus wobble)
+      int dx = i + xShift - cols;
+      int dy = j + yShift - rows;
+
+      bool isLit = (abs(dx - dy) < 2) ||
+                   (abs(dx + dy + 1) < 2) ||
+                   (dx == 0) || (dx == -1) ||
+                   (dy == 0) || (dy == -1);
+      if (isLit) SEGMENT.addPixelColorXY(i, j, ColorFromPalette(SEGPALETTE, beat8(5), colNoise, LINEARBLEND)); // optimization: only add non-black pixels 
     }
   }
   SEGMENT.blur(SEGMENT.custom2>>5);
@@ -9795,7 +9854,7 @@ void mode_particleFireworks1D(void) {
       PartSys->sources[0].minLife = 180;
       PartSys->sources[0].maxLife = SEGMENT.check2 ? 700 : 240; // exhaust particle life
       PartSys->sources[0].source.x = SEGENV.aux0 * PartSys->maxX; // start from bottom or top
-      uint32_t speed = sqrt((gravity * ((PartSys->maxX >> 2) + hw_random16(PartSys->maxX >> 1))) >> 4); // set speed such that rocket explods in frame
+      uint32_t speed = sqrtf((gravity * ((PartSys->maxX >> 2) + hw_random16(PartSys->maxX >> 1))) >> 4); // set speed such that rocket explods in frame
       PartSys->sources[0].source.vx = min(speed, (uint32_t)127);
       PartSys->sources[0].source.ttl = 4000;
       PartSys->sources[0].sat = 30; // low saturation exhaust
@@ -10965,6 +11024,8 @@ uint8_t WS2812FX::addEffect(uint8_t id, mode_ptr mode_fn, const char *mode_name)
     if (_modeCount < _mode.size()) _modeCount++;
     return _mode.size() - 1;
   } else {
+    DEBUG_PRINT(F("WARNING: effect list full, could not add effect: "));
+    DEBUG_PRINTLN(FPSTR(mode_name));
     return 255; // The vector is full so return 255
   }
 }
@@ -11152,6 +11213,8 @@ void WS2812FX::setupEffectData() {
   addEffect(FX_MODE_2DDRIFTROSE, &mode_2Ddriftrose, _data_FX_MODE_2DDRIFTROSE);
   addEffect(FX_MODE_2DDISTORTIONWAVES, &mode_2Ddistortionwaves, _data_FX_MODE_2DDISTORTIONWAVES);
   addEffect(FX_MODE_2DGEQ, &mode_2DGEQ, _data_FX_MODE_2DGEQ); // audio
+
+  addEffect(FX_MODE_2DANALOGCLOCK, &mode_2DAnalogClock, _data_FX_MODE_2DANALOGCLOCK);
   addEffect(FX_MODE_2DNOISE, &mode_2Dnoise, _data_FX_MODE_2DNOISE);
   addEffect(FX_MODE_2DFIRENOISE, &mode_2Dfirenoise, _data_FX_MODE_2DFIRENOISE);
   addEffect(FX_MODE_2DSQUAREDSWIRL, &mode_2Dsquaredswirl, _data_FX_MODE_2DSQUAREDSWIRL);

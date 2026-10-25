@@ -165,27 +165,24 @@ void notify(byte callMode, bool followUp)
       s0++;
     }
     if (s > s0) buffer.noOfPackets += 1 + ((s - s0) * UDP_SEG_SIZE) / bufferSize; // set number of packets
-    auto err = quickEspNow.send(ESPNOW_BROADCAST_ADDRESS, reinterpret_cast<const uint8_t*>(&buffer), packetSize+3);
+    auto err = wled::espNow.send(ESPNOW_BROADCAST_ADDRESS, reinterpret_cast<const uint8_t*>(&buffer), packetSize+3);
     if (!err && s0 < s) {
       // send rest of the segments
       buffer.packet++;
       packetSize = 0;
-      // WARNING: this will only work for up to 3 messages (~17 segments) as QuickESPNOW only has a ring buffer capable of holding 3 queued messages
-      // to work around that limitation it is mandatory to utilize onDataSent() callback which should reduce number queued messages
-      // and wait until at least one space is available in the buffer
       for (size_t i = s0; i < s; i++) {
         memcpy(buffer.data + packetSize, &udpOut[41+i*UDP_SEG_SIZE], UDP_SEG_SIZE);
         packetSize += UDP_SEG_SIZE;
         if (packetSize + UDP_SEG_SIZE < bufferSize) continue;
         DEBUG_PRINTF_P(PSTR("ESP-NOW sending packet: %d (%u)\n"), (int)buffer.packet, packetSize+3);
-        err = quickEspNow.send(ESPNOW_BROADCAST_ADDRESS, reinterpret_cast<const uint8_t*>(&buffer), packetSize+3);
+        err = wled::espNow.send(ESPNOW_BROADCAST_ADDRESS, reinterpret_cast<const uint8_t*>(&buffer), packetSize+3);
         buffer.packet++;
         packetSize = 0;
         if (err) break;
       }
       if (!err && packetSize > 0) {
         DEBUG_PRINTF_P(PSTR("ESP-NOW sending last packet: %d (%d)\n"), (int)buffer.packet, packetSize+3);
-        err = quickEspNow.send(ESPNOW_BROADCAST_ADDRESS, reinterpret_cast<const uint8_t*>(&buffer), packetSize+3);
+        err = wled::espNow.send(ESPNOW_BROADCAST_ADDRESS, reinterpret_cast<const uint8_t*>(&buffer), packetSize+3);
       }
     }
     if (err) {
@@ -196,7 +193,7 @@ void notify(byte callMode, bool followUp)
 #endif
   {
     DEBUG_PRINTLN(F("UDP sending packet."));
-    IPAddress broadcastIp = ~uint32_t(Network.subnetMask()) | uint32_t(Network.gatewayIP());
+    IPAddress broadcastIp = ~uint32_t(WLEDNetwork.subnetMask()) | uint32_t(WLEDNetwork.gatewayIP());
     notifierUdp.beginPacket(broadcastIp, udpPort);
     notifierUdp.write(udpOut, WLEDPACKETSIZE); // TODO: add actual used buffer size
     notifierUdp.endPacket();
@@ -517,7 +514,7 @@ void handleNotifications()
     }
   }
 
-  localIP = Network.localIP();
+  localIP = WLEDNetwork.localIP();
   //notifier and UDP realtime
   if (!packetSize || packetSize > UDP_IN_MAXSIZE) return;
   if (!isSupp && notifierUdp.remoteIP() == localIP) return; //don't process broadcasts we send ourselves
@@ -701,7 +698,7 @@ void sendSysInfoUDP()
 {
   if (!udp2Connected) return;
 
-  IPAddress ip = Network.localIP();
+  IPAddress ip = WLEDNetwork.localIP();
   if (!ip || ip == IPAddress(255,255,255,255)) ip = IPAddress(4,3,2,1);
 
   // TODO: make a nice struct of it and clean up
@@ -723,19 +720,7 @@ void sendSysInfoUDP()
     data[x + 2] = ip[x];
   }
   memcpy((byte *)data + 6, serverDescription, 32);
-  #ifdef ESP8266
-  data[38] = NODE_TYPE_ID_ESP8266;
-  #elif defined(CONFIG_IDF_TARGET_ESP32C3)
-  data[38] = NODE_TYPE_ID_ESP32C3;
-  #elif defined(CONFIG_IDF_TARGET_ESP32S3)
-  data[38] = NODE_TYPE_ID_ESP32S3;
-  #elif defined(CONFIG_IDF_TARGET_ESP32S2)
-  data[38] = NODE_TYPE_ID_ESP32S2;
-  #elif defined(ARDUINO_ARCH_ESP32)
-  data[38] = NODE_TYPE_ID_ESP32;
-  #else
-  data[38] = NODE_TYPE_ID_UNDEFINED;
-  #endif
+  data[38] = uint8_t(WLED_BOARD); // see wled_boards.h
   if (bri) data[38] |= 0x80U;  // add on/off state
   data[39] = ip[3]; // unit ID == last IP number
 
