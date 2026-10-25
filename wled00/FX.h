@@ -440,7 +440,7 @@ typedef enum mapping1D2D {
 class WS2812FX;
 class FontManager;
 
-// segment, 76 bytes
+// segment, 96 bytes
 class Segment {
   public:
     friend class FontManager; // Allow FontManager to access protected members
@@ -516,11 +516,11 @@ class Segment {
     static CRGBPalette16 _randomPalette;      // actual random palette
     static CRGBPalette16 _newRandomPalette;   // target random palette
     static uint16_t      _lastPaletteChange;  // last random palette change time (in seconds)
-    static uint16_t      _nextPaletteBlend;   // next due time for random palette morph (in millis())
-    static bool          _modeBlend;          // mode/effect blending semaphore
+    static uint16_t      _lastPaletteBlend;   // last random palette morph step (in millis(), 16 bit)
     // clipping rectangle used for blending
     static uint16_t      _clipStart, _clipStop;
     static uint8_t       _clipStartY, _clipStopY;
+    static bool          _modeBlend;          // mode/effect blending semaphore
 
     // transition data, holds values during transition (76 bytes/28 bytes)
     struct Transition {

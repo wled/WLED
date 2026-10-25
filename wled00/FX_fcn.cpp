@@ -46,7 +46,7 @@ CRGBPalette16 Segment::_currentPalette    = CRGBPalette16();
 CRGBPalette16 Segment::_randomPalette     = generateRandomPalette();  // was CRGBPalette16(DEFAULT_COLOR);
 CRGBPalette16 Segment::_newRandomPalette  = generateRandomPalette();  // was CRGBPalette16(DEFAULT_COLOR);
 uint16_t      Segment::_lastPaletteChange = 0; // in seconds; perhaps it should be per segment
-uint16_t      Segment::_nextPaletteBlend  = 0; // in millis
+uint16_t      Segment::_lastPaletteBlend  = 0; // in millis
 
 bool     Segment::_modeBlend = false;
 uint16_t Segment::_clipStart = 0;
@@ -525,25 +525,35 @@ void Segment::beginDraw(uint16_t prog) {
 
 // relies on WS2812FX::service() to call it for each frame
 void Segment::handleRandomPalette() {
-  unsigned long now = millis();
-  uint16_t now_s = now / 1000; // we only need seconds (and @dedehai hated shift >> 10)
-  now = (now_s)*1000 + (now % 1000); // ignore days (now is limited to 18 hours as now_s can only store 65535s ~ 18h 12min)
-  if (now_s < Segment::_lastPaletteChange) Segment::_lastPaletteChange = 0; // handle overflow (will cause 2*randomPaletteChangeTime glitch at most)
-  // is it time to generate a new palette?
-  if (now_s > Segment::_lastPaletteChange + randomPaletteChangeTime) {
+  constexpr uint32_t PALETTE_BLEND_DONE_MS = 5000; // gap since last blend that marks "blending finished" (must be larger than potential stalls)
+  uint32_t now    = millis();
+  uint16_t now_s  = now / 1000U;    // 16 bit seconds (wraps after ~18h 12min)
+  uint16_t now_ms = (uint16_t)now;  // 16 bit millis (wraps every ~65s)
+
+  // is it time to generate a new palette? (16 bit unsigned subtraction is wrap-safe)
+  if ((uint16_t)(now_s - Segment::_lastPaletteChange) > randomPaletteChangeTime) {
     Segment::_newRandomPalette  = useHarmonicRandomPalette ? generateHarmonicRandomPalette(Segment::_randomPalette) : generateRandomPalette();
     Segment::_lastPaletteChange = now_s;
-    Segment::_nextPaletteBlend  = now; // starts blending immediately
+    Segment::_lastPaletteBlend  = now_ms; // blend clock starts now, blending starts if "passes" > 0 (not on this call)
   }
-  // there are about 255 blend passes of 48 "blends" to completely blend two palettes (in strip.getTransition() time)
-  // if randomPaletteChangeTime is shorter than strip.getTransition() palette will never fully blend
-  unsigned frameTime = strip.getFrameTime();  // in ms [8-1000]
-  unsigned transitionTime = strip.getTransition(); // in ms [100-65535]
-  if ((uint16_t)now < Segment::_nextPaletteBlend || now > ((Segment::_lastPaletteChange*1000) + transitionTime + 2*frameTime)) return; // not yet time or past transition time, no need to blend
-  unsigned transitionFrames = frameTime > transitionTime ? 1 : transitionTime / frameTime; // i.e. 700ms/23ms = 30 or 20000ms/8ms = 2500 or 100ms/1000ms = 0 -> 1
-  unsigned noOfBlends = transitionFrames > 255 ? 1 : (255 + (transitionFrames>>1)) / transitionFrames;  // we do some rounding here
-  for (unsigned i = 0; i < noOfBlends; i++) nblendPaletteTowardPalette(Segment::_randomPalette, Segment::_newRandomPalette, 48);
-  Segment::_nextPaletteBlend = now + ((transitionFrames >> 8) * frameTime); // postpone next blend if necessary
+
+  uint16_t elapsed = now_ms - Segment::_lastPaletteBlend;  // wrap-safe
+  if (elapsed >= PALETTE_BLEND_DONE_MS) return; // a large gap means blending is finished (we set the gap below)
+
+  // Worst case two palettes need 255 passes of nblendPaletteTowardPalette(.., 48), on average its much less
+  // we try to respect the transition time by spreading 255 passes over it (very inaccurate on average)
+  uint32_t transitionTime = strip.getTransition() + 1;  // +1ms to avoid division by zero
+  unsigned passes = ((uint32_t)elapsed * 255U) / transitionTime; // note: at max transition time, passes = 1 if elapsed > ~256ms
+  if (passes == 0) return; // not yet time to blend
+  else if (passes > 255) passes = 255; // more passes can't change anything
+
+  Segment::_lastPaletteBlend = now_ms; // this drops any fractional remainder: we ignore that to compensate for the "255 passes" blunder
+
+  // blend the palette: use 48 steps so all palette entries converge evenly
+  for (unsigned i = 0; i < passes; i++) nblendPaletteTowardPalette(Segment::_randomPalette, Segment::_newRandomPalette, 48);
+  // check if done, mark blending as finished by moving the blend clock "far" into the past
+  if (memcmp(&Segment::_randomPalette, &Segment::_newRandomPalette, sizeof(CRGBPalette16)) == 0)
+    Segment::_lastPaletteBlend = now_ms - PALETTE_BLEND_DONE_MS;
 }
 
 // sets Segment geometry (length or width/height and grouping, spacing and offset as well as 2D mapping)

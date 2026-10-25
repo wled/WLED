@@ -856,8 +856,9 @@ void mode_android(void) {
   uint32_t* counter = reinterpret_cast<uint32_t*>(SEGENV.data);
   unsigned size = SEGENV.aux1 >> 1; // upper 15 bit
   unsigned shrinking = SEGENV.aux1 & 0x01; // lowest bit
-  if(strip.now >= SEGENV.step) {
-    SEGENV.step = strip.now + 3 + ((8 * (uint32_t)(255 - SEGMENT.speed)) / SEGLEN);
+  uint32_t wait = 3 + ((8 * (uint32_t)(255 - SEGMENT.speed)) / SEGLEN);
+  if (strip.now - SEGENV.step >= wait) {
+    SEGENV.step = strip.now;
     if (size > (SEGMENT.intensity * SEGLEN) / 255)
       shrinking = 1;
     else if (size < 2)
@@ -1079,13 +1080,16 @@ static const char _data_FX_MODE_TRAFFIC_LIGHT[] PROGMEM = "Traffic Light@!,US st
 /*
  * Sec flashes running on prim.
  */
-#define FLASH_COUNT 4
+static constexpr uint32_t FLASH_COUNT = 4;
+static constexpr uint32_t MAX_CHASE_FLASH_DELAY = 10 + (30 * 255 / 2); // maximum speed-based interval at SEGLEN == 2
+
 void mode_chase_flash(void) {
   if (SEGLEN <= 1) FX_FALLBACK_STATIC;
   unsigned now = strip.now; // save time for delay calculation
   bool advance = true;
+  uint32_t stepDelta = now - SEGENV.step; // this wraps until now >= SEGENV.step, ensuring correct timing even with overflow / timebase reset
   unsigned flash_step = SEGENV.aux1 % ((FLASH_COUNT * 2) + 1);
-  if (now < SEGENV.step)
+  if (stepDelta > UINT32_MAX - MAX_CHASE_FLASH_DELAY)
     advance = false; // limit update rate but render every frame for smooth transitions
   else
     SEGENV.aux1++;
@@ -1122,7 +1126,8 @@ void mode_chase_flash_random(void) {
   if (SEGLEN <= 1) FX_FALLBACK_STATIC;
   unsigned now = strip.now; // save time for delay calculation
   bool advance = true;
-  if (now < SEGENV.step) {
+  uint32_t stepDelta = now - SEGENV.step; // this wraps until now >= SEGENV.step, ensuring correct timing even with overflow / timebase reset
+  if (stepDelta > UINT32_MAX - MAX_CHASE_FLASH_DELAY) {
     SEGENV.call--; // revert increment to skip moving the animation forward and just render the same frame again
     advance = false;
   }
@@ -1213,8 +1218,10 @@ void mode_larson_scanner(void) {
   const unsigned pixels = SEGLEN / speed; // how many pixels to advance per frame
 
   SEGMENT.fade_out(255-SEGMENT.intensity);
+  uint32_t delay = SEGMENT.custom1 * 25; // multiply by 25ms
 
-  if (SEGENV.step > strip.now) return;  // we have a pause
+  const uint32_t remaining = SEGENV.step - strip.now; // wrap-safe
+  if (remaining < delay) return;  // we have a pause
 
   unsigned index = SEGENV.aux1 + pixels;
   // are we slow enough to use frames per pixel?
@@ -1230,7 +1237,7 @@ void mode_larson_scanner(void) {
     SEGENV.aux0 = !SEGENV.aux0; // change direction
     SEGENV.aux1 = 0;            // reset position
     // set delay
-    if (SEGENV.aux0 || SEGMENT.check2) SEGENV.step = strip.now + SEGMENT.custom1 * 25; // multiply by 25ms
+    if (SEGENV.aux0 || SEGMENT.check2) SEGENV.step = strip.now + delay;
     else SEGENV.step = 0;
 
   } else {
@@ -2747,7 +2754,7 @@ void mode_halloween_eyes()
 
   data.state = static_cast<eyeState>(data.state % eyeState::count);
   unsigned duration = max(uint16_t{1u}, data.duration);
-  const uint32_t elapsedTime = strip.now - data.startTime;
+  const uint32_t elapsedTime = min<uint32_t>(strip.now - data.startTime, UINT16_MAX);
 
   switch (data.state) {
     case eyeState::initializeOn: {
@@ -2813,8 +2820,8 @@ void mode_halloween_eyes()
       // eyes-on but currently blinking state:
       // - wait until the blink time is over, then switch back to eyes-on
 
-      if (strip.now >= data.blinkEndTime) {
-        data.state = eyeState::on;
+      if ((int32_t)(strip.now - data.blinkEndTime) >= 0) {
+       data.state = eyeState::on;
       }
       break;
     }
@@ -3975,7 +3982,7 @@ void mode_tetrix(void) {
       // initialize dropping on first call or segment full
       if (SEGENV.call == 0) {
         drop->stack = 0;                  // reset brick stack size
-        drop->step = strip.now + 2000;     // start by fading out strip
+        drop->step = strip.now + 2000;    // start by fading out strip note: this can bleed into drop state, but very rare and harmless
         if (SEGMENT.check1) drop->col = 0;// use only one color from palette
       }
 
@@ -4015,7 +4022,8 @@ void mode_tetrix(void) {
 
       if (drop->step > 2) {               // fade strip
         drop->brick = 0;                  // reset brick size (no more growing)
-        if (drop->step > strip.now) {
+        const uint32_t remaining = drop->step - strip.now;  // wrap-safe
+        if (remaining > 0 && remaining <= 2000) {
           // allow fading of virtual strip
           for (unsigned i = 0; i < SEGLEN; i++) SEGMENT.blendPixelColor(indexToVStrip(i, stripNr), SEGCOLOR(1), 25); // 10% blend
         } else {
@@ -6148,14 +6156,14 @@ void mode_2Dspaceships(void) {    //// Space ships by stepko (c)05.02.21 [https:
   const int cols = SEG_W;
   const int rows = SEG_H;
 
-  uint32_t tb = strip.now >> 12;  // every ~4s
-  if (tb > SEGENV.step) {
+  uint32_t tb = strip.now >> 12;  // every ~4s (2^12 is ~4096 ms)
+  if (((SEGENV.step - tb) & 0xFFFFF) > 3) {
     int dir = ++SEGENV.aux0;
     dir  += (int)hw_random8(3)-1;
     if      (dir > 7) SEGENV.aux0 = 0;
     else if (dir < 0) SEGENV.aux0 = 7;
     else              SEGENV.aux0 = dir;
-    SEGENV.step = tb + hw_random8(4);
+    SEGENV.step = (tb + hw_random8(4)) & 0xFFFFF;
   }
 
   SEGMENT.fadeToBlackBy(map(SEGMENT.speed, 0, 255, 248, 16));
@@ -6219,8 +6227,9 @@ void mode_2Dcrazybees(void) {
     }
   }
 
-  if (strip.now > SEGENV.step) {
-    SEGENV.step = strip.now + (FRAMETIME * 16 / ((SEGMENT.speed>>4)+1));
+  uint32_t interval = (FRAMETIME * 16 / ((SEGMENT.speed >> 4) + 1));
+  if (strip.now - SEGENV.step >= interval) {
+    SEGENV.step = strip.now;
     SEGMENT.fadeToBlackBy(32 + ((SEGMENT.check1*SEGMENT.intensity) / 25));
     SEGMENT.blur(SEGMENT.intensity / (2 + SEGMENT.check1 * 9), SEGMENT.check1);
     for (size_t i = 0; i < n; i++) {
@@ -6295,8 +6304,9 @@ void mode_2Dghostrider(void) {
     }
   }
 
-  if (strip.now > SEGENV.step) {
-    SEGENV.step = strip.now + 1024 / (cols+rows);
+  uint32_t interval = 1024 / (cols + rows);
+  if (strip.now - SEGENV.step >= interval) {
+    SEGENV.step = strip.now;
 
     SEGMENT.fadeToBlackBy((SEGMENT.speed>>2)+64);
 
@@ -6379,10 +6389,11 @@ void mode_2Dfloatingblobs(void) {
   }
 
   SEGMENT.fadeToBlackBy((SEGMENT.custom2>>3)+1);
+  bool colorTick = (SEGENV.step - strip.now) > 2000;  // true = timer expired or stale
 
   // Bounce balls around
   for (size_t i = 0; i < Amount; i++) {
-    if (SEGENV.step < strip.now) blob->color[i] += 4; // slowly change color
+    if (colorTick) blob->color[i] += 4; // slowly change color
     // change radius if needed
     if (blob->grow[i]) {
       // enlarge radius until it is >= 4
@@ -6429,7 +6440,7 @@ void mode_2Dfloatingblobs(void) {
   }
   SEGMENT.blur(SEGMENT.custom1>>2);
 
-  if (SEGENV.step < strip.now) SEGENV.step = strip.now + 2000; // change colors every 2 seconds
+  if (colorTick) SEGENV.step = strip.now + 2000; // change colors every 2 seconds
 }
 static const char _data_FX_MODE_2DBLOBS[] PROGMEM = "Blobs@!,# blobs,Blur,Trail;!;!;2;c1=8";
 #undef MAX_BLOBS
@@ -10096,7 +10107,8 @@ void mode_particleHourglass(void) {
   }
 
   if (SEGENV.aux1 == 0) { // countdown passed, run
-    if (strip.now >= SEGENV.step) { // drop a particle
+  const uint32_t remaining = SEGENV.step - strip.now;  // wrap-safe
+  if (remaining == 0 || remaining > 25500) {           // timer expired or stale; 25500 = max delay (speed: 255 * 100)
       // set next drop time
       if (SEGMENT.check3 && *direction) // fast reset
         SEGENV.step = strip.now + 100; // drop one particle every 100ms
@@ -10842,9 +10854,10 @@ void mode_particleSpringy(void) {
   }
   else{
     if (SEGMENT.custom3 <= 10) { // periodic pulse: 0-5 apply at start, 6-10 apply at center
-      if (strip.now > SEGMENT.step) {
-        int speed = (SEGMENT.custom3 > 5) ? (SEGMENT.custom3 - 6) : SEGMENT.custom3;
-        SEGMENT.step = strip.now + 7500 - ((SEGMENT.speed << 3) + (speed << 10));
+      int speed = (SEGMENT.custom3 > 5) ? (SEGMENT.custom3 - 6) : SEGMENT.custom3;
+      uint32_t interval = 7500 - ((SEGMENT.speed << 3) + (speed << 10));
+      if (strip.now - SEGMENT.step >= interval) {
+        SEGMENT.step = strip.now;
         int amplitude = 40 + (SEGMENT.custom1 >> 2);
         int index = (SEGMENT.custom3 > 5) ? (PartSys->usedParticles / 2) : 0; // center or start particle
         PartSys->particles[index].vx += amplitude;
