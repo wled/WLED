@@ -89,7 +89,7 @@ class UsermodOLED72x40 : public Usermod {
     void setup() override {
       if (!enabled) return;
 
-      // Use WLED's global I2C pins; user must configure them in LED Preferences
+      // Use WLED's global I2C pins; user must configure them in Usermod Preferences
       if (i2c_sda < 0 || i2c_scl < 0) {
         setupFailed = true;
         return;
@@ -126,7 +126,7 @@ class UsermodOLED72x40 : public Usermod {
       int textX = flipDisplay ? (128 - 72 - xOff) : xOff;
       u8g2->setFont(u8g2_font_4x6_tf);
       u8g2->setCursor(textX + 12, splashY + 38);
-      if (Network.isConnected()) u8g2->print(Network.localIP());
+      if (WLEDNetwork.isConnected()) u8g2->print(WLEDNetwork.localIP());
       else u8g2->print(cmDNS);
 
       u8g2->sendBuffer();
@@ -142,7 +142,7 @@ class UsermodOLED72x40 : public Usermod {
       // LED heartbeat
       if (activeLedPin >= 0) {
         static unsigned long ledTimer = 0;
-        if (!Network.isConnected()) {
+        if (!WLEDNetwork.isConnected()) {
           if (millis() - ledTimer > 200) {
             ledTimer = millis();
             digitalWrite(activeLedPin, !digitalRead(activeLedPin));
