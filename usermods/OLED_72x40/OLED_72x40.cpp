@@ -62,19 +62,40 @@ const unsigned char akemi_logo [] PROGMEM = {
 
 class UsermodOLED72x40 : public Usermod {
   private:
+    // Config defaults: shared by the member initializers and the readFromConfig() fallbacks
+    static constexpr unsigned long DEFAULT_SCREEN_TIMEOUT_S = 60;
+    static constexpr int DEFAULT_X_OFFSET = 28;
+    static constexpr int DEFAULT_Y_OFFSET = 24;
+    static constexpr int8_t DEFAULT_BUTTON_INDEX = 0;
+    static constexpr int8_t DEFAULT_HEARTBEAT_LED_PIN = 8;
+
+    // The panel is 72x40 pixels, driven as a 128x64 SSD1306 framebuffer
+    static constexpr int FB_WIDTH = 128;
+    static constexpr int FB_HEIGHT = 64;
+    static constexpr int PANEL_WIDTH = 72;
+    static constexpr int PANEL_HEIGHT = 40;
+    static constexpr int LOGO_WIDTH_TILES = 16;   // drawBitmap() width is in 8-pixel tiles
+
+    // Dashboard layout: y baselines relative to the panel's top edge
+    static constexpr int NAME_BASELINE_Y = 7;
+    static constexpr int NAME_RULE_Y = 9;
+    static constexpr int GRAPH_BASE_Y = 26;
+    static constexpr int GRAPH_MAX_HEIGHT = 15;
+    static constexpr int STATS_BASELINE_Y = 38;
+
     U8G2_SSD1306_128X64_NONAME_F_HW_I2C *u8g2 = nullptr;
     bool enabled = true;
     bool setupFailed = false;
     bool initDone = false;
     unsigned long lastUpdate = 0;
     unsigned long lastInteraction = 0;
-    unsigned long screenTimeoutMS = 60000;
-    int xOff = 28;
-    int yOff = 24;
-    byte vValues[72] = {};
+    unsigned long screenTimeoutMS = DEFAULT_SCREEN_TIMEOUT_S * 1000;
+    int xOff = DEFAULT_X_OFFSET;
+    int yOff = DEFAULT_Y_OFFSET;
+    byte vValues[PANEL_WIDTH] = {};
     bool flipDisplay = false;
-    int8_t buttonIndex = 0;
-    int8_t ledPin = 8;
+    int8_t buttonIndex = DEFAULT_BUTTON_INDEX;
+    int8_t ledPin = DEFAULT_HEARTBEAT_LED_PIN;
     int8_t activeLedPin = -1;
 
     enum DisplayState : uint8_t { SPLASH, DASHBOARD, OFF };
@@ -120,12 +141,12 @@ class UsermodOLED72x40 : public Usermod {
       u8g2->clearBuffer();
 
       // Draw splash screen (non-blocking: no delay, handled in loop())
-      int splashY = flipDisplay ? (64 - 40 - yOff) : yOff;
-      u8g2->drawBitmap(0, splashY, 16, 40, akemi_logo);
+      int splashY = flipDisplay ? (FB_HEIGHT - PANEL_HEIGHT - yOff) : yOff;
+      u8g2->drawBitmap(0, splashY, LOGO_WIDTH_TILES, PANEL_HEIGHT, akemi_logo);
 
-      int textX = flipDisplay ? (128 - 72 - xOff) : xOff;
+      int textX = flipDisplay ? (FB_WIDTH - PANEL_WIDTH - xOff) : xOff;
       u8g2->setFont(u8g2_font_4x6_tf);
-      u8g2->setCursor(textX + 12, splashY + 38);
+      u8g2->setCursor(textX + 12, splashY + STATS_BASELINE_Y);
       if (WLEDNetwork.isConnected()) u8g2->print(WLEDNetwork.localIP());
       else u8g2->print(cmDNS);
 
@@ -184,26 +205,26 @@ class UsermodOLED72x40 : public Usermod {
 
         u8g2->clearBuffer();
 
-        int currentX = flipDisplay ? (128 - 72 - xOff) : xOff;
-        int currentY = flipDisplay ? (64 - 40 - yOff) : yOff;
+        int currentX = flipDisplay ? (FB_WIDTH - PANEL_WIDTH - xOff) : xOff;
+        int currentY = flipDisplay ? (FB_HEIGHT - PANEL_HEIGHT - yOff) : yOff;
 
         // Effect name
         u8g2->setFont(u8g2_font_5x7_tf);
         char lineBuffer[17] = "";
         extractModeName(effectCurrent, JSON_mode_names, lineBuffer, 16);
-        u8g2->drawStr(currentX, currentY + 7, lineBuffer);
-        u8g2->drawHLine(currentX, currentY + 9, 72);
+        u8g2->drawStr(currentX, currentY + NAME_BASELINE_Y, lineBuffer);
+        u8g2->drawHLine(currentX, currentY + NAME_RULE_Y, PANEL_WIDTH);
 
         // Brightness history graph (scrolling)
-        for (int i = 0; i < 71; i++) vValues[i] = vValues[i + 1];
-        vValues[71] = map(bri, 0, 255, 0, 15);
-        for (int i = 0; i < 72; i++) {
-          u8g2->drawLine(currentX + i, currentY + 26, currentX + i, currentY + 26 - vValues[i]);
+        for (int i = 0; i < PANEL_WIDTH - 1; i++) vValues[i] = vValues[i + 1];
+        vValues[PANEL_WIDTH - 1] = map(bri, 0, 255, 0, GRAPH_MAX_HEIGHT);
+        for (int i = 0; i < PANEL_WIDTH; i++) {
+          u8g2->drawLine(currentX + i, currentY + GRAPH_BASE_Y, currentX + i, currentY + GRAPH_BASE_Y - vValues[i]);
         }
 
         // Stats line: Speed, Intensity, Brightness
         u8g2->setFont(u8g2_font_4x6_tf);
-        u8g2->setCursor(currentX, currentY + 38);
+        u8g2->setCursor(currentX, currentY + STATS_BASELINE_Y);
         u8g2->print("S:"); u8g2->print(map(effectSpeed, 0, 255, 0, 99)); u8g2->print("% ");
         u8g2->print("I:"); u8g2->print(map(effectIntensity, 0, 255, 0, 99)); u8g2->print("% ");
         u8g2->print("B:"); u8g2->print(map(bri, 0, 255, 0, 100)); u8g2->print("%");
@@ -251,15 +272,15 @@ class UsermodOLED72x40 : public Usermod {
       bool oldEnabled = enabled;
       configComplete &= getJsonValue(top[FPSTR(_enabled)], enabled, true);
       configComplete &= getJsonValue(top[F("flipDisplay")], flipDisplay, false);
-      configComplete &= getJsonValue(top[F("x-offset")], xOff, 28);
-      configComplete &= getJsonValue(top[F("y-offset")], yOff, 24);
+      configComplete &= getJsonValue(top[F("x-offset")], xOff, DEFAULT_X_OFFSET);
+      configComplete &= getJsonValue(top[F("y-offset")], yOff, DEFAULT_Y_OFFSET);
       unsigned long timeoutSec = screenTimeoutMS / 1000;
-      configComplete &= getJsonValue(top[F("sleepTimeout")], timeoutSec, 60UL);
+      configComplete &= getJsonValue(top[F("sleepTimeout")], timeoutSec, DEFAULT_SCREEN_TIMEOUT_S);
       screenTimeoutMS = timeoutSec * 1000;
-      configComplete &= getJsonValue(top[F("buttonIndex")], buttonIndex, (int8_t)0);
+      configComplete &= getJsonValue(top[F("buttonIndex")], buttonIndex, DEFAULT_BUTTON_INDEX);
 
       int8_t oldLedPin = ledPin;
-      configComplete &= getJsonValue(top[F("ledPin")], ledPin, (int8_t)8);
+      configComplete &= getJsonValue(top[F("ledPin")], ledPin, DEFAULT_HEARTBEAT_LED_PIN);
 
       // Handle enabled -> disabled: tear down hardware
       if (initDone && oldEnabled && !enabled) {
