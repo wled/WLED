@@ -157,10 +157,10 @@ This pattern enables optimizations and makes intent clear to reviewers.
 <!-- HUMAN_ONLY_END -->
 - For function parameters that are read-only, prefer `const &` or `const`.
 
-### `const` locals
-<!-- HUMAN_ONLY_START -->
-* Adding `const` to a local variable that is only assigned once is optional, but *not* strictly necessary.
-<!-- HUMAN_ONLY_END -->
+### `const` locals (basic types)
+
+* Adding `const` to a local variable that is only assigned once is *not* required.
+* For code readability, only add `const` to a local variable when strictly necessary, or when your tests show that it improves performance.
 * In hot-path code, `const` on cached locals may help the compiler keep values in registers.
   ```cpp
   const uint_fast16_t cols = vWidth();
