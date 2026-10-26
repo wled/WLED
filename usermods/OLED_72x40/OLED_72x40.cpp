@@ -64,6 +64,7 @@ class UsermodOLED72x40 : public Usermod {
   private:
     // Config defaults: shared by the member initializers and the readFromConfig() fallbacks
     static constexpr unsigned long DEFAULT_SCREEN_TIMEOUT_S = 60;
+    static constexpr unsigned long MAX_SCREEN_TIMEOUT_S = 4294966;  // largest value whose *1000 fits in 32 bits
     static constexpr int DEFAULT_X_OFFSET = 28;
     static constexpr int DEFAULT_Y_OFFSET = 24;
     static constexpr int8_t DEFAULT_BUTTON_INDEX = 0;
@@ -276,11 +277,20 @@ class UsermodOLED72x40 : public Usermod {
       configComplete &= getJsonValue(top[F("y-offset")], yOff, DEFAULT_Y_OFFSET);
       unsigned long timeoutSec = screenTimeoutMS / 1000;
       configComplete &= getJsonValue(top[F("sleepTimeout")], timeoutSec, DEFAULT_SCREEN_TIMEOUT_S);
+      // clamp so the seconds -> ms conversion cannot wrap on 32-bit unsigned long
+      if (timeoutSec > MAX_SCREEN_TIMEOUT_S) timeoutSec = MAX_SCREEN_TIMEOUT_S;
       screenTimeoutMS = timeoutSec * 1000;
       configComplete &= getJsonValue(top[F("buttonIndex")], buttonIndex, DEFAULT_BUTTON_INDEX);
 
       int8_t oldLedPin = ledPin;
-      configComplete &= getJsonValue(top[F("ledPin")], ledPin, DEFAULT_HEARTBEAT_LED_PIN);
+      // read into a wider type so out-of-range values are not silently narrowed to int8_t
+      int32_t newLedPin = DEFAULT_HEARTBEAT_LED_PIN;
+      configComplete &= getJsonValue(top[F("ledPin")], newLedPin, DEFAULT_HEARTBEAT_LED_PIN);
+      if (newLedPin == -1 || (newLedPin >= 0 && newLedPin < WLED_NUM_PINS && PinManager::isPinOk(newLedPin, true))) {
+        ledPin = newLedPin;
+      } else {
+        configComplete = false;  // invalid pin: keep the previous value
+      }
 
       // Handle enabled -> disabled: tear down hardware
       if (initDone && oldEnabled && !enabled) {
