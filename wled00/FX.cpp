@@ -5953,6 +5953,7 @@ void mode_2DPolarLights(void) {        // By: Kostyantyn Matviyevskyy  https://e
 
   const int cols = SEG_W;
   const int rows = SEG_H;
+  const int rows2 = (rows+1) / 2;
 
   if (SEGENV.call == 0) {
     SEGMENT.fill(BLACK);
@@ -5961,16 +5962,18 @@ void mode_2DPolarLights(void) {        // By: Kostyantyn Matviyevskyy  https://e
 
   // size-based mappings
   float adjustHeight = (rows > 32) ? 12.0f * 32.0f / rows : mapf(max(rows, 8), 8, 32, 28, 12); // scale height inversely for larger matrices
+  unsigned adjustHeight256 = adjustHeight * 256.0f;                                            // speedup for in inner loop
+
   unsigned adjScale = (cols > 64) ? (112 * 64) / cols : map(max(cols, 8), 8, 64, 310, 63);     // reduced scaling on larger matrices
-  adjScale = constrain(adjScale, 31, 310);                                                     // keep scale in a meaningful range
+  adjScale          = constrain(adjScale, 31, 310);                                            // keep scale in a meaningful range
   unsigned rowScale = map(SEGMENT.intensity, 0, 255, (rows <= 48) ? 30 : 18, adjScale);        // extended range on larger matrices
-  int speedScale = map(SEGMENT.speed, 0, 255, (cols <= 48) ? 128 : 196, 16);                   // slightly slow down on larger matrices
+  int speedScale    = map(SEGMENT.speed, 0, 255, (cols <= 48) ? 128 : 196, 16);                // slightly slow down on larger matrices
 
   unsigned pixelCount = SEGENV.step;
   for (int x = 0; x < cols; x++) {
     for (int y = 0; y < rows; y++) {
       pixelCount++;
-      uint8_t palindex = qsub8(perlin8((pixelCount%2) + x * rowScale, y * 16 + pixelCount % 16, pixelCount / speedScale), fabsf((float)rows / 2.0f - (float)y) * adjustHeight);
+      uint8_t palindex = qsub8(perlin8((pixelCount%2) + x * rowScale, y * 16 + pixelCount % 16, pixelCount / speedScale), unsigned(abs(rows2 - y) * adjustHeight256) >> 8);
       uint8_t palbrightness = palindex;
       if(SEGMENT.check1) palindex = 255 - palindex; //flip palette
       SEGMENT.setPixelColorXY(x, y, SEGMENT.color_from_palette(palindex, false, false, 255, palbrightness));
