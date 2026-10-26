@@ -56,7 +56,7 @@
   float    *fftBin = nullptr;
   um_data_t *um_data = getAudioData();
   volumeSmth    = *(float*)   um_data->u_data[0];
-  volumeRaw     = *(float*)   um_data->u_data[1];
+  volumeRaw     = *(int16_t*)   um_data->u_data[1];
   fftResult     =  (uint8_t*) um_data->u_data[2];
   samplePeak    = *(uint8_t*) um_data->u_data[3];
   FFT_MajorPeak = *(float*)   um_data->u_data[4];
@@ -1179,7 +1179,7 @@ void mode_running_random(void) {
   uint16_t PRNG16 = SEGENV.aux0;
 
   unsigned z = it % zoneSize;
-  bool nzone = (!z && it != SEGENV.aux1);
+  bool nzone = (!z && (it & 0xFFFF) != SEGENV.aux1);
   for (int i=SEGLEN-1; i >= 0; i--) {
     if (nzone || z >= zoneSize) {
       unsigned lastrand = PRNG16 >> 8;
@@ -1198,7 +1198,7 @@ void mode_running_random(void) {
     z++;
   }
 
-  SEGENV.aux1 = it;
+  SEGENV.aux1 = it & 0xFFFF;
 }
 static const char _data_FX_MODE_RUNNING_RANDOM[] PROGMEM = "Stream@!,Zone size;;!";
 
@@ -5155,6 +5155,54 @@ static const char _data_FX_MODE_SHIMMER[] PROGMEM = "Shimmer@Speed,Interval,Size
 #ifndef WLED_DISABLE_2D
 ///////////////////////////////////////////////////////////////////////////////
 //***************************  2D routines  ***********************************
+
+
+/////////////////////////////
+//    2D Analog Clock      //
+/////////////////////////////
+void mode_2DAnalogClock(void) {                  // By Andras Fekete (bandi13)
+  if (!strip.isMatrix || !SEGMENT.is2D()) FX_FALLBACK_STATIC; // not a 2D set-up
+  const int cols = SEG_W;
+  const int rows = SEG_H;
+
+  // use odd sized circle, to have a well-defined center pixel
+  const int centerX = (cols - 1) / 2;
+  const int centerY = (rows - 1) / 2;
+
+  const int radius = min(centerX, centerY);
+  const bool soft = radius > 6 && SEGMENT.check2;
+
+  SEGMENT.fadeToBlackBy(240);
+  SEGMENT.drawCircle(centerX, centerY, radius, DARKGREY, soft);
+  if (radius > 8) SEGMENT.drawCircle(centerX, centerY, radius-1, DARKGREY, soft); // thicker circle
+
+  unsigned hoursInDay =  hour(localTime) % 12;  // analog clock is always 12 hours not 24 hours
+  unsigned minutesInDay = minute(localTime);
+  unsigned secondsInDay = second(localTime);
+
+  float hourAngle = radians(30.0f * (hoursInDay + minutesInDay / 60.0f) - 90.0f);
+  int hourLen = radius / 2;
+  int hourX = centerX + hourLen * cos_t(hourAngle);
+  int hourY = centerY + hourLen * sin_t(hourAngle);
+
+  float minuteAngle = radians(6.0f * (minutesInDay + secondsInDay / 60.0f) - 90.0f);
+  int minuteLen = (radius * 7) / 10;
+  int minuteX = centerX + minuteLen * cos_t(minuteAngle);
+  int minuteY = centerY + minuteLen * sin_t(minuteAngle);
+
+  if (SEGMENT.check1) {
+    float secondAngle = radians(6.0f * secondsInDay - 90.0f);
+    int secondLen = (radius * 9) / 10;
+    int secondX = centerX + secondLen * cos_t(secondAngle);
+    int secondY = centerY + secondLen * sin_t(secondAngle);
+    SEGMENT.drawLine(centerX, centerY, secondX, secondY, SEGCOLOR(2) != BLACK ? SEGCOLOR(2) : BLUE, soft);
+  }
+
+  SEGMENT.drawLine(centerX, centerY, minuteX, minuteY, SEGCOLOR(1) != BLACK ? SEGCOLOR(1) : GREEN, soft);
+  SEGMENT.drawLine(centerX, centerY, hourX, hourY, SEGCOLOR(0) != BLACK ? SEGCOLOR(0) : RED, soft);
+
+} // mode_2DAnalogClock()
+static const char _data_FX_MODE_2DANALOGCLOCK[] PROGMEM = "Analog Clock 2D@,,,,,Seconds,Soft;Hour,Minute,Second;;2;o1=1,o2=1";
 
 
 // Black hole
@@ -11085,6 +11133,8 @@ uint8_t WS2812FX::addEffect(uint8_t id, mode_ptr mode_fn, const char *mode_name)
     if (_modeCount < _mode.size()) _modeCount++;
     return _mode.size() - 1;
   } else {
+    DEBUG_PRINT(F("WARNING: effect list full, could not add effect: "));
+    DEBUG_PRINTLN(FPSTR(mode_name));
     return 255; // The vector is full so return 255
   }
 }
@@ -11273,6 +11323,8 @@ void WS2812FX::setupEffectData() {
   addEffect(FX_MODE_2DDRIFTROSE, &mode_2Ddriftrose, _data_FX_MODE_2DDRIFTROSE);
   addEffect(FX_MODE_2DDISTORTIONWAVES, &mode_2Ddistortionwaves, _data_FX_MODE_2DDISTORTIONWAVES);
   addEffect(FX_MODE_2DGEQ, &mode_2DGEQ, _data_FX_MODE_2DGEQ); // audio
+
+  addEffect(FX_MODE_2DANALOGCLOCK, &mode_2DAnalogClock, _data_FX_MODE_2DANALOGCLOCK);
   addEffect(FX_MODE_2DNOISE, &mode_2Dnoise, _data_FX_MODE_2DNOISE);
   addEffect(FX_MODE_2DFIRENOISE, &mode_2Dfirenoise, _data_FX_MODE_2DFIRENOISE);
   addEffect(FX_MODE_2DSQUAREDSWIRL, &mode_2Dsquaredswirl, _data_FX_MODE_2DSQUAREDSWIRL);
