@@ -10,7 +10,7 @@ anyio==4.14.2
     # via starlette
 bottle==0.13.4
     # via platformio
-certifi==2025.8.3
+certifi==2026.10.19
     # via requests
 charset-normalizer==3.4.3
     # via requests
