@@ -7668,6 +7668,7 @@ void mode_2DGEQ(void) { // By Will Tatam. Code reduction by Ewoud Wijma.
       SEGMENT.setPixelColorXY(x, rows-1 - y, ledColor);
     }
     if ((SEGMENT.intensity < 255) && (previousBarHeight[x] > 0) && (previousBarHeight[x] < rows))  // avoid flickering, hide ripple when decay=255
+      //ledColor = SEGMENT.color_from_palette(colorIndex, false, PALETTE_SOLID_WRAP, 0); // uncomment to avoid black peak pixel
       SEGMENT.setPixelColorXY(x, rows - previousBarHeight[x], (SEGCOLOR(2) != BLACK) ? SEGCOLOR(2) : ledColor);
 
     if (rippleTime && previousBarHeight[x]>0) previousBarHeight[x]--;    //delay/ripple effect
