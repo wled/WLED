@@ -40,8 +40,8 @@ void handleDMXOutput()
     for (int j = 0; j < DMXChannels; j++) {
       int DMXAddr = DMXFixtureStart + j;
       switch (DMXFixtureMap[j]) {
-        case 0:        // Set this channel to 0. Good way to tell strobe- and fade-functions to fuck right off.
-          dmx.write(DMXAddr, 0);
+        case 0:        // Set this channel to the selected value (custom DV per channel).
+          dmx.write(DMXAddr, DMXChannelsValue[j]);
           break;
         case 1:        // Red
           dmx.write(DMXAddr, calc_brightness ? (r * brightness) / 255 : r);
@@ -58,7 +58,7 @@ void handleDMXOutput()
         case 5:        // Shutter channel. Controls the brightness.
           dmx.write(DMXAddr, brightness);
           break;
-        case 6:        // Sets this channel to 255. Like 0, but more wholesome.
+        case 6:        // Legacy: "Set to 255" (pre-custom DV). Keep for backward-compatibility.
           dmx.write(DMXAddr, 255);
           break;
       }
