@@ -7,7 +7,7 @@
  */
 
 constexpr size_t FASTLED_PALETTE_COUNT = 7;   //  6-12 = sizeof(fastledPalettes) / sizeof(fastledPalettes[0]);
-constexpr size_t GRADIENT_PALETTE_COUNT = 59; // 13-72 = sizeof(gGradientPalettes) / sizeof(gGradientPalettes[0]);
+constexpr size_t GRADIENT_PALETTE_COUNT = 60; // 13-72 = sizeof(gGradientPalettes) / sizeof(gGradientPalettes[0]);
 constexpr size_t DYNAMIC_PALETTE_COUNT = 6;   //  0- 5 = dynamic palettes (0=default(virtual),1=random,2=primary,3=primary+secondary,4=primary+secondary+tertiary,5=primary+secondary(+tertiary if not black)
 constexpr size_t FIXED_PALETTE_COUNT = DYNAMIC_PALETTE_COUNT + FASTLED_PALETTE_COUNT + GRADIENT_PALETTE_COUNT; // total number of fixed palettes
 
@@ -572,7 +572,7 @@ static_assert(WLED_MAX_BUSSES <= 32, "WLED_MAX_BUSSES exceeds hard limit");
   #elif defined(CONFIG_IDF_TARGET_ESP32C3) || defined(CONFIG_IDF_TARGET_ESP32C5) || defined(CONFIG_IDF_TARGET_ESP32C6) || defined(CONFIG_IDF_TARGET_ESP32C61)
     #define MAX_LEDS 4096
   #else
-    #define MAX_LEDS 16384 // classic esp32, S3 and P4 can take more
+    #define MAX_LEDS 16384 // note: P4/S3 can take more, 24576 is already unstable on S3 using HUB75 (DMA buffers)
   #endif
 #endif
 
