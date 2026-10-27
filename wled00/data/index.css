@@ -1127,6 +1127,9 @@ textarea {
 .psts {
 	color: var(--c-f);
 	margin: 4px;
+	white-space: nowrap;
+	padding-left: 1px;
+	padding-right: 1px;
 }
 
 .pwr {

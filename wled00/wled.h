@@ -115,6 +115,9 @@
     #include <LittleFS.h>
   #endif
   #include "esp_task_wdt.h"
+  #if ESP_IDF_VERSION >= ESP_IDF_VERSION_VAL(5, 5, 0)
+  #include <wled_ADCmanager.h>
+  #endif
 #endif
 #include <Wire.h>
 #include <SPI.h>
@@ -316,6 +319,7 @@ WLED_GLOBAL bool rlyOpenDrain _INIT(false);
 #else
 WLED_GLOBAL bool rlyOpenDrain _INIT(RLYODRAIN);
 #endif
+WLED_GLOBAL uint16_t relayDelay _INIT(RELAY_DELAY); // delay in ms between switching on relay and sending data to LEDs
 #ifndef IRPIN
   #define IRPIN -1
 #endif
@@ -623,11 +627,9 @@ struct Button {
   unsigned long pressedTime;        // time button was pressed
   unsigned long waitTime;           // time to wait for next button press
   int8_t        pin;                // pin number
-  struct {
-    uint8_t     type          : 6;  // button type (push, long, double, etc.)
-    bool        pressedBefore : 1;  // button was pressed before
-    bool        longPressed   : 1;  // button was long pressed
-  };
+  uint8_t       type;               // button type (push, long, double, etc.)
+  bool          pressedBefore;      // button was pressed before
+  bool          longPressed;        // button was long pressed
   uint8_t       macroButton;        // macro/preset to call on button press
   uint8_t       macroLongPress;     // macro/preset to call on long press
   uint8_t       macroDoublePress;   // macro/preset to call on double press

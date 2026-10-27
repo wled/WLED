@@ -937,6 +937,14 @@ BusHub75Matrix::BusHub75Matrix(const BusConfig &bc) : Bus(bc.type, bc.start, bc.
                     7, 48, 6, 47, 2,   //  A_PIN,  B_PIN,  C_PIN,  D_PIN,  E_PIN,
                     21, 4, 5 };        // LAT_PIN, OE_PIN,CLK_PIN
 
+  #elif defined(SEENGREAT_MATRIX_S3_PINOUT)
+  DEBUGBUS_PRINTLN("MatrixPanel_I2S_DMA - Seengreat RGB Matrix HUB75 S3 pinout");
+  // https://seengreat.com/wiki/214 (dedicated HUB75 board, SKU 260612 - NOT the same board/pinout as SEENGREAT_V1/V2_S3_PINOUT above)
+  mxconfig.gpio = {  5,  4,  6,        // R1_PIN, G1_PIN, B1_PIN,
+                    15,  7, 17,        // R2_PIN, G2_PIN, B2_PIN,
+                     8, 18, 10,  9, 16,//  A_PIN,  B_PIN,  C_PIN,  D_PIN,  E_PIN,
+                    11, 13, 12 };      // LAT_PIN, OE_PIN,CLK_PIN
+
   #else
   DEBUGBUS_PRINTLN("MatrixPanel_I2S_DMA - S3 generic pinout");
   // HUB75_I2S_CFG::i2s_pins _pins={R1_PIN, G1_PIN, B1_PIN, R2_PIN, G2_PIN, B2_PIN, A_PIN, B_PIN, C_PIN, D_PIN, E_PIN, LAT_PIN, OE_PIN, CLK_PIN};
@@ -1059,8 +1067,9 @@ BusHub75Matrix::BusHub75Matrix(const BusConfig &bc) : Bus(bc.type, bc.start, bc.
     _valid = true;
     display->clearScreen();   // initially clear the screen buffer
     DEBUGBUS_PRINTLN("MatrixPanel_I2S_DMA clear ok");
-
+    #ifdef WLED_HUB75_EXTRA_BUFFER
     if (_ledBuffer) d_free(_ledBuffer);                 // should not happen
+    #endif
     if (_ledsDirty) d_free(_ledsDirty);                 // should not happen
     DEBUGBUS_PRINTLN("MatrixPanel_I2S_DMA allocate memory");
     _ledsDirty = (byte*) d_malloc(getBitArrayBytes(_len));  // create LEDs dirty bits
@@ -1075,9 +1084,10 @@ BusHub75Matrix::BusHub75Matrix(const BusConfig &bc) : Bus(bc.type, bc.start, bc.
       return;  //  fail is we cannot get memory for the buffer
     }
     setBitArray(_ledsDirty, _len, false);             // reset dirty bits
-
+    #ifdef WLED_HUB75_EXTRA_BUFFER
     // create LEDs buffer (initialized to BLACK), prefer DRAM if enough heap is available (faster in case global _pixels buffer is in PSRAM as not both will fit the cache)
     _ledBuffer = static_cast<CRGB*>(allocate_buffer(_len * sizeof(CRGB), BFRALLOC_PREFER_DRAM | BFRALLOC_CLEAR));
+    #endif
   }
 
   PANEL_CHAIN_TYPE chainType = CHAIN_NONE; // default for quarter-scan panels that do not use chaining
@@ -1124,20 +1134,24 @@ BusHub75Matrix::BusHub75Matrix(const BusConfig &bc) : Bus(bc.type, bc.start, bc.
 
   DEBUGBUS_PRINT(F("MatrixPanel_I2S_DMA "));
   DEBUGBUS_PRINTF_P(PSTR("%sstarted, width=%u, %u pixels.\n"), _valid? "":"not ", _panelWidth, _len);
-
-  if (_ledBuffer != nullptr) DEBUGBUS_PRINTLN(F("MatrixPanel_I2S_DMA LEDS buffer enabled."));
-  if (_ledsDirty != nullptr) DEBUGBUS_PRINTLN(F("MatrixPanel_I2S_DMA LEDS dirty bit optimization enabled."));
-  if ((_ledBuffer != nullptr) || (_ledsDirty != nullptr)) {
-    DEBUGBUS_PRINT(F("MatrixPanel_I2S_DMA LEDS buffer uses "));
-    DEBUGBUS_PRINT((_ledBuffer? _len*sizeof(CRGB) :0) + (_ledsDirty? getBitArrayBytes(_len) :0));
-    DEBUGBUS_PRINTLN(F(" bytes."));
+  #ifdef WLED_HUB75_EXTRA_BUFFER
+  if (_ledBuffer != nullptr) {
+    DEBUGBUS_PRINTLN(F("MatrixPanel_I2S_DMA extra buffer enabled."));
+    DEBUGBUS_PRINT(F("Extra buffer uses "));
+    DEBUGBUS_PRINT(_len*sizeof(CRGB));
+  }
+  #endif
+  if (_ledsDirty != nullptr) {
+    DEBUGBUS_PRINTLN(F("MatrixPanel_I2S_DMA LEDS dirty bit optimization enabled."));
+    DEBUGBUS_PRINT(F("Dirty buffer uses "));
+    DEBUGBUS_PRINT((getBitArrayBytes(_len)));
   }
 }
 
 void IRAM_ATTR BusHub75Matrix::setPixelColor(unsigned pix, uint32_t c) {
   if (!_valid) return; // note: no need to check pix >= _len as that is checked in containsPixel()
   // if (_cct >= 1900) c = colorBalanceFromKelvin(_cct, c); //color correction from CCT
-
+  #ifdef WLED_HUB75_EXTRA_BUFFER
   if (_ledBuffer) {
     CRGB fastled_col = CRGB(c);
     if (_ledBuffer[pix] != fastled_col) {
@@ -1145,6 +1159,9 @@ void IRAM_ATTR BusHub75Matrix::setPixelColor(unsigned pix, uint32_t c) {
       setBitInArray(_ledsDirty, pix, true);  // flag pixel as "dirty"
     }
   }
+  #else
+  if (false) {} // placeholder
+  #endif
   else {
     if ((c == IS_BLACK) && (getBitFromArray(_ledsDirty, pix) == false)) return; // ignore black if pixel is already black
     setBitInArray(_ledsDirty, pix, c != IS_BLACK);                              // dirty = true means "color is not BLACK"
@@ -1167,10 +1184,14 @@ void IRAM_ATTR BusHub75Matrix::setPixelColor(unsigned pix, uint32_t c) {
 
 uint32_t BusHub75Matrix::getPixelColor(unsigned pix) const {
   if (!_valid) return IS_BLACK; // note: no need to check pix >= _len as that is checked in containsPixel()
+  #ifdef WLED_HUB75_EXTRA_BUFFER
   if (_ledBuffer)
     return uint32_t(_ledBuffer[pix]);  // fastled-slim already returns RGB, no need to mask out the upper byte
   else
     return getBitFromArray(_ledsDirty, pix) ? IS_DARKGREY: IS_BLACK;   // just a hack - we only know if the pixel is black or not
+  #else
+  return getBitFromArray(_ledsDirty, pix) ? IS_DARKGREY: IS_BLACK;   // just a hack - we only know if the pixel is black or not
+  #endif
 }
 
 void BusHub75Matrix::setBrightness(uint8_t b) {
@@ -1180,6 +1201,7 @@ void BusHub75Matrix::setBrightness(uint8_t b) {
 }
 
 void BusHub75Matrix::show(void) {
+  #ifdef WLED_HUB75_EXTRA_BUFFER
   if (!_valid) return;
   if (_ledBuffer) {
     // write out buffered LEDs
@@ -1199,6 +1221,9 @@ void BusHub75Matrix::show(void) {
     }
     setBitArray(_ledsDirty, _len, false);  // buffer shown - reset all dirty bits
   }
+  #endif
+  // show() is a no-op if WLED_HUB75_EXTRA_BUFFER is not defined: pixels were already written directly in setPixelColor(),
+  // the DMA driver handles continuous refresh asynchronously
 }
 
 void BusHub75Matrix::cleanup() {
@@ -1216,7 +1241,9 @@ void BusHub75Matrix::cleanup() {
   #else  // runtime reconfiguration is not working on -S3, request reboot from user instead
     errorFlag = ERR_REBOOT_NEEDED;
   #endif
+  #ifdef WLED_HUB75_EXTRA_BUFFER
   if (_ledBuffer != nullptr) d_free(_ledBuffer); _ledBuffer = nullptr;
+  #endif
   if (_ledsDirty != nullptr) d_free(_ledsDirty); _ledsDirty = nullptr;
 }
 
@@ -1444,6 +1471,15 @@ void BusManager::show() {
   applyABL(); // apply brightness limit, updates _gMilliAmpsUsed
   for (auto &bus : busses) {
     bus->show();
+  }
+}
+
+void BusManager::blank() {
+  // Set all pixels to black
+  for (auto &bus : busses) {
+    for (uint16_t pix = 0; pix < bus->getLength(); ++pix) {
+      bus->setPixelColor(pix, BLACK);
+    }
   }
 }
 
