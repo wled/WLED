@@ -1474,6 +1474,15 @@ void BusManager::show() {
   }
 }
 
+void BusManager::blank() {
+  // Set all pixels to black
+  for (auto &bus : busses) {
+    for (uint16_t pix = 0; pix < bus->getLength(); ++pix) {
+      bus->setPixelColor(pix, BLACK);
+    }
+  }
+}
+
 void IRAM_ATTR BusManager::setPixelColor(unsigned pix, uint32_t c) {
   for (auto &bus : busses) {
     if (!bus->containsPixel(pix)) continue;

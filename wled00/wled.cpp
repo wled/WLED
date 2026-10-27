@@ -665,13 +665,16 @@ void WLED::beginStrip()
   strip.finalizeInit(); // busses created during deserializeConfig() if config existed
   strip.makeAutoSegments();
   strip.setBrightness(0);
-  strip.setShowCallback(handleOverlayDraw);
   doInitBusses = false;
 
   // init offMode and relay
   offMode = false;   // init to on state to allow proper relay init
   handleOnOff(true); // init relay and force off
-  if (rlyPin < 0) strip.show(); // ensure LEDs are off if no relay is used
+  if (rlyPin < 0) {
+    // ensure LEDs are off if no relay is used
+    BusManager::blank();
+    BusManager::show();
+  }
 
   // Note on how bootup behaviour works:
   // if turnOnAtBoot is false: strip is set to black. It will fade in to startup brightness and orange when turned on

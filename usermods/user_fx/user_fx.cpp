@@ -481,7 +481,7 @@ static void mode_2D_lavalamp(void) {
         float distSq = dx*dx + dy*dy;
         float attractRangeSq = attractRange * attractRange;
         if (distSq > 0 && distSq < attractRangeSq) {
-          float dist = sqrt(distSq); // Only compute sqrt when needed
+          float dist = sqrtf(distSq); // Only compute sqrt when needed
           float force = (1.0f - (dist / attractRange)) * 0.0001f;
           p->vx += (dx / dist) * force;
         }

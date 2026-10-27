@@ -1887,9 +1887,8 @@ void WS2812FX::show() {
     }
   }
 
-  // avoid race condition, capture _callback value
-  show_callback callback = _callback;
-  if (callback) callback(); // will call setPixelColor or setRealtimePixelColor
+  // Paint overlays in to pixel buffer
+  handleOverlayDraw();
 
   // paint actual pixels
   int oldCCT = Bus::getCCT(); // store original CCT value (since it is global)
