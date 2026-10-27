@@ -314,7 +314,7 @@ void espNowSentCB(uint8_t* address, uint8_t status);
 void espNowReceiveCB(uint8_t* address, uint8_t* data, uint8_t len, signed int rssi, bool broadcast);
 #endif
 
-// Helper for flushing the WiFiUDP rx buffer - required on ESP32
+// UDP helper for flushing the WiFiUDP rx buffer - required on ESP32
 // On ESP32, parsePacket() must be followed by a full buffer read() or by clear(). Otherwise the next packet will not be parsed and a subsequent parsePacket() returns 0.
 // Not need on ESP8266: the next packet will simply discard the previous rx buffer.
 static inline void udpDropRXBuffer(WiFiUDP &myUDP) {
@@ -325,6 +325,14 @@ static inline void udpDropRXBuffer(WiFiUDP &myUDP) {
       myUDP.flush();
     #endif
   #endif  
+}
+// UDP helper: start parsing, discard oversized messages
+static inline size_t udpParse(WiFiUDP& udpHandler, size_t maxBufSize) {
+  size_t result = udpHandler.parsePacket();
+  if (result > maxBufSize) {
+    udpDropRXBuffer(udpHandler); // drop message RX buffer
+    return 0;
+  } else return result;
 }
 
 //network.cpp

@@ -486,17 +486,15 @@ void handleNotifications()
   if (!udpConnected) return;
 
   bool isSupp = false;
-  size_t packetSize = notifierUdp.parsePacket();
-  if (packetSize > UDP_IN_MAXSIZE) udpDropRXBuffer(notifierUdp); // too big
+  size_t packetSize = udpParse(notifierUdp, UDP_IN_MAXSIZE);
   if (!packetSize && udp2Connected) {
-    packetSize = notifier2Udp.parsePacket();
-    if (packetSize > UDP_IN_MAXSIZE) udpDropRXBuffer(notifier2Udp);  // discard oversized message
+    packetSize = udpParse(notifier2Udp, UDP_IN_MAXSIZE);
     isSupp = true;
   }
 
   //hyperion / raw RGB
   if (!packetSize && udpRgbConnected) {
-    packetSize = rgbUdp.parsePacket();
+    packetSize = udpParse(rgbUdp, UDP_IN_MAXSIZE);
     if (packetSize) {
       if (!receiveDirect) { udpDropRXBuffer(rgbUdp); return; }
       if (packetSize > UDP_IN_MAXSIZE || packetSize < 3)  { udpDropRXBuffer(rgbUdp); return; } // packetSize must not exceed buffersize (UDP_IN_MAXSIZE)
