@@ -1,0 +1,5 @@
+{
+  "name": "ACS712",
+  "build": { "libArchive": false },
+  "dependencies": {}
+}
