@@ -558,8 +558,8 @@ void handleNotifications()
   //wled notifier, ignore if realtime packets active
   if (udpIn[0] == 0 && !realtimeMode && receiveGroups)
   {
-    DEBUG_PRINTF_P(PSTR("UDP notification from: %d.%d.%d.%d\n"), notifierUdp.remoteIP()[0], notifierUdp.remoteIP()[1], notifierUdp.remoteIP()[2], notifierUdp.remoteIP()[3]);
-    parseNotifyPacket(udpIn);
+    DEBUG_PRINTF_P(PSTR("UDP notification from: %d.%d.%d.%d, %d bytes.\n"), notifierUdp.remoteIP()[0], notifierUdp.remoteIP()[1], notifierUdp.remoteIP()[2], notifierUdp.remoteIP()[3], len);
+    if (len > 11) parseNotifyPacket(udpIn);  // the minimal packet size (version 0 from WLED 0.3) is 12 bytes
     return;
   }
 
