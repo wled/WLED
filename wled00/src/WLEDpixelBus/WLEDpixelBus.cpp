@@ -23,12 +23,11 @@ Tested working on IDF V4 and V5 API functions and low-level HAL
 
 /*
 TODO List
-- size DMA buffers such that the buffer completes one LED
 - need to verify custom bus start indices and color-order overrides on hardware (both should now work)
 - ESP32 C61 has no RMT and no PARLIO, either bit bang or check if parallel SPI can be used
 - I2S/LCD requires more stress-testing to ensure glitch-free outputs, for 16-parallel maybe even 4 buffers are needed under heavy load
 - the DMA buffer count and size need to be checked agains memory usage formulas, they may be incorrect (we could do "worst case" in the UI as it wont matter much for a small amount of LEDs)
-- I2S driver now has safe watchdog in case interrupts are missed. check if parallel spi driver and parlio driver can suffer from the same race condition (nullpointer / end of transfer overwritten or missed)
+- stress-test all parallel drivers for missed interrupts, descriptor races, and watchdog recovery
 - LOOPTEST_CYCLES in BB bus need fine-tuning
 - color orders of some strips may differ from NPB implementation, needs checking and reordering to match legacy behaviour or users will complain (see legacy bus_wrapper where this is defined in neoXXXtype)
 - move gamma down to bus level, see pending PR
@@ -37,24 +36,30 @@ TODO List
 - SPI 2-wire types do not support signal inversion
 - ESP32_DATA_IDLE_HIGH flag is a hack to fix bad hardware design and uses the legacy RMT driver, we should drop support for that
 - parallel SPI driver: the reset pulse is now derived from the LED timing (calc4StepResetDmaBytes); needs testing on hardware
-- parallel SPI driver still uses fixed DMA buffer size, if possible also use calc4StepBufferSize() like PARLIO and I2S
-- PARLIO bus needs an in depth review to check for any AI slop
+- PARLIO bus needs further target-hardware testing
 - use chip capabilities instead of individual target ifdefs in buswrapper
-- ESP8266 UART and I2S buses show() return false instead of waiting which is inconsistent
 - SM16825_SUFFIX should be made dynamic to increase color range at lower brightness (scale with global brightness)
 - The config rework is unfinished: with the updated workflow the goal is to fully drop "custom" bus handling and tread every bus the same (UI needs rework to do that) -> done now, needs testing and refinement
-- RMT driver uses stock encoders (could maybe made faster using custom ones) and high priority interrupts currently disabled -> WIP, needs more testing
+- RMT driver uses stock encoders (could maybe be made faster using custom ones); needs more testing
 - the bus capability definitions in const.h should probably be moved to driver level or use driver level constants instead of "overriding" low level hardware capabilities
-- finding: LPD6803 and LPD8806 encoding is probably wrong, need to check
+- LPD6803 and LPD8806 encoding is done on RGB only, need to add support for more color channels if such stripes exist
+- PARLIO uses software channel inversion, can we use GPIO inversion like in other drivers? code for testing is in place but commented out, see hwInit() in WLEDpixelBus_PARLIO.cpp
+- ESP8266 DMA output uses a slow path to scale and reset buffers, needs optimisation
+- the "non global buffer" path is not optimised, check if this path should not color-encode on the fly so reading buffer back is faster, then do an encode pass before sending
+- NCHF_INVERT flag is not really needed anymore, can just use hasInvertedChannels()
+- I2S bus and PARLIO use identical 4-step encoding, should use a common function. I2S 16-parallel out still is only used by I2S -> move to WLEDpixelBus.h
+- WLEDpixelBus_features.h now only contains current steps - should also be moved into WLEDpixelBus.h and removed
+- ColorEncoder has two overloaded versions, the non mapped one is not really used anymore as mapping is done by legacy shims - should be removed after checking if SPI bus is handled correctly if doing so
 */
 
 
 #include "WLEDpixelBus.h"
+#include "../../const.h" // needed for color orders
 
 namespace WLEDpixelBus {
 
 // LED Timing Lookup
-LedTiming getProtocol(uint8_t wledType) {
+LedTiming getLedTiming(uint8_t wledType) {
   uint8_t idx = getTimingIndex(wledType);
 #ifdef ESP8266
   return LedTiming(
@@ -69,39 +74,36 @@ LedTiming getProtocol(uint8_t wledType) {
 #endif
 }
 
-//==============================================================================
-// Color Encoder Implementation
-//==============================================================================
+// Color Encoder
+//===============
 
+// standard encoder from color order and type
 ColorEncoder::ColorEncoder(uint8_t co, uint8_t numChannels, uint8_t ledType)
 {
   _invertMask = 0;
   memset(_channelMap, 0, sizeof(_channelMap));
 
-  // --- Standard types: fast path via _idxR/_idxG/_idxB/_idxW/_idxCW ---
-
+  // Standard types: fast path via _idxR/_idxG/_idxB/_idxW/_idxCW
   uint8_t flags = 0;
 
   // Decode RGB wire positions from color order lower nibble (see ColorOrder enum)
   uint8_t rPos, gPos, bPos;
   switch (co & 0x0F) {
-    case ORDER_RGB: rPos=0; gPos=1; bPos=2; break;
-    case ORDER_BRG: rPos=1; gPos=2; bPos=0; break;
-    case ORDER_RBG: rPos=0; gPos=2; bPos=1; break;
-    case ORDER_BGR: rPos=2; gPos=1; bPos=0; break;
-    case ORDER_GBR: rPos=2; gPos=0; bPos=1; break;
-    default:        rPos=1; gPos=0; bPos=2; break; // ORDER_GRB
+    case COL_ORDER_RGB: rPos=0; gPos=1; bPos=2; break;
+    case COL_ORDER_BRG: rPos=1; gPos=2; bPos=0; break;
+    case COL_ORDER_RBG: rPos=0; gPos=2; bPos=1; break;
+    case COL_ORDER_BGR: rPos=2; gPos=1; bPos=0; break;
+    case COL_ORDER_GBR: rPos=2; gPos=0; bPos=1; break;
+    default:        rPos=1; gPos=0; bPos=2; break; // COL_ORDER_GRB
   }
   _idxR = rPos; _idxG = gPos; _idxB = bPos;
   _idxW = 3; _idxCW = 4; // defaults, overridden below as needed
 
   // White/CCT channels: numChannels from bus type, W-swap from upper nibble
   if (numChannels == CHANNELS_RGBW) {
-    // LED-type-specific native wire order: TM1814 and TM1815 send W first.
-    // Shift RGB indices up by 1 and place W at index 0 before applying user wSwap.
     if (ledType == TYPE_TM1814 || ledType == TYPE_TM1815) {
-      _idxR++; _idxG++; _idxB++;
-      _idxW = 0;
+      _idxR++; _idxG++; _idxB++; // Shift RGB indices up by 1 and place W at index 0 before applying wSwap
+      _idxW = 0; // TM1814 and TM1815 send W first
     }
     const uint8_t wSwap = co >> 4;
     if (wSwap == WSWAP_B) { std::swap(_idxW, _idxB); } // swap W & B
@@ -115,18 +117,13 @@ ColorEncoder::ColorEncoder(uint8_t co, uint8_t numChannels, uint8_t ledType)
   // 16-bit chips: two wire bytes per logical channel; lower nibble stores wire bytes.
   if (ledType == TYPE_UCS8903 || ledType == TYPE_UCS8904 || ledType == TYPE_SM16825) {
     flags |= NCHF_16BIT;
-    numChannels *= 2; // 16bit buses use two bytes per color channel
+    numChannels *= 2; // 16bit: two bytes per color channel
   }
   _pixelFormat  = numChannels | flags;
 
 }
 
-// channelMap[i]: ChannelSource value (CH_UNUSED/CH_R/CH_G/CH_B/CH_W/CH_WW/CH_CW)
-// Detects standard permutations (RGB, RGBW, CCT, any channel order, no inversion) and
-// routes them to the fast inline encode path via _idxR/_idxG/_idxB/_idxW/_idxCW, without
-// setting NCHF_CUSTOM.  Only truly non-standard maps (duplicate sources, inversion, unusual
-// channel combinations) fall through to the generic encodeGeneric() loop.
-// This allows buses created from explicit channel maps to still benefit from the fast path.
+// custom encoder from channel map, if a standard permutation is detected and no inversion it uses fast path
 ColorEncoder::ColorEncoder(const uint8_t channelMap[MAX_CUSTOM_CHANNELS], uint8_t numChannels, uint8_t invertMask, bool is16bit)
 {
   if (numChannels > MAX_CUSTOM_CHANNELS) numChannels = MAX_CUSTOM_CHANNELS;
@@ -197,14 +194,13 @@ ColorEncoder::ColorEncoder(const uint8_t channelMap[MAX_CUSTOM_CHANNELS], uint8_
 // Generic encoder for non-fast-path cases: NCHF_INVERT, NCHF_CUSTOM,
 // and any 16-bit + invert combination.
 void ColorEncoder::encodeGeneric(uint32_t c, const CctPixel& cct, uint8_t* out, uint8_t bri) const {
-  const uint8_t flags = _pixelFormat & 0xF0;
-  const uint8_t logCh = _pixelFormat & 0x0F;
+  const uint8_t flags     = _pixelFormat & 0xF0;
+  const uint8_t wireBytes = _pixelFormat & 0x0F; // total bytes per pixel (numChannels * 2 for 16-bit, numChannels otherwise)
+  const bool is16bit = (flags & NCHF_16BIT) != 0; // cache for speed
 
   if (flags & NCHF_CUSTOM) {
-    // Custom channel map: each wire byte is assigned a color source from _channelMap
-    // logCh is wire bytes (numChannels * 2 for 16-bit, numChannels otherwise)
-    const bool b16 = (flags & NCHF_16BIT) != 0;
-    const uint8_t numLogi = b16 ? logCh / 2 : logCh;
+    // Custom channel map: each wire byte is assigned a color source from _channelMap (up to 6 channels supported)
+    const uint8_t numLogi = is16bit ? wireBytes / 2 : wireBytes;
     for (uint8_t i = 0; i < numLogi; i++) {
       uint8_t val;
       switch (_channelMap[i]) {
@@ -216,50 +212,61 @@ void ColorEncoder::encodeGeneric(uint32_t c, const CctPixel& cct, uint8_t* out, 
         case CH_CW: val = cct.cw;  break;
         default:    val = 0;      break; // CH_UNUSED
       }
-      if (_invertMask & (1u << i)) val ^= 0xFF;
-      if (b16) {
-        const uint16_t v16 = (uint16_t)val * bri;
+      if (is16bit) {
+        uint16_t v16 = (uint16_t)val * bri; // Note: this can "only" reach 99% as 255×255 = 65025. We do not care.
+        if (_invertMask & (1u << i)) v16 ^= 0xFFFF; // invert all bits
         out[i*2]   = v16 >> 8;
         out[i*2+1] = v16 & 0xFF;
       } else {
-        out[i] = val;
+        if (_invertMask & (1u << i)) val ^= 0xFF;
+        out[i] = val; // note: for 8bit colors, scaling happens in BusDigital, only 16bit colors scale during encoding
       }
     }
     return;
   }
 
-  // NCHF_INVERT, optionally combined with NCHF_16BIT
-  // logCh is wire bytes: 6/8/10 for 16-bit, 3/4/5 for 8-bit
-  if (flags & NCHF_16BIT) {
-    switch (logCh) {
+  // wire bytes: 6/8/10 for 16-bit, 3/4/5 for 8-bit (standard encoding supports up to 5 channels)
+  if (is16bit) {
+    switch (wireBytes) {
       case WB_RGB16:  encodeRGB16(c, out, bri);       break;
       case WB_RGBW16: encodeRGBW16(c, out, bri);      break;
       default:        encodeCCT16(c, cct, out, bri);  break; // WB_CCT16
     }
   } else {
-    switch (logCh) {
+    switch (wireBytes) {
       case WB_RGB:  encodeRGB(c, out);        break;
       case WB_RGBW: encodeRGBW(c, out);       break;
       default:      encodeCCT(c, cct, out);  break; // WB_CCT
     }
   }
-  // Apply invert mask; logCh already equals wire bytes
-  for (uint8_t i = 0; i < logCh; i++) {
-    if (_invertMask & (1u << i)) out[i] ^= 0xFF;
+
+  if (_invertMask == 0) return;
+  // Handle color inversion (per color channel)
+  if (is16bit) {
+    for (uint8_t i = 0; i < wireBytes / 2; i++) {
+      if (_invertMask & (1u << i)) {
+        out[i*2] ^= 0xFF;
+        out[i*2+1] ^= 0xFF;
+      }
+    }
+  } else {
+    for (uint8_t i = 0; i < wireBytes; i++) {
+      if (_invertMask & (1u << i)) out[i] ^= 0xFF;
+    }
   }
 }
 
 uint32_t ColorEncoder::decodeGeneric(const uint8_t* in) const {
-  const uint8_t flags = _pixelFormat & 0xF0;
-  const uint8_t logCh = _pixelFormat & 0x0F;
+  const uint8_t flags     = _pixelFormat & 0xF0;
+  const uint8_t wireBytes = _pixelFormat & 0x0F; // total bytes per pixel (numChannels * 2 for 16-bit, numChannels otherwise)
+  const bool is16bit = (flags & NCHF_16BIT) != 0; // cache for speed
 
   if (flags & NCHF_CUSTOM) {
     // Custom channel map decode: reconstruct RGBW from wire bytes
-    const bool b16 = (flags & NCHF_16BIT) != 0;
-    const uint8_t numLogi = b16 ? logCh / 2 : logCh;
+    const uint8_t numLogi = is16bit ? wireBytes / 2 : wireBytes;
     uint8_t r = 0, g = 0, b_ = 0, w = 0;
     for (uint8_t i = 0; i < numLogi; i++) {
-      uint8_t val = b16 ? in[i*2] : in[i]; // take high byte for 16-bit
+      uint8_t val = is16bit ? in[i*2] : in[i]; // take high byte for 16-bit
       if (_invertMask & (1u << i)) val ^= 0xFF;
       switch (_channelMap[i]) {
         case CH_R: r  = val; break;
@@ -272,39 +279,30 @@ uint32_t ColorEncoder::decodeGeneric(const uint8_t* in) const {
     return RGBW32(r, g, b_, w);
   }
 
-  // NCHF_INVERT, optionally combined with NCHF_16BIT
-  // logCh is wire bytes: 6/8/10 for 16-bit, 3/4/5 for 8-bit
   uint8_t r, g, b, w = 0;
-  if (flags & NCHF_16BIT) {
+  if (is16bit) {
     r = readU16Hi(in, _idxR); g = readU16Hi(in, _idxG); b = readU16Hi(in, _idxB);
-    if (logCh >= WB_RGBW16) w = readU16Hi(in, _idxW);   // WB_RGBW16=RGBW16, WB_CCT16=CCT16
+    if (wireBytes >= WB_RGBW16) w = readU16Hi(in, _idxW); // WB_RGBW16=RGBW16, WB_CCT16=CCT16
   } else {
     r = in[_idxR]; g = in[_idxG]; b = in[_idxB];
-    if (logCh >= WB_RGBW) w = in[_idxW];              // WB_RGBW=RGBW, WB_CCT=CCT
+    if (wireBytes >= WB_RGBW) w = in[_idxW]; // WB_RGBW=RGBW, WB_CCT=CCT
   }
   if (flags & NCHF_INVERT) {
     if (_invertMask & (1u << _idxR)) r ^= 0xFF;
     if (_invertMask & (1u << _idxG)) g ^= 0xFF;
     if (_invertMask & (1u << _idxB)) b ^= 0xFF;
-    const bool hasW = (flags & NCHF_16BIT) ? (logCh >= WB_RGBW16) : (logCh >= WB_RGBW);
+    const bool hasW = (is16bit) ? (wireBytes >= WB_RGBW16) : (wireBytes >= WB_RGBW);
     if (hasW && (_invertMask & (1u << _idxW))) w ^= 0xFF;
   }
   return RGBW32(r, g, b, w);
 }
 
-
-//==============================================================================
-// Bus Factory Implementation
-//==============================================================================
-
+// create a 1-wire digital bus (RMT, I2S, ...)
 PixelBus* createBus(BusDriver driver, int8_t pin, const BusProperties& properties, uint8_t ledType, size_t numPixels) {
-
   PixelBus* bus = nullptr;
   const LedTiming& timing = properties.timing;
-  // colorOrder/numChannels are unused by the driver constructors: the encoder is installed below.
-  // ledType is retained only so a driver can still identify itself (clocked SPI does not use this factory).
   switch (driver) {
-#if defined(ESP32)
+#if defined(ARDUINO_ARCH_ESP32)
     case BusDriver::RMT:
       bus = new RmtBus(pin, timing, 0, properties.numChannels, ledType);
       break;
@@ -355,15 +353,15 @@ PixelBus* createBus(BusDriver driver, int8_t pin, const BusProperties& propertie
       return nullptr;
   }
 
-  // Apply framing and signal properties before begin() so buffer allocation and
-  // peripheral setup see the complete bus description.
   if (bus) {
+    if (numPixels > UINT16_MAX) { delete bus; return nullptr; }
+    bus->setNumPixels((uint16_t)numPixels);
     bus->setPrefixLen(properties.prefixLen);
     bus->setPrefixData(properties.prefixData, properties.prefixLen);
     bus->setSuffixLen(properties.suffixLen);
     bus->setSuffixData(properties.suffixData, properties.suffixLen);
     bus->setInverted(properties.invertOutput);
-    bus->setEncoder(ColorEncoder(properties.channelColors, properties.numChannels, properties.invertMask, properties.is16bit));
+    bus->setEncoder(ColorEncoder(properties.channelMap, properties.numChannels, properties.invertMask, properties.is16bit));
   }
 
   return bus;

@@ -13,7 +13,7 @@
 #include "FXparticleSystem.h"  // TODO: better define the required function (mem service) in FX.h?
 #include "colors.h"
 #if defined(ARDUINO_ARCH_ESP32)
-#include "src/WLEDpixelBus/WLEDpixelBus_RMT.h" // needed for setExpectedChannels()
+#include "src/WLEDpixelBus/WLEDpixelBus_RMT.h" // needed for setExpectedChannelCount()
 #endif
 
 /*
@@ -1356,7 +1356,7 @@ void WS2812FX::finalizeInit() {
   #if defined(ARDUINO_ARCH_ESP32)
   DEBUG_PRINTF_P(PSTR("Digital RMT buses: %u, parallel buses: %u\n"), rmtBusCount, parHwBusCount);
   // RMT channel tracking was already reset by BusManager::removeAll() -> resetChannelTracking()
-  WLEDpixelBus::RmtBus::setExpectedChannels((uint8_t)rmtBusCount);
+  WLEDpixelBus::RmtBus::setExpectedChannelCount((uint8_t)rmtBusCount);
   #endif
 
   DEBUG_PRINTF_P(PSTR("Heap before buses: %d\n"), getFreeHeapSize());

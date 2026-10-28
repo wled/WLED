@@ -278,7 +278,7 @@ bool deserializeConfig(JsonObject doc, bool fromFS) {
         JsonArrayConst cmap = elm["cmap"];
         if (!cmap.isNull()) {
           for (uint8_t ci = 0; ci < WLEDpixelBus::MAX_CUSTOM_CHANNELS && ci < cmap.size(); ci++)
-            bc.channels.channelColors[ci] = (uint8_t)constrain((int)cmap[ci], 0, 6);
+            bc.channels.channelMap[ci] = (uint8_t)constrain((int)cmap[ci], 0, 6);
         }
         bc.channels.invertMask   = elm["cinv"] | 0;
         bc.channels.is16bit      = elm["c16"] | false;
@@ -1057,7 +1057,7 @@ void serializeConfig(JsonObject root) {
       const BusChannelLayout& cb = bus->getChannelLayout();
       ins["cch"]  = cb.numChannels;
       JsonArray cmap = ins.createNestedArray("cmap");
-      for (uint8_t i = 0; i < cb.numChannels; i++) cmap.add(cb.channelColors[i]); // emit only active channels; deserializer guards with cmap.size()
+      for (uint8_t i = 0; i < cb.numChannels; i++) cmap.add(cb.channelMap[i]); // emit only active channels; deserializer guards with cmap.size()
       ins["cinv"] = cb.invertMask;
       ins["c16"]  = cb.is16bit;
       ins["cio"]  = cb.invertOutput;

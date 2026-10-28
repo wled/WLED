@@ -200,19 +200,17 @@ BusDigital::BusDigital(const BusConfig &bc)
       return;
     }
     _busPtr = PixelBusAllocator::create(_protocolType, _pins, lenToCreate + _skip, bc.colorOrder, _driverType, bc.busSpeedFactor, _frequencykHz, &_busProperties);
-    applyChannelCapabilities(_busProperties.channelColors, _busProperties.numChannels);
+    applyChannelCapabilities(_busProperties.channelMap, _busProperties.numChannels);
     // A custom map can still use ColorOrderMap when it is the saved color-order permutation. Anything else cannot.
-    colorOrderMapApplies = !bc.channels.custom
-      ? !legacyHasFixedChannelMap(_protocolType)
-      : legacyChannelMapMatchesColorOrder(_busProperties, _colorOrder, _protocolType);
+    colorOrderMapApplies = !bc.channels.custom ? !legacyHasFixedChannelMap(_protocolType) : legacyChannelMapMatchesColorOrder(_busProperties, _colorOrder, _protocolType);
   } else {
     _busPtr = PixelBusAllocator::create(bc.type, _pins, lenToCreate + _skip, bc.colorOrder, _driverType, bc.busSpeedFactor, _frequencykHz);
     if (bc.channels.custom) {
       if (_busPtr) {
-        _busPtr->setEncoder(WLEDpixelBus::ColorEncoder(bc.channels.channelColors, bc.channels.numChannels, bc.channels.invertMask, bc.channels.is16bit));
+        _busPtr->setEncoder(WLEDpixelBus::ColorEncoder(bc.channels.channelMap, bc.channels.numChannels, bc.channels.invertMask, bc.channels.is16bit));
         if (bc.channels.invertOutput) _busPtr->setInverted(true);
       }
-      applyChannelCapabilities(bc.channels.channelColors, bc.channels.numChannels);
+      applyChannelCapabilities(bc.channels.channelMap, bc.channels.numChannels);
       colorOrderMapApplies = false; // clocked custom encoder does not use the color-order byte
     }
   }
@@ -333,9 +331,9 @@ void BusDigital::applyBriLimit(uint8_t newBri) {
 
   if (newBri < 255) {
     _totalBusBri = newBri; // store value so it can be updated in show() (must be updated even if ABL is not used)
-    // scaleAll() simply scales every channel byte proportionally, i.e. RGB and if available W (WW and CW)
+    // Scale complete logical channels, preserving inversion and 16-bit values.
     // in order to enforce the brightness limit, this does not use video scaling and can scale to black if ABL limit is set too low
-    _busPtr->scaleAll(newBri);
+    _busPtr->scaleEncodeBuffer(newBri);
   }
 
   _colorSum = 0; // reset for next frame
@@ -1484,7 +1482,7 @@ static String LEDTypesToJson(const std::vector<LEDType>& types) {
     // capabilities follows similar pattern as JSON API
     int capabilities = Bus::hasRGB(type.id) | Bus::hasWhite(type.id)<<1 | Bus::hasCCT(type.id)<<2 | Bus::is16bit(type.id)<<4 | Bus::mustRefresh(type.id)<<5;
     char str[256];
-    WLEDpixelBus::LedTiming timing = WLEDpixelBus::getProtocol(type.id);
+    WLEDpixelBus::LedTiming timing = WLEDpixelBus::getLedTiming(type.id);
     sprintf_P(str, PSTR("{i:%d,c:%d,t:\"%s\",n:\"%s\",t0h:%u,t0l:%u,t1h:%u,t1l:%u,trst:%u},"),
               type.id, capabilities, type.type, type.name,
               (unsigned)timing.t0h_ns, (unsigned)timing.t0l_ns,

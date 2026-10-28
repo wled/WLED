@@ -70,8 +70,8 @@ inline const LegacyLayout& getLegacyChannelLayout(uint8_t busType) {
   }
 }
 
-// Compose a legacy wire layout with color-orderinto a WLEDpixelBus channel map (which puts colors on the wire in the order of channelColors[], see color encoders)
-inline uint8_t legacyColorOrderToChannelMap(uint8_t busType, uint8_t colorOrder, uint8_t* channelColors) {
+// Compose a legacy wire layout with color order into a WLEDpixelBus channel map (which puts colors on the wire in the order of channelMap[], see color encoders)
+inline uint8_t legacyColorOrderToChannelMap(uint8_t busType, uint8_t colorOrder, uint8_t* channelMap) {
   // permutations of how "colorOrder" was applied, 0 is "GRB", i.e. no permuation but the underlying bus layout was GRB for common types (but not all see getLegacyChannelLayout())
   static constexpr uint8_t kLegacyPerm[6][3] = {
     {LF_R, LF_G, LF_B}, // 0 = "GRB" (default)
@@ -103,14 +103,14 @@ inline uint8_t legacyColorOrderToChannelMap(uint8_t busType, uint8_t colorOrder,
   }
 
   for (uint8_t i = 0; i < WLEDpixelBus::MAX_CUSTOM_CHANNELS; i++) {
-    if (i >= layout.n) { channelColors[i] = WLEDpixelBus::CH_UNUSED; continue; }
+    if (i >= layout.n) { channelMap[i] = WLEDpixelBus::CH_UNUSED; continue; }
     switch (content[layout.f[i]]) {
-      case LF_R:  channelColors[i] = WLEDpixelBus::CH_R;  break;
-      case LF_G:  channelColors[i] = WLEDpixelBus::CH_G;  break;
-      case LF_B:  channelColors[i] = WLEDpixelBus::CH_B;  break;
-      case LF_W:  channelColors[i] = isCct ? WLEDpixelBus::CH_WW : WLEDpixelBus::CH_W; break;
-      case LF_CW: channelColors[i] = WLEDpixelBus::CH_CW; break;
-      default:    channelColors[i] = WLEDpixelBus::CH_UNUSED; break; // LF_PAD
+      case LF_R:  channelMap[i] = WLEDpixelBus::CH_R;  break;
+      case LF_G:  channelMap[i] = WLEDpixelBus::CH_G;  break;
+      case LF_B:  channelMap[i] = WLEDpixelBus::CH_B;  break;
+      case LF_W:  channelMap[i] = isCct ? WLEDpixelBus::CH_WW : WLEDpixelBus::CH_W; break;
+      case LF_CW: channelMap[i] = WLEDpixelBus::CH_CW; break;
+      default:    channelMap[i] = WLEDpixelBus::CH_UNUSED; break; // LF_PAD
     }
   }
   return layout.n;
@@ -128,7 +128,7 @@ inline bool legacyChannelMapMatchesColorOrder(const WLEDpixelBus::BusProperties&
   const uint8_t n = legacyColorOrderToChannelMap(ledType, colorOrder, expected);
   if (n != properties.numChannels) return false;
   for (uint8_t i = 0; i < n; i++) {
-    if (properties.channelColors[i] != expected[i]) return false;
+    if (properties.channelMap[i] != expected[i]) return false;
   }
   return true;
 }
@@ -187,19 +187,19 @@ inline void resolveChannelLayout(BusChannelLayout& ch, uint8_t busType, uint8_t 
   if (ch.custom) return;
   if (busType == TYPE_WS2812_1CH_X3) {
     ch.numChannels = 3;
-    ch.channelColors[0] = ch.channelColors[1] = ch.channelColors[2] = WLEDpixelBus::CH_W;
+    ch.channelMap[0] = ch.channelMap[1] = ch.channelMap[2] = WLEDpixelBus::CH_W;
   } else if (busType == TYPE_WS2812_WWA) {
     ch.numChannels = 3;
-    ch.channelColors[0] = WLEDpixelBus::CH_CW;
-    ch.channelColors[1] = WLEDpixelBus::CH_WW;
-    ch.channelColors[2] = WLEDpixelBus::CH_WW; // separate amber channel is not yet supported
+    ch.channelMap[0] = WLEDpixelBus::CH_CW;
+    ch.channelMap[1] = WLEDpixelBus::CH_WW;
+    ch.channelMap[2] = WLEDpixelBus::CH_WW; // separate amber channel is not yet supported
   } else {
-    ch.numChannels = legacyColorOrderToChannelMap(busType, colorOrder, ch.channelColors);
+    ch.numChannels = legacyColorOrderToChannelMap(busType, colorOrder, ch.channelMap);
   }
   ch.invertMask = 0;
   ch.is16bit = busTypeIs16bit(busType);
   ch.invertOutput = busType == TYPE_TM1814 || busType == TYPE_TM1815 || busType == TYPE_TM1914;
-  const WLEDpixelBus::LedTiming timing = WLEDpixelBus::getProtocol(busType);
+  const WLEDpixelBus::LedTiming timing = WLEDpixelBus::getLedTiming(busType);
   ch.t0h = timing.t0h_ns; ch.t0l = timing.t0l_ns;
   ch.t1h = timing.t1h_ns; ch.t1l = timing.t1l_ns;
   ch.trst = timing.reset_us;
@@ -228,7 +228,7 @@ inline void applyTypeFraming(WLEDpixelBus::BusProperties& props, uint8_t busType
 inline WLEDpixelBus::BusProperties makeBusProperties(const BusChannelLayout& layout, uint8_t protocolType) {
   WLEDpixelBus::BusProperties props;
   props.numChannels = layout.numChannels;
-  memcpy(props.channelColors, layout.channelColors, sizeof(props.channelColors));
+  memcpy(props.channelMap, layout.channelMap, sizeof(props.channelMap));
   props.invertMask = layout.invertMask;
   props.is16bit = layout.is16bit;
   props.invertOutput = layout.invertOutput;
@@ -268,13 +268,13 @@ class PixelBusAllocator {
     _bitBangChannelsAssigned = 0;
     _bitBangBusType = 0; // TYPE_NONE
     _hardwareSPIused = 0;
-    WLEDpixelBus::RmtBus::resetAutoChannel();
+    WLEDpixelBus::RmtBus::resetChannelTracking();
     #if (WLED_MAX_BB_CHANNELS > 0)
-    WLEDpixelBus::BitBangBus::resetChannels();
+    WLEDpixelBus::BitBangBus::resetChannelTracking();
     #endif
     #else
     _bitBangBusType = 0; // TYPE_NONE
-    WLEDpixelBus::BitBangBus::resetChannels();
+    WLEDpixelBus::BitBangBus::resetChannelTracking();
     #endif
   }
 
@@ -402,7 +402,7 @@ static WLEDpixelBus::PixelBus* create(uint8_t busType, uint8_t* pins, uint16_t l
     if (!properties) return nullptr; // one-wire buses are created from an explicit property set
     WLEDpixelBus::BusProperties wire = *properties;
     // Caller should already have used checkParallelType(). If it did not, keep the shared clock consistent.
-    if (busType != requestedType) wire.timing = WLEDpixelBus::getProtocol(busType);
+    if (busType != requestedType) wire.timing = WLEDpixelBus::getLedTiming(busType);
     if (busSpeedFactor != 100) {
       float factor = (float)busSpeedFactor / 100.0f;
       wire.timing = WLEDpixelBus::scaleTiming(wire.timing, factor);

@@ -5,7 +5,7 @@
  * implemented by @willmmiles
  */
 
-#if defined(__XTENSA__) && defined(ESP32)
+#if defined(__XTENSA__) && defined(ARDUINO_ARCH_ESP32)
 
 #include "esp_idf_version.h"
 #include "sdkconfig.h"

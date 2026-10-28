@@ -52,7 +52,7 @@ enum BusDriverType : uint8_t {
 // WW/CW are not treated differently if not both are set (see #5654 for reference).
 struct BusChannelLayout {
   uint8_t  numChannels = 0;       // wire channels per pixel; 0 = not resolved yet
-  uint8_t  channelColors[WLEDpixelBus::MAX_CUSTOM_CHANNELS] = {WLEDpixelBus::CH_G, WLEDpixelBus::CH_R, WLEDpixelBus::CH_B, WLEDpixelBus::CH_UNUSED, WLEDpixelBus::CH_UNUSED, WLEDpixelBus::CH_UNUSED}; // GRB default
+  uint8_t  channelMap[WLEDpixelBus::MAX_CUSTOM_CHANNELS] = {WLEDpixelBus::CH_G, WLEDpixelBus::CH_R, WLEDpixelBus::CH_B, WLEDpixelBus::CH_UNUSED, WLEDpixelBus::CH_UNUSED, WLEDpixelBus::CH_UNUSED}; // GRB default
   uint8_t  invertMask  = 0;       // bitmask: bit i = invert channel i output level
   bool     is16bit      = false;  // 2 wire bytes per channel (UCS8903/04, SM16825)
   bool     invertOutput = false;  // invert the hardware output signal polarity
