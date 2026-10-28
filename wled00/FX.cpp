@@ -8094,6 +8094,176 @@ void mode_2Dwavingcell() {
 }
 static const char _data_FX_MODE_2DWAVINGCELL[] PROGMEM = "Waving Cell@!,Blur,Amplitude 1,Amplitude 2,Amplitude 3,,Flow;;!;2;ix=0";
 
+
+//Snakes
+// By @HampusAdolfsson
+struct SnakePos {
+  SnakePos(uint16_t x, uint16_t y) : x(x), y(y) {}
+  uint16_t x, y;
+};
+
+enum class SnakeDir : uint8_t {
+  Up,
+  Down,
+  Left,
+  Right,
+};
+
+struct SnakeHead {
+  SnakePos pos;
+  uint8_t paletteIndex;
+  SnakeDir dir : 7;
+  bool moved : 1;
+};
+
+struct SnakeCell {
+  uint8_t snakeIndex;
+  uint8_t lifetime;
+};
+
+void mode_2DSnakes() {
+  if (!strip.isMatrix || !SEGMENT.is2D()) FX_FALLBACK_STATIC;
+  const unsigned segW = SEG_W;
+  const unsigned segH = SEG_H;
+
+  const uint16_t moveInterval = 512 - (2 * SEGMENT.speed);
+  const uint8_t maxSnakeCount = min(max((segW + segH) / 4, 1u), 255u);
+  const uint8_t snakeCount = (maxSnakeCount - 1) * SEGMENT.intensity / 255 + 1;
+  const uint8_t snakeLength = max(SEGMENT.custom1 / 4, 1);
+
+  // Allocate based on the maximum possible size, to avoid constant reallocation while dragging the sliders.
+  size_t dataLen = sizeof(SnakeHead) * maxSnakeCount +
+                   segW * segH * sizeof(SnakeCell)
+                   + sizeof(uint8_t);
+  if (!SEGENV.allocateData(dataLen)) {
+    FX_FALLBACK_STATIC
+  }
+
+  // The head of each snake, which moves around the grid.
+  SnakeHead *heads = reinterpret_cast<SnakeHead *>(SEGENV.data);
+  // The cells of the grid, SEG_W*SEG_H in size; lifetime > 0 means a snake is there.
+  SnakeCell *cells = reinterpret_cast<SnakeCell *>(heads + maxSnakeCount);
+  uint8_t *storedSnakeCount = reinterpret_cast<uint8_t *>(cells + segW * segH);
+
+  if (SEGENV.call == 0 || SEGENV.aux0 != segW || SEGENV.aux1 != segH || *storedSnakeCount != snakeCount) {
+    memset(SEGENV.data, 0, SEGENV.dataSize());
+    SEGMENT.fill(0);
+    SEGENV.aux0 = segW;
+    SEGENV.aux1 = segH;
+    *storedSnakeCount = snakeCount;
+    for (size_t i = 0; i < snakeCount; i++) {
+      heads[i] = SnakeHead{
+          .pos =
+              {
+                  hw_random16(segW),
+                  hw_random16(segH),
+              },
+          .paletteIndex = static_cast<uint8_t>(i * 255 / snakeCount),
+          .dir = static_cast<SnakeDir>(hw_random8(4)),
+          .moved = false,
+      };
+    }
+  }
+
+  const bool smooth = SEGMENT.check1;
+
+  uint32_t elapsed = strip.now - SEGENV.step;
+  bool doMove = elapsed >= moveInterval;
+  // Update the position of each snake head.
+  if (doMove) {
+    SEGENV.step = strip.now;
+    elapsed = 0;
+
+    for (uint8_t i = 0; i < snakeCount; i++) {
+      SnakeHead &head = heads[i];
+      SnakeDir candidates[3];
+      candidates[0] = head.dir;
+      switch (head.dir) {
+      case SnakeDir::Up:
+      case SnakeDir::Down:
+        candidates[1] = SnakeDir::Left;
+        candidates[2] = SnakeDir::Right;
+        break;
+      case SnakeDir::Left:
+      case SnakeDir::Right:
+        candidates[1] = SnakeDir::Up;
+        candidates[2] = SnakeDir::Down;
+        break;
+      }
+      uint8_t rand = hw_random8();
+      if ((rand & 1)) {
+        std::swap(candidates[1], candidates[2]);
+      }
+      // 12.5% chance
+      bool doTurn = rand >> 5 == 0;
+      if (doTurn) {
+        std::swap(candidates[0], candidates[2]);
+      }
+      head.moved = false;
+
+      // Find a valid destination among the candidates.
+      for (int j = 0; j < 3; j++) {
+        SnakePos candidatePos = head.pos;
+        switch (candidates[j]) {
+        case SnakeDir::Up:
+          candidatePos.y = head.pos.y == 0 ? (segH - 1) : (head.pos.y - 1);
+          break;
+        case SnakeDir::Down:
+          candidatePos.y = head.pos.y == (segH - 1) ? 0 : (head.pos.y + 1);
+          break;
+        case SnakeDir::Left:
+          candidatePos.x = head.pos.x == 0 ? (segW - 1) : (head.pos.x - 1);
+          break;
+        case SnakeDir::Right:
+          candidatePos.x = head.pos.x == (segW - 1) ? 0 : (head.pos.x + 1);
+          break;
+        }
+        if (cells[candidatePos.y * segW + candidatePos.x].lifetime == 0) {
+          head.dir = candidates[j];
+          head.pos = candidatePos;
+          head.moved = true;
+          break;
+        }
+      }
+
+      cells[head.pos.y * segW + head.pos.x] =
+          SnakeCell{.snakeIndex = i,
+                     // Will decrement immediately
+                     .lifetime = static_cast<uint8_t>(snakeLength + 1u)};
+    }
+  }
+
+  if (!smooth && !doMove) return;
+
+  // Update lifetimes + render
+  uint16_t lerpAmount = smooth ? (elapsed << 8) / moveInterval : 0; // 0-255
+  uint16_t scale = (255u << 8) / snakeLength;
+  for (uint16_t y = 0, rowStart = 0; y < segH; y++, rowStart += segW) {
+    for (uint16_t x = 0; x < segW; x++) {
+      SnakeCell &cell = cells[rowStart + x];
+      if (doMove && cell.lifetime != 0 && --cell.lifetime == 0) SEGMENT.setPixelColorXY(x, y, 0);
+      if (cell.lifetime == 0) {
+        continue;
+      }
+      if (cell.lifetime > snakeLength) {
+        cell.lifetime = snakeLength; // if the snakeLength slider is moved down, clamp the lifetime of existing cells
+      }
+      SnakeHead &head = heads[cell.snakeIndex];
+      uint8_t brightness;
+      if (head.pos.x == x && head.pos.y == y) {
+        // The head should fade *in* rather than out, 0-255 over the move duration
+        brightness = (smooth && head.moved) ? lerpAmount : 255;
+      } else {
+        // Lerp between lifetime/snakeLength and (lifetime-1)/snakeLength, scaled to 0-255
+        brightness = (((cell.lifetime << 8) - lerpAmount) * scale) >> 16;
+      }
+      uint32_t color = color_fade(SEGMENT.color_from_palette(head.paletteIndex, false, false, 255), brightness);
+      SEGMENT.setPixelColorXY(x, y, color);
+    }
+  }
+}
+static const char _data_FX_MODE_2DSNAKES[] PROGMEM = "Snakes@!,!,Tail Length,,,Smooth;;!;2;sx=200,ix=128,o1=1";
+
 #ifndef WLED_DISABLE_PARTICLESYSTEM2D
 
 /*
@@ -11268,6 +11438,7 @@ void WS2812FX::setupEffectData() {
   addEffect(FX_MODE_2DOCTOPUS, &mode_2Doctopus, _data_FX_MODE_2DOCTOPUS);
   addEffect(FX_MODE_2DWAVINGCELL, &mode_2Dwavingcell, _data_FX_MODE_2DWAVINGCELL);
   addEffect(FX_MODE_2DAKEMI, &mode_2DAkemi, _data_FX_MODE_2DAKEMI); // audio
+  addEffect(FX_MODE_SNAKES, &mode_2DSnakes, _data_FX_MODE_2DSNAKES);
 
 #ifndef WLED_DISABLE_PARTICLESYSTEM2D
   addEffect(FX_MODE_PARTICLEVOLCANO, &mode_particlevolcano, _data_FX_MODE_PARTICLEVOLCANO);
