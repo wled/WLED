@@ -1330,6 +1330,7 @@ class PolyBus {
         case TYPE_WS2812_1CH_X3:
         case TYPE_WS2812_RGB:
         case TYPE_WS2812_WWA:
+        case TYPE_G1151: // packed bit stream is sent through RGB carrier pixels
           t = I_8266_U0_NEO_3 + offset; break;
         case TYPE_SK6812_RGBW:
           t = I_8266_U0_NEO_4 + offset; break;
@@ -1372,6 +1373,7 @@ class PolyBus {
         case TYPE_WS2812_1CH_X3:
         case TYPE_WS2812_RGB:
         case TYPE_WS2812_WWA:
+        case TYPE_G1151: // packed bit stream is sent through RGB carrier pixels
           t = I_32_RN_NEO_3 + offset; break;
         case TYPE_SK6812_RGBW:
           t = I_32_RN_NEO_4 + offset; break;
@@ -1404,6 +1406,10 @@ class PolyBus {
         #endif
       }
       else if (offset == 1) { // not first I2S channel, use locked type and enable parallel flag
+        if (busType == TYPE_G1151 && _parallelBusItype != I_32_I2_NEO_3) { // G1151 stream needs 3 byte RGB carrier pixels
+          _i2sChannelsAssigned--;
+          return I_NONE;
+        }
         _useParallelI2S = true;
         t = _parallelBusItype;
       }

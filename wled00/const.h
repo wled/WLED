@@ -358,6 +358,7 @@ static_assert(WLED_MAX_BUSSES <= 32, "WLED_MAX_BUSSES exceeds hard limit");
 #define TYPE_WS2805              32            //RGB + WW + CW
 #define TYPE_TM1914              33            //RGB
 #define TYPE_SM16825             34            //RGB + WW + CW
+#define TYPE_G1151               35            //Govee G1151 (Strip Light 2 Pro): 90 bit per IC, 16 bit GRB + CW + WW + 10 bit control (sent as 0)
 #define TYPE_DIGITAL_MAX         39            // last usable digital type
 //"Analog" types (40-47)
 #define TYPE_ONOFF               40            //binary output (relays etc.; NOT PWM)
