@@ -134,7 +134,8 @@
 	}
 	function pinDD() {
 		for (let i of d.Sf.elements) {
-			if (i.type === "number" && (i.name.includes("pin") || ["SDA","SCL","MOSI","MISO","SCLK"].includes(i.name))) { //select all pin select elements
+			let fieldName = i.name.split(":").pop();
+			if (i.type === "number" && (fieldName.includes("pin") || ["SDA","SCL","MOSI","MISO","SCLK"].includes(fieldName))) { //select all pin select elements
 				let v = parseInt(i.value);
 				let sel = addDD(i.name,0);
 				if (!sel) continue;

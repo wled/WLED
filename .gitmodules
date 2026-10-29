@@ -1,0 +1,3 @@
+[submodule "sendspin-cpp"]
+	path = sendspin-cpp
+	url = git@github.com:Sendspin/sendspin-cpp.git
