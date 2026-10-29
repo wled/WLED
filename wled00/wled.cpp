@@ -248,6 +248,7 @@ void WLED::loop()
   }
   if (loadLedmap >= 0) {
     strip.deserializeMap(loadLedmap);
+    strip.fixInvalidSegments(); // if ledmap changed the layout, segments may fall outside the valid range
     loadLedmap = -1;
   }
   yield();
