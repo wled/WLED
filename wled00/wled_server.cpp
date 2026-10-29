@@ -488,6 +488,18 @@ void initServer()
     request->send(200, FPSTR(CONTENT_TYPE_PLAIN), (String)getFreeHeapSize());
   });
 
+  // usermod UI inject code: the main UI loads this script and calls umInject(state) after
+  // every state render, letting usermods add their own elements without patching index.js
+  server.on(F("/um.js"), HTTP_GET, [](AsyncWebServerRequest *request) {
+    AsyncResponseStream *response = request->beginResponseStream(FPSTR(CONTENT_TYPE_JAVASCRIPT));
+    response->addHeader(FPSTR(s_cache_control), F("no-store"));
+    response->addHeader(F("Expires"), F("0"));
+    response->print(F("function umInject(s){"));
+    UsermodManager::addUIInjectCode(*response);
+    response->print(F("}"));
+    request->send(response);
+  });
+
 #ifdef WLED_ENABLE_USERMOD_PAGE
   server.on("/u", HTTP_GET, [](AsyncWebServerRequest *request) {
     handleStaticContent(request, "", 200, FPSTR(CONTENT_TYPE_HTML), PAGE_usermod, PAGE_usermod_length);
