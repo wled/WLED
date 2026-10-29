@@ -13,10 +13,8 @@ written by Damian Schneider @dedehai 2026
 
 namespace WLEDpixelBus {
 
-//==============================================================================
-// ESP8266 UART Bus (Asynchronous via UART1/UART0)
-//==============================================================================
 
+// ESP8266 UART Bus (Asynchronous via UART1/UART0)
 class Esp8266UartBus : public PixelBus {
 public:
   Esp8266UartBus(int8_t pin, const LedTiming& timing, uint8_t colorOrder, uint8_t numChannels, uint8_t ledType = 0);
@@ -30,22 +28,26 @@ public:
 #ifdef WLED_DEBUG_BUS
   const char* getTypeStr() const override { return "ESP8266_UART"; }
 #endif
-  static void UartIsr(void* arg, void* exceptionFrame);
-  static Esp8266UartBus* s_instances[2];
+  static void uartIsr(void* arg, void* exceptionFrame);
+  static Esp8266UartBus* s_uartInstances[2];
 
 private:
   int8_t _pin;
   LedTiming _timing;
   bool _initialized;
-  volatile uint8_t* _asyncBuf    = nullptr;
-  volatile uint8_t* _asyncBufEnd = nullptr;
+  mutable volatile uint8_t* _asyncBuf = nullptr;
+  mutable volatile uint8_t* _asyncBufEnd = nullptr;
+  mutable uint32_t _txStartMillis = 0;
 
   void updateUartTiming();
+  bool isIdle() const;
+  bool ensureIdle() const;
+  void waitForIdle() const;
+  void abortTransmit() const;
 };
 
-//==============================================================================
+
 // ESP8266 DMA Bus (Via I2S + SLC linked-list DMA)
-//==============================================================================
 
 // SLC DMA descriptor (matches SDK slc_queue_item layout)
 struct SlcQueueItem {
@@ -75,12 +77,13 @@ public:
 
   IRAM_ATTR bool setPixelColor(uint16_t pos, uint32_t c, uint16_t wwcw) override;
   IRAM_ATTR uint32_t getPixelColor(uint16_t pix) const override;
-  bool allocateEncodeBuffer(uint16_t numPixels, uint8_t numChannels) override;
+  bool allocateEncodeBuffer(uint16_t numPixels, uint8_t bytesPerPixel) override;
+  void clearEncodeBuffer() override;
   void updatePrefix(const uint8_t* data, uint8_t len) override;
   void updateSuffix(const uint8_t* data, uint8_t len) override;
-  void scaleAll(uint8_t scale) override;
+  void scaleEncodeBuffer(uint8_t scale) override;
 
-  static Esp8266DmaBus* s_this;
+  static Esp8266DmaBus* s_dmaInstance;
 
 private:
   static const uint16_t c_maxDmaBlockSize = 4095;
@@ -90,7 +93,10 @@ private:
   int8_t _pin; // Only GPIO3 supported for I2S DMA on ESP8266
   LedTiming _timing;
   bool _initialized;
-  volatile bool _sending;
+  mutable volatile bool _sending;
+  mutable uint32_t _txStartMillis;
+  uint8_t _bckDiv;
+  uint8_t _clkDiv;
 
   // SLC DMA linked-list
   SlcQueueItem* _dmaDesc;    // allocated array of all descriptors
@@ -99,8 +105,13 @@ private:
   size_t        _idleBufSize;
 
   void   buildDescriptorChain();
-  void   startI2s(uint8_t bckDiv, uint8_t clkDiv);
-  void   stopI2s();
+  void   startI2s(uint8_t bckDiv, uint8_t clkDiv) const;
+  void   stopI2s() const;
+  bool   ensureIdle() const;
+  void   waitForIdle() const;
+  void   abortTransmit() const;
+  void IRAM_ATTR encodeBytes(const uint8_t* src, uint32_t* dst) const;
+  void IRAM_ATTR decodeBytes(const uint32_t* src, uint8_t* dst) const;
   static void IRAM_ATTR slcIsr();
 
   // DmaItemInit helper
@@ -116,4 +127,3 @@ private:
 } // namespace WLEDpixelBus
 
 #endif // ESP8266
-

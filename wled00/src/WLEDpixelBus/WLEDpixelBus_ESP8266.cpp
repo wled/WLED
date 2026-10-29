@@ -26,12 +26,12 @@ Supports UART and I2S DMA output as well as parallel bit-banging
 
 namespace WLEDpixelBus {
 
-//==============================================================================
+
 // ESP8266 UART Bus
-//==============================================================================
+// -----------------
 
 // Global static tracking for the shared UART ISR
-Esp8266UartBus* Esp8266UartBus::s_instances[2] = {nullptr, nullptr};
+Esp8266UartBus* Esp8266UartBus::s_uartInstances[2] = {nullptr, nullptr};
 
 Esp8266UartBus::Esp8266UartBus(int8_t pin, const LedTiming& timing, uint8_t colorOrder, uint8_t numChannels, uint8_t ledType)
   : _pin(pin)
@@ -39,6 +39,7 @@ Esp8266UartBus::Esp8266UartBus(int8_t pin, const LedTiming& timing, uint8_t colo
   , _initialized(false)
   , _asyncBuf(nullptr)
   , _asyncBufEnd(nullptr)
+  , _txStartMillis(0)
 {
   (void)colorOrder; (void)numChannels; // encoder is installed by createBus() from BusProperties
   _ledType = ledType;
@@ -49,9 +50,9 @@ Esp8266UartBus::~Esp8266UartBus() {
 }
 
 // Shared Interrupt Service Routine (must be in IRAM)
-void IRAM_ATTR Esp8266UartBus::UartIsr(void* arg, void* exceptionFrame) {
+void IRAM_ATTR Esp8266UartBus::uartIsr(void* arg, void* exceptionFrame) {
   for (uint8_t uartNum = 0; uartNum < 2; uartNum++) {
-    Esp8266UartBus* instance = s_instances[uartNum];
+    Esp8266UartBus* instance = s_uartInstances[uartNum];
 
     // Check if this UART triggered a TX FIFO Empty interrupt
     if (instance && (USIS(uartNum) & (1 << UIFE))) {
@@ -85,14 +86,14 @@ bool Esp8266UartBus::begin() {
   if (_initialized) return true;
   if (_pin != 1 && _pin != 2) return false;
   uint8_t uartNum = (_pin == 2) ? 1 : 0;
-  s_instances[uartNum] = this;
+  s_uartInstances[uartNum] = this;
 
   // set LED timing and (re)init the serial
   updateUartTiming();
 
   ETS_UART_INTR_DISABLE();
   // Attach the shared ISR
-  ETS_UART_INTR_ATTACH(UartIsr, nullptr);
+  ETS_UART_INTR_ATTACH(uartIsr, nullptr);
 
   // Set threshold: Interrupt when FIFO drops below 80 bytes
   USC1(uartNum) = (80 << UCFET);
@@ -101,20 +102,21 @@ bool Esp8266UartBus::begin() {
   ETS_UART_INTR_ENABLE();
 
   _initialized = true;
-  if (!allocateEncodeBuffer(_numPixels, _encoder.getPixelBytes())) { end(); return false; }
+  if (!allocateEncodeBuffer(_numPixels, _encoder.getBytesPerPixel())) { end(); return false; }
   return true;
 }
 
 void Esp8266UartBus::end() {
   if (!_initialized) return;
+  waitForIdle();
   uint8_t uartNum = (_pin == 2) ? 1 : 0;
 
   ETS_UART_INTR_DISABLE();
   USIE(uartNum) = 0;
-  s_instances[uartNum] = nullptr;
+  s_uartInstances[uartNum] = nullptr;
 
   // If no buses are left, detach ISR
-  if (s_instances[0] == nullptr && s_instances[1] == nullptr) {
+  if (s_uartInstances[0] == nullptr && s_uartInstances[1] == nullptr) {
     ETS_UART_INTR_ATTACH(nullptr, nullptr);
   } else {
     ETS_UART_INTR_ENABLE();
@@ -148,14 +150,15 @@ void Esp8266UartBus::updateUartTiming() {
 
 bool Esp8266UartBus::show() {
   if (!_initialized || !_encodeBuffer || _numPixels == 0) return false;
-  if (!canShow()) return false; // TODO: is this consistent accross all drivers? i.e. return instead of wait? -> no it should wait with a timout and fallback
+  waitForIdle();
   // workaround for a bug: after bootup, something changes the pin mux AFTER the bus is initialized, breaking the UART output. it only starts working after a bus re-init. could not find out what causes it.
   // since pinMode() is computationally cheap, it is an acceptable fix
-  pinMode(_pin, SPECIAL); 
+  pinMode(_pin, SPECIAL);
 
   uint8_t uartNum = (_pin == 2) ? 1 : 0;
   _asyncBuf = _encodeBuffer;
   _asyncBufEnd = _encodeBuffer + _encodeBufferSize;
+  _txStartMillis = millis();
 
   // note: no initial fill required, the ISR will fire and fill the FIFO
   // Enable the "TX FIFO Empty" interrupt to trigger the ISR
@@ -164,47 +167,52 @@ bool Esp8266UartBus::show() {
   return true;
 }
 
-bool Esp8266UartBus::canShow() const {
-  if (!_initialized) return false;
-  // Ready if we have no more data to send
+bool Esp8266UartBus::isIdle() const {
   if (_asyncBuf < _asyncBufEnd) return false;
-  // also FIFO must have physically drained
-  uint8_t uartNum = (_pin == 2) ? 1 : 0;
-  if (((USS(uartNum) >> USTXC) & 0xff) > 0) return false;
+  const uint8_t uartNum = (_pin == 2) ? 1 : 0;
+  return ((USS(uartNum) >> USTXC) & 0xff) == 0;
+}
+
+void Esp8266UartBus::abortTransmit() const {
+  const uint8_t uartNum = (_pin == 2) ? 1 : 0;
+  ETS_UART_INTR_DISABLE();
+  USIE(uartNum) &= ~(1 << UIFE);
+  _asyncBuf = nullptr;
+  _asyncBufEnd = nullptr;
+  ETS_UART_INTR_ENABLE();
+}
+
+bool Esp8266UartBus::ensureIdle() const {
+  if (isIdle()) return true;
+  if ((uint32_t)(millis() - _txStartMillis) <= WLEDPB_TRANSFER_TIMEOUT_MS) return false;
+  abortTransmit();
   return true;
 }
 
+void Esp8266UartBus::waitForIdle() const {
+  const uint32_t start = millis();
+  while (!ensureIdle() && (uint32_t)(millis() - start) <= WLEDPB_TRANSFER_TIMEOUT_MS) delay(1);
+  if (!isIdle()) abortTransmit();
+}
+
+bool Esp8266UartBus::canShow() const {
+  if (!_initialized) return true; // do not block if init failed! busmanager waits until all buses can show
+  return ensureIdle();
+}
 
 
-
-
-//==============================================================================
 // ESP8266 DMA Bus (I2S + SLC linked-list DMA)
-//==============================================================================
-//
-// Architecture overview:
-//   The SLC (streaming linked-list controller) drives I2S TX continuously.
-//   Two "state" descriptors loop on the shared idle buffer (all zeros → LOW).
-//   On show(), state[1].next is patched to the first pixel descriptor so the
-//   DMA seamlessly transitions: LOW idle → pixel data → reset zeros → LOW idle.
-//   An EOF ISR fires at the end of the last pixel descriptor and restores the
-//   idle loop without ever stopping I2S, so GPIO3 is ALWAYS driven and never
-//   floats HIGH.  The "high pulse before first LED" problem is eliminated.
-//
-// Descriptor layout (during show):
-//   state[0] → state[1] → data[0] → ... → data[N-1,EOF] → reset[0..M-1] → state[0]
-// Descriptor layout (idle):
-//   state[0] → state[1] → state[0]  (infinite loop, outputs zeros)
-//
-
-// ISR singleton
-Esp8266DmaBus* Esp8266DmaBus::s_this = nullptr;
+// --------------------------------------------
+Esp8266DmaBus* Esp8266DmaBus::s_dmaInstance = nullptr;
 
 Esp8266DmaBus::Esp8266DmaBus(int8_t pin, const LedTiming& timing, uint8_t colorOrder, uint8_t numChannels, uint8_t ledType)
   :  _pin(pin)
   , _timing(timing)
   , _initialized(false)
   , _sending(false)
+  , _txStartMillis(0)
+  , _bckDiv(1)
+  , _clkDiv(1)
   , _dmaDesc(nullptr)
   , _dmaDescCnt(0)
   , _idleBuf(nullptr)
@@ -218,19 +226,14 @@ Esp8266DmaBus::~Esp8266DmaBus() {
   end();
 }
 
-// ---------------------------------------------------------------------------
-// allocateEncodeBuffer
-//   Pixel buffer only — no lead-in, no appended reset.
-//   Idle/reset are handled by _idleBuf + descriptor chain.
-// ---------------------------------------------------------------------------
-bool Esp8266DmaBus::allocateEncodeBuffer(uint16_t numPixels, uint8_t numChannels) {
+bool Esp8266DmaBus::allocateEncodeBuffer(uint16_t numPixels, uint8_t bytesPerPixel) {
   // 4-step I2S encoding: each source byte → 4 encoded bytes
-  const size_t sourcePixelBytes = (size_t)numPixels * numChannels;
+  const size_t sourcePixelBytes = (size_t)numPixels * bytesPerPixel;
   const size_t prefixBytes = (size_t)_prefixLen * 4;
   const size_t pixelBytes = sourcePixelBytes * 4;
   const size_t needed = prefixBytes + pixelBytes + (size_t)_suffixLen * 4;
   if (_encodeBuffer && _encodeBufferSize >= needed) return true;
-  if (_encodeBuffer) { free(_encodeBuffer); _encodeBuffer = nullptr; }
+  releaseEncodeBuffer();
   if (needed == 0) return true;
   _encodeBuffer = (uint8_t*)malloc(needed);
   if (!_encodeBuffer) { _encodeBufferSize = 0; return false; }
@@ -254,27 +257,14 @@ bool Esp8266DmaBus::allocateEncodeBuffer(uint16_t numPixels, uint8_t numChannels
   return true;
 }
 
-// ---------------------------------------------------------------------------
-// buildDescriptorChain
-//   Builds the SLC descriptor linked list according to the layout above.
-//   Must be called (a) after allocateEncodeBuffer and (b) after _idleBuf
-//   has been set up.  Descriptor memory must already be allocated.
-// ---------------------------------------------------------------------------
 void Esp8266DmaBus::buildDescriptorChain() {
-  // --- Layout constants ---
-  // reset duration: use timing.reset_us, minimum 300 µs for stubborn LEDs.
   uint32_t bitPeriod = _timing.bitPeriod();
   if (bitPeriod == 0) bitPeriod = 1250;
   uint32_t resetUs = (_timing.reset_us > 300) ? _timing.reset_us : 300;
-  // encoded bytes produced per LED bit period in 4-step cadence = 4 bits / 8 bits * 4 bytes = 0.5 bytes
-  // bytes per µs at bitPeriod ns/bit: bytesPerUs = 4 (i2s bytes/led-bit) / (bitPeriod/1000 µs/led-bit)
-  //   = 4000.0 / bitPeriod  bytes/µs
   size_t resetBytes = (size_t)((4000.0f / (float)bitPeriod) * (float)resetUs + 0.5f);
-  // round up to 4-byte boundary
-  resetBytes = (resetBytes + 3) & ~3u;
+  resetBytes = (resetBytes + 3) & ~3u; // round up to 4-byte boundary
   if (resetBytes < 4) resetBytes = 4;
 
-  // --- Count descriptors ---
   size_t pixelBytes   = _encodeBufferSize;
   size_t dataBlocks   = (pixelBytes > 0) ? ((pixelBytes + c_maxDmaBlockSize - 1) / c_maxDmaBlockSize) : 1;
   size_t resetBlocks  = (resetBytes + c_idleBufSize - 1) / c_idleBufSize;
@@ -287,13 +277,12 @@ void Esp8266DmaBus::buildDescriptorChain() {
 
   uint16_t idx = 0;
 
-  // --- State descriptors: loop on idle buf (4 bytes each to keep it tiny) ---
+  // loop on idle buf (4 bytes each to keep it tiny)
   dmaItemInit(&_dmaDesc[0], _idleBuf, 4, &_dmaDesc[1]);
   dmaItemInit(&_dmaDesc[1], _idleBuf, 4, &_dmaDesc[0]); // default: idle loop
 
   idx = c_stateBlockCount;
 
-  // --- Pixel data descriptors ---
   uint8_t* ptr  = _encodeBuffer;
   size_t   left = pixelBytes;
   size_t   firstDataIdx = idx;
@@ -304,10 +293,8 @@ void Esp8266DmaBus::buildDescriptorChain() {
     left -= chunk;
     idx++;
   }
-  // Mark the last data descriptor as EOF → ISR fires here
-  _dmaDesc[idx - 1].eof = 1;
+  _dmaDesc[idx - 1].eof = 1;   // Mark the last data descriptor as EOF: ISR fires here
 
-  // --- Reset (idle) descriptors ---
   size_t firstResetIdx = idx;
   size_t resetLeft = resetBytes;
   while (resetLeft > 0) {
@@ -321,28 +308,22 @@ void Esp8266DmaBus::buildDescriptorChain() {
   (void)firstDataIdx; (void)firstResetIdx; // used only for clarity
 }
 
-// ---------------------------------------------------------------------------
-// slcIsr  — fires on SLCIRXEOF (end of last pixel descriptor)
-//   Restore state[1] → state[0] idle loop. Mark as no longer sending.
-// ---------------------------------------------------------------------------
+
+// slcIsr fires on SLCIRXEOF (end of last pixel descriptor)
 void IRAM_ATTR Esp8266DmaBus::slcIsr() {
   ETS_SLC_INTR_DISABLE();
   uint32_t status = SLCIS;
   SLCIC = 0xFFFFFFFF;
-  if ((status & SLCIRXEOF) && s_this) {
+  if ((status & SLCIRXEOF) && s_dmaInstance) {
     // Re-close the idle loop so state[0]→state[1]→state[0]
-    s_this->_dmaDesc[1].next_link_ptr = &s_this->_dmaDesc[0];
-    s_this->_sending = false;
+    s_dmaInstance->_dmaDesc[1].next_link_ptr = &s_dmaInstance->_dmaDesc[0];
+    s_dmaInstance->_sending = false;
   }
   ETS_SLC_INTR_ENABLE();
 }
 
-// ---------------------------------------------------------------------------
-// startI2s  — configure SLC + I2S registers and kick off continuous DMA
-// ---------------------------------------------------------------------------
-
-// TODO: just like in uart, the output pin matrix is somehow overwritten, maybe by pinmanager?
-void Esp8266DmaBus::startI2s(uint8_t bckDiv, uint8_t clkDiv) {
+// TODO: just like in uart, the output pin matrix is somehow overwritten, needs investigation and maybe a workaround like in UART
+void Esp8266DmaBus::startI2s(uint8_t bckDiv, uint8_t clkDiv) const {
   ETS_SLC_INTR_DISABLE(); // disable ISR while configuring (just in case)
   // Reset SLC
   SLCC0 |= SLCRXLR | SLCTXLR;
@@ -396,12 +377,13 @@ void Esp8266DmaBus::startI2s(uint8_t bckDiv, uint8_t clkDiv) {
   I2SC |= I2STXS;
 }
 
-// ---------------------------------------------------------------------------
-// stopI2s  — disable SLC + I2S
-// ---------------------------------------------------------------------------
-void Esp8266DmaBus::stopI2s() {
+void Esp8266DmaBus::stopI2s() const {
   ETS_SLC_INTR_DISABLE();
-  SLCIC = 0xFFFFFFFF; // clear pending interrupt flags
+  SLCIE = 0;
+  SLCRXL &= ~SLCRXLS; // stop both links before their descriptors can be freed
+  SLCTXL &= ~SLCTXLS;
+  SLCIC = 0xFFFFFFFF;
+  _sending = false;
   I2SC &= ~(I2STXS | I2SRXS);
   I2SC &= ~I2SRST;
   I2SC |= I2SRST;
@@ -446,8 +428,8 @@ bool Esp8266DmaBus::begin() {
       }
   }
 
-  uint8_t bckDiv = best_baseclkdiv;
-  uint8_t clkDiv = best_clkdiv;
+  _bckDiv = best_baseclkdiv;
+  _clkDiv = best_clkdiv;
 
   // Allocate idle/reset zero buffer
   _idleBufSize = c_idleBufSize;
@@ -456,17 +438,17 @@ bool Esp8266DmaBus::begin() {
   memset(_idleBuf, _inverted ? 0xFF : 0x00, _idleBufSize);
 
   // Allocate pixel encode buffer and build initial descriptor chain
-  if (!allocateEncodeBuffer(_numPixels, _encoder.getPixelBytes())) { end(); return false; }
+  if (!allocateEncodeBuffer(_numPixels, _encoder.getBytesPerPixel())) { end(); return false; }
   buildDescriptorChain();
   if (!_dmaDesc) { end(); return false; }
 
-  s_this = this;
+  s_dmaInstance = this;
   _sending = false;
 
   // Switch GPIO3 MUX to I2S (transitions LOW→LOW because I2S starts in idle)
   PIN_FUNC_SELECT(PERIPHS_IO_MUX_U0RXD_U, FUNC_I2SO_DATA);
 
-  startI2s(bckDiv, clkDiv);
+  startI2s(_bckDiv, _clkDiv);
 
   _initialized = true;
   return true;
@@ -479,22 +461,50 @@ void Esp8266DmaBus::end() {
   if (!_initialized && !_idleBuf && !_dmaDesc) return;
   stopI2s();
   ETS_SLC_INTR_ATTACH(nullptr, nullptr);
-  s_this = nullptr;
+  s_dmaInstance = nullptr;
   if (_dmaDesc)  { free(_dmaDesc);  _dmaDesc  = nullptr; _dmaDescCnt = 0; }
   if (_idleBuf)  { free(_idleBuf);  _idleBuf  = nullptr; _idleBufSize = 0; }
-  if (_encodeBuffer) { free(_encodeBuffer); _encodeBuffer = nullptr; _encodeBufferSize = 0; }
+  releaseEncodeBuffer();
   pinMode(_pin, INPUT);
   _initialized = false;
   _sending = false;
 }
 
 // ---------------------------------------------------------------------------
-// setPixel / getPixelColor / scaleAll
+// setPixel / getPixelColor / encoded-buffer scaling
 //   Pixel data starts at offset 0 in _encodeBuffer (no lead-in needed;
 //   idle state ensures GPIO3 is LOW before the first pixel bit arrives).
 // ---------------------------------------------------------------------------
+void IRAM_ATTR Esp8266DmaBus::encodeBytes(const uint8_t* src, uint32_t* dst) const {
+  const uint8_t bytes = _encoder.getBytesPerPixel();
+  for (uint8_t b = 0; b < bytes; ++b) {
+    uint32_t word = 0;
+    const uint8_t value = src[b];
+    for (int bit = 7; bit >= 0; --bit) {
+      word <<= 4;
+      if (_inverted) word |= (value & (1 << bit)) ? 0x1u : 0x7u;
+      else           word |= (value & (1 << bit)) ? 0xEu : 0x8u;
+    }
+    dst[b] = word;
+  }
+}
+
+void IRAM_ATTR Esp8266DmaBus::decodeBytes(const uint32_t* src, uint8_t* dst) const {
+  const uint8_t bytes = _encoder.getBytesPerPixel();
+  for (uint8_t b = 0; b < bytes; ++b) {
+    const uint32_t word = src[b];
+    uint8_t value = 0;
+    for (int nib = 7; nib >= 0; --nib) {
+      value <<= 1;
+      const uint8_t step = (word >> (nib * 4)) & 0xF;
+      if ((!_inverted && step == 0xE) || (_inverted && step == 0x1)) value |= 1;
+    }
+    dst[b] = value;
+  }
+}
+
 IRAM_ATTR bool Esp8266DmaBus::setPixelColor(uint16_t pos, uint32_t c, uint16_t wwcw) {
-  const uint8_t pixelBytes = _encoder.getPixelBytes();
+  const uint8_t pixelBytes = _encoder.getBytesPerPixel();
   uint8_t src[12];
   const CctPixel cct{wwcw};
   switch (_encoder.getPixelFormat()) {
@@ -507,36 +517,15 @@ IRAM_ATTR bool Esp8266DmaBus::setPixelColor(uint16_t pos, uint32_t c, uint16_t w
     default:                   _encoder.encodeGeneric(c, cct, src, _encBri);  break;
   }
   uint32_t* dst = (uint32_t*)(_pixelData + (size_t)pos * pixelBytes * 4);
-  for (uint8_t b = 0; b < pixelBytes; b++) {
-    uint32_t word = 0;
-    uint8_t v = src[b];
-    for (int bit = 7; bit >= 0; bit--) {
-      word <<= 4;
-      if (_inverted) word |= (v & (1 << bit)) ? 0x1u : 0x7u;
-      else           word |= (v & (1 << bit)) ? 0xEu : 0x8u;
-    }
-    dst[b] = word;
-  }
+  encodeBytes(src, dst);
   return true;
 }
 
 IRAM_ATTR uint32_t Esp8266DmaBus::getPixelColor(uint16_t pix) const {
-  const uint8_t pixelBytes = _encoder.getPixelBytes();
+  const uint8_t pixelBytes = _encoder.getBytesPerPixel();
   const uint32_t* src = (const uint32_t*)(_pixelData + (size_t)pix * pixelBytes * 4);
   uint8_t decoded[12];
-  for (uint8_t b = 0; b < pixelBytes; b++) {
-    uint32_t word = src[b];
-    uint8_t v = 0;
-    for (int nib = 7; nib >= 0; nib--) {
-      v <<= 1;
-      if (_inverted) {
-        if (((word >> (nib * 4)) & 0xF) == 0x1) v |= 1;
-      } else {
-        if (((word >> (nib * 4)) & 0xF) == 0xE) v |= 1;
-      }
-    }
-    decoded[b] = v;
-  }
+  decodeBytes(src, decoded);
   switch (_encoder.getPixelFormat()) {
     case 3:                    return _encoder.decodeRGB(decoded);
     case 4:                    return _encoder.decodeRGBW(decoded);
@@ -548,32 +537,20 @@ IRAM_ATTR uint32_t Esp8266DmaBus::getPixelColor(uint16_t pix) const {
   }
 }
 
-// Since the colors are already 4-step encoded, we need to decode first, scale then re-encode.
-void Esp8266DmaBus::scaleAll(uint8_t scale) {
+void Esp8266DmaBus::scaleEncodeBuffer(uint8_t scale) {
   if (!_pixelData || scale == 255) return;
-  uint8_t pixelBytes = _encoder.getPixelBytes();
-  uint32_t* buf = (uint32_t*)_pixelData;
-  size_t numWords = (size_t)_numPixels * pixelBytes;
-  for (size_t w = 0; w < numWords; w++) {
-    uint32_t word = buf[w];
-    uint8_t v = 0;
-    for (int nib = 7; nib >= 0; nib--) {
-      v <<= 1;
-      if (_inverted) {
-        if (((word >> (nib * 4)) & 0xF) == 0x1) v |= 1;
-      } else {
-        if (((word >> (nib * 4)) & 0xF) == 0xE) v |= 1;
-      }
-    }
-    v = ((uint16_t)(v + 1) * scale) >> 8;
-    uint32_t newWord = 0;
-    for (int bit = 7; bit >= 0; bit--) {
-      newWord <<= 4;
-      if (_inverted) newWord |= (v & (1 << bit)) ? 0x1u : 0x7u;
-      else           newWord |= (v & (1 << bit)) ? 0xEu : 0x8u;
-    }
-    buf[w] = newWord;
+  const uint8_t pixelBytes = _encoder.getBytesPerPixel();
+  for (uint16_t pixel = 0; pixel < _numPixels; ++pixel) {
+    uint32_t* encoded = (uint32_t*)(_pixelData + (size_t)pixel * pixelBytes * 4);
+    uint8_t decoded[12];
+    decodeBytes(encoded, decoded);
+    _encoder.scalePixel(decoded, scale);
+    encodeBytes(decoded, encoded);
   }
+}
+
+void Esp8266DmaBus::clearEncodeBuffer() {
+  scaleEncodeBuffer(0); // TODO: this needs optimisation, it is slow
 }
 
 void Esp8266DmaBus::updatePrefix(const uint8_t* data, uint8_t len) {
@@ -595,7 +572,7 @@ void Esp8266DmaBus::updatePrefix(const uint8_t* data, uint8_t len) {
 void Esp8266DmaBus::updateSuffix(const uint8_t* data, uint8_t len) {
   if (!_pixelData || !data || _suffixLen == 0 || len == 0) return;
   if (len > _suffixLen) len = _suffixLen;
-  const size_t pixelBytes = (size_t)_numPixels * _encoder.getPixelBytes();
+  const size_t pixelBytes = (size_t)_numPixels * _encoder.getBytesPerPixel();
   uint32_t* dst = (uint32_t*)(_pixelData + pixelBytes * 4);
   for (uint8_t i = 0; i < len; i++) {
     uint32_t word = 0;
@@ -616,20 +593,39 @@ void Esp8266DmaBus::updateSuffix(const uint8_t* data, uint8_t len) {
 // ---------------------------------------------------------------------------
 bool Esp8266DmaBus::show() {
   if (!_initialized || !_encodeBuffer || _numPixels == 0) return false;
-  if (_sending) return false; // previous frame still running
+  waitForIdle();
 
   // Break the idle loop: state[1] now points to first pixel descriptor
   _dmaDesc[1].next_link_ptr = &_dmaDesc[c_stateBlockCount];
   _sending = true;
+  _txStartMillis = millis();
 
   return true;
 }
 
-// ---------------------------------------------------------------------------
-// canShow  — ready when the previous frame's ISR has restored idle loop
-// ---------------------------------------------------------------------------
+void Esp8266DmaBus::abortTransmit() const {
+  _dmaDesc[1].next_link_ptr = &_dmaDesc[0];
+  stopI2s();
+  startI2s(_bckDiv, _clkDiv); // restart the idle loop with valid descriptors
+  _sending = false;
+}
+
+bool Esp8266DmaBus::ensureIdle() const {
+  if (!_sending) return true;
+  if ((uint32_t)(millis() - _txStartMillis) <= WLEDPB_TRANSFER_TIMEOUT_MS) return false;
+  abortTransmit();
+  return true;
+}
+
+void Esp8266DmaBus::waitForIdle() const {
+  const uint32_t start = millis();
+  while (!ensureIdle() && (uint32_t)(millis() - start) <= WLEDPB_TRANSFER_TIMEOUT_MS) delay(1);
+  if (_sending) abortTransmit();
+}
+
 bool Esp8266DmaBus::canShow() const {
-  return _initialized && !_sending;
+  if (!_initialized) return true; // do not block if init failed! busmanager waits until all buses can show
+  return ensureIdle();
 }
 
 } // namespace WLEDpixelBus
