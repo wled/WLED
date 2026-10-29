@@ -11024,6 +11024,85 @@ void mode_slow_transition(void) {
 }
 static const char _data_FX_MODE_SLOW_TRANSITION[] PROGMEM = "Slow Transition@Time (min),,,,,,Sweep;!;!;1;pal=2,sx=0,ix=0";
 
+
+// Xmas Twinkle
+// by Nick Pisarro, Jr. (PR #4843) optimized by DedeHai
+// mimicing classic bimetallic strip driven christmas twinkling lights
+typedef struct {
+  int16_t nextEvent;        // ms until next on/off flip (may dip below 0 while catching up)
+  uint8_t colorIdx;         // palette index for this light
+  uint8_t isOn   : 1;       // on or off state
+  uint8_t cycleQ : 7;       // this light's max cycle = 200 + cycleQ * 80 ms
+} TwinkleLight;
+
+// distribution of per-light max cycle (10 buckets, each sums to 100%): mostly short, some very long
+static const uint8_t PROGMEM twFast[10] = { 23,20,12,10,6,2,2,2,5,18 };
+static const uint8_t PROGMEM twSlow[10] = { 0,0,0,0,0,11,14,17,24,34 };
+
+// upper bound for a light's next on- or off-time, scaled by the duty slider (custom1):
+// below 128 shortens on-times, above 128 shortens off-times. Default 43 gives on-times up to ~maxC/3.
+static uint16_t twMaxCycle(const TwinkleLight& l) {
+  int scale = l.isOn ? min((int)SEGMENT.custom1, 128) : min(256 - (int)SEGMENT.custom1, 128);
+  return ((200 + l.cycleQ * 80) * scale) >> 7;
+}
+
+// Roll a quantized per-light max cycle: pick a table (by speed), subtract bucket weight until an index is determined, cycle depends on that index
+static uint8_t twRollCycle(uint8_t speed) {
+  int slow = 255 - speed; // below speeds of 64 favors twSlow table
+  const uint8_t* tbl = hw_random8() < (slow - 192) * 4 ? twSlow : twFast;
+  uint8_t r = hw_random(100);
+  uint8_t i = 0;
+  uint8_t w;
+  while (r >= (w = pgm_read_byte(tbl + i)) && i < 9) { r -= w; i++; } // index determined by bucket weights
+  return (1000 + slow * 35) * ((i << 8) + hw_random8()) / 204800;     // 0..maxT ms, in 80 ms steps
+}
+
+void mode_XmasTwinkle(void) {
+  uint16_t numLights = max(1, (int)SEGLEN * SEGMENT.intensity / 255);
+  if (!SEGENV.allocateData(sizeof(TwinkleLight) * numLights)) return mode_static();
+  TwinkleLight* lights = (TwinkleLight*)SEGENV.data;
+
+  bool init = SEGMENT.call == 0 || SEGMENT.aux0 != numLights;      // first run or light count changed
+  bool speedChanged = SEGMENT.aux1 != SEGMENT.speed;
+  uint32_t interval = strip.now - SEGMENT.step;                    // unsigned math survives rollover
+  if (init || interval > 1500) interval = 0;                       // ignore long gaps (time jumps)
+
+  bool storedColor = SEGMENT.check1 || SEGMENT.custom2 == 255;     // use per-twinkler stored random index
+  uint32_t colorspread = 256 + (numLights >> 2) * SEGMENT.custom2; // spread palette (0 = spread palette across the strip, higher = repeat)
+
+  SEGMENT.fill(BLACK);
+  for (int i = 0; i < numLights; i++) {
+    TwinkleLight& l = lights[i];
+    if (init || speedChanged) l.cycleQ = twRollCycle(SEGMENT.speed);
+    if (init) {
+      l.colorIdx = hw_random8();
+      l.isOn = 0; // start off, first turn-on is spread over cycle
+      l.nextEvent = hw_random(200 + l.cycleQ * 80);
+    }
+
+    int32_t t = l.nextEvent - (int32_t)interval;
+    if (t <= 0) {
+      l.isOn = !l.isOn; // toggle on/off state
+      uint16_t minCycle = l.isOn ? 100 : 500;
+      uint16_t delay = hw_random16(minCycle, max(minCycle, twMaxCycle(l)));
+      if (l.isOn && SEGMENT.check1) l.colorIdx = hw_random8();
+      t += delay;
+      if (hw_random(20000) < delay) l.cycleQ = twRollCycle(SEGMENT.speed);  // new "character" every ~20 s on average
+    }
+    l.nextEvent = t;
+
+    if (l.isOn) {
+      uint8_t clridx = storedColor ? l.colorIdx : (uint8_t)(i * colorspread / numLights);
+      SEGMENT.setPixelColor(i * SEGLEN / numLights, ColorFromPalette(SEGPALETTE, clridx));
+    }
+  }
+  // update state
+  SEGMENT.aux0 = numLights;
+  SEGMENT.step = strip.now;
+  SEGMENT.aux1 = SEGMENT.speed;
+}
+static const char _data_FX_MODE_XMASTWINKLE[] PROGMEM = "Xmas Twinkle@!,Density,Duty Cycle,Colors,,Colorful;;!;01;m12=0,c1=43,c2=255";
+
 //////////////////////////////////////////////////////////////////////////////////////////
 // mode data
 static const char _data_RESERVED[] PROGMEM = "RSVD";
@@ -11190,6 +11269,7 @@ void WS2812FX::setupEffectData() {
   addEffect(FX_MODE_DYNAMIC_SMOOTH, &mode_dynamic_smooth, _data_FX_MODE_DYNAMIC_SMOOTH);
   addEffect(FX_MODE_PACMAN, &mode_pacman, _data_FX_MODE_PACMAN);
   addEffect(FX_MODE_SLOW_TRANSITION, &mode_slow_transition, _data_FX_MODE_SLOW_TRANSITION);
+  addEffect(FX_MODE_XMASTWINKLE, &mode_XmasTwinkle, _data_FX_MODE_XMASTWINKLE);
 
   // --- 1D audio effects ---
   addEffect(FX_MODE_PIXELS, &mode_pixels, _data_FX_MODE_PIXELS);
