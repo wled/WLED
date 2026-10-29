@@ -16,6 +16,8 @@ Enables battery level monitoring of your project.
 
 - 💯 Displays current battery voltage
 - 🚥 Displays battery level
+- 🔌 Charging state detection (voltage trend based)
+- ⏱️ Estimated runtime remaining (requires INA226 current sensor)
 - 🚫 Auto-off with configurable threshold
 - 🚨 Low power indicator with many configuration possibilities
 
@@ -50,6 +52,30 @@ In `platformio_override.ini` (or `platformio.ini`)<br>Under: `custom_usermods =`
 </tr>
 </table>
 
+### Multi-cell packs (2S, 3S, ...)
+
+Packs with cells in series work too. Set `min-voltage` / `max-voltage` to the **whole-pack** values (per-cell voltage × cell count) — the usermod maps the pack range onto the battery type's discharge curve. Pick the voltage divider (R1 from battery + to the tap, R2 from the tap to GND, tap to the ADC pin) so the tapped voltage stays below 3.3 V at full charge:
+
+```text
+1. voltage-multiplier ≥ max-voltage / 3.3 V     (round up for safety margin)
+2. pick R2                                      (100 kΩ is a good default)
+3. R1 = R2 × (voltage-multiplier − 1)
+4. check: max-voltage / voltage-multiplier < 3.3 V
+
+where: voltage-multiplier = (R1 + R2) / R2
+```
+
+Example — 3S Li-Ion (18650), 7.8 – 12.6 V:
+
+1. 12.6 V / 3.3 V = 3.8 → round up: `voltage-multiplier` = **4.0**
+2. R2 = 100 kΩ
+3. R1 = 100 kΩ × (4.0 − 1) = **300 kΩ**
+4. tap at full charge: 12.6 V / 4.0 = 3.15 V ✔
+
+Settings: type `Li-Ion`, `min-voltage` = **7.8**, `max-voltage` = **12.6**, `voltage-multiplier` = **4.0**
+
+Use 1 % resistors and fine-tune with the `calibration` offset against a multimeter reading. Power the ESP through a buck converter; the divider is for measurement only.
+
 <br><br>
 
 ## Define Your Options
@@ -67,6 +93,8 @@ In `platformio_override.ini` (or `platformio.ini`)<br>Under: `custom_usermods =`
 | Auto-Off                                        | ---         | ---                                                                                   |
 | `USERMOD_BATTERY_AUTO_OFF_ENABLED`              | true/false  | Enables auto-off                                                                      |
 | `USERMOD_BATTERY_AUTO_OFF_THRESHOLD`            | % (0-100)   | When this threshold is reached master power turns off                                 |
+| Estimated Runtime                               | ---         | ---                                                                                   |
+| `USERMOD_BATTERY_CAPACITY`                      | mAh         | Total battery capacity for runtime calculation. defaults to 3000                      |
 | Low-Power-Indicator                             | ---         | ---                                                                                   |
 | `USERMOD_BATTERY_LOW_POWER_INDICATOR_ENABLED`   | true/false  | Enables low power indication                                                          |
 | `USERMOD_BATTERY_LOW_POWER_INDICATOR_PRESET`    | preset id   | When low power is detected then use this preset to indicate low power                 |
@@ -79,10 +107,92 @@ All parameters can be configured at runtime via the Usermods settings page.
 
 **NOTICE:** Each Battery type can be pre-configured individualy (in `my_config.h`)
 
-| Name            | Alias         | `my_config.h` example                 |
-| --------------- | ------------- | ------------------------------------- |
-| Lithium Polymer | lipo (Li-Po)  | `USERMOD_BATTERY_lipo_MIN_VOLTAGE`    |
-| Lithium Ionen   | lion (Li-Ion) | `USERMOD_BATTERY_lion_TOTAL_CAPACITY` |
+| Name                    | Alias           | `my_config.h` example                    |
+| ----------------------- | --------------- | ---------------------------------------- |
+| Lithium Polymer         | lipo (Li-Po)    | `USERMOD_BATTERY_LIPO_MIN_VOLTAGE`       |
+| Lithium Ion             | lion (Li-Ion)   | `USERMOD_BATTERY_LION_MIN_VOLTAGE`       |
+| Lithium Iron Phosphate  | lifepo4 (LFP)  | `USERMOD_BATTERY_LIFEPO4_MIN_VOLTAGE`    |
+
+<br><br>
+
+## 🔋 Adding a Custom Battery Type
+
+If none of the built-in battery types match your cell chemistry, you can add your own.
+
+### Step-by-step
+
+1. **Create a new header** in [`types/`](types/), e.g. `MyBattery.h`, using an existing type as a template — [`Lifepo4UMBattery.h`](types/Lifepo4UMBattery.h) is the simplest. Your class inherits from [`UMBattery`](UMBattery.h), sets its voltage limits in the constructor and implements `mapVoltage()` via `lutInterpolate()` with its own discharge lookup table (voltage descending → percentage, data from your cell's datasheet). Keep the table definitions in the header like the built-in types do — `Battery.cpp` is the only translation unit that includes battery-type headers; do not include the header from other `.cpp` files.
+
+2. **Add a new enum value** to `batteryType` in [`battery_defaults.h`](battery_defaults.h) (e.g. `mybattery=4`). Keep the `uint8_t` base — `UMT_BYTE` relies on it.
+
+3. **Register defaults** (optional) in [`battery_defaults.h`](battery_defaults.h): `USERMOD_BATTERY_MYBATTERY_MIN_VOLTAGE` / `_MAX_VOLTAGE` guarded with `#ifndef`, following the existing types.
+
+4. **Wire it up** in [`Battery.cpp`](Battery.cpp): add the `#include "types/MyBattery.h"`, a `case mybattery:` in `createBattery()`, and a dropdown option in `appendConfigData()` (`addOption(td,'My Battery','4')`).
+
+5. **Compile and flash** — select your new type from the Battery settings page.
+
+<br><br>
+
+## ⏱️ Estimated Runtime
+
+The battery usermod can estimate the remaining runtime of your project. This feature is **automatically enabled** when the [INA226 usermod](../INA226_v2/) is detected at runtime — no additional build flags or compile-time configuration are required beyond adding the INA226 usermod to `custom_usermods` (see [Setup](#setup) below).
+
+### How it works
+
+1. The INA226 current sensor measures the actual current draw of your project
+2. **Coulomb counting**: Current is integrated over time (`SoC -= I × dt / capacity`) to track charge consumed, instead of relying solely on voltage. When the battery is at rest (current < 10mA for 60s), the Coulomb counter recalibrates from the voltage-based SoC (OCV is accurate at rest)
+3. The current reading is smoothed using an exponential moving average to reduce jitter from load fluctuations (e.g. LED effect changes, WiFi traffic)
+4. The estimated time remaining is: `remaining_Ah / smoothed_current_A`
+
+### Setup
+
+Add both usermods to your `platformio_override.ini`:
+
+```ini
+custom_usermods = Battery INA226_v2
+```
+
+Set your battery capacity in the WLED Usermods settings page or at compile time:
+
+```ini
+-D USERMOD_BATTERY_CAPACITY=3000
+```
+
+### Accuracy
+
+> **This is an estimation, not a precise measurement.**
+
+The battery usermod combines voltage-based lookup tables with software Coulomb counting. This is the same approach used by many consumer battery management systems. It is suitable for hobby projects and provides a useful estimate, but it is **not a substitute for a dedicated battery fuel gauge IC**.
+
+What the usermod does to improve accuracy:
+
+- **Coulomb counting**: Instead of relying solely on voltage, the usermod integrates current over time to track charge consumed. This is more accurate during discharge than voltage-based estimation alone.
+- **Rest recalibration**: When the battery is at rest (current < 10mA for 60 seconds), the Coulomb counter recalibrates from the voltage-based SoC. Open-circuit voltage is accurate at rest, which corrects for Coulomb counting drift.
+
+Remaining limitations:
+
+- **Voltage under load**: SoC is estimated from the battery voltage while your LEDs are drawing current. The voltage drop across the battery's internal resistance makes the initial SoC seed and rest recalibrations more pessimistic than reality. Typical error: 10-15%.
+- **Variable loads**: LED effects with changing brightness cause current fluctuations. The smoothing filter takes a few minutes to converge after a load change.
+- **LiFePO4 flat curve**: LiFePO4 cells have an extremely flat discharge curve (25% of SoC maps to just ~50mV). Even with Coulomb counting, the initial SoC seed and rest recalibrations are voltage-based. Runtime estimates for LiFePO4 are marked as approximate.
+- **Battery aging**: The configured capacity (mAh) does not account for capacity fade over charge cycles.
+- **30-second interval**: The measurement interval (default 30s) is relatively coarse for Coulomb counting. Rapid load changes between readings may not be captured.
+
+**Realistic accuracy**: 15-25% error at steady load for LiPo/Li-Ion, 20-40% for variable loads. For LiFePO4, expect 25-50% error in the mid-range.
+
+For hobby LED projects, this level of accuracy is usually sufficient — you'll know roughly how many hours you have left, which is better than no estimate at all.
+
+### For advanced users: dedicated battery fuel gauge ICs
+
+If you need more accurate hardware-based readings, consider using a dedicated battery fuel gauge IC. The [MAX17048 usermod](../MAX17048_v2/) supports one such IC out of the box — no sense resistor required.
+
+Other ICs that use hardware Coulomb counting, temperature compensation, and sophisticated algorithms to achieve 1-3% SoC accuracy:
+
+| IC                 | Interface | Method                          | Notes                                           |
+| ------------------ | --------- | ------------------------------- | ----------------------------------------------- |
+| **TI INA228**      | I2C       | Voltage/current + charge accum. | INA226 successor with hardware Coulomb counter  |
+| **TI BQ27441**     | I2C       | Impedance Track                 | Full fuel gauge with temperature compensation   |
+| **Analog LTC2941** | I2C       | Coulomb counting                | Simple, accurate, programmable alerts           |
+| **ST STC3117**     | I2C       | OptimGauge (combined approach)  | Coulomb counting with voltage-based corrections |
 
 <br><br>
 
@@ -128,6 +238,35 @@ Specification from: [Molicel INR18650-M35A, 3500mAh 10A Lithium-ion battery, 3.6
 <br><br>
 
 ## 📝 Change Log
+
+2026-06-26
+
+- Restored `setVoltage()` range guard (rejects readings outside ~min/max bounds)
+- Reduced MQTT discovery JSON buffer back to 512 bytes to lower stack usage in `addMqttSensor()`
+- Removed ADC read side effect from `addToConfig()` (serialization only)
+- Gave `batteryType` enum a fixed `uint8_t` base for safe `UMT_BYTE` exposure
+- Added backoff to INA226 auto-detection probe (retry every 5 s)
+- Fixed `dot2round()` overflow/negative handling using `roundf()`
+
+2026-02-28
+
+- Added `readFromJsonState()` for remote config updates via JSON API
+- Added `onMqttMessage()` for remote config updates via MQTT (`<deviceTopic>/battery/set`)
+- Both gated behind `USERMOD_BATTERY_ALLOW_REMOTE_UPDATE` compile-time flag
+- Added `override` keyword to all overridden methods for compile-time safety
+- Added `addToJsonState()` init guard to prevent crash on boot
+- Increased MQTT discovery JSON buffer from 600 to 1024 bytes
+- Fixed `umLevel` type mismatch (`int8_t`/`UMT_BYTE` → `int16_t`/`UMT_INT16`)
+- Fixed auto-off, Coulomb init, and rest recalibration firing on invalid `-1` level
+- Used `VOLTAGE_HISTORY_SIZE` constant instead of magic number for array size
+
+2026-02-25
+
+- Added LiFePO4 battery type with piecewise-linear discharge curve
+- Added estimated runtime with Coulomb counting (auto-detected via INA226 usermod)
+- Added charging detection using sliding window voltage trend
+- Added charging status and runtime to MQTT, JSON API, and web UI info panel
+- Code cleanup and reorganization
 
 2024-08-19
 

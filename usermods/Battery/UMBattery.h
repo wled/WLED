@@ -11,6 +11,13 @@ class UMBattery
 {
     private:
 
+    public:
+        /**
+         * Lookup table entry for voltage-to-percentage mapping.
+         * Table must be sorted descending by voltage.
+         */
+        struct LutEntry { float voltage; float percent; };
+
     protected:
         float minVoltage;
         float maxVoltage;
@@ -18,10 +25,41 @@ class UMBattery
         int8_t level = 100;
         float calibration; // offset or calibration value to fine tune the calculated voltage
         float voltageMultiplier; // ratio for the voltage divider
-        
+
         float linearMapping(float v, float min, float max, float oMin = 0.0f, float oMax = 100.0f)
         {
             return (v-min) * (oMax-oMin) / (max-min) + oMin;
+        }
+
+        float lutInterpolate(float v, const LutEntry* lut, uint8_t size)
+        {
+            if (size == 0) return 0.0f;
+
+            LutEntry first, last;
+            memcpy_P(&first, &lut[0], sizeof(LutEntry));
+            memcpy_P(&last, &lut[size-1], sizeof(LutEntry));
+
+            // scale configured [minVoltage, maxVoltage] onto the table's single-cell range (supports multi-cell packs)
+            if (maxVoltage > minVoltage) {
+                v = last.voltage + (v - minVoltage) * (first.voltage - last.voltage) / (maxVoltage - minVoltage);
+            }
+
+            if (v >= first.voltage) return first.percent;
+            if (v <= last.voltage) return last.percent;
+
+            for (uint8_t i = 0; i < size - 1; i++) {
+                LutEntry hi, lo;
+                memcpy_P(&hi, &lut[i], sizeof(LutEntry));
+                memcpy_P(&lo, &lut[i+1], sizeof(LutEntry));
+
+                if (v >= lo.voltage) {
+                    float span = hi.voltage - lo.voltage;
+                    if (fabsf(span) < 1e-6f) return hi.percent;
+                    float ratio = (v - lo.voltage) / span;
+                    return lo.percent + ratio * (hi.percent - lo.percent);
+                }
+            }
+            return last.percent;
         }
 
     public:
@@ -30,6 +68,8 @@ class UMBattery
             this->setVoltageMultiplier(USERMOD_BATTERY_VOLTAGE_MULTIPLIER);
             this->setCalibration(USERMOD_BATTERY_CALIBRATION);
         }
+
+        virtual ~UMBattery() = default;
 
         virtual void update(batteryConfig cfg)
         {
@@ -42,15 +82,14 @@ class UMBattery
 
         /**
          * Corresponding battery curves
-         * calculates the level in % (0-100) with given voltage and possible voltage range
+         * calculates the level in % (0-100) with given voltage
          */
-        virtual float mapVoltage(float v, float min, float max) = 0;
-        // { 
-        //     example implementation, linear mapping
-        //     return (v-min) * 100 / (max-min);
-        // };
+        virtual float mapVoltage(float v) = 0;
 
-        virtual void calculateAndSetLevel(float voltage) = 0;
+        void calculateAndSetLevel(float voltage)
+        {
+            this->setLevel(this->mapVoltage(voltage));
+        }
 
 
 
@@ -72,9 +111,9 @@ class UMBattery
          * Set lowest battery voltage
          * can't be below 0 volt
          */
-        virtual void setMinVoltage(float voltage)
+        virtual void setMinVoltage(float newVoltage)
         {
-            this->minVoltage = max(0.0f, voltage);
+            this->minVoltage = max(0.0f, newVoltage);
         }
 
         /*
@@ -89,9 +128,9 @@ class UMBattery
          * Set highest battery voltage
          * can't be below minVoltage
          */
-        virtual void setMaxVoltage(float voltage)
+        virtual void setMaxVoltage(float newVoltage)
         {
-            this->maxVoltage = max(getMinVoltage()+.5f, voltage);
+            this->maxVoltage = max(getMinVoltage()+.5f, newVoltage);
         }
 
         float getVoltage()
@@ -102,22 +141,35 @@ class UMBattery
         /**
          * check if voltage is within specified voltage range, allow 10% over/under voltage
          */
-        void setVoltage(float voltage)
+        bool isValidVoltage(float newVoltage)
         {
-            // this->voltage = ( (voltage < this->getMinVoltage() * 0.85f) || (voltage > this->getMaxVoltage() * 1.1f) ) 
-            //     ? -1.0f 
-            //     : voltage;
-            this->voltage = voltage;
+            return newVoltage >= this->getMinVoltage() * 0.85f && newVoltage <= this->getMaxVoltage() * 1.1f;
         }
 
-        float getLevel()
+        void setVoltage(float newVoltage)
+        {
+            this->voltage = this->isValidVoltage(newVoltage) ? newVoltage : -1.0f;
+        }
+
+        int8_t getLevel()
         {
             return this->level;
         }
 
-        void setLevel(float level)
+        /*
+         * The 110% upper bound is headroom for charging / USB charger voltage above
+         * the discharge curve's 100% point. Values above 100 are a voltage-derived
+         * indication, not physical state of charge. The lookup tables cap at 100.
+         */
+        void setLevel(float newLevel)
         {
-            this->level = constrain(level, 0.0f, 110.0f);
+            this->level = (int8_t)constrain(newLevel, 0.0f, 110.0f);
+        }
+
+        // mark level as unknown (-1), e.g. after an out-of-range voltage reading
+        void invalidateLevel()
+        {
+            this->level = -1;
         }
 
         /*
