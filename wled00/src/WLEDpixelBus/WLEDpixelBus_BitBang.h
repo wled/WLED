@@ -21,10 +21,9 @@ written by Damian Schneider @dedehai 2026
 #include <ets_sys.h>
 #endif
 
-namespace WLEDpixelBus {
-
 // Note: maximum number of parallel BitBang channels WLED_MAX_BB_CHANNELS is defined in const.h
 
+namespace WLEDpixelBus {
 class BitBangBus : public PixelBus {
 public:
   /**
@@ -49,20 +48,17 @@ public:
   const char* getTypeStr() const override { return "BitBang"; }
 #endif
 
-  // Reset the shared static channel registryc, alled by PixelBusAllocator::resetChannelTracking() when all buses are destroyed
-  static void resetChannels();
+  static void resetChannelTracking(); // reset shared channel tracking, called by PixelBusAllocator
 
 private:
   int8_t    _pin         = -1;
-  LedTiming _timing;       // saved at construction, converted to cycles in begin()
+  LedTiming _timing;
   bool      _initialized = false;
 
-  // -----------------------------------------------------------------------
-  // Shared state (one context for ALL BitBangBus instances)
-  // All timing fields must use the same LED type (enforced by PixelBusAllocator).
-  // -----------------------------------------------------------------------
+  // Shared state (one context for ALL BitBangBus instances), all timings must be the same (enforced by PixelBusAllocator).
   struct BBstate {
-    uint8_t*      pixelData[WLED_MAX_BB_CHANNELS];  // encoded data pointer per channel
+    const uint8_t* encodeBuffer[WLED_MAX_BB_CHANNELS]; // encoded color data to be sent out
+    size_t        encodeBufferSize[WLED_MAX_BB_CHANNELS];
     uint32_t      t0h; // Timing in CPU cycles — identical across all channels
     uint32_t      t1h;
     uint32_t      period;
@@ -75,17 +71,12 @@ private:
     portMUX_TYPE  mux; // critical-section lock used inside outputParallel()
     #endif
     int8_t        pins[WLED_MAX_BB_CHANNELS];
-    uint16_t      numPixels[WLED_MAX_BB_CHANNELS];  // pixel count per channel
     uint8_t       channelCount;
     uint8_t       stagedCount;  // how many channels have called show() this frame
-    uint8_t       pixelBytes;  // bytes per encoded pixel (derived from LED type)
     bool          allowInterrupts; // if enabled, interrupts are allowed to run between LEDs, if not the output is fully blocking
   };
-  static BBstate* _BBs;
+  static BBstate* _bitBangState;
 
-  // -----------------------------------------------------------------------
-  // Core output routine — must run from IRAM for timing accuracy
-  // -----------------------------------------------------------------------
   static bool IRAM_ATTR outputParallel();
 };
 
