@@ -65,8 +65,8 @@ I2sBusContext::I2sBusContext(uint8_t busNum)
 #endif
   , _state(DriverState::Idle)
   , _initialized(false)
-  , _maxSrcBytes(0)
   , _bufferSize(0)
+  , _maxSrcBytes(0)
   , _dmaAllocated(false)
   , _lastFilled(0)
   , _resetBytesLeft(0)
@@ -104,8 +104,7 @@ bool I2sBusContext::init(const LedTiming& timing) {
 }
 
 void I2sBusContext::deinit() {
-  int timeout = 100;
-  while (!isIdle() && timeout--) { vTaskDelay(1); }
+  waitForIdle();
 
   hwStopTransfer();
 
@@ -126,11 +125,7 @@ void I2sBusContext::deinit() {
   _initialized = false;
 }
 
-//==============================================================================
-// Hardware abstraction
-//==============================================================================
-
-#ifdef CONFIG_IDF_TARGET_ESP32S3
+#ifdef CONFIG_IDF_TARGET_ESP32S3 // S3 uses the LCD peripheral, not I2S
 
 bool I2sBusContext::hwInit(const LedTiming& timing) {
   // Enable LCD_CAM peripheral
@@ -209,7 +204,7 @@ bool I2sBusContext::hwInit(const LedTiming& timing) {
   gdma_apply_strategy(_dmaChannel, &strategy_config);
 
   // Register DMA callback
-  gdma_tx_event_callbacks_t tx_cbs = {.on_trans_eof = dmaCallback};
+  gdma_tx_event_callbacks_t tx_cbs = {.on_trans_eof = txDoneCallback};
   gdma_register_tx_event_callbacks(_dmaChannel, &tx_cbs, this);
 
   return true;
@@ -497,37 +492,39 @@ void I2sBusContext::hwRoutePin(int8_t pin, int8_t idx, bool inverted) {
   sigIdx += idx;
   esp_rom_gpio_connect_out_signal(pin, sigIdx, inverted, false);
 }
-
 #endif // !CONFIG_IDF_TARGET_ESP32S3
 
-//==============================================================================
-// Buffer management & encoding
-//==============================================================================
-
 bool I2sBusContext::_allocDmaBuffers() {
-  if (_dmaBuffer[0] != nullptr) return true;
+  if (_dmaAllocated) return true;
+  _bufferSize = calc4StepBufferSize(_maxSrcBytes, WLEDPB_I2S_DMABYTES,
+    WLEDPB_I2S_DMA_BUFFER_COUNT, MIN_DMA_BUFFER_SIZE, DEFAULT_DMA_BUFFER_SIZE);
+  if (_bufferSize == 0) return false;
 
-  _bufferSize = calc4StepBufferSize(_maxSrcBytes, WLEDPB_I2S_DMABYTES, WLEDPB_I2S_DMA_BUFFER_COUNT, MIN_DMA_BUFFER_SIZE, DEFAULT_DMA_BUFFER_SIZE);
+  auto rollback = [&]() {
+    for (uint8_t i = 0; i < WLEDPB_I2S_DMA_BUFFER_COUNT; ++i) {
+      if (_dmaDesc[i]) heap_caps_free(_dmaDesc[i]);
+      if (_dmaBuffer[i]) heap_caps_free(_dmaBuffer[i]);
+      _dmaDesc[i] = nullptr;
+      _dmaBuffer[i] = nullptr;
+    }
+    _bufferSize = 0;
+  };
 
-  // allocate DMA-capable buffers (4-byte aligned for hardware DMA engine)
-  for (int i = 0; i < WLEDPB_I2S_DMA_BUFFER_COUNT; i++) {
+  for (uint8_t i = 0; i < WLEDPB_I2S_DMA_BUFFER_COUNT; ++i) {
     _dmaBuffer[i] = (uint8_t*)heap_caps_aligned_alloc(4, _bufferSize, MALLOC_CAP_DMA);
-    if (!_dmaBuffer[i]) return false;
+    if (!_dmaBuffer[i]) { rollback(); return false; }
     memset(_dmaBuffer[i], 0, _bufferSize);
-
     _dmaDesc[i] = (DmaDesc_t*)heap_caps_aligned_alloc(4, sizeof(DmaDesc_t), MALLOC_CAP_DMA);
-    if (!_dmaDesc[i]) return false;
+    if (!_dmaDesc[i]) { rollback(); return false; }
   }
 
-  // set up DMA descriptors as a circular linked list
-  for (int i = 0; i < WLEDPB_I2S_DMA_BUFFER_COUNT; i++) {
+  for (uint8_t i = 0; i < WLEDPB_I2S_DMA_BUFFER_COUNT; ++i) {
     descSetSizeAndLen(_dmaDesc[i], _bufferSize);
     descSetBuf(_dmaDesc[i], _dmaBuffer[i]);
     descSetEof(_dmaDesc[i]);
     descSetOwnerDma(_dmaDesc[i]);
     descSetNext(_dmaDesc[i], _dmaDesc[(i + 1) % WLEDPB_I2S_DMA_BUFFER_COUNT]);
   }
-
   _dmaAllocated = true;
   //DEBUG_PRINTF_P(PSTR("[I2S] DMA buffers allocated: bufSize=%u x%u\n"), _bufferSize, WLEDPB_I2S_DMA_BUFFER_COUNT);
   return true;
@@ -661,7 +658,7 @@ void IRAM_ATTR I2sBusContext::encode4Step(uint8_t* dest, size_t destLen, uint8_t
       b6 |= m & (uint8_t)(0u - ((b >> 1) & 1u));
       b7 |= m & (uint8_t)(0u - ((b >> 0) & 1u));
     }
-    if (!alwaysMask) break;
+    if (!alwaysMask) break; // no active channels produced data
 
     uint32_t* p = (uint32_t*)(dest + pos);
 #if defined(CONFIG_IDF_TARGET_ESP32S2) || defined(CONFIG_IDF_TARGET_ESP32S3)
@@ -682,15 +679,20 @@ void IRAM_ATTR I2sBusContext::encode4Step(uint8_t* dest, size_t destLen, uint8_t
 #endif // WLED_PIXELBUS_16PARALLEL
 
 void IRAM_ATTR __attribute__((noinline)) I2sBusContext::fillBuffer(uint8_t bufIdx) {
-  uint32_t* w = (uint32_t*)_dmaBuffer[bufIdx];
-  const uint32_t* end = w + (_bufferSize >> 2);
-  while (w < end) *w++ = 0; // clear buffer: do not use memset, it is not necesarily IARM safe. _bufferSize is 4-byte aligned (could clear just the reset part but it adds complexity and this is fast)
+  uint32_t* buf32 = (uint32_t*)_dmaBuffer[bufIdx];
+  const uint32_t* end = buf32 + (_bufferSize >> 2);
+  while (buf32 < end) *buf32++ = 0; // clear buffer (set all lanes low), DMA buffer is 4 bytes aligned. Note: memset is not IRAM safe and may crash
 
-  if (_resetBytesLeft > 0) {
-    descSetLength(_dmaDesc[bufIdx], _resetBytesLeft);
-    descSetNext(_dmaDesc[bufIdx], nullptr);
-    _resetBytesLeft = WLEDPB_I2S_XFER_DONE_FLAG; // flag end of frame, don't queue any more buffers (is a multiple of 4 if set "naturally" below)
-    return; // nothing to encode, this is a reset pulse, keep output low (all zeroes)
+  if (_resetBytesLeft > 0 && _resetBytesLeft != WLEDPB_I2S_XFER_DONE_FLAG) {
+    if (_resetBytesLeft <= _bufferSize) {
+      descSetLength(_dmaDesc[bufIdx], _resetBytesLeft);
+      descSetNext(_dmaDesc[bufIdx], nullptr);
+      _resetBytesLeft = WLEDPB_I2S_XFER_DONE_FLAG;
+    } else {
+      descSetLength(_dmaDesc[bufIdx], _bufferSize);
+      _resetBytesLeft -= _bufferSize;
+    }
+    return;
   }
 
   uint32_t bytesToEncode = 0;
@@ -703,8 +705,10 @@ void IRAM_ATTR __attribute__((noinline)) I2sBusContext::fillBuffer(uint8_t bufId
     }
   }
 
-  uint32_t translatedbytes = bytesToEncode * WLEDPB_I2S_DMABYTES;
-  translatedbytes = translatedbytes > _bufferSize ? _bufferSize : translatedbytes;
+  size_t translatedbytes = bytesToEncode * WLEDPB_I2S_DMABYTES;
+  if (translatedbytes > _bufferSize) translatedbytes = _bufferSize;
+  translatedbytes -= translatedbytes % WLEDPB_I2S_DMABYTES;
+  descSetLength(_dmaDesc[bufIdx], translatedbytes);
   encode4Step(_dmaBuffer[bufIdx], translatedbytes, maxCh);
 
   if (translatedbytes < _bufferSize) {
@@ -762,25 +766,20 @@ bool I2sBusContext::startTransmit() {
   return true;
 }
 
-//==============================================================================
-// ISR / DMA callback
-//==============================================================================
-
 #ifdef CONFIG_IDF_TARGET_ESP32S3
-IRAM_ATTR bool I2sBusContext::dmaCallback(gdma_channel_handle_t dma_chan, gdma_event_data_t* event_data, void* user_data) {
+IRAM_ATTR bool I2sBusContext::txDoneCallback(gdma_channel_handle_t dma_chan, gdma_event_data_t* event_data, void* user_data) {
   (void)event_data;
   I2sBusContext* ctx = (I2sBusContext*)user_data;
   if (dma_chan != ctx->_dmaChannel || ctx->_dmaChanId < 0) return false; // sanity check, just in case
 
   uint32_t eofAddr = GDMA.channel[ctx->_dmaChanId].out.eof_des_addr; // descriptor that just finished
-  uint32_t curDesc = GDMA.channel[ctx->_dmaChanId].out.dscr;         // note: at EOF this still points to the just-completed descriptor, not the next one
 
   int8_t completedBuf = -1;
   for (uint8_t i = 0; i < WLEDPB_I2S_DMA_BUFFER_COUNT; i++) {
     if ((uint32_t)ctx->_dmaDesc[i] == eofAddr) { completedBuf = i; break; }
   }
 
-  ctx->_processEof(completedBuf, curDesc);
+  ctx->_processEof(completedBuf);
   return false;
 }
 #else
@@ -803,16 +802,12 @@ void IRAM_ATTR I2sBusContext::dmaISR(void* arg) {
     if ((uint32_t)ctx->_dmaDesc[i] == eofAddr) { completedBuf = i; break; }
   }
 
-  ctx->_processEof(completedBuf, dev->out_link_dscr); // note: out_link_dscr still points to the just-completed descriptor at EOF time
+  ctx->_processEof(completedBuf);
 }
 #endif
 
-// refill buffer(s) upon eof, completedBuf is the descriptor that just finished (from out_eof_des_addr / GDMA eof_des_addr)
-// note: curDescAddr (out_link_dscr / GDMA out.dscr) is NOT reliable to find the in-flight descriptor: at EOF time it
-// still points to the descriptor that just completed, not the next one (verified on ESP32 and ESP32-S2). Do not use it
-// to decide what is safe to refill — completed buffers are always safe, the in-flight one is (completedBuf + 1).
-void IRAM_ATTR I2sBusContext::_processEof(int8_t completedBuf, uint32_t curDescAddr) {
-  (void)curDescAddr; // unreliable, see above
+// Refill buffer(s) upon EOF. The completed descriptor is safe to reuse, the following descriptor may still be in flight.
+void IRAM_ATTR I2sBusContext::_processEof(int8_t completedBuf) {
   if (completedBuf < 0) return;
 
   // end of frame? checks the just finished descriptor for the terminating nullptr
@@ -842,12 +837,27 @@ void IRAM_ATTR I2sBusContext::_processEof(int8_t completedBuf, uint32_t curDescA
 
 void I2sBusContext::abortTransmit() {
   hwStopTransfer();
+  _stagedMask = 0;
+  _resetBytesLeft = 0;
 }
 
-// ============================================
-// I2sBus implementation
-// ============================================
+bool I2sBusContext::ensureIdle() {
+  if (isIdle()) return true;
+  if ((uint32_t)(millis() - _txStartMillis) <= WLEDPB_TRANSFER_TIMEOUT_MS) return false;
+  abortTransmit();
+  return true;
+}
 
+void I2sBusContext::waitForIdle() {
+  const uint32_t start = millis();
+  while (!ensureIdle() && (uint32_t)(millis() - start) <= WLEDPB_TRANSFER_TIMEOUT_MS) {
+    vTaskDelay(1);
+  }
+  if (!isIdle()) abortTransmit();
+}
+
+
+// I2sBus implementation
 I2sBus::I2sBus(int8_t pin, const LedTiming& timing, uint8_t colorOrder, uint8_t numChannels, uint8_t busNum, uint8_t ledType, size_t numPixels)
   : _pin(pin)
   , _timing(timing)
@@ -878,7 +888,7 @@ bool I2sBus::begin() {
   }
 
   // pass our encoded byte count so the context can size DMA buffers for the largest bus
-  const size_t srcBytes = (size_t)_numPixels * _encoder.getPixelBytes();
+  const size_t srcBytes = (size_t)_numPixels * _encoder.getBytesPerPixel() + _prefixLen + _suffixLen;
   _channelIdx = _ctx->registerChannel(_pin, srcBytes, _inverted);
   if (_channelIdx < 0) {
     //DEBUG_PRINTF_P(PSTR("[I2S] registerChannel failed for pin %d\n"), _pin);
@@ -888,53 +898,32 @@ bool I2sBus::begin() {
   }
 
   _initialized = true;
-  if (!allocateEncodeBuffer(_numPixels, _encoder.getPixelBytes())) { end(); return false; }
+  if (!allocateEncodeBuffer(_numPixels, _encoder.getBytesPerPixel())) { end(); return false; }
   //DEBUG_PRINTF_P(PSTR("[I2S] I2sBus::begin() OK: pin=%d, bus=%u, channel=%d\n"), _pin, _busNum, _channelIdx);
   return true;
 }
 
 void I2sBus::end() {
-  if (!_initialized) return;
-
   if (_ctx) {
-    // Wait for any active transmission to complete before cleanup
-    while (!_ctx->isIdle()) vTaskDelay(1);
+    _ctx->waitForIdle();
     _ctx->unregisterChannel(_channelIdx);
     I2sBusContext::release(_busNum);
     _ctx = nullptr;
   }
-
-  if (_encodeBuffer) {
-    heap_caps_free(_encodeBuffer);
-    _encodeBuffer = nullptr;
-    _encodeBufferSize = 0;
-  }
-
+  releaseEncodeBuffer();
   _initialized = false;
 }
 
 bool I2sBus::show() {
   if (!_initialized || !_ctx || !_encodeBuffer || _numPixels == 0) return false;
-
-  // Wait for previous transmission to complete, timeout should not happen, it is a fallback to guarantee driver wont get stuck
-  while (!_ctx->isIdle() && (millis() - _ctx->getTxStartMillis()) < WLEDPB_TRANSFER_TIMEOUT_MS) {
-    vTaskDelay(1);
-  }
-
-  // Send already-encoded buffer directly
+  _ctx->waitForIdle();
   _ctx->setChannelData(_channelIdx, _encodeBuffer, _encodeBufferSize);
   return _ctx->startTransmit();
 }
 
 bool I2sBus::canShow() const {
-  if (!_ctx) return true;
-  if (_ctx->isIdle()) return true;
-  // safety watchdog if the driver ever gets stuck (e.g. a missed/overwritten terminating descriptor)
-  if ((uint32_t)(millis() - _ctx->getTxStartMillis()) > WLEDPB_TRANSFER_TIMEOUT_MS) {
-    _ctx->abortTransmit();
-    return true;
-  }
-  return false;
+  if (!_initialized) return true; // do not block if init failed! busmanager waits until all buses can show
+  return _ctx && _ctx->ensureIdle();
 }
 
 } // namespace WLEDpixelBus
