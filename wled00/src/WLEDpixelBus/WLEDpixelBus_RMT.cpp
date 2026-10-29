@@ -6,12 +6,11 @@ written by Damian Schneider @dedehai 2026
 
 I would like to thank Michael C. Miller (@Makuna), NeoPixelBus helped me figure out the proper hardware initialisation.
 
-RMT bus works on ESP32, S3, S2, C3 and C6 (tested), C5 and H2 (same RMT hardware as C6, compile-tested only).
+RMT bus works on ESP32, S3, S2, C3, C5, C6
 Supports auto-distribution of available RMT memory blocks to reduce interrupt frequency - needs to be refined if ever using RMT input.
-All supported targets use the glitch-free high priority interrupt driver by @willmmiles (WPB_USE_RMTHI):
-on IDF V4 the legacy rmt driver performs the initial clock/line setup, on IDF V5 the peripheral is
-configured directly via rmt_ll register access. Targets without RmtHiDriver support (P4, C61) get a
-stub bus whose begin() always fails.
+All supported targets use the glitch-free high priority interrupt driver by @willmmiles (WLEDPB_USE_RMTHI)
+Other targets should only use a single RMT output to avoid glitches due to interrupt latency
+Note: S3 would support GDMA for RMT but all others variants do not, it is not implemented
 
 -------------------------------------------------------------------------*/
 
@@ -19,18 +18,16 @@ stub bus whose begin() always fails.
 #ifdef ARDUINO_ARCH_ESP32
 #include "WLEDpixelBus_RMT.h"
 
-#ifdef WPB_USE_RMTHI
+#ifdef WLEDPB_USE_RMTHI
 #include "esp_rom_gpio.h" // for gpio routing to set inverted signal
 #include "soc/rmt_struct.h"
-#include "soc/gpio_sig_map.h"     // RMT_SIG_OUT0_IDX
+#include "soc/gpio_sig_map.h" // RMT_SIG_OUT0_IDX
 #if ESP_IDF_VERSION >= ESP_IDF_VERSION_VAL(5,0,0)
 #include "hal/rmt_ll.h"
 #include "esp_private/gpio.h"
 #include "esp_private/esp_clk_tree_common.h"
-// the rmt_ll_enable_bus_clock/rmt_ll_reset_register macro wrappers require the RCC critical-section
-// machinery (__DECLARE_RCC_ATOMIC_ENV), which is not usable from Arduino-as-component builds;
-// bus setup is single-threaded, so call the underlying functions directly
-#undef rmt_ll_enable_bus_clock
+// these macro wrappers require the RCC critical-section, which is not usable from Arduino builds. We call the functions directly (same name)
+#undef rmt_ll_enable_bus_clock // macros are defined for some ESP32 variants only, if not defined, this is a no-op
 #undef rmt_ll_reset_register
 #endif
 #endif
@@ -45,8 +42,10 @@ uint8_t RmtBus::usedBlocks = 0;
 
 RmtBus::RmtBus(int8_t pin, const LedTiming& timing, uint8_t colorOrder, uint8_t numChannels, uint8_t ledType)
   : _pin(pin)
-  , _timing(timing)
+  , _channel(-1)
   , _initialized(false)
+  , _driverInstalled(false)
+  , _timing(timing)
 {
   (void)colorOrder; (void)numChannels; // encoder is installed by createBus() from BusProperties
   _ledType = ledType;
@@ -56,12 +55,12 @@ RmtBus::~RmtBus() {
   end();
 }
 
-#ifdef WPB_USE_RMTHI
+#ifdef WLEDPB_USE_RMTHI
 
 bool RmtBus::begin() {
   if (_initialized) return true;
   uint8_t blocksToUse = 1;
-  uint8_t maxTxChannels = getRmtMaxChannels();
+  uint8_t maxTxChannels = WLED_MAX_RMT_CHANNELS;
 
   // Auto-channel select with optimized memory block allocation (assumes no RMT RX usage)
   // note on channel allocation: channels are assigned such as to maximize the number of memory blocks
@@ -189,28 +188,26 @@ bool RmtBus::begin() {
   if (err != ESP_OK) {
     return false;
   }
+  _driverInstalled = true;
 
   // route the pin, hardware signal inversion via GPIO matrix if _inverted (must be set before begin())
   gpio_func_sel((gpio_num_t)_pin, PIN_FUNC_GPIO);
   esp_rom_gpio_connect_out_signal(_pin, RMT_SIG_OUT0_IDX + _channel, _inverted, false);
 
   _initialized = true;
-  if (!allocateEncodeBuffer(_numPixels, _encoder.getPixelBytes())) { end(); return false; }
+  if (!allocateEncodeBuffer(_numPixels, _encoder.getBytesPerPixel())) { end(); return false; }
   return true;
 }
 
 void RmtBus::end() {
-  if (!_initialized) return;
-
-  RmtHiDriver::Uninstall(_channel);
-
-  if (_pin >= 0) {
-    gpio_reset_pin((gpio_num_t)_pin); // reset all pin settings
+  if (_driverInstalled) {
+    RmtHiDriver::Uninstall(_channel);
+    _driverInstalled = false;
   }
-
-  // Free encode buffer (also freed by ~PixelBus; free() is compatible with heap_caps_malloc)
-  if (_encodeBuffer) { free(_encodeBuffer); _encodeBuffer = nullptr; _encodeBufferSize = 0; }
+  if (_initialized && _pin >= 0) gpio_reset_pin((gpio_num_t)_pin);
+  releaseEncodeBuffer();
   _initialized = false;
+  _channel = -1;
 }
 
 bool RmtBus::show() {
@@ -221,11 +218,11 @@ bool RmtBus::show() {
 }
 
 bool RmtBus::canShow() const {
-  if (!_initialized) return true;
+  if (!_initialized) return true; // do not block if init failed! busmanager waits until all buses can show
   return (ESP_OK == RmtHiDriver::WaitForTxDone(_channel, 0)); // 0 timeout means "poll and return immediately"
 }
 
-#else // !WPB_USE_RMTHI
+#else // !WLEDPB_USE_RMTHI
 
 // Stub for targets without RmtHiDriver support (P4 uses a newer RMT IP, C61 has no RMT):
 // RMT bus is unavailable, begin() fails so a different output driver can be selected.
@@ -234,7 +231,7 @@ void RmtBus::end() {}
 bool RmtBus::show() { return false; }
 bool RmtBus::canShow() const { return true; }
 
-#endif // WPB_USE_RMTHI
+#endif // WLEDPB_USE_RMTHI
 
 } // namespace WLEDpixelBus
 #endif // ARDUINO_ARCH_ESP32

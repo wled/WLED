@@ -38,9 +38,9 @@ struct LedTiming {
 
 static constexpr uint32_t WLEDPB_TRANSFER_TIMEOUT_MS = 1000; // max allowed time for a full transfer, recovery is triggered if exceeded
 
-// ---------------------------------------------------------------------------
+
 // 4-step cadence helpers for parallel buses (I2S, Parallel SPI, PARLIO, ESP8266)
-// ---------------------------------------------------------------------------
+// ------------------------------------------------------------------------------
 
 // Compute target clock frequency in Hz for 4-step cadence (4 clock cycles per bit period).
 inline uint32_t calc4StepClockHz(const LedTiming& timing) {
@@ -58,20 +58,19 @@ inline size_t calc4StepResetDmaBytes(const LedTiming& timing, uint8_t dmaBytesPe
   return (size_t)zeroCycles * dmaBytesPerLedBit;
 }
 
-// Compute DMA buffer size aligned to 4 bytes and clamped to bounds.
+// Compute a DMA buffer size aligned to 4 bytes, clamped to bounds and source-byte groups
 inline size_t calc4StepBufferSize(size_t maxSrcBytes, uint8_t dmaBytesPerSrcByte, uint8_t bufCount, size_t minSize, size_t maxSize) {
   if (bufCount == 0) bufCount = 1;
   size_t sz = (dmaBytesPerSrcByte * maxSrcBytes) / bufCount;
   sz = (sz + 3) & ~3; // 4-byte align
   if (sz > maxSize) sz = maxSize;
   if (sz < minSize) sz = minSize;
+  // note: dmaBytesPerSrcByte must be a multiple of 4 for proper alignment (true for current 4-step encoding: its 16, 32 or 64 bytes)
+  sz -= sz % dmaBytesPerSrcByte; // align to src byte groups (see xxx_DMABYTES)
   return sz;
 }
 
-/**
- * Scale LED timing parameters by a floating point factor (percent expressed as factor, e.g. 1.2 for +20%)
- * Only t* timings (ns) are scaled; reset_us is preserved.
- */
+// Scale LED timings by a factor (1=100%), pulse timings (ns) are scaled, reset_us is preserved
 inline LedTiming scaleTiming(const LedTiming& timing, float factor) {
   auto s = [&](uint32_t v)->uint16_t {
     uint32_t r = (uint32_t)(v * factor + 0.5f);
@@ -82,8 +81,7 @@ inline LedTiming scaleTiming(const LedTiming& timing, float factor) {
   return LedTiming(s(timing.t0h_ns), s(timing.t0l_ns), s(timing.t1h_ns), s(timing.t1l_ns), timing.reset_us);
 }
 
-// LED timing lookup table in flash (PROGMEM on ESP8266, .rodata on ESP32)
-// Indexed by getTimingIndex() below.
+// LED type timing lookup table, indexed by getTimingIndex() below.
 static const PROGMEM LedTiming s_ledTimings[] = {
 // t0h   t0l   t1h   t1l  reset_us
  { 300,  900,  700,  500,  100 },  // WS2812B (and 1CH_X3, 2CH_X3, WWA)
@@ -99,7 +97,6 @@ static const PROGMEM LedTiming s_ledTimings[] = {
  { 300,  900,  900,  300,   80 },  // SM16825 (16-bit)
  { 250,  250,  250,  250,    0 },  // APA102 / LPD8806 / P9813 / LPD6803 -> SPI LEDs, timing is not really used
  { 500,  500,  500,  500, 1000 },  // WS2801
-// TODO: could move these timing into the UI and always pass timings down to the firmware or better: make a LED type a struct containing all info including the string and send to UI as json
 };
 
 // Maps WLED TYPE_ to an index into s_ledTimings
@@ -130,7 +127,6 @@ static inline uint8_t getTimingIndex(uint8_t wledType) {
   }
 }
 
-// Returns the LED timing for the given WLED bus type, read from flash. note: the bus constructor stores its own copy
-LedTiming getProtocol(uint8_t wledType);
+LedTiming getLedTiming(uint8_t wledType);
 
 } // namespace WLEDpixelBus

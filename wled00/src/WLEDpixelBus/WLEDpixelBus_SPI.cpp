@@ -18,19 +18,19 @@ supports hardware brightness on APA102 for improved color resolution
 namespace WLEDpixelBus {
 
 // Derive SPI clock Hz from kHz timing set through busconfig (see busmanager)
-static uint32_t timingToClockHz(uint16_t frequencykHz) {
+static uint32_t kHzToClockHz(uint16_t frequencykHz) {
   uint32_t frequencyHz = frequencykHz*1000;
   if (frequencyHz < 1000000)  frequencyHz = 1000000;   // minimum 1 MHz
   if (frequencyHz > SPI_MAX_CLOCK_HZ) frequencyHz = SPI_MAX_CLOCK_HZ;
   return frequencyHz;
 }
 
-SpiBus::SpiBus(int8_t dataPin, int8_t clockPin, uint16_t frequencykHz, uint8_t colorOrder, uint8_t numChannels, bool useHardwareSpi, uint8_t ledType)
+SpiBus::SpiBus(int8_t dataPin, int8_t clockPin, uint16_t frequencykHz, uint8_t colorOrder, uint8_t numChannels, bool useHardware, uint8_t ledType)
   : _dataPin(dataPin)
   , _clockPin(clockPin)
-  , _useHardware(useHardwareSpi)
+  , _useHardware(useHardware)
   , _initialized(false)
-  , _clockHz(timingToClockHz(frequencykHz))
+  , _clockHz(kHzToClockHz(frequencykHz))
 {
   _encoder = ColorEncoder(colorOrder, numChannels, ledType);
   _ledType = ledType;
@@ -51,7 +51,7 @@ bool SpiBus::begin() {
 #else
     SPI.begin();
 #endif
-    // Frequency and mode are applied per-frame via beginTransaction(); do NOT call the deprecated SPI.setFrequency / SPI.setDataMode here.
+    // Frequency and mode are applied per-frame via beginTransaction(); do NOT call the deprecated SPI.setFrequency / SPI.setDataMode here
   } else {
     // bit banged output
     pinMode(_dataPin, OUTPUT);
@@ -79,48 +79,46 @@ bool SpiBus::begin() {
   }
 
   _initialized = true;
-  uint8_t allocBytes = _encoder.getPixelBytes();
+  uint8_t allocBytes = _encoder.getBytesPerPixel();
   if (_ledType == TYPE_APA102 || _ledType == TYPE_P9813) allocBytes++; // need more space for per-pixel header byte, see show()
   if (!allocateEncodeBuffer(_numPixels, allocBytes)) { end(); return false; }
   return true;
 }
 
 void SpiBus::end() {
-  if (!_initialized) return;
   if (_useHardware) {
     SPI.end();
   }
   #if defined(ARDUINO_ARCH_ESP32)
-  if (_dataPin >= 0) gpio_reset_pin((gpio_num_t)_dataPin);
+  if (_dataPin >= 0)  gpio_reset_pin((gpio_num_t)_dataPin);
   if (_clockPin >= 0) gpio_reset_pin((gpio_num_t)_clockPin);
   #else
   pinMode(_dataPin, INPUT);
   pinMode(_clockPin, INPUT);
   #endif
-  if (_encodeBuffer) { free(_encodeBuffer); _encodeBuffer = nullptr; _encodeBufferSize = 0; }
+  releaseEncodeBuffer();
   _initialized = false;
 }
 
 // Fast inline helpers for bit-bang GPIO register access.
-// Using W1TS/W1TC (write-1-to-set/clear) registers avoids read-modify-write race conditions and is faster than GPIO_OUT read-modify-write.
 inline void SpiBus::bbSetData(bool high) const {
 #if defined(ARDUINO_ARCH_ESP32)
 #ifdef ESP_HAS_HIGH_GPIO_BANK
   if (high) {
-    if (_dataHigh) REG_WRITE(GPIO_OUT1_W1TS_REG, _dataMask); else REG_WRITE(GPIO_OUT_W1TS_REG, _dataMask);
+    if (_dataHigh) REG_WRITE(GPIO_OUT1_W1TS_REG, _dataMask); else REG_WRITE(GPIO_OUT_W1TS_REG, _dataMask); // set
   } else {
-    if (_dataHigh) REG_WRITE(GPIO_OUT1_W1TC_REG, _dataMask); else REG_WRITE(GPIO_OUT_W1TC_REG, _dataMask);
+    if (_dataHigh) REG_WRITE(GPIO_OUT1_W1TC_REG, _dataMask); else REG_WRITE(GPIO_OUT_W1TC_REG, _dataMask); // clear
   }
 #else
   if (high) {
-    REG_WRITE(GPIO_OUT_W1TS_REG, _dataMask);
+    REG_WRITE(GPIO_OUT_W1TS_REG, _dataMask); // set
   } else {
-    REG_WRITE(GPIO_OUT_W1TC_REG, _dataMask);
+    REG_WRITE(GPIO_OUT_W1TC_REG, _dataMask); // clear
   }
-  // TODO: on the C3 BB output is much faster when using direct CPU access through cpu pin groups (see espressif documentation), could potentially achieve several MHz clockspeed
 #endif
 #elif defined(ARDUINO_ARCH_ESP8266)
-  if (high) GPOS = _dataMask; else GPOC = _dataMask;
+  if (high) GPOS = _dataMask; // set
+  else GPOC = _dataMask;      // clear
 #endif
 }
 
@@ -128,19 +126,20 @@ inline void SpiBus::bbSetClk(bool high) const {
 #if defined(ARDUINO_ARCH_ESP32)
 #ifdef ESP_HAS_HIGH_GPIO_BANK
   if (high) {
-    if (_clkHigh) REG_WRITE(GPIO_OUT1_W1TS_REG, _clkMask); else REG_WRITE(GPIO_OUT_W1TS_REG, _clkMask);
+    if (_clkHigh) REG_WRITE(GPIO_OUT1_W1TS_REG, _clkMask); else REG_WRITE(GPIO_OUT_W1TS_REG, _clkMask); // set
   } else {
-    if (_clkHigh) REG_WRITE(GPIO_OUT1_W1TC_REG, _clkMask); else REG_WRITE(GPIO_OUT_W1TC_REG, _clkMask);
+    if (_clkHigh) REG_WRITE(GPIO_OUT1_W1TC_REG, _clkMask); else REG_WRITE(GPIO_OUT_W1TC_REG, _clkMask); // clear
   }
 #else
   if (high) {
-    REG_WRITE(GPIO_OUT_W1TS_REG, _clkMask);
+    REG_WRITE(GPIO_OUT_W1TS_REG, _clkMask); // set
   } else {
-    REG_WRITE(GPIO_OUT_W1TC_REG, _clkMask);
+    REG_WRITE(GPIO_OUT_W1TC_REG, _clkMask); // clear
   }
 #endif
 #elif defined(ARDUINO_ARCH_ESP8266)
-  if (high) GPOS = _clkMask; else GPOC = _clkMask;
+  if (high) GPOS = _clkMask; // set
+  else GPOC = _clkMask;      // clear
 #endif
 }
 
@@ -159,45 +158,35 @@ void SpiBus::sendByte(uint8_t d) {
 }
 
 void SpiBus::sendStartFrame(uint16_t numPixels) {
+  uint32_t n = 0; // default: no start frame (WS2801)
   if (_ledType == TYPE_LPD8806) {
-    // LPD8806: start frame is ceil(N/32) zero bytes to clock in the initial latch
-    const uint16_t n = (numPixels + 31) / 32;
-    for (uint16_t i = 0; i < n; i++) sendByte(0x00);
+    n = (numPixels + 31) / 32; // LPD8806: start frame is ceil(N/32) zero bytes according to NPB, there is no datasheet info
   } else if (_ledType != TYPE_WS2801) {
-    // APA102 / LPD6803 / P9813: fixed 4-byte zero start frame
-    // WS2801: no start frame — latch is the reset-time gap between frames
-    for (uint32_t i = 0; i < 4; i++) sendByte(0x00);
+    n = 4; // APA102 / LPD6803 / P9813: fixed 4-byte zero start frame
   }
+  for (uint32_t i = 0; i < n; i++) sendByte(0x00);
 }
 
 void SpiBus::sendEndFrame(uint16_t numPixels) {
-  // APA102: ceil(N/16) zero bytes.  TODO: NPB seems to send zero bytes, datasheet states four 0xFF bytes is the end frame
-  //   Each APA102 delays the clock by one half-cycle; N LEDs need N/2 extra clock pulses to ensure the last pixel latches. One byte = 8 clocks,
-  //   so ceil(N/16) bytes provide the required ceil(N/2) pulses. The APA102 datasheet's "4 zero bytes" claim is only valid for N ≤ 64.
-  // Note: current code works on SK9822 which officially uses zero bytes for the end frame
-  // LPD6803: ceil(N/8) zero bytes (one clock per pixel required).
-  // LPD8806: ceil(N/32) 0xFF bytes (high level = latch for MSB-set pixel data).
-  // P9813: fixed 4 zero bytes.
-  // WS2801: nothing — latch is a timing gap, not a byte sequence.
+  uint8_t val = 0; // default end frame byte
+  uint32_t n = 0;  // default: no end frame (WS2801: nothing to send, clk=low for 500us is the latch trigger)
   if (_ledType == TYPE_APA102) {
-    const uint32_t n = (numPixels + 15) / 16;
-    for (uint32_t i = 0; i < n; i++) sendByte(0x00);
+    n = 1 + numPixels / 16;    // APA102/SK9822: datasheet states 4 0xFF bytes, pololu.com states it is unreliable and better send at least (numPixels-1)/2 zero bits
   } else if (_ledType == TYPE_LPD6803) {
-    const uint32_t n = (numPixels + 7) / 8;
-    for (uint32_t i = 0; i < n; i++) sendByte(0x00);
+    n = (numPixels + 7) / 8;   // LPD6803: one clock per pixel required, data low
   } else if (_ledType == TYPE_LPD8806) {
-    const uint32_t n = (numPixels + 31) / 32;
-    for (uint32_t i = 0; i < n; i++) sendByte(0xFF);
+    n = (numPixels + 31) / 32; // LPD8806: stop frame is ceil(N/32) 0xFF bytes according to NPB, there is no datasheet info
+    val = 0xFF;
   } else if (_ledType == TYPE_P9813) {
-    for (uint32_t i = 0; i < 4; i++) sendByte(0x00);
+    n = 4;                     // P9813: fixed 4 zero bytes.
   }
-  // TYPE_WS2801: nothing to send
+  for (uint32_t i = 0; i < n; i++) sendByte(val);
 }
 
 bool SpiBus::show() {
   if (!_initialized || !_encodeBuffer || _numPixels == 0) return false;
 
-  const uint8_t pixelBytes = _encoder.getPixelBytes();
+  const uint8_t pixelBytes = _encoder.getBytesPerPixel();
 
   if (_useHardware) {
     SPI.beginTransaction(SPISettings(_clockHz, MSBFIRST, SPI_MODE0)); // beginTransaction applies frequency, bit order, and SPI mode
@@ -228,26 +217,45 @@ bool SpiBus::show() {
       const size_t total = (size_t)_numPixels * wireBytes;
       for (size_t i = 0; i < total; i++) sendByte(src[i]);
     }
-    #ifdef WLED_DISABLE_GLOBAL_PIXELBUFFER
-    // Restore the compact layout so getPixelColor() and the next frame's getPixelColor() see the buffer in its normal encoded format.
-    // When the global _pixels[] buffer is disabled, this is necessary for all subsequent getPixelColor() calls. Still way faster than not doing full buffer encoding.
-    src = _encodeBuffer + 1; // skip header
+    // Always restore the compact layout: readback, clear, scaling, and the next
+    // frame must never depend on whether the global pixel buffer is enabled.
+    src = _encodeBuffer + 1;
     for (uint32_t i = 0; i < _numPixels; ++i) {
       uint8_t* dst = _encodeBuffer + (size_t)i * pixelBytes;
       for (uint8_t b = 0; b < pixelBytes; b++) dst[b] = src[b];
-      src += wireBytes; // move to next pixel
+      src += wireBytes;
     }
-    #endif
   } else {
-    // WS2801 / LPD8806 / LPD6803: raw encoded bytes, no per-pixel framing byte
-    uint8_t* src = _encodeBuffer;
-    if (_useHardware) {
-      SPI.writeBytes(src, pixelBytes*_numPixels);
-    }
-    else {
-      for (uint16_t i = 0; i < _numPixels; i++) {
-        for (uint8_t ch = 0; ch < pixelBytes; ch++) sendByte(src[ch]);
-        src += pixelBytes;
+    // WS2801 uses the compact encoded stream directly
+    // LPD6803 and LPD8806 require protocol-specific payload conversion in addition to their frames
+    // Note: custom color channels are not supported for clocked LED strips, only color ordering
+    sendStartFrame(_numPixels);
+    const uint8_t* src = _encodeBuffer;
+    if (_ledType != TYPE_LPD6803 && _ledType != TYPE_LPD8806) {
+      if (_useHardware) {
+        SPI.writeBytes(src, (size_t)pixelBytes * _numPixels);
+      } else {
+        for (size_t i = 0; i < (size_t)pixelBytes * _numPixels; ++i) sendByte(src[i]);
+      }
+    } else {
+      for (uint16_t i = 0; i < _numPixels; ++i, src += pixelBytes) {
+        uint8_t wire[3];
+        size_t wireLen;
+        if (_ledType == TYPE_LPD6803) {
+          // 16bit per pixel: RGB555, high byte first, highest bit is always set
+          const uint16_t color555 = 0x8000u | ((uint16_t)(src[0] & 0xF8) << 7) | ((uint16_t)(src[1] & 0xF8) << 2) | ((uint16_t)(src[2] & 0xF8) >> 3);
+          wire[0] = color555 >> 8;
+          wire[1] = color555 & 0xFF;
+          wireLen = 2;
+        } else {
+          // each chip has 6 channels, 7-bit colors, highest bit is always set. We send 3 bytes at a time. TODO: this may need refinement if there are strips with non-RGB encoding
+          wire[0] = (src[0] >> 1) | 0x80;
+          wire[1] = (src[1] >> 1) | 0x80;
+          wire[2] = (src[2] >> 1) | 0x80;
+          wireLen = 3;
+        }
+        if (_useHardware) SPI.writeBytes(wire, wireLen);
+        else for (size_t b = 0; b < wireLen; ++b) sendByte(wire[b]);
       }
     }
   }
@@ -262,7 +270,7 @@ bool SpiBus::show() {
 }
 
 bool SpiBus::canShow() const {
-  return true;
+  return true; // show() is synchronous so we are always ready to call it again
 }
 
 } // namespace WLEDpixelBus

@@ -1,4 +1,4 @@
-#pragma once
+﻿#pragma once
 #ifndef BusWrapper_h
 #define BusWrapper_h
 
@@ -215,11 +215,11 @@ inline void applyTypeFraming(WLEDpixelBus::BusProperties& props, uint8_t busType
     props.invertOutput = true;
   } else if (busType == TYPE_TM1914) {
     props.prefixLen = WLEDpixelBus::TM1914_PREFIX_LEN;
-    memcpy(props.prefixData, TM1914_PREFIX, sizeof(TM1914_PREFIX));
+    memcpy(props.prefixData, WLEDpixelBus::TM1914_PREFIX, sizeof(WLEDpixelBus::TM1914_PREFIX));
     props.invertOutput = true;
   } else if (busType == TYPE_SM16825) {
     props.suffixLen = WLEDpixelBus::SM16825_SUFFIX_LEN;
-    memcpy(props.suffixData, SM16825_SUFFIX, sizeof(SM16825_SUFFIX));
+    memcpy(props.suffixData, WLEDpixelBus::SM16825_SUFFIX, sizeof(WLEDpixelBus::SM16825_SUFFIX));
   }
 }
 
