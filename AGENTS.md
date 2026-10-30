@@ -114,9 +114,10 @@ main                # Main development trunk (daily/nightly) 17.0.0-devV5. Targe
 ### General
 
 - Follow the existing style in the file you are editing
-- Avoid unexplained "magic numbers". Prefer named constants (`constexpr`) or C-style `#define` constants for repeated numbers that have the same meaning
-- If possible, use `static` for local (C-style) variables and functions (keeps the global namespace clean)
-- When moving global items to another scope, do not leave comments such as `// lastMqttReconnectAttempt is now private to wled.cpp - see there`. These comments create technical debt for maintenance and will inevitably become out of date
+- Avoid unexplained "magic numbers". For repeated numbers that have the same meaning, prefer named constants (`constexpr`) or C-style `#define` constants.
+- If possible, **use `static` for local (C-style) variables and functions** to keep the global namespace clean
+- When moving global items to another scope, do not leave comments such as `// lastMqttReconnectAttempt is now private to wled.cpp - see there`. These comments create technical debt for maintenance and will inevitably become out of date. As a rule of thumb: **describe the code as it is, not the code as it was**.
+- Describe logic/reasoning behind non-standard patterns and complex solutions.
 
 ### Formatting
 - **2-space indentation** (no tabs in C++ files)
@@ -173,17 +174,20 @@ See docs/cpp.instructions.md section Error Handling for more information.
 - No VLAs — use fixed arrays or heap allocation
 - Call `reserve()` on strings/vectors to pre-allocate and avoid fragmentation
 
-#### ESP32 PSRAM guidelines
+### ESP32 PSRAM guidelines
 
-- **Check availability**: Test chip availability with `psramFound() && ESP.getPsramSize() > 0` before assuming PSRAM is present. Never rely on `BOARD_HAS_PSRAM`only.
-- **DMA compatibility**: on ESP32 (classic), PSRAM buffers are **not DMA-capable**. On ESP32-S3 with octal PSRAM (`CONFIG_SPIRAM_MODE_OCT`), PSRAM buffers *can* be used with DMA when `CONFIG_SOC_PSRAM_DMA_CAPABLE` is defined.
-- **Fragmentation**: PSRAM allocations fragment less than DRAM because the region is larger. But avoid mixing small and large allocations in PSRAM — small allocations waste the MMU page granularity.
-- **Performance**: Prefer DRAM (or IRAM) for hot-path data that is *frequently* used. Prefer PSRAM for capacity-oriented buffers where slightly slower access times can be tolerated.
+- **Check availability**: Use `psramFound() && ESP.getPsramSize() > 0`; never rely on `BOARD_HAS_PSRAM` alone.
+- **DMA**: Not possible on ESP32 classic. S3 can do it in hardware (see next bullet), but descriptors must stay in DRAM and bandwidth is poor while the CPU also uses PSRAM. Keeping DMA buffers in DRAM is usually better for performance.
+   - On ESP32-S3 with octal PSRAM (`CONFIG_SPIRAM_MODE_OCT`), PSRAM buffers *can* be used with DMA when `CONFIG_SOC_PSRAM_DMA_CAPABLE` is defined.
+- **Cache**: PSRAM shares the CPU cache with flash (~32 KB data cache by default). Hot working sets below that run near DRAM speed. Large or random-access buffers run at raw PSRAM speed, and big sweeps can evict cached code and slow down everything.
+- **Flash writes**: PSRAM is inaccessible while the flash cache is off. ISRs that run during flash writes must use only DRAM or IRAM data, and they must be declared with `IRAM_ATTR` so instructions don't  need to be fetched from flash while writing.
+- **Performance**: Prefer DRAM (or IRAM) for hot-path data that is *frequently* used. Prefer PSRAM for capacity-oriented buffers where slightly slower access times can be tolerated. Small hot working sets (<~32 KB) in PSRAM can run near DRAM speed, especially when accessed sequentially.
 
-Background Info:
+#### Background Info:
 
-- PSRAM access is up to 15× slower than DRAM on ESP32 (dual-SPI bus), 3–10× slower than DRAM on ESP32-S3/-S2 with quad-SPI bus. On ESP32-S3 with octal PSRAM (`CONFIG_SPIRAM_MODE_OCT`), the penalty is smaller (~2×) because the 8-line DTR bus can transfer 8 bits in parallel. On ESP32-P4 with hex PSRAM (`CONFIG_SPIRAM_MODE_HEX`), the 16-line bus runs at 200 MHz which brings it on-par with DRAM.
-- Caching files in PSRAM is usually not faster, because flash and PSRAM share the same SPI bus and often run at same speeds. Minor gains are still possible on ESP32-S3 when CONFIG_SOC_PSRAM_DMA_CAPABLE and CONFIG_SPIRAM_MODE_OCT are enabled. Better performance potential is expected on ESP32-P4 with CONFIG_SOC_MEMSPI_FLASH_PSRAM_INDEPENDENT. In special cases, file caching can still help by reducing interrupt contention (for example RMT refill pressure) and preventing visible LED flashing.
+- PSRAM access is up to 15× slower than DRAM on ESP32 (dual-SPI bus), 3–10× slower than DRAM on ESP32-S3/-S2 with quad-SPI bus. On ESP32-S3 with octal PSRAM (`CONFIG_SPIRAM_MODE_OCT`), the penalty is smaller (~2×) because the 8-line DTR bus can transfer 8 bits in parallel. On ESP32-P4 with hex PSRAM (`CONFIG_SPIRAM_MODE_HEX`), the 16-line bus runs at 200 MHz which brings it on-par with DRAM. These values are rough estimates only.
+- PSRAM uses the CPU data cache (typically ~32 KB) that is also shared with flash. Small hot working sets (<~32 KB) run near DRAM speed; larger or random-access buffers fall back to raw PSRAM speed, and big PSRAM sweeps can evict cached flash code and slow down everything else. Keep hot data in DRAM and use PSRAM for large buffers that are accessed sequentially (Espressif's ESP-IDF external RAM guide, "Restrictions").
+- Caching read-only files in PSRAM is usually not faster, because flash and PSRAM share the same SPI bus and often run at same speeds. Minor gains are still possible on ESP32-S3 when CONFIG_SOC_PSRAM_DMA_CAPABLE and CONFIG_SPIRAM_MODE_OCT are enabled. Better performance potential is expected on ESP32-P4 with CONFIG_SOC_MEMSPI_FLASH_PSRAM_INDEPENDENT. In special cases, file caching can still help by reducing interrupt contention (for example RMT refill pressure) and preventing visible LED flashing.
 - Consider that ESP32 often crashes when the largest available DRAM chunk gets below 10 KB.
 
 ### Preprocessor / Feature Flags
@@ -321,14 +325,14 @@ No automated linting is configured. Match existing code style in files you edit.
 - Verify feature-flag spelling exactly (misspellings are silently ignored by preprocessor).
 - Important: **Changes to `platformio.ini` require maintainer approval**!
 - PRs should respect `.gitignore` and not upload files like  `platformio_override.ini`. PR authors may add buildenv examples for custom boards into `platformio_override.ini.sample`.
-- **Highlight user-visible breaking changes and ripple effects** during reviews.
 - When updating an existing PR, retain the original description. Only modify it to ensure technical accuracy. Add change logs after the existing description.
 
 ### Pull Request Expectations
-- No force-push on open PRs!
-- Every pull request needs a clear description of what changed and why. If the change affects user-visible behavior, describe the expected impact. Link to related issues where applicable.
+- **No force-push** on open PRs!
+- Every pull request needs a **clear description of what changed and why**. If the change affects user-visible behavior, describe the expected impact. Link to related issues where applicable.
 - Best practice: Consider adding screenshots to showcase new features.
-- Do not prefix the PR title with `fix:`, `feat:` or other keywords meant to define the type of PR. Use combinations of labels (`bug`, `enhancement`, `effect`, `usermod`, `slop`, etc.) instead.
+- **Do not prefix the PR title** with `fix:`, `feat:`, `doc:` or other keywords meant to define the type of PR. Use combinations of labels (`bug`, `enhancement`, `effect`, `usermod`, `slop`, etc.) instead.
+- **Do not fix trailing whitespace** or perform pretty-formatting in unrelated code. Such fixes can lead to merge conflicts when other forks want to cherry-pick changes. A separate PR should be used for whitespace optimisation and pretty-formatting.
 - Important: **Fully or partially AI coded PRs MUST be declared clearly** in the description - in addition to comments markers in the source code (see Comments section).
 
 ### Security Hardening
@@ -340,14 +344,12 @@ multicast/broadcast, firewall-isolated deployment assumed).
 
 ### Attribution for AI-generated code
 
-Using AI-generated code can hide the source of the inspiration / knowledge / sources it used.
+Using AI-generated code can obscure the original source or logic of a solution. It may even create hidden licensing risks if sources cannot be verified independently.
 
-- Document attribution of inspiration / knowledge / sources used in the code, e.g. link to GitHub repositories or other websites describing the principles / algorithms used.
-- When a larger block of code is generated by an AI tool, embed it into `// AI: below section was generated by an AI` ... `// AI: end` comments (see Comments section).
-- Every non-trivial AI-generated function should have a brief comment describing what it does. Explain parameters when their names alone are not self-explanatory.
-- AI-generated code must be well documented with meaningful comments that explain intent, assumptions, and non-obvious logic. Do not rephrase source code; explain concepts and reasoning.
-
-
+- If your agent activity has referenced specific external sources (e.g., science papers, Wikipedia, or documentation) to derive the solution, include these references to allow for independent verification.
+- While standard coding patterns require no further explanation, please describe the logic or architectural reasoning behind any unconventional or complex solutions.
+- Use the required source code comment markers for non-trivial AI generated code blocks (see Comments section).
+- Every non-trivial AI-generated function should have a *brief* comment summarizing what it does. Explain parameters when their names alone are not self-explanatory. Do not rephrase source code; explain non-standard concepts and reasoning.
 
 ### Guardrails for Coding Agents
 
@@ -356,6 +358,7 @@ These apply to any coding agent (Copilot or otherwise) acting on a contributor's
 - **Confirm before you commit.** Make sure the human understands and can explain the change - especially root-cause claims or refactors - before you open a PR.
 - **Stay scoped, but don't dodge architecture.** Touch only what the task requires, and flag broader fixes to the human instead of silently expanding the change. But don't use "keep it minimal" as an excuse to avoid a needed core-level discussion - if the clean fix requires a new core capability or interface, say so and propose it, rather than bolting on a weak hook, monkey-patch, or board-specific workaround just to keep the diff small.
 - **Warning: avoid overconfident root-cause claims.** When drafting issue tickets or PR descriptions, don't state a root cause with confidence unless you've actually traced the code path or reproduced the failure. A plausible-sounding explanation is not the same as a verified one - overconfident claims that later "dissolve into nothing" under review waste maintainer time and damage trust in the whole PR. When in doubt, say so explicitly.
+- Claim calibration: Do not use 'proves' when the evidence only 'suggests'. Avoid making overly strong or overconfident claims such as 'qualified', 'fully validated' or 'production quality'. Use neutral wording to summarize what was actually tested.
 - **State what's tested.** Distinguish "verified" from "should work based on reading the code" in the PR description.
 - **Disclose AI involvement.** Declare AI assistance in the PR description.
 - **Let issues start non-technical.** When helping draft an issue or feature request, elicit the human's objective or observation in plain language first - don't lead with a proposed code path or fix. Maintainers are better positioned than you to map that objective onto a technical solution.
