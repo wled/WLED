@@ -495,6 +495,7 @@ namespace BusManager {
   void        clearPixels(size_t n); // zero all bus encode buffers for first n physical pixels
   void        show();
   bool        canAllShow();
+  void        blank();  // Set all pixels to black
   inline void setStatusPixel(uint32_t c) { for (auto &bus : busses) bus->setStatusPixel(c);}
   inline void setBrightness(uint8_t b)   { for (auto &bus : busses) bus->setBrightness(b); }
   // for setSegmentCCT(), cct can only be in [-1,255] range; allowWBCorrection will convert it to K

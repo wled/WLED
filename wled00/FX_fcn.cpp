@@ -1947,9 +1947,8 @@ void WS2812FX::show() {
     #endif
   }
 
-  // avoid race condition, capture _callback value
-  show_callback callback = _callback;
-  if (callback) callback(); // will call setPixelColor or setRealtimePixelColor
+  // Paint overlays in to pixel buffer
+  handleOverlayDraw();
 
   #ifndef WLED_DISABLE_GLOBAL_PIXELBUFFER
   while (!BusManager::canAllShow()) yield(); // wait for all buses to finish sending the previous frame
