@@ -1640,6 +1640,7 @@ typedef struct {
 static void mode_Pendulum(void) {
   ParticleSystem1D *PartSys = nullptr;
   PendulumData *pd = nullptr;
+  if (SEGLEN < 4) FX_FALLBACK_STATIC;
 
   if (SEGMENT.call == 0) {
     if (!initParticleSystem1D(PartSys, 0, 1, sizeof(PendulumData)))
