@@ -4,7 +4,7 @@
 
 Balls have a mass that is the cube of their diameter. Collisions conserve their energy and momentum as per the laws of physics.
 
-A Uniformity of 255 is special: The balls are initialized with equal mass in a row and only one moving. When it collides with another ball, all momentum is transferred to the next ball and it stops, much like the swinging ball puzzle in "Professor T".
+A Uniformity of 255 (100%) is special: The balls are initialized with equal mass in a row and only one moving. When it collides with another ball, all momentum is transferred to the next ball and it stops, much like the swinging ball puzzle in "Professor T".
 
 a few seconds before regenerating a new set, the wall sides "collapse" and the balls drift off the display.
 

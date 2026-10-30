@@ -7834,7 +7834,7 @@ static const char _data_FX_MODE_2DAKEMI[] PROGMEM = "Akemi@Color speed,Dance;Hea
 //  Xmas Twinkle       //
 /////////////////////////
 
-// Originally by Nick Pisarro, Jr. This version by DedeHai, and updatged by Nick.
+// Originally by Nick Pisarro, Jr. This version by DedeHai, and updated by Nick.
 
 // We need to keep data for each twinkle light. 8 bytes/light
 typedef struct {
@@ -7845,9 +7845,10 @@ typedef struct {
   uint32_t isOn : 1;
                                 //   7 bits available for future use.
 } TwinkleLight;
+#define MAX_TWINKLE (32768 / 8) // Don't exceed maximum allowable allocation.
 
 // Square a normalized value to skew toward smaller numbers
-int16_t skewedTime(uint16_t maxTime, uint16_t minTime = 200) {
+static int16_t skewedTime(uint16_t maxTime, uint16_t minTime = 200) {
   // Do things in the proper order so fixed arithmatic works.
   uint32_t rSqrd = hw_random8();              // 0-255
   rSqrd *= rSqrd;                             // 0-65,025
@@ -7856,7 +7857,7 @@ int16_t skewedTime(uint16_t maxTime, uint16_t minTime = 200) {
 }
 
 // Based on the speed, bias the maxtime toward faster or slower times.
-int16_t skewedMax()
+static int16_t skewedMax()
 {
   int32_t slowWeight = SEGMENT.speed;    // 0.0 - 1.0 as fixed Q24.8
   // ">> 9, below divides by 2 and converts Q24.8 to Q32.0.
@@ -7872,6 +7873,8 @@ void mode_XmasTwinkle(void) {
    */
 
   uint16_t numLights = max(1, (int)SEGLEN * SEGMENT.intensity / 255);
+  if (numLights > MAX_TWINKLE)     // Don't exceed 
+    numLights = MAX_TWINKLE;    // (Mmake sure they are evently distributed throughout the SEGMENT)
   uint16_t dataSize = sizeof(TwinkleLight) * numLights;
   
   if (!SEGENV.allocateData(dataSize)) return mode_static();
@@ -7879,7 +7882,7 @@ void mode_XmasTwinkle(void) {
 
   // Get the current time,  handling overflows.
   uint32_t lastTime = SEGMENT.step;
-  uint32_t currTime = millis();
+  uint32_t currTime = strip.now;
   if (currTime < lastTime)
     SEGMENT.step = lastTime = 0;
   
@@ -7893,7 +7896,7 @@ void mode_XmasTwinkle(void) {
       lights[i].isOn = false;
       lights[i].maxCycle = skewedMax();
       lights[i].nextEvent = skewedTime(lights[i].maxCycle);
-      lights[i].retwnkleTime = random(2, 20) * 1000;  // 2 - 20 seconds 1st time around
+      lights[i].retwnkleTime = hw_random16(2, 20) * 1000;  // 2 - 20 seconds 1st time around
     }
     SEGMENT.aux0 = numLights; // Mark as initialized
     SEGMENT.step = currTime;
@@ -7940,9 +7943,13 @@ void mode_XmasTwinkle(void) {
     int16_t cycleTime = light->retwnkleTime - interval;
     if (cycleTime <= 0 || SEGMENT.aux1 != SEGMENT.speed)
     {
+      int32_t prevMax = light->maxCycle;
       light->maxCycle = skewedMax();
       if (cycleTime <= 0)
         cycleTime += 20000;     // +20 seconds
+
+      // Adjust the remaining event time by the ratio of the new maxCycle / prevMax.
+      light->nextEvent = light->nextEvent * (int32_t)light->maxCycle / prevMax;
     }
     light->retwnkleTime = cycleTime;
   }
