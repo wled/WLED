@@ -205,8 +205,12 @@ inline void resolveChannelLayout(BusChannelLayout& ch, uint8_t busType, uint8_t 
   ch.trst = timing.reset_us;
 }
 
-// Resolve bc.channels from type + colorOrder (no-op when bc.channels.custom)
-inline void resolveBusConfigLayout(BusConfig& bc) { resolveChannelLayout(bc.channels, bc.type, bc.colorOrder); }
+// Resolve bc.channels from type + colorOrder (no-op when bc.channels.custom).
+// 2-pin (clocked) buses have a fixed wire format, so custom channel maps are cleared for them.
+inline void resolveBusConfigLayout(BusConfig& bc) {
+  if (busTypeIs2Pin(bc.type)) bc.channels.custom = false;
+  resolveChannelLayout(bc.channels, bc.type, bc.colorOrder);
+}
 
 // Type-derived hardware properties: prefix/suffix bytes and output inversion (special chip types only)
 inline void applyTypeFraming(WLEDpixelBus::BusProperties& props, uint8_t busType) {
@@ -275,6 +279,13 @@ class PixelBusAllocator {
     #else
     _bitBangBusType = 0; // TYPE_NONE
     WLEDpixelBus::BitBangBus::resetChannelTracking();
+    #endif
+  }
+
+  // RMT driver sizes its channel pool from this count, so it must be set before the RMT buses are constructed
+  static void setExpectedRmtChannelCount(uint8_t count) {
+    #ifndef ESP8266
+    WLEDpixelBus::RmtBus::setExpectedChannelCount(count);
     #endif
   }
 

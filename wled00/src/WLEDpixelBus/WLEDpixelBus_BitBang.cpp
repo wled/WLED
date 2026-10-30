@@ -70,12 +70,11 @@ BitBangBus::BBstate* BitBangBus::_bitBangState = nullptr;
 #endif
 
 // Constructor / Destructor
-BitBangBus::BitBangBus(int8_t pin, const LedTiming& timing, uint8_t colorOrder, uint8_t numChannels, uint8_t ledType)
+BitBangBus::BitBangBus(int8_t pin, const LedTiming& timing, uint8_t ledType)
   : _pin(pin)
   , _timing(timing)
   , _initialized(false)
 {
-  (void)colorOrder; (void)numChannels; // encoder is installed by createBus() from BusProperties
   _ledType = ledType;
 }
 
@@ -289,8 +288,7 @@ bool IRAM_ATTR __attribute__((noinline)) BitBangBus::outputParallel() {
 #ifdef ESP_HAS_HIGH_GPIO_BANK
     uint32_t zeroMaskLow = 0, zeroMaskHigh = 0;
     for (uint8_t ch = 0; ch < nCh; ++ch) {
-      if (byteIndex >= _bitBangState->encodeBufferSize[ch]
-          || !(_bitBangState->encodeBuffer[ch][byteIndex] & bitMask)) {
+      if (byteIndex >= _bitBangState->encodeBufferSize[ch] || !(_bitBangState->encodeBuffer[ch][byteIndex] & bitMask)) {
         zeroMaskLow |= chanPinMask[ch];
         zeroMaskHigh |= chanPinMaskHigh[ch];
       }
@@ -298,8 +296,7 @@ bool IRAM_ATTR __attribute__((noinline)) BitBangBus::outputParallel() {
 #else
     uint32_t zeroMask = 0;
     for (uint8_t ch = 0; ch < nCh; ++ch) {
-      if (byteIndex >= _bitBangState->encodeBufferSize[ch]
-          || !(_bitBangState->encodeBuffer[ch][byteIndex] & bitMask)) {
+      if (byteIndex >= _bitBangState->encodeBufferSize[ch] || !(_bitBangState->encodeBuffer[ch][byteIndex] & bitMask)) {
         zeroMask |= chanPinMask[ch];
       }
     }

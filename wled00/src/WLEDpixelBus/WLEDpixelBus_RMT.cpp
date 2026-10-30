@@ -40,14 +40,14 @@ uint8_t RmtBus::allocatedCount = 0;
 uint8_t RmtBus::currentChannelIndex = 0;
 uint8_t RmtBus::usedBlocks = 0;
 
-RmtBus::RmtBus(int8_t pin, const LedTiming& timing, uint8_t colorOrder, uint8_t numChannels, uint8_t ledType)
+RmtBus::RmtBus(int8_t pin, const LedTiming& timing, uint8_t ledType)
   : _pin(pin)
   , _channel(-1)
   , _initialized(false)
   , _driverInstalled(false)
   , _timing(timing)
 {
-  (void)colorOrder; (void)numChannels; // encoder is installed by createBus() from BusProperties
+  // encoder is installed by createBus() from BusProperties
   _ledType = ledType;
 }
 

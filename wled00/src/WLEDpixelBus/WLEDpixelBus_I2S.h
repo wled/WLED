@@ -179,7 +179,7 @@ private:
 
 class I2sBus : public PixelBus {
 public:
-  I2sBus(int8_t pin, const LedTiming& timing, uint8_t colorOrder, uint8_t numChannels, uint8_t busNum = 1, uint8_t ledType = 0, size_t numPixels = 0);
+  I2sBus(int8_t pin, const LedTiming& timing, uint8_t busNum = 1, uint8_t ledType = 0);
   ~I2sBus() override;
 
   bool begin() override;
@@ -202,4 +202,3 @@ private:
 
 } // namespace WLEDpixelBus
 #endif // WLEDPB_I2S_SUPPORT
-

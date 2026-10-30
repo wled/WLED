@@ -26,16 +26,7 @@ written by Damian Schneider @dedehai 2026
 namespace WLEDpixelBus {
 class BitBangBus : public PixelBus {
 public:
-  /**
-   * Construct a BitBang bus for one GPIO pin.
-   * @param pin         GPIO pin number (must be set in SOC_GPIO_VALID_OUTPUT_GPIO_MASK for this target)
-   * @param timing      LED protocol timing (from WLEDpixelBus_Timings)
-   * @param colorOrder  WLED colour-order byte
-   * @param numChannels Number of colour channels per LED (3 or 4)
-   * @param ledType     LED chip type constant (TYPE_*)
-   */
-  BitBangBus(int8_t pin, const LedTiming& timing, uint8_t colorOrder,
-             uint8_t numChannels, uint8_t ledType = 0);
+  BitBangBus(int8_t pin, const LedTiming& timing, uint8_t ledType = 0);
   ~BitBangBus() override;
 
   bool begin() override;

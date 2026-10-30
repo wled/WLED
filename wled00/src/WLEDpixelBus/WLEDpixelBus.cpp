@@ -47,7 +47,6 @@ TODO List
 - PARLIO uses software channel inversion, can we use GPIO inversion like in other drivers? code for testing is in place but commented out, see hwInit() in WLEDpixelBus_PARLIO.cpp
 - ESP8266 DMA output uses a slow path to scale and reset buffers, needs optimisation
 - the "non global buffer" path is not optimised, check if this path should not color-encode on the fly so reading buffer back is faster, then do an encode pass before sending
-- NCHF_INVERT flag is not really needed anymore, can just use hasInvertedChannels()
 - I2S bus and PARLIO use identical 4-step encoding, should use a common function. I2S 16-parallel out still is only used by I2S -> move to WLEDpixelBus.h
 - The 4-step helper functions in WLEDpixelBus_Timings.h should also be moved to WLEDpixelBus.h for common use just like the encoding functions
 - WLEDpixelBus_features.h now only contains current steps - should also be moved into WLEDpixelBus.h and removed
@@ -181,13 +180,11 @@ ColorEncoder::ColorEncoder(const uint8_t channelMap[MAX_CUSTOM_CHANNELS], uint8_
     // True custom map: use generic encodeGeneric() loop
     _idxR = _idxG = _idxB = _idxW = _idxCW = 0;
     flags |= NCHF_CUSTOM;
-    if (invertMask) flags |= NCHF_INVERT;
     _pixelFormat = numChannels | flags;
   }
 }
 
-// Generic encoder for non-fast-path cases: NCHF_INVERT, NCHF_CUSTOM,
-// and any 16-bit + invert combination.
+// Generic encoder for non-fast-path cases: NCHF_CUSTOM maps, and inverted channels (hasInvertedChannels()) in any bit mode
 void ColorEncoder::encodeGeneric(uint32_t c, const CctPixel& cct, uint8_t* out, uint8_t bri) const {
   const uint8_t flags     = _pixelFormat & 0xF0;
   const uint8_t wireBytes = _pixelFormat & 0x0F; // total bytes per pixel (numChannels * 2 for 16-bit, numChannels otherwise)
@@ -235,7 +232,7 @@ void ColorEncoder::encodeGeneric(uint32_t c, const CctPixel& cct, uint8_t* out, 
     }
   }
 
-  if (_invertMask == 0) return;
+  if (!hasInvertedChannels()) return;
   // Handle color inversion (per color channel)
   if (is16bit) {
     for (uint8_t i = 0; i < wireBytes / 2; i++) {
@@ -282,7 +279,7 @@ uint32_t ColorEncoder::decodeGeneric(const uint8_t* in) const {
     r = in[_idxR]; g = in[_idxG]; b = in[_idxB];
     if (wireBytes >= WB_RGBW) w = in[_idxW]; // WB_RGBW=RGBW, WB_CCT=CCT
   }
-  if (flags & NCHF_INVERT) {
+  if (hasInvertedChannels()) {
     if (_invertMask & (1u << _idxR)) r ^= 0xFF;
     if (_invertMask & (1u << _idxG)) g ^= 0xFF;
     if (_invertMask & (1u << _idxB)) b ^= 0xFF;
@@ -294,12 +291,13 @@ uint32_t ColorEncoder::decodeGeneric(const uint8_t* in) const {
 
 // create a 1-wire digital bus (RMT, I2S, ...)
 PixelBus* createBus(BusDriver driver, int8_t pin, const BusProperties& properties, uint8_t ledType, size_t numPixels) {
+  if (numPixels > UINT16_MAX) return nullptr;
   PixelBus* bus = nullptr;
   const LedTiming& timing = properties.timing;
   switch (driver) {
 #if defined(ARDUINO_ARCH_ESP32)
     case BusDriver::RMT:
-      bus = new RmtBus(pin, timing, 0, properties.numChannels, ledType);
+      bus = new RmtBus(pin, timing, ledType);
       break;
 
 #ifdef WLEDPB_I2S_SUPPORT
@@ -308,39 +306,39 @@ PixelBus* createBus(BusDriver driver, int8_t pin, const BusProperties& propertie
   #error C3 hardware does not support parallel I2S output and single channel output is not implemented, use WLEDPB_PARALLEL_SPI_SUPPORT instead
 #endif
 #if defined(CONFIG_IDF_TARGET_ESP32S2) || defined(CONFIG_IDF_TARGET_ESP32S3)
-      bus = new I2sBus(pin, timing, 0, properties.numChannels, 0, ledType, numPixels);
+      bus = new I2sBus(pin, timing, 0, ledType);
 #else
-      bus = new I2sBus(pin, timing, 0, properties.numChannels, 1, ledType, numPixels);
+      bus = new I2sBus(pin, timing, 1, ledType);
 #endif
       break;
 #endif
 
 #ifdef WLEDPB_PARALLEL_SPI_SUPPORT
     case BusDriver::SPI:
-      bus = new ParallelSpiBus(pin, timing, 0, properties.numChannels, ledType);
+      bus = new ParallelSpiBus(pin, timing, ledType);
       break;
 #endif
 #ifdef WLEDPB_PARLIO_SUPPORT
     case BusDriver::PARLIO:
       // ParlioBus registers itself with the shared ParlioBusContext singleton.
       // numPixels is used for DMA buffer sizing.
-      bus = new ParlioBus(pin, timing, 0, properties.numChannels, 0, ledType, numPixels);
+      bus = new ParlioBus(pin, timing, 0, ledType);
       break;
 #endif
 #if (WLED_MAX_BB_CHANNELS > 0)
     case BusDriver::BitBang:
-      bus = new BitBangBus(pin, timing, 0, properties.numChannels, ledType);
+      bus = new BitBangBus(pin, timing, ledType);
       break;
 #endif
 #elif defined(ESP8266)
     case BusDriver::UART:
-      bus = new Esp8266UartBus(pin, timing, 0, properties.numChannels, ledType);
+      bus = new Esp8266UartBus(pin, timing, ledType);
       break;
     case BusDriver::DMA:
-      bus = new Esp8266DmaBus(pin, timing, 0, properties.numChannels, ledType);
+      bus = new Esp8266DmaBus(pin, timing, ledType);
       break;
     case BusDriver::BitBang:
-      bus = new BitBangBus(pin, timing, 0, properties.numChannels, ledType);
+      bus = new BitBangBus(pin, timing, ledType);
       break;
 #endif
 
@@ -348,8 +346,8 @@ PixelBus* createBus(BusDriver driver, int8_t pin, const BusProperties& propertie
       return nullptr;
   }
 
+// we have a bus, set the parameters
   if (bus) {
-    if (numPixels > UINT16_MAX) { delete bus; return nullptr; }
     bus->setNumPixels((uint16_t)numPixels);
     bus->setPrefixLen(properties.prefixLen);
     bus->setPrefixData(properties.prefixData, properties.prefixLen);

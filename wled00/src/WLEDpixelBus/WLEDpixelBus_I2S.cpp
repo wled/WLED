@@ -858,7 +858,7 @@ void I2sBusContext::waitForIdle() {
 
 
 // I2sBus implementation
-I2sBus::I2sBus(int8_t pin, const LedTiming& timing, uint8_t colorOrder, uint8_t numChannels, uint8_t busNum, uint8_t ledType, size_t numPixels)
+I2sBus::I2sBus(int8_t pin, const LedTiming& timing, uint8_t busNum, uint8_t ledType)
   : _pin(pin)
   , _timing(timing)
   , _initialized(false)
@@ -866,9 +866,8 @@ I2sBus::I2sBus(int8_t pin, const LedTiming& timing, uint8_t colorOrder, uint8_t 
   , _channelIdx(-1)
   , _ctx(nullptr)
 {
-  (void)colorOrder; (void)numChannels; // encoder is installed by createBus() from BusProperties
+  // encoder is installed by createBus() from BusProperties
   _ledType = ledType;
-  _numPixels = numPixels; // stored so begin() can report srcBytes to the shared I2sBusContext for DMA sizing
 }
 
 I2sBus::~I2sBus() {

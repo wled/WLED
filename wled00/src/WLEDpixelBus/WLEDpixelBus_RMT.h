@@ -17,7 +17,7 @@ namespace WLEDpixelBus {
 
 class RmtBus : public PixelBus {
 public:
-  RmtBus(int8_t pin, const LedTiming& timing, uint8_t colorOrder, uint8_t numChannels, uint8_t ledType = 0);
+  RmtBus(int8_t pin, const LedTiming& timing, uint8_t ledType = 0);
   ~RmtBus() override;
 
   bool begin() override;

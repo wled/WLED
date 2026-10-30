@@ -174,7 +174,7 @@ private:
 
 class ParlioBus : public PixelBus {
 public:
-  ParlioBus(int8_t pin, const LedTiming& timing, uint8_t colorOrder, uint8_t numChannels, uint8_t busNum = 0, uint8_t ledType = 0, size_t numPixels = 0);
+  ParlioBus(int8_t pin, const LedTiming& timing, uint8_t busNum = 0, uint8_t ledType = 0);
   ~ParlioBus() override;
 
   bool begin() override;

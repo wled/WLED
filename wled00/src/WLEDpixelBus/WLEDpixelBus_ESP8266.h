@@ -17,7 +17,7 @@ namespace WLEDpixelBus {
 // ESP8266 UART Bus (Asynchronous via UART1/UART0)
 class Esp8266UartBus : public PixelBus {
 public:
-  Esp8266UartBus(int8_t pin, const LedTiming& timing, uint8_t colorOrder, uint8_t numChannels, uint8_t ledType = 0);
+  Esp8266UartBus(int8_t pin, const LedTiming& timing, uint8_t ledType = 0);
   ~Esp8266UartBus() override;
 
   bool begin() override;
@@ -63,7 +63,7 @@ struct SlcQueueItem {
 
 class Esp8266DmaBus : public PixelBus {
 public:
-  Esp8266DmaBus(int8_t pin, const LedTiming& timing, uint8_t colorOrder, uint8_t numChannels, uint8_t ledType = 0);
+  Esp8266DmaBus(int8_t pin, const LedTiming& timing, uint8_t ledType = 0);
   ~Esp8266DmaBus() override;
 
   bool begin() override;

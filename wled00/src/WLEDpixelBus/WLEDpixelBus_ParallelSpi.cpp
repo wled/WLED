@@ -589,14 +589,14 @@ bool ParallelSpiBusContext::startTransmit() {
 
 // ParallelSpiBus implementation
 // ------------------------------
-ParallelSpiBus::ParallelSpiBus(int8_t pin, const LedTiming& timing, uint8_t colorOrder, uint8_t numChannels, uint8_t ledType)
+ParallelSpiBus::ParallelSpiBus(int8_t pin, const LedTiming& timing, uint8_t ledType)
   : _pin(pin)
   , _timing(timing)
   , _initialized(false)
   , _channelIdx(-1)
   , _ctx(nullptr)
 {
-  (void)colorOrder; (void)numChannels; // encoder is installed by createBus() from BusProperties
+  // encoder is installed by createBus() from BusProperties
   _ledType = ledType;
 }
 

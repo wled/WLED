@@ -33,12 +33,15 @@ constexpr bool busTypeIsHub75(uint8_t type)     { return (type >= TYPE_HUB75MATR
 constexpr bool busTypeIs16bit(uint8_t type)     { return type == TYPE_UCS8903 || type == TYPE_UCS8904 || type == TYPE_SM16825; }
 constexpr bool busTypeMustRefresh(uint8_t type) { return type == TYPE_TM1814 || type == TYPE_TM1815; }
 constexpr int  busTypeNumPWMPins(uint8_t type)  { return (type - 40); }
-// credit @PaoloTK; for HUB75 the 5 slots store config params (panelW, panelH, chain, rows, cols), not GPIO pins
+
 constexpr size_t busTypeGetNumberOfPins(uint8_t type) {
+  // credit @PaoloTK; for HUB75 the 5 slots store config params (panelW, panelH, chain, rows, cols), not GPIO pins
   return busTypeIsVirtual(type) ? 4 : busTypeIsPWM(type) ? busTypeNumPWMPins(type) : busTypeIsHub75(type) ? 5 : busTypeIs2Pin(type) + 1;
 }
+
 constexpr size_t busTypeGetNumberOfChannels(uint8_t type) {
-  return (busTypeHasWhite(type) + 3*busTypeHasRGB(type) + busTypeHasCCT(type));
+  // fixed-map legacy types (1CH_X3, WWA) always drive 3 wire channels, see resolveChannelLayout()
+  return (type == TYPE_WS2812_1CH_X3 || type == TYPE_WS2812_WWA) ? 3 : (busTypeHasWhite(type) + 3*busTypeHasRGB(type) + busTypeHasCCT(type));
 }
 
 // Driver preference for digital LED buses: stored in BusConfig::driverType and BusDigital::_driverType

@@ -666,7 +666,7 @@ IRAM_ATTR bool ParlioBusContext::txDoneCallback(parlio_tx_unit_handle_t tx_unit,
 // ParlioBus implementation
 // ============================================
 
-ParlioBus::ParlioBus(int8_t pin, const LedTiming& timing, uint8_t colorOrder, uint8_t numChannels, uint8_t busNum, uint8_t ledType, size_t numPixels)
+ParlioBus::ParlioBus(int8_t pin, const LedTiming& timing, uint8_t busNum, uint8_t ledType)
   : _pin(pin)
   , _timing(timing)
   , _initialized(false)
@@ -674,9 +674,8 @@ ParlioBus::ParlioBus(int8_t pin, const LedTiming& timing, uint8_t colorOrder, ui
   , _channelIdx(-1)
   , _ctx(nullptr)
 {
-  (void)colorOrder; (void)numChannels; // encoder is installed by createBus() from BusProperties
+  // encoder is installed by createBus() from BusProperties
   _ledType = ledType;
-  _numPixels = numPixels; // stored so begin() can report srcBytes to the shared ParlioBusContext for DMA sizing
 }
 
 ParlioBus::~ParlioBus() {

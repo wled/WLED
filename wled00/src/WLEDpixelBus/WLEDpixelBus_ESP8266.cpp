@@ -33,7 +33,7 @@ namespace WLEDpixelBus {
 // Global static tracking for the shared UART ISR
 Esp8266UartBus* Esp8266UartBus::s_uartInstances[2] = {nullptr, nullptr};
 
-Esp8266UartBus::Esp8266UartBus(int8_t pin, const LedTiming& timing, uint8_t colorOrder, uint8_t numChannels, uint8_t ledType)
+Esp8266UartBus::Esp8266UartBus(int8_t pin, const LedTiming& timing, uint8_t ledType)
   : _pin(pin)
   , _timing(timing)
   , _initialized(false)
@@ -41,7 +41,7 @@ Esp8266UartBus::Esp8266UartBus(int8_t pin, const LedTiming& timing, uint8_t colo
   , _asyncBufEnd(nullptr)
   , _txStartMillis(0)
 {
-  (void)colorOrder; (void)numChannels; // encoder is installed by createBus() from BusProperties
+  // encoder is installed by createBus() from BusProperties
   _ledType = ledType;
 }
 
@@ -205,7 +205,7 @@ bool Esp8266UartBus::canShow() const {
 // --------------------------------------------
 Esp8266DmaBus* Esp8266DmaBus::s_dmaInstance = nullptr;
 
-Esp8266DmaBus::Esp8266DmaBus(int8_t pin, const LedTiming& timing, uint8_t colorOrder, uint8_t numChannels, uint8_t ledType)
+Esp8266DmaBus::Esp8266DmaBus(int8_t pin, const LedTiming& timing, uint8_t ledType)
   :  _pin(pin)
   , _timing(timing)
   , _initialized(false)
@@ -218,7 +218,7 @@ Esp8266DmaBus::Esp8266DmaBus(int8_t pin, const LedTiming& timing, uint8_t colorO
   , _idleBuf(nullptr)
   , _idleBufSize(0)
 {
-  (void)colorOrder; (void)numChannels; // encoder is installed by createBus() from BusProperties
+  // encoder is installed by createBus() from BusProperties
   _ledType = ledType;
 }
 

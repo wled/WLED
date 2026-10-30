@@ -72,9 +72,8 @@ static_assert(DEFAULT_DMA_BUFFER_SIZE <= 4092, "DEFAULT_DMA_BUFFER_SIZE exceeds 
 
 // packed into ColorEncoder::_pixelFormat: upper nibble = flags
 static constexpr uint8_t NCHF_16BIT  = 0x10; // 16-bit per color (UCS8903/8904/SM16825)
-static constexpr uint8_t NCHF_INVERT = 0x20; // one or more channels polarity-inverted (_invertMask applies)
 static constexpr uint8_t NCHF_CUSTOM = 0x40; // custom channel map: _channelMap[] drives encoding
-// 0x80 reserved
+// 0x20 and 0x80 reserved
 
 // Maximum number of color channels in custom channel map (ColorEncoder::_channelMap[]).
 static constexpr uint8_t MAX_CUSTOM_CHANNELS = 6; // note: changing this wont propagate, currently ICs with more than 6 channels are not supported
@@ -255,8 +254,8 @@ public:
   bool    isCustom()            const { return (_pixelFormat & NCHF_CUSTOM) != 0; } // true for non-permutation custom channel maps
 
 private:
-  uint8_t _pixelFormat; // lower nibble = bytes per pixel, upper nibble = NCHF_ flags (invert, 16-bit, custom)
-  uint8_t _invertMask;  // bitmask: bit i = invert color i (applies when NCHF_INVERT or NCHF_CUSTOM set)
+  uint8_t _pixelFormat; // lower nibble = bytes per pixel, upper nibble = NCHF_ flags (16-bit, custom)
+  uint8_t _invertMask;  // bitmask: bit i = invert color channel i (applies when hasInvertedChannels())
   uint8_t _idxR, _idxG, _idxB;  // wire byte index for R, G, B
   uint8_t _idxW, _idxCW;        // wire byte index for W (or WW) and CW (CCT types)
   uint8_t _channelMap[MAX_CUSTOM_CHANNELS]; // custom channel map: _channelMap[i] = ChannelSource for wire byte i

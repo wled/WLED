@@ -155,7 +155,6 @@ class Bus {
     inline  void     setStart(uint16_t start)                   { _start = start; }
     inline  void     setAutoWhiteMode(uint8_t m)                { if (m < 5) _autoWhiteMode = m; }
     inline  uint8_t  getAutoWhiteMode() const                   { return _autoWhiteMode; }
-    inline  size_t   getNumberOfChannels() const                { return hasWhite() + 3*hasRGB() + hasCCT(); }
     inline  uint16_t getStart() const                           { return _start; }
     inline  uint8_t  getType() const                            { return _type; } // 7-bit bus index, highest bit is "off refresh"
     inline  bool     isOk() const                               { return _valid; }
@@ -482,6 +481,7 @@ namespace BusManager {
   void            applyABL();                   // apply automatic brightness limiter, global or per bus
 
     bool allocateHardware(uint8_t busType, const uint8_t* pins, uint8_t& driverType); // workaround to access PolyBus function
+    void setExpectedRmtChannelCount(uint8_t count);
 
   //do not call this method from system context (network callback)
   void removeAll();

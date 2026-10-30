@@ -96,7 +96,7 @@ private:
  // SPI parallel output bus
 class ParallelSpiBus : public PixelBus {
 public:
-  ParallelSpiBus(int8_t pin, const LedTiming& timing, uint8_t colorOrder, uint8_t numChannels, uint8_t ledType = 0);
+  ParallelSpiBus(int8_t pin, const LedTiming& timing, uint8_t ledType = 0);
   ~ParallelSpiBus() override;
 
   bool begin() override;
