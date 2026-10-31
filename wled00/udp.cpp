@@ -976,8 +976,9 @@ void espNowReceiveCB(uint8_t* address, uint8_t* data, uint8_t msgLen, signed int
   DEBUG_PRINTF_P(PSTR("ESP-NOW packet received: %d (%d/%d) s:[%d/%d]\n"), (int)buffer->packet, (int)packetsReceived, (int)buffer->noOfPackets, (int)segsReceived, MAX_NUM_SEGMENTS);
   if (packetsReceived >= buffer->noOfPackets) {
     // last packet received
-    if (segsReceived < udpIn[39] || udpIn[11] < 10) { // packet version must be > 9 - esp-now sync was introduced in WLED 0.15.0
-      DEBUG_PRINTLN(F("ESP-NOW ignoring invalid or incomplete message."));
+    udpIn[39] = min(size_t(udpIn[39]), size_t(MAX_NUM_SEGMENTS)); // fix segment count - the esp-now receiver drops segments above MAX_NUM_SEGMENTS
+    if (udpIn[11] < 10) { // packet version must be > 9 - esp-now sync was introduced in WLED 0.15.0
+      DEBUG_PRINTLN(F("ESP-NOW ignoring invalid message."));
     } else {
       if (millis() - lastProcessed > 250) {
         DEBUG_PRINTLN(F("ESP-NOW processing complete message."));
