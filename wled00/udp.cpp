@@ -214,6 +214,16 @@ static void parseNotifyPacket(const uint8_t *udpIn, size_t bufSize) {
   byte version = udpIn[11];
   DEBUG_PRINTF_P(PSTR("UDP packet version: %d\n"), (int)version);
   if ((version < 1) || (version > 127)) return; // reject ancient formats used before WLED 0.4, and impossible versions like "-1"
+  // Check for minimal buffer sizes needed to parse historical versions
+  if (version == 2  && bufSize < 16) return;
+  if (version == 3  && bufSize < 17) return;
+  if (version == 4  && bufSize < 19) return;
+  if (version == 5  && bufSize < 20) return;
+  if (version > 5   && version < 8 && bufSize < 29) return;
+  if (version == 8  && bufSize < 36) return;
+  if (version == 9  && bufSize < 37) return;
+  if (version > 9   && bufSize < 39) return;
+  // versions > 10 have variable size, depending on number of segments on the sender's side
 
   // if we are not part of any sync group ignore message
   if (version < 9) {
