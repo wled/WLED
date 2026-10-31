@@ -223,6 +223,7 @@ static void parseNotifyPacket(const uint8_t *udpIn, size_t bufSize) {
   if (version == 8  && bufSize < 36) return;
   if (version == 9  && bufSize < 37) return;
   if (version > 9   && bufSize < 39) return;
+  if (version > 10  && bufSize < 41) return;
   // versions > 10 have variable size, depending on number of segments on the sender's side
 
   // if we are not part of any sync group ignore message
