@@ -86,6 +86,7 @@ bool SpiBus::begin() {
 }
 
 void SpiBus::end() {
+  if (!_initialized) return;
   if (_useHardware) {
     SPI.end();
   }

@@ -138,7 +138,7 @@ private:
   size_t _bufferSize;      // actual allocated DMA buffer size (per buffer)
   size_t _maxSrcBytes;     // max source (encoded pixel) bytes across all registered channels; drives DMA sizing
   bool _dmaAllocated;
-  volatile uint16_t _resetBytesLeft;
+  volatile size_t _resetBytesLeft;
 
 #if WLEDPB_PARLIO_SEAMLESS_DMA
   // GDMA channel borrowed from the PARLIO unit (owned and deleted by the IDF driver) + our circular descriptor ring

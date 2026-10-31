@@ -121,7 +121,7 @@ bool BitBangBus::begin() {
   uint32_t t1h    = (_timing.t1h_ns  * cpuMHz) / 1000u;
   t0h             = (t0h    > lo) ? t0h    - lo : 0u;
   t1h             = (t1h    > lo) ? t1h    - lo : 0u;
-  uint32_t period = (_timing.bitPeriod() * cpuMHz) / 1000u;
+  uint32_t period = (((uint32_t)_timing.t0h_ns + _timing.t0l_ns) * cpuMHz) / 1000u; // derive the period from the "0" bit
   period          = (period > lo) ? period - lo : 0u;
  // max time allowed before we assume a latch, use half the reset period.
  // Note: there are strips that latch after just ~10us maybe even less, users can customize this period and set it to 10us if there are issues.

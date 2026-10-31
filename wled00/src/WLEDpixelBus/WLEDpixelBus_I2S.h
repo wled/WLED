@@ -153,7 +153,7 @@ private:
   size_t _maxSrcBytes;     // max source (encoded pixel) bytes across all registered channels; drives DMA sizing
   bool _dmaAllocated;      // true when DMA buffers are allocated and reflect current _maxSrcBytes
   volatile uint8_t _lastFilled;       // last DMA buffer that was refilled; next to refill is (_lastFilled + 1) % COUNT
-  volatile uint16_t _resetBytesLeft;
+  volatile size_t _resetBytesLeft;
   volatile uint32_t _txStartMillis;   // millis() when the current transfer started, watchdog for canShow() and show()
 
   LedTiming _timing;

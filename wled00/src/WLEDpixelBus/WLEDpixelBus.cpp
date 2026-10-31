@@ -41,7 +41,7 @@ TODO List
 - use chip capabilities instead of individual target ifdefs in buswrapper
 - SM16825_SUFFIX should be made dynamic to increase color range at lower brightness (scale with global brightness)
 - The config rework is unfinished: with the updated workflow the goal is to fully drop "custom" bus handling and tread every bus the same (UI needs rework to do that) -> done now, needs testing and refinement
-- RMT driver uses stock encoders (could maybe be made faster using custom ones); needs more testing
+- RMT driver has no canShow() timeout yet, could adopt the "ensureIdle()" approach from I2S/PARLIO
 - the bus capability definitions in const.h should probably be moved to driver level or use driver level constants instead of "overriding" low level hardware capabilities
 - LPD6803 and LPD8806 encoding is done on RGB only, need to add support for more color channels if such stripes exist
 - PARLIO uses software channel inversion, can we use GPIO inversion like in other drivers? code for testing is in place but commented out, see hwInit() in WLEDpixelBus_PARLIO.cpp

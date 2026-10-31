@@ -360,7 +360,7 @@ void IRAM_ATTR ParlioBusContext::_processChunkEof() {
 // Fallback: single full-frame buffer, one transaction per frame
 bool IRAM_ATTR ParlioBusContext::_queueBuffer(uint8_t bufIdx) {
   parlio_transmit_config_t trans_config = {
-    .idle_value = _invertMask // hold lines at the reset level after the transaction (remove field if your IDF lacks it)
+    .idle_value = 0 // GPIO matrix inversion applies to the idle level too
   };
   // note: payload size is in BITS, not bytes
   return parlio_tx_unit_transmit(_txUnit, _dmaBuffer[bufIdx], _txLen[bufIdx] * 8, &trans_config) == ESP_OK;
@@ -630,7 +630,7 @@ bool ParlioBusContext::hwStartTransfer() {
   }
 
   // mirror the IDF driver's transaction start sequence, minus the descriptor remount (the ring stays linked)
-  parlio_ll_tx_set_idle_data_value(PARLIO_HW, _invertMask); // park lines at the reset level when idle
+  parlio_ll_tx_set_idle_data_value(PARLIO_HW, 0); // GPIO matrix inversion applies to the idle level too
   parlio_ll_tx_reset_fifo(PARLIO_HW);
   parlio_ll_tx_reset_clock(PARLIO_HW);
   parlio_ll_tx_set_trans_bit_len(PARLIO_HW, firstChunk * 8);
