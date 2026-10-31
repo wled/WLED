@@ -267,7 +267,8 @@ static void parseNotifyPacket(const uint8_t *udpIn, size_t bufSize) {
     size_t inactiveSegs = 0;
     for (size_t i = 0; i < numSrcSegs && i < WS2812FX::getMaxSegments(); i++) {
       unsigned ofs = 41 + i*udpIn[40]; //start of segment offset byte
-      if (ofs + 36 > bufSize) break; // avoid reading outside of array
+      if ((version == 11) && (ofs + 28 > bufSize)) break; // avoid reading outside of array (packet version == 11)
+      if ((version > 11)  && (ofs + 36 > bufSize)) break; // avoid reading outside of array (packet version > 11)
       unsigned id = udpIn[0 +ofs];
       DEBUG_PRINTF_P(PSTR("UDP segment received: %u\n"), id);
       if      (id >  strip.getSegmentsNum()) break;
