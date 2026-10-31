@@ -198,6 +198,7 @@ BusDigital::BusDigital(const BusConfig &bc)
     }
     _busPtr = PixelBusAllocator::create(_protocolType, _pins, lenToCreate + _skip, bc.colorOrder, _driverType, bc.busSpeedFactor, _frequencykHz, &_busProperties);
     applyChannelCapabilities(_busProperties.channelMap, _busProperties.numChannels);
+    if (_hasWhite) _autoWhiteMode = bc.autoWhite;
     // A custom map can still use ColorOrderMap when it is the saved color-order permutation. Anything else cannot.
     colorOrderMapApplies = !bc.channels.custom ? !legacyHasFixedChannelMap(_protocolType) : legacyChannelMapMatchesColorOrder(_busProperties, _colorOrder, _protocolType);
   } else {
@@ -1473,12 +1474,20 @@ static String LEDTypesToJson(const std::vector<LEDType>& types) {
     int capabilities = Bus::hasRGB(type.id) | Bus::hasWhite(type.id)<<1 | Bus::hasCCT(type.id)<<2 | Bus::is16bit(type.id)<<4 | Bus::mustRefresh(type.id)<<5;
     char str[256];
     WLEDpixelBus::LedTiming timing = WLEDpixelBus::getLedTiming(type.id);
-    sprintf_P(str, PSTR("{i:%d,c:%d,t:\"%s\",n:\"%s\",t0h:%u,t0l:%u,t1h:%u,t1l:%u,trst:%u},"),
+    sprintf_P(str, PSTR("{i:%d,c:%d,t:\"%s\",n:\"%s\",t0h:%u,t0l:%u,t1h:%u,t1l:%u,trst:%u"),
               type.id, capabilities, type.type, type.name,
               (unsigned)timing.t0h_ns, (unsigned)timing.t0l_ns,
               (unsigned)timing.t1h_ns, (unsigned)timing.t1l_ns,
               (unsigned)timing.reset_us);
     json += str;
+    if (Bus::isDigital(type.id) && !Bus::is2Pin(type.id)) {
+      BusChannelLayout layout;
+      resolveChannelLayout(layout, type.id, COL_ORDER_GRB);
+      json += F(",cm:\"");
+      for (uint8_t i = 0; i < layout.numChannels; i++) json += char('0' + layout.channelMap[i]);
+      json += layout.invertOutput ? F("\",io:1") : F("\",io:0");
+    }
+    json += F("},");
   }
   return json;
 }

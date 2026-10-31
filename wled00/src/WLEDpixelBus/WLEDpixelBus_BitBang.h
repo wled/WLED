@@ -46,7 +46,7 @@ private:
   LedTiming _timing;
   bool      _initialized = false;
 
-  // Shared state (one context for ALL BitBangBus instances), all timings must be the same (enforced by PixelBusAllocator).
+  // Shared state (one context for ALL BitBangBus instances); timing is set by the first channel.
   struct BBstate {
     const uint8_t* encodeBuffer[WLED_MAX_BB_CHANNELS]; // encoded color data to be sent out
     size_t        encodeBufferSize[WLED_MAX_BB_CHANNELS];

@@ -231,8 +231,20 @@ inline void applyTypeFraming(WLEDpixelBus::BusProperties& props, uint8_t busType
 // Note: all (or most) of the above legacy handling could be removed if the full bus properties were stored in config (and also handed down from the UI)
 inline WLEDpixelBus::BusProperties makeBusProperties(const BusChannelLayout& layout, uint8_t protocolType) {
   WLEDpixelBus::BusProperties props;
-  props.numChannels = layout.numChannels;
+  props.numChannels = layout.numChannels <= WLEDpixelBus::MAX_CUSTOM_CHANNELS ? layout.numChannels : WLEDpixelBus::MAX_CUSTOM_CHANNELS;
   memcpy(props.channelMap, layout.channelMap, sizeof(props.channelMap));
+  // convert WW/CW to W if only one is present (WW or CW are only calculated for CCT, a single WW channel is never set)
+  bool hasWW = false, hasCW = false;
+  for (uint8_t i = 0; i < props.numChannels; i++) {
+    hasWW |= props.channelMap[i] == WLEDpixelBus::CH_WW;
+    hasCW |= props.channelMap[i] == WLEDpixelBus::CH_CW;
+  }
+  if (hasWW != hasCW) {
+    for (uint8_t i = 0; i < props.numChannels; i++) {
+      if (props.channelMap[i] == WLEDpixelBus::CH_WW || props.channelMap[i] == WLEDpixelBus::CH_CW)
+        props.channelMap[i] = WLEDpixelBus::CH_W;
+    }
+  }
   props.invertMask = layout.invertMask;
   props.is16bit = layout.is16bit;
   props.invertOutput = layout.invertOutput;

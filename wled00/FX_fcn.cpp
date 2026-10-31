@@ -1331,19 +1331,22 @@ void WS2812FX::finalizeInit() {
   _hasWhiteChannel = _isOffRefreshRequired = false;
   BusManager::removeAll();
   // TODO: ideally we would free everything segment related here to reduce fragmentation (pixel buffers, ledamp, segments, etc) but that somehow leads to heap corruption if touchig any of the buffers.
-  // First assign driver types (RMT/I2S/... channels) for all buses before any are constructed,
-  // because parallel buses interact during channel assignment. If hardware allocation fails
-  // (no free channels), the bus is still constructed below and will fail initialization;
-  // BusManager::add() then replaces it with a BusPlaceholder.
+  // First assign driver types (RMT/I2S/... channels) for all buses before any are constructed. If hardware allocation fails
+  // (no free channels, no fallback) the bus is still constructed below and might fail construction.
+  // BusManager::add() replaces failed buses with a BusPlaceholder, edge cases of bad configs can slip through.
   #if defined(ARDUINO_ARCH_ESP32)
   unsigned rmtBusCount = 0;
   unsigned parHwBusCount = 0; // used for debug print only
   #endif
   for (auto &bus : busConfigs) {
-    BusManager::allocateHardware(bus.type, bus.pins, bus.driverType); // TODO: if no bus type can be allocated, this returns false, could fallback to placeholder
+    if (!Bus::isDigital(bus.type)) continue;
+    if (!BusManager::allocateHardware(bus.type, bus.pins, bus.driverType)) {
+      DEBUG_PRINTLN(F("Bus driver allocation failed."));
+      continue; // TODO: avoid constructing this bus when no driver could be allocated?
+    }
     #if defined(ARDUINO_ARCH_ESP32)
     // Count buses that will occupy an RMT channel (driverType is final after allocateHardware())
-    if (Bus::isDigital(bus.type) && !Bus::is2Pin(bus.type)) {
+    if (!Bus::is2Pin(bus.type)) {
       if (bus.driverType == BUSDRV_RMT) rmtBusCount++;
       else if (bus.driverType == BUSDRV_PARHW) parHwBusCount++; // parallel bus: I2S/LCD/SPI/PARLIO depending on chip (hardware driven, not BB)
     }
@@ -1369,14 +1372,18 @@ void WS2812FX::finalizeInit() {
     Bus *bus = BusManager::getBus(i);
     if (!bus || bus->getStart() + bus->getLength() > MAX_LEDS) break;
     if (!bus->isOk()) continue; // placeholder bus (failed init) — skip but keep initializing remaining buses
+    // This must be done after all buses have been created, as parallel buses interact.
+    bus->begin();
+    if (!bus->isOk()) {
+      DEBUG_PRINTF_P(PSTR("Bus %u failed hardware initialization.\n"), (unsigned)i);
+      continue; // TODO: preserve the original configuration when late initialization fails?
+    }
     //RGBW mode is enabled if at least one of the strips is RGBW
     _hasWhiteChannel |= bus->hasWhite();
     //refresh is required to remain off if at least one of the strips requires the refresh.
     _isOffRefreshRequired |= bus->isOffRefreshRequired() && !bus->isPWM(); // use refresh bit for phase shift with analog
     unsigned busEnd = bus->getStart() + bus->getLength();
     if (busEnd > _length) _length = busEnd;
-    // This must be done after all buses have been created, as some kinds (parallel I2S) interact
-    bus->begin();
     bus->setBrightness(scaledBri(bri));
   }
   BusManager::initializeABL(); // init brightness limiter

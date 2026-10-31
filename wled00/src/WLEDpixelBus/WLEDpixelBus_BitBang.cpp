@@ -128,8 +128,6 @@ bool BitBangBus::begin() {
   //      if the reset period is set to 0, interrupts are disabled
   uint32_t resetus = _timing.reset_us < 10 ? 10 : _timing.reset_us; // note: below 10us the output will starve due to short interrupts
   const uint32_t latchCycles = resetus * cpuMHz;
-  if (_timing.reset_us > 0) _bitBangState->allowInterrupts = true;
-  else _bitBangState->allowInterrupts = false; // disable interrupt polling if set to zero
 
   // Register in the shared static table
   const uint8_t idx  = _bitBangState->channelCount;
@@ -158,13 +156,16 @@ bool BitBangBus::begin() {
 #endif
 
   // Publish per-channel data pointers into the shared static arrays.
-  // Timing is set here (same for all channels; overwriting with same values is harmless).
   _bitBangState->encodeBuffer[idx] = _encodeBuffer;
   _bitBangState->encodeBufferSize[idx] = _encodeBufferSize;
-  _bitBangState->t0h             = t0h;
-  _bitBangState->t1h             = t1h;
-  _bitBangState->period          = period;
-  _bitBangState->latchCycles     = latchCycles;
+  // The first successfully initialized channel sets the timing for all channels.
+  if (idx == 0) {
+    _bitBangState->t0h = t0h;
+    _bitBangState->t1h = t1h;
+    _bitBangState->period = period;
+    _bitBangState->latchCycles = latchCycles;
+    _bitBangState->allowInterrupts = _timing.reset_us > 0;
+  }
 
   _initialized = true;
   return true;

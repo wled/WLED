@@ -6,7 +6,7 @@
 	<title>LED Settings</title>
 	<style> html { visibility: hidden; } </style> <!-- prevent white & ugly display while loading, unhidden in loadResources() -->
 	<script>
-		var maxD=1,maxPARHW=0,maxRMT=0,maxBB=0,maxA=1,chipID=0,maxM=4000,maxPB=2048,maxL=1664,maxCO=5,maxBT=4,dmaDef=2048,dmaLcd=2048,dmaSpi=1024; // limits and constants (updated in bLimits())
+		var maxD=1,maxPARHW=0,maxRMT=0,maxBB=0,maxA=1,chipID=0,maxM=4000,maxPB=2048,maxL=1664,maxCO=5,maxBT=4,dmaDef=2048; // limits and constants (updated in bLimits())
 		var hasPSRAM=false; // set from /json/info on page load
 		var customStarts=false,startsDirty=[];
 		function off(n)    { let el = gN(n); freePin(parseInt(el.value)); el.value = -1; pinDropdowns(); }
@@ -37,30 +37,36 @@
 				if (d.Sf["CBb"+n]?.checked) nch *= 2;
 				return nch;
 			}
-			let ch = fixedMap(t)?.length ?? (3*hasRGB(t) + hasW(t) + hasCCT(t));
+			let ch = gT(t).cm?.length ?? (3*hasRGB(t) + hasW(t) + hasCCT(t));
 			if (is16b(t)) ch *= 2;
 			return ch;
 		}
 		// pre-fill the channel-map override with the native layout of type t (called when "Customize" is first checked or the type changes)
 		function presetCustomDefaults(n, t) {
-			const order = ["GRB","RGB","BRG","RBG","BGR","GBR"][parseInt(d.Sf["CO"+n]?.value) || 0];
-			const colorVal = {R:1, G:2, B:3};
-			let map = [];
-			if (hasRGB(t)) map = order.split("").map(l => colorVal[l]);
-			if (hasCCT(t)) map.push(5,6);       // WW, CW
-			else if (hasW(t)) map.push(4);      // W (only when no CCT)
-			let nch = 3*hasRGB(t) + hasW(t) + hasCCT(t); // note: can not use getChannels as custom bus is now checked, we want the defaults not the (old) custom ones
-			const fm = fixedMap(t);
-			if (fm) { map = fm.slice(); nch = fm.length; } // fixed-map types (X3, WWA) ignore the color flags
-			map.length = nch; // trim/pad to exact channel count
+			const type = gT(t);
+			let map = Array.from(type.cm, Number);
+			if (!fixedMap(t)) {
+				let perm = [[1,2,3],[2,1,3],[1,3,2],[3,1,2],[2,3,1],[3,2,1]][parseInt(d.Sf["CO"+n]?.value) || 0];
+				let content = [0, ...perm, 4, 5, 6];
+				let swap = parseInt(d.Sf["WO"+n]?.value) || 0;
+				if (map.length < 5 && swap >= 1 && swap <= 3) {
+					let other = 4 - swap;
+					[content[4], content[other]] = [content[other], content[4]];
+				} else if (map.length >= 5 && swap === 4) {
+					[content[5], content[6]] = [content[6], content[5]];
+				}
+				map = map.map(c => content[c]);
+			}
+			let nch = map.length;
 			if (d.Sf["CBch"+n]) d.Sf["CBch"+n].value = nch;
 			for (let ci = 0; ci < 6; ci++) {
 				let sel = d.Sf["CBc"+ci+n];
 				if (sel) sel.value = ci < map.length ? map[ci] : 0;
 			}
 			if (d.Sf["CBb"+n]) d.Sf["CBb"+n].checked = is16b(t);
+			if (d.Sf["CBio"+n]) d.Sf["CBio"+n].checked = !!type.io;
+			for (let ci = 0; ci < 6; ci++) if (d.Sf["CBi"+ci+n]) d.Sf["CBi"+ci+n].checked = false;
 			// apply native timing defaults from firmware metadata
-			const type = gT(t);
 			if (type) {
 				if (d.Sf["CBt0h"+n]) d.Sf["CBt0h"+n].value = type.t0h || 300;
 				if (d.Sf["CBt0l"+n]) d.Sf["CBt0l"+n].value = type.t0l || 900;
@@ -68,6 +74,13 @@
 				if (d.Sf["CBt1l"+n]) d.Sf["CBt1l"+n].value = type.t1l || 500;
 				if (d.Sf["CBrst"+n]) d.Sf["CBrst"+n].value = type.trst || 300;
 			}
+		}
+		// check if custom bus has white channel  TODO: should remove hasW() or better make this into hasW()
+		function busHasWhite(n, t) {
+			if (!isCst(n)) return hasW(t);
+			const count = Number(d.Sf["CBch"+n].value);
+			for (let i=0; i<count; i++) if (Number(d.Sf["CBc"+i+n].value) >= 4) return true;
+			return false;
 		}
 		// iterate every configured LED bus: fn(n, t, sel, idx)
 		function forEachBus(fn) {
@@ -105,15 +118,6 @@
 				d.Sf.addEventListener("submit", trySubmit);
 				if (d.um_p[0]==-1) d.um_p.shift();
 				fetchPinInfo(pinDropdowns);
-				// Populate per-bus Bus Speed Factor (bsf) from server config if present
-				try {
-					if (d && d.hw && d.hw.led && Array.isArray(d.hw.led.ins)) {
-						d.hw.led.ins.forEach((v,i)=>{
-							let el = d.getElementsByName("SF"+i)[0];
-							if (el) el.value = (typeof v.bsf !== 'undefined') ? (v.bsf || 100) : 100;
-						});
-					}
-				} catch(e) {}
 				// initialize UI after populating values
 				UI();
 			});	// If we set async false, file is loaded and executed, then next statement is processed
@@ -260,7 +264,7 @@
 			const abl = d.Sf.ABL.checked;
 			const ppl = d.Sf.PPL.checked;
 			let sumMA = 0;
-			d.Sf.MA.readonly = ppl;
+			d.Sf.MA.readOnly = ppl;
 			d.Sf.MA.min = abl && !ppl ? 250 : 0;
 			gId("psuMA").style.display = ppl ? 'none' : 'inline';
 			gId("ppldis").style.display = ppl ? 'inline' : 'none';
@@ -427,7 +431,7 @@
 					d.Sf["MA"+n].min = (!isDig(t)) ? 0 : 250;               // set minimum value for PSU mA
 				}
 				gId("rf"+n).onclick = mustR(t) ? (()=>{return false}) : (()=>{});           // prevent change change of "Refresh" checkmark when mandatory
-				gRGBW |= hasW(t);                                                           // RGBW checkbox
+				gRGBW |= busHasWhite(n,t);                                                  // RGBW checkbox
 				gId("co"+n).style.display = (isVir(t) || isAna(t) || isHub75(t) || isCst(n)) ? "none":"inline";       // hide color order for PWM / customized bus
 				gId("dig"+n+"w").style.display = (isDig(t) && hasW(t) && !isCst(n)) ? "inline":"none";   // show swap channels dropdown (not for customized bus)
 				gId("dig"+n+"w").querySelector("[data-opt=CCT]").disabled = !hasCCT(t);     // disable WW/CW swapping
@@ -449,7 +453,7 @@
 				gId("dig"+n+"r").style.display = (isVir(t)) ? "none":"inline";              // hide reversed for virtual
 				gId("dig"+n+"s").style.display = (isVir(t) || isAna(t) || isHub75(t)) ? "none":"inline";  // hide skip 1st for virtual & analog
 				gId("dig"+n+"f").style.display = (isDig(t) || (isPWM(t) && maxL>2048)) ? "inline":"none"; // hide refresh (PWM hijacks reffresh for dithering on ESP32)
-				gId("dig"+n+"a").style.display = (hasW(t)) ? "inline":"none";               // auto calculate white
+				gId("dig"+n+"a").style.display = busHasWhite(n,t) ? "inline":"none";        // auto calculate white
 				gId("dig"+n+"l").style.display = (isD2P(t) || isPWM(t)) ? "inline":"none";  // bus clock speed / PWM speed (relative) (not On/Off)
 				gId("rev"+n).innerHTML = isAna(t) ? "Inverted output":"Reversed";           // change reverse text for analog else (rotated 180°)
 				//gId("psd"+n).innerHTML = isAna(t) ? "Index:":"Start:";                      // change analog start description
@@ -622,7 +626,7 @@
 		function lastEnd(i) {
 			if (i-- < 1) return 0;
 			var s = chrID(i);
-			v = parseInt(d.getElementsByName("LS"+s)[0].value) + parseInt(d.getElementsByName("LC"+s)[0].value);
+			let v = parseInt(d.getElementsByName("LS"+s)[0].value) + parseInt(d.getElementsByName("LC"+s)[0].value);
 			var t = parseInt(d.getElementsByName("LT"+s)[0].value);
 			if (isPWM(t)) v = 1; //PWM busses
 			return isNaN(v) ? 0 : v;
@@ -742,6 +746,7 @@ LED Timing: <select name="SF${s}">
 						}
 					}
 				});
+				for (let ci = 0; ci < 6; ci++) d.Sf["CBc"+ci+s].onchange = UI;
 				enLA(d.Sf["LAsel"+s],s); // update LED mA
 				// temporarily set to virtual (network) type to avoid "same type" exception during dropdown update
 				let sel = d.getElementsByName("LT"+s)[0];
@@ -906,33 +911,48 @@ Swap: <select id="xw${s}" name="XW${s}">
 			o.value = '';
 
 			function receivedText(e) {
-				let lines = e.target.result;
-				let c = JSON.parse(lines);
+				let c;
+				try { c = JSON.parse(e.target.result); }
+				catch (err) { alert("Invalid configuration JSON: " + err.message); return; }
 				if (c.hw) {
-					if (c.hw.led) {
+					if (c.hw.led && Array.isArray(c.hw.led.ins)) {
+						if (c.hw.led.ins.length > 36) { alert("Configuration has more than 36 LED outputs."); return; }
 						// remove all existing outputs
-						for (let i=0; i<36; i++) addLEDs(-1); // was i<maxb+maxV when number of virtual buses was limited (now :"0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ")
+						for (let i=0; i<36; i++) addLEDs(-1);
 						let l = c.hw.led;
 						l.ins.forEach((v,i,a)=>{
 							addLEDs(1);
-							for (var j=0; j<v.pin.length; j++) d.getElementsByName(`L${j}${i}`)[0].value = v.pin[j];
-							d.getElementsByName("LT"+i)[0].value   = v.type;
-							d.getElementsByName("LD"+i)[0].value   = v.drv || 0; // output driver type (RMT or I2S, default to RMT if not set)
-							d.getElementsByName("LS"+i)[0].value   = v.start;
-							d.getElementsByName("LC"+i)[0].value   = v.len;
-							d.getElementsByName("CO"+i)[0].value   = v.order & 0x0F;
-							d.getElementsByName("SL"+i)[0].value   = v.skip;
-							d.getElementsByName("RF"+i)[0].checked = v.ref;
-							d.getElementsByName("CV"+i)[0].checked = v.rev;
-							d.getElementsByName("AW"+i)[0].value   = v.rgbwm;
-							d.getElementsByName("WO"+i)[0].value   = (v.order>>4) & 0x0F;
-							d.getElementsByName("SP"+i)[0].value   = v.freq;
-							d.getElementsByName("SF"+i)[0].value   = v.bsf || 100; // bus speed factor, default to 100%
-							d.getElementsByName("LA"+i)[0].value   = v.ledma;
-							d.getElementsByName("MA"+i)[0].value   = v.maxpwr;
+							let n = chrID(i);
+							for (var j=0; j<v.pin.length; j++) d.getElementsByName(`L${j}${n}`)[0].value = v.pin[j];
+							d.getElementsByName("LT"+n)[0].value   = v.type;
+							d.getElementsByName("LD"+n)[0].value   = v.drv || 0;
+							d.getElementsByName("LS"+n)[0].value   = v.start;
+							d.getElementsByName("LC"+n)[0].value   = v.len;
+							d.getElementsByName("CO"+n)[0].value   = v.order & 0x0F;
+							d.getElementsByName("SL"+n)[0].value   = v.skip;
+							d.getElementsByName("RF"+n)[0].checked = v.ref;
+							d.getElementsByName("CV"+n)[0].checked = v.rev;
+							d.getElementsByName("AW"+n)[0].value   = v.rgbwm;
+							d.getElementsByName("WO"+n)[0].value   = (v.order>>4) & 0x0F;
+							d.getElementsByName("SP"+n)[0].value   = v.freq;
+							d.getElementsByName("SF"+n)[0].value   = v.bsf || 100;
+							d.getElementsByName("LA"+n)[0].value   = v.ledma;
+							d.getElementsByName("MA"+n)[0].value   = v.maxpwr;
+							if (v.cch !== undefined && Array.isArray(v.cmap)) {
+								d.getElementsByName("CBen"+n)[0].checked = true;
+								d.getElementsByName("CBch"+n)[0].value = v.cch;
+								d.getElementsByName("CBb"+n)[0].checked = v.c16;
+								d.getElementsByName("CBio"+n)[0].checked = v.cio;
+								["t0h","t0l","t1h","t1l","rst"].forEach(k => d.getElementsByName("CB"+k+n)[0].value = v["c"+k]);
+								for (let j=0; j<6; j++) {
+									d.getElementsByName("CBc"+j+n)[0].value = v.cmap[j] ?? 0;
+									d.getElementsByName("CBi"+j+n)[0].checked = ((v.cinv || 0) >> j) & 1;
+								}
+							}
 						});
 						d.getElementsByName("MA")[0].value    = l.maxpwr;
 						d.getElementsByName("ABL")[0].checked = l.maxpwr > 0;
+						checkSi();
 					}
 					if(c.hw.com) {
 						resetCOM();
@@ -962,7 +982,7 @@ Swap: <select id="xw${s}" name="XW${s}">
 					}
 					let li = c.light;
 					if (li) {
-						d.getElementsByName("MS")[0].checked  = li.aseg;
+						d.getElementsByName("MS")[0].checked = li.aseg;
 					}
 					UI();
 				}
@@ -1062,10 +1082,9 @@ Swap: <select id="xw${s}" name="XW${s}">
 					}
 				}
 			});
-			// calculate I2S shared memory usage (DMA double buffers + descriptors)
+			// Estimate three shared DMA buffers plus overhead; full-frame allocations may need refinement.
 			if (parHwUsed > 0) {
-				parHwMem = dmaDef * 2 + 64;
-				parHwMem = Math.round(parHwMem / parHwUsed); // average so it can be distributed
+				parHwMem = Math.ceil((dmaDef * 3 + 256) / parHwUsed);
 			}
 			return { rmtUsed, parHwUsed, parHwType, parHwMem, bbUsed, bbType };
 		}
@@ -1174,83 +1193,52 @@ Swap: <select id="xw${s}" name="XW${s}">
 			});
 		}
 
-		// Ensure parallel-output bus speeds are synchronized (I2S/LCD/SPI or BitBang):
-		// First bus in each group is editable; rest mirror its value. If any bus in a group is
-		// customized, all buses in that group are forced to customize and share the same timing.
-		// for hadrware parallel outputs, only t0h and reset period can be edited (4-step cadence restriction)
-		// Ensure parallel-output bus speeds are synchronized (I2S/LCD/SPI or BitBang):
+		// Parallel outputs share the first bus's timing, but retain independent channel maps.
 		function syncParallelBusSpeedSelectors() {
-			try {
-					const fields = ["CBt0h","CBt0l","CBt1h","CBt1l","CBrst"];
-					// reset all first
-					d.Sf.querySelectorAll("#mLC select[name^=SF]").forEach(s => { s.disabled = false; s.style.opacity = 1; });
-					fields.forEach(f => d.Sf.querySelectorAll("#mLC input[name^="+f+"]").forEach(e => { e.disabled = false; e.readOnly = false; e.style.opacity = 1; }));
-					d.Sf.querySelectorAll("#mLC input[name^=CBen]").forEach(e => { e.disabled = false; e.style.opacity = 1; });
-
-					let parHw = [], bb = [];
-					forEachBus((n, t) => {
-							let drv = busDrv(n);
-							if (isDig(t) && !isD2P(t)) (drv === 1 ? parHw : (drv === 2 || is8266BB(n) ? bb : [])).push(n);
-					});
-
-					function syncGroup(arr, isHwPar) {
-							if (!arr.length) return;
-							let first = arr[0], src = arr.find(n => isCst(n)) || first, checked = isCst(first);
-
-							arr.forEach((n, idx) => {
-									let cb = d.Sf["CBen"+n];
-									if (cb && idx > 0) {
-											cb.disabled = true; cb.style.opacity = 0.6;
-											if (checked !== cb.checked) {
-													if (checked) presetCustomDefaults(n, parseInt(d.Sf["LT"+n].value));
-													cb.checked = checked;
-													gId("custbus"+n).style.display = checked ? "inline" : "none";
-													let nch = parseInt(d.Sf["CBch"+n]?.value) || 3;
-													for (let j = 0; j < 6; j++) { let r = gId("CBrow"+n+"_"+j); if (r) r.style.display = j < nch ? "" : "none"; }
-											}
-									}
-									if (n !== src) {
-											let sf = d.Sf["SF"+n]; if (sf) { sf.disabled = true; sf.style.opacity = 0.6; }
-											fields.forEach(f => { let el = d.Sf[f+n]; if (el) { el.disabled = true; el.style.opacity = 0.6; } });
-									}
-							});
-
-							// Apply HW parallel limits to source
-							if (isHwPar && d.Sf["CBt0h"+src]) {
-									d.Sf["CBt0h"+src].max = 21845;
-									[1, 2, 3].forEach(i => { let el = d.Sf[fields[i]+src]; if (el) { el.readOnly = true; el.style.opacity = 0.6; } });
-							}
-
-							let sfSrc = d.Sf["SF"+src];
-							if (sfSrc) sfSrc.onchange = function() { arr.forEach(n => { if (n !== src && d.Sf["SF"+n]) d.Sf["SF"+n].value = this.value; }); };
-
-							// Unified propagator and cadence calculator
-							fields.forEach((fn, idx) => {
-									let srcEl = d.Sf[fn+src];
-									if (srcEl) srcEl.oninput = function() {
-											let val = this.value;
-											// Auto-calculate [CBt0l, CBt1h, CBt1l] from CBt0h only if it's not empty
-											if (isHwPar && idx === 0 && val !== "") {
-													let v = parseInt(val) || 0;
-													[1, 2, 3].forEach(i => {
-															let el = d.Sf[fields[i]+src];
-															if (el) { el.value = (i === 3 ? v : v * 3); el.oninput?.(); }
-													});
-											}
-											// Sync values across all grouped buses
-											arr.forEach(n => { if (n !== src && d.Sf[fn+n]) d.Sf[fn+n].value = val; });
-									};
-							});
-
-							// Trigger initialization only if there is a value
-							if (isHwPar && d.Sf["CBt0h"+src] && d.Sf["CBt0h"+src].value !== "") {
-									d.Sf["CBt0h"+src].oninput();
-							}
+			const fields = ["CBt0h","CBt0l","CBt1h","CBt1l","CBrst"];
+			d.Sf.querySelectorAll("#mLC select[name^=SF]").forEach(s => { s.disabled = false; s.style.opacity = 1; s.onchange = UI; });
+			fields.forEach(f => d.Sf.querySelectorAll("#mLC input[name^="+f+"]").forEach(e => {
+				e.disabled = false; e.readOnly = false; e.style.opacity = 1; e.oninput = null; e.max = 9999;
+			}));
+			let parHw = [], bb = [];
+			forEachBus((n, t) => {
+				let drv = busDrv(n);
+				if (isDig(t) && !isD2P(t)) (is8266() ? (is8266BB(n) ? bb : []) : (drv === 1 ? parHw : (drv === 2 ? bb : []))).push(n);
+			});
+			function syncGroup(arr, isHwPar) {
+				if (!arr.length) return;
+				let first = arr[0], type = gT(parseInt(d.Sf["LT"+first].value));
+				let speed = d.Sf["SF"+first];
+				function propagate() {
+					let values = isCst(first) ? fields.map(f => d.Sf[f+first].value) :
+						[type.t0h, type.t0l, type.t1h, type.t1l, type.trst];
+					if (isHwPar && values[0] !== "") {
+						values[1] = values[2] = 3 * Number(values[0]);
+						values[3] = values[0];
+						fields.forEach((f, i) => { d.Sf[f+first].value = values[i]; });
 					}
-
-					syncGroup(parHw, 1);
-					syncGroup(bb, 0);
-			} catch(e) {}
+					arr.slice(1).forEach(n => {
+						d.Sf["SF"+n].value = speed.value;
+						fields.forEach((f, i) => { d.Sf[f+n].value = values[i]; });
+					});
+				}
+				arr.slice(1).forEach(n => {
+					d.Sf["SF"+n].disabled = true;
+					d.Sf["SF"+n].style.opacity = 0.6;
+					fields.forEach(f => { d.Sf[f+n].readOnly = true; d.Sf[f+n].style.opacity = 0.6; });
+				});
+				if (isHwPar) [1, 2, 3].forEach(i => {
+					d.Sf[fields[i]+first].readOnly = true;
+					d.Sf[fields[i]+first].style.opacity = 0.6;
+					d.Sf[fields[i]+first].max = 65535;
+				});
+				if (isHwPar) d.Sf[fields[0]+first].max = 21845;
+				speed.onchange = () => { propagate(); UI(); };
+				fields.forEach(f => { d.Sf[f+first].oninput = propagate; });
+				propagate();
+			}
+			syncGroup(parHw, true);
+			syncGroup(bb, false);
 		}
 	</script>
 </head>
