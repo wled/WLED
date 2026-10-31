@@ -24,7 +24,7 @@ public:
   bool show() override;
   bool canShow() const override;
 #ifdef WLED_DEBUG_BUS
-  const char* getTypeStr() const override { return _useHardware ? "HW_SPI" : "SW_SPI"; }
+  const char* getTypeStr() const override { return _useHardware ? "SPI_HW" : "SPI_SW"; }
 #endif
   void setApa102HwBri(uint8_t v) override { _apa102HwBri = v & 0x1F; } // Set the APA102 per-pixel 5-bit hardware brightness step (0–31).
 

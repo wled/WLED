@@ -15,7 +15,7 @@ Each bus can have individual configuration of color channels but all must share 
 -------------------------------------------------------------------------*/
 
 #include "WLEDpixelBus.h"
-#ifdef WLEDPB_PARALLEL_SPI_SUPPORT
+#ifdef WLEDPB_PARALLELSPI_SUPPORT
 #include "WLEDpixelBus_ParallelSpi.h"
 
 #undef FLAG_ATTR
@@ -49,17 +49,17 @@ static inline void IRAM_ATTR spi_ll_user_start(spi_dev_t *hw) {
 
 // Pin assignments for SPI2 quad mode on C3
 // SPI2 signals: FSPID (MOSI/D0), FSPIQ (MISO/D1), FSPIWP (D2), FSPIHD (D3)
-static const int SPI_SIGNAL_INDICES[] = { FSPID_OUT_IDX, FSPIQ_OUT_IDX, FSPIWP_OUT_IDX, FSPIHD_OUT_IDX };
+static const int WLEDPB_PARALLELSPI_SIGNAL_INDICES[] = { FSPID_OUT_IDX, FSPIQ_OUT_IDX, FSPIWP_OUT_IDX, FSPIHD_OUT_IDX };
 
 // Encoding patterns for SPI quad mode (4-step cadence, LSB first)
 // Each lane is one bit position in a nibble, one byte = two clock cycles, 2 bytes = one 4-step bit
-static constexpr uint16_t SPI_ZERO_BIT = 0x0001;  // output: [1,0,0,0] = 25% high (0000 0000 0000 0001 in binary, output LSB first)
-static constexpr uint16_t SPI_ONE_BIT  = 0x0111;  // output: [1,1,1,0] = 75% high (0000 0001 0001 0001 in binary, output LSB first)
-static constexpr uint32_t SPI_MIN_CLOCK_HZ = 2000000;
-static constexpr uint32_t SPI_MAX_CLOCK_HZ = 5000000;
+static constexpr uint16_t WLEDPB_PARALLELSPI_ZERO_BIT = 0x0001;  // output: [1,0,0,0] = 25% high (0000 0000 0000 0001 in binary, output LSB first)
+static constexpr uint16_t WLEDPB_PARALLELSPI_ONE_BIT  = 0x0111;  // output: [1,1,1,0] = 75% high (0000 0001 0001 0001 in binary, output LSB first)
+static constexpr uint32_t WLEDPB_PARALLELSPI_MIN_CLOCK_HZ = 2000000;
+static constexpr uint32_t WLEDPB_PARALLELSPI_MAX_CLOCK_HZ = 5000000;
 
 // Maximum bits per SPI user transfer: 18-bit length register SPI_MS_DATA_BITLEN=262143, we need 16bits per source bit (4x parallel, 4 steps) or 128bits per byte
-static constexpr uint32_t SPI_MAX_BITS = (2047 * 128); // 262016 is the max bits that fit in a single SPI transfer (full encoded bytes), multiple transfers can be chained
+static constexpr uint32_t WLEDPB_PARALLELSPI_MAX_BITS = (2047 * 128); // 262016 is the max bits that fit in a single SPI transfer (full encoded bytes), multiple transfers can be chained
 
 ParallelSpiBusContext* ParallelSpiBusContext::_instance = nullptr;
 uint8_t ParallelSpiBusContext::_refCount = 0;
@@ -194,8 +194,8 @@ void IRAM_ATTR __attribute__((noinline)) ParallelSpiBusContext::fillBuffer(uint8
     size_t validBytes = srcLen - _framePos;
     if (validBytes > srcThisChunk) validBytes = srcThisChunk;
 
-    const uint16_t zerobit = SPI_ZERO_BIT << lane;
-    const uint16_t onebit  = SPI_ONE_BIT << lane;
+    const uint16_t zerobit = WLEDPB_PARALLELSPI_ZERO_BIT << lane;
+    const uint16_t onebit  = WLEDPB_PARALLELSPI_ONE_BIT << lane;
     const uint8_t* src = _channels[lane].srcData;
     uint16_t* pOut = (uint16_t*)_dmaBuffer[bufIdx];
 
@@ -231,9 +231,9 @@ void IRAM_ATTR ParallelSpiBusContext::spiISR(void* arg) {
         gpio_ll_set_func_sel(ctx->_channels[i].pin, SIG_GPIO_OUT_IDX); // disconnect from SPI using direct register write (ISR safe)
         // set the pin to static level immediately,  note: if implementing this for other ESPs: need to also set the high register for pins >31
         if (ctx->_channels[i].inverted)
-          GPIO_HW->out_w1ts.out_w1ts = (1 << ctx->_channels[i].pin); // set ouput high (set) to avoid glitches
+          GPIO_HW->out_w1ts.out_w1ts = (1 << ctx->_channels[i].pin); // set output high (set) to avoid glitches
         else
-          GPIO_HW->out_w1tc.out_w1tc = (1 << ctx->_channels[i].pin); // set ouput low (clear) to avoid glitches
+          GPIO_HW->out_w1tc.out_w1tc = (1 << ctx->_channels[i].pin); // set output low (clear) to avoid glitches
       }
     }
     ctx->_hw->cmd.usr = 0;                    // stop SPI user transfer
@@ -257,7 +257,7 @@ void IRAM_ATTR ParallelSpiBusContext::spiISR(void* arg) {
     }
     if (ctx->_bitsLeft > 0) {
       // Chain the next segment: the circular DMA never stopped, re-arm the SPI transfer
-      uint32_t bits = (ctx->_bitsLeft > (int32_t)SPI_MAX_BITS) ? SPI_MAX_BITS : (uint32_t)ctx->_bitsLeft;
+      uint32_t bits = (ctx->_bitsLeft > (int32_t)WLEDPB_PARALLELSPI_MAX_BITS) ? WLEDPB_PARALLELSPI_MAX_BITS : (uint32_t)ctx->_bitsLeft;
       ctx->_bitsLeft -= (int32_t)bits;
       spi_ll_set_mosi_bitlen(ctx->_hw, bits);
       spi_ll_apply_config(ctx->_hw); // fast handshake, sub-microsecond
@@ -357,8 +357,8 @@ bool ParallelSpiBusContext::init(const LedTiming& timing) {
   // Clock: 4 steps per bit → 4 SPI clock cycles per bit period.
   // targetFreq = 4 / (bitPeriod_ns * 1e-9) = 4,000,000,000 / bitPeriod_ns
   uint32_t targetFreq = calc4StepClockHz(timing);
-  if (targetFreq < SPI_MIN_CLOCK_HZ) targetFreq = SPI_MIN_CLOCK_HZ;
-  if (targetFreq > SPI_MAX_CLOCK_HZ) targetFreq = SPI_MAX_CLOCK_HZ;
+  if (targetFreq < WLEDPB_PARALLELSPI_MIN_CLOCK_HZ) targetFreq = WLEDPB_PARALLELSPI_MIN_CLOCK_HZ;
+  if (targetFreq > WLEDPB_PARALLELSPI_MAX_CLOCK_HZ) targetFreq = WLEDPB_PARALLELSPI_MAX_CLOCK_HZ;
 
   spi_ll_master_set_clock(_hw, 80000000, targetFreq, 128);
 
@@ -472,7 +472,7 @@ int8_t ParallelSpiBusContext::registerChannel(int8_t pin, size_t srcBytes, bool 
 
   // Route SPI data signal to GPIO
   pinMode(pin, OUTPUT);
-  esp_rom_gpio_connect_out_signal(pin, SPI_SIGNAL_INDICES[idx], inverted, false);
+  esp_rom_gpio_connect_out_signal(pin, WLEDPB_PARALLELSPI_SIGNAL_INDICES[idx], inverted, false);
 
   return idx;
 }
@@ -523,11 +523,11 @@ bool ParallelSpiBusContext::startTransmit() {
   _numBytes = newBytes;
 
   // Total bits: 16 DMA bytes per source byte * 8 bits/byte = 128 bits per source byte plus reset: extra zero bits at the end (in the last segment).
-  // Note: frames longer than one transfer of SPI_MAX_BITS are chained in the trans_done ISR into multiple SPI user transfers
+  // Note: frames longer than one transfer of WLEDPB_PARALLELSPI_MAX_BITS are chained in the trans_done ISR into multiple SPI user transfers
   uint32_t dataBits = _numBytes * WLEDPB_PARALLELSPI_DMABYTES * 8;
   uint32_t totalBits = dataBits + _resetBits;
 
-  uint32_t firstBits = (totalBits > SPI_MAX_BITS) ? SPI_MAX_BITS : totalBits;
+  uint32_t firstBits = (totalBits > WLEDPB_PARALLELSPI_MAX_BITS) ? WLEDPB_PARALLELSPI_MAX_BITS : totalBits;
   _bitsLeft = (int32_t)(totalBits - firstBits); // remaining bits are chained by the ISR
 
   // wait for SPI hardware to finish the last transfer (this is another hardware guard for unexpected race conditions, should never happen)
@@ -573,7 +573,7 @@ bool ParallelSpiBusContext::startTransmit() {
   // Re-attach pins to SPI signals
   for (int i = 0; i < WLEDPB_PARALLELSPI_MAX_CHANNELS; i++) {
     if (_channels[i].active && _channels[i].pin >= 0) {
-      pinMatrixOutAttach(_channels[i].pin, SPI_SIGNAL_INDICES[i], _channels[i].inverted, false);
+      pinMatrixOutAttach(_channels[i].pin, WLEDPB_PARALLELSPI_SIGNAL_INDICES[i], _channels[i].inverted, false);
     }
   }
   spi_ll_dma_tx_enable(_hw, true);
@@ -659,4 +659,4 @@ bool ParallelSpiBus::canShow() const {
 }
 
 } // namespace WLEDpixelBus
-#endif // WLEDPB_PARALLEL_SPI_SUPPORT
+#endif // WLEDPB_PARALLELSPI_SUPPORT

@@ -213,7 +213,7 @@ class Bus {
     //} __attribute__ ((packed));
     static uint8_t _gAWM;
     // _cct has the following meanings (see calculateCCT() & BusManager::setSegmentCCT()):
-    //    -1 means to extract approximate CCT value in K from RGB (in calcualteCCT())
+    //    -1 means to extract approximate CCT value in K from RGB (in calculateCCT())
     //    [0,255] is the exact CCT value where 0 means warm and 255 cold
     //    [1900,10060] only for color correction expressed in K (colorBalanceFromKelvin())
     static int16_t _cct;

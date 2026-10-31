@@ -29,11 +29,11 @@ public:
   const char* getTypeStr() const override { return "RMT"; }
 #endif
 
-  static void setExpectedChannelCount(uint8_t expected) { expectedChannels = (expected > 0) ? expected : 1; }
+  static void setExpectedChannelCount(uint8_t expected) { _expectedChannels = (expected > 0) ? expected : 1; }
   static void resetChannelTracking() {
-    allocatedCount = 0;
-    currentChannelIndex = 0;
-    usedBlocks = 0;
+    _allocatedCount = 0;
+    _currentChannelIndex = 0;
+    _usedBlocks = 0;
   }
 
 private:
@@ -44,10 +44,10 @@ private:
   LedTiming _timing;
 
   // _encodeBuffer and _encodeBufferSize are in PixelBus base
-  static uint8_t expectedChannels; // TODO: make none static? would save a few bytes of ram but use more heap
-  static uint8_t allocatedCount;
-  static uint8_t currentChannelIndex;
-  static uint8_t usedBlocks;
+  static uint8_t _expectedChannels; // TODO: make none static? would save a few bytes of ram but use more heap
+  static uint8_t _allocatedCount;
+  static uint8_t _currentChannelIndex;
+  static uint8_t _usedBlocks;
 };
 
 } // namespace WLEDpixelBus

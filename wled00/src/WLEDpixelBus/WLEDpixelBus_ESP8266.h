@@ -26,10 +26,10 @@ public:
   bool show() override;
   bool canShow() const override;
 #ifdef WLED_DEBUG_BUS
-  const char* getTypeStr() const override { return "ESP8266_UART"; }
+  const char* getTypeStr() const override { return "UART"; }
 #endif
-  static void uartIsr(void* arg, void* exceptionFrame);
-  static Esp8266UartBus* s_uartInstances[2];
+  static void uartISR(void* arg, void* exceptionFrame);
+  static Esp8266UartBus* _uartInstances[2];
 
 private:
   int8_t _pin;
@@ -72,7 +72,7 @@ public:
   bool show() override;
   bool canShow() const override;
 #ifdef WLED_DEBUG_BUS
-  const char* getTypeStr() const override { return "ESP8266_DMA"; }
+  const char* getTypeStr() const override { return "DMA"; }
 #endif
 
   IRAM_ATTR bool setPixelColor(uint16_t pos, uint32_t c, uint16_t wwcw) override;
@@ -83,7 +83,7 @@ public:
   void updateSuffix(const uint8_t* data, uint8_t len) override;
   void scaleEncodeBuffer(uint8_t scale) override;
 
-  static Esp8266DmaBus* s_dmaInstance;
+  static Esp8266DmaBus* _dmaInstance;
 
 private:
   static const uint16_t c_maxDmaBlockSize = 4095;
@@ -112,7 +112,7 @@ private:
   void   abortTransmit() const;
   void IRAM_ATTR encodeBytes(const uint8_t* src, uint32_t* dst) const;
   void IRAM_ATTR decodeBytes(const uint32_t* src, uint8_t* dst) const;
-  static void IRAM_ATTR slcIsr();
+  static void IRAM_ATTR slcISR();
 
   // DmaItemInit helper
   static void dmaItemInit(SlcQueueItem* item, uint8_t* data, size_t sz, SlcQueueItem* next) {

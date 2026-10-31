@@ -26,7 +26,7 @@ written by Damian Schneider @dedehai 2026
 
 // SPI parallel support (C3 - uses SPI quad mode with GDMA)
 #if defined(CONFIG_IDF_TARGET_ESP32C3)
-  #define WLEDPB_PARALLEL_SPI_SUPPORT
+  #define WLEDPB_PARALLELSPI_SUPPORT
 #endif
 
 // ESP_HAS_HIGH_GPIO_BANK — defined when the target has GPIO > 31 and needs the second GPIO output register bank (GPIO_OUT1_W1TS/TC_REG).
@@ -34,7 +34,7 @@ written by Damian Schneider @dedehai 2026
 #  define ESP_HAS_HIGH_GPIO_BANK 1
 #endif
 
-#ifdef WLEDPB_PARALLEL_SPI_SUPPORT
+#ifdef WLEDPB_PARALLELSPI_SUPPORT
 #include "soc/spi_struct.h"
 #include "soc/gdma_struct.h"
 #include "hal/gdma_ll.h"
@@ -59,7 +59,7 @@ namespace WLEDpixelBus {
 //==========================
 constexpr size_t MIN_DMA_BUFFER_SIZE = 256;
 constexpr size_t MAX_DMA_BUFFER_SIZE = 4092; // 12bit in DMA descriptor
-#ifdef WLEDPB_PARALLEL_SPI_SUPPORT // C3 only
+#ifdef WLEDPB_PARALLELSPI_SUPPORT // C3 only
   constexpr size_t DEFAULT_DMA_BUFFER_SIZE = (1024*2); // must be a multiple of 16 (16 DMA bytes per source byte), clocked out at ~2.6MHz, 4 bits per clock (2k per buffer means about 1ms interrupt intervals with 4 step cadence)
 #else
   #if SOC_RMT_TX_CANDIDATES_PER_GROUP > 4 // supports 8 RMT
@@ -468,7 +468,7 @@ public:
 enum class BusDriver : uint8_t {
   RMT     = 0,
   I2S     = 1, // I2S on ESP32 and S2, LCD on S3
-  SPI     = 2, // parallel SPI output (C3)
+  PARSPI  = 2, // parallel SPI output (C3)
   UART    = 3,
   DMA     = 4,
   BitBang = 5,

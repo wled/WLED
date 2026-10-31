@@ -31,7 +31,7 @@ namespace WLEDpixelBus {
 // -----------------
 
 // Global static tracking for the shared UART ISR
-Esp8266UartBus* Esp8266UartBus::s_uartInstances[2] = {nullptr, nullptr};
+Esp8266UartBus* Esp8266UartBus::_uartInstances[2] = {nullptr, nullptr};
 
 Esp8266UartBus::Esp8266UartBus(int8_t pin, const LedTiming& timing, uint8_t ledType)
   : _pin(pin)
@@ -50,9 +50,9 @@ Esp8266UartBus::~Esp8266UartBus() {
 }
 
 // Shared Interrupt Service Routine (must be in IRAM)
-void IRAM_ATTR Esp8266UartBus::uartIsr(void* arg, void* exceptionFrame) {
+void IRAM_ATTR Esp8266UartBus::uartISR(void* arg, void* exceptionFrame) {
   for (uint8_t uartNum = 0; uartNum < 2; uartNum++) {
-    Esp8266UartBus* instance = s_uartInstances[uartNum];
+    Esp8266UartBus* instance = _uartInstances[uartNum];
 
     // Check if this UART triggered a TX FIFO Empty interrupt
     if (instance && (USIS(uartNum) & (1 << UIFE))) {
@@ -86,14 +86,14 @@ bool Esp8266UartBus::begin() {
   if (_initialized) return true;
   if (_pin != 1 && _pin != 2) return false;
   uint8_t uartNum = (_pin == 2) ? 1 : 0;
-  s_uartInstances[uartNum] = this;
+  _uartInstances[uartNum] = this;
 
   // set LED timing and (re)init the serial
   updateUartTiming();
 
   ETS_UART_INTR_DISABLE();
   // Attach the shared ISR
-  ETS_UART_INTR_ATTACH(uartIsr, nullptr);
+  ETS_UART_INTR_ATTACH(uartISR, nullptr);
 
   // Set threshold: Interrupt when FIFO drops below 80 bytes
   USC1(uartNum) = (80 << UCFET);
@@ -113,10 +113,10 @@ void Esp8266UartBus::end() {
 
   ETS_UART_INTR_DISABLE();
   USIE(uartNum) = 0;
-  s_uartInstances[uartNum] = nullptr;
+  _uartInstances[uartNum] = nullptr;
 
   // If no buses are left, detach ISR
-  if (s_uartInstances[0] == nullptr && s_uartInstances[1] == nullptr) {
+  if (_uartInstances[0] == nullptr && _uartInstances[1] == nullptr) {
     ETS_UART_INTR_ATTACH(nullptr, nullptr);
   } else {
     ETS_UART_INTR_ENABLE();
@@ -203,7 +203,7 @@ bool Esp8266UartBus::canShow() const {
 
 // ESP8266 DMA Bus (I2S + SLC linked-list DMA)
 // --------------------------------------------
-Esp8266DmaBus* Esp8266DmaBus::s_dmaInstance = nullptr;
+Esp8266DmaBus* Esp8266DmaBus::_dmaInstance = nullptr;
 
 Esp8266DmaBus::Esp8266DmaBus(int8_t pin, const LedTiming& timing, uint8_t ledType)
   :  _pin(pin)
@@ -309,15 +309,15 @@ void Esp8266DmaBus::buildDescriptorChain() {
 }
 
 
-// slcIsr fires on SLCIRXEOF (end of last pixel descriptor)
-void IRAM_ATTR Esp8266DmaBus::slcIsr() {
+// slcISR fires on SLCIRXEOF (end of last pixel descriptor)
+void IRAM_ATTR Esp8266DmaBus::slcISR() {
   ETS_SLC_INTR_DISABLE();
   uint32_t status = SLCIS;
   SLCIC = 0xFFFFFFFF;
-  if ((status & SLCIRXEOF) && s_dmaInstance) {
+  if ((status & SLCIRXEOF) && _dmaInstance) {
     // Re-close the idle loop so state[0]→state[1]→state[0]
-    s_dmaInstance->_dmaDesc[1].next_link_ptr = &s_dmaInstance->_dmaDesc[0];
-    s_dmaInstance->_sending = false;
+    _dmaInstance->_dmaDesc[1].next_link_ptr = &_dmaInstance->_dmaDesc[0];
+    _dmaInstance->_sending = false;
   }
   ETS_SLC_INTR_ENABLE();
 }
@@ -345,7 +345,7 @@ void Esp8266DmaBus::startI2s(uint8_t bckDiv, uint8_t clkDiv) const {
   SLCRXL |= (uint32_t)(&_dmaDesc[0]) << SLCRXLA;
 
   // Attach ISR
-  ETS_SLC_INTR_ATTACH(slcIsr, nullptr);
+  ETS_SLC_INTR_ATTACH(slcISR, nullptr);
   SLCIE = SLCIRXEOF;
   ETS_SLC_INTR_ENABLE();
 
@@ -442,7 +442,7 @@ bool Esp8266DmaBus::begin() {
   buildDescriptorChain();
   if (!_dmaDesc) { end(); return false; }
 
-  s_dmaInstance = this;
+  _dmaInstance = this;
   _sending = false;
 
   // Switch GPIO3 MUX to I2S (transitions LOW→LOW because I2S starts in idle)
@@ -461,7 +461,7 @@ void Esp8266DmaBus::end() {
   if (!_initialized && !_idleBuf && !_dmaDesc) return;
   stopI2s();
   ETS_SLC_INTR_ATTACH(nullptr, nullptr);
-  s_dmaInstance = nullptr;
+  _dmaInstance = nullptr;
   if (_dmaDesc)  { free(_dmaDesc);  _dmaDesc  = nullptr; _dmaDescCnt = 0; }
   if (_idleBuf)  { free(_idleBuf);  _idleBuf  = nullptr; _idleBufSize = 0; }
   releaseEncodeBuffer();

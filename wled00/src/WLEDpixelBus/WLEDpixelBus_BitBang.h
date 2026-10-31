@@ -33,10 +33,10 @@ public:
   void end()   override;
 
   bool show() override; // Stage this channel's data.  When all channels are staged, output all in parallel.
-  bool canShow() const override { return true; } // BitBang output is synchronous — always ready  TODO: on multi-core systems with tasks running on different cores, this is not true (but currently there is no seperate task)
+  bool canShow() const override { return true; } // BitBang output is synchronous — always ready  TODO: on multi-core systems with tasks running on different cores, this is not true (but currently there is no separate task)
 
 #ifdef WLED_DEBUG_BUS
-  const char* getTypeStr() const override { return "BitBang"; }
+  const char* getTypeStr() const override { return "BITBANG"; }
 #endif
 
   static void resetChannelTracking(); // reset shared channel tracking, called by PixelBusAllocator

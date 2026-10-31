@@ -147,7 +147,7 @@ BusDigital::BusDigital(const BusConfig &bc)
 {
   DEBUGBUS_PRINTLN(F("Bus: Creating digital bus."));
   _busSpeedFactor = bc.busSpeedFactor;
-  if (!isDigital(bc.type) || !bc.count) { DEBUGBUS_PRINTLN(F("Not digial or empty bus!")); return; }
+  if (!isDigital(bc.type) || !bc.count) { DEBUGBUS_PRINTLN(F("Not digital or empty bus!")); return; }
   if (!PinManager::allocatePin(bc.pins[0], true, PinOwner::BusDigital)) { DEBUGBUS_PRINTLN(F("Pin 0 allocated!")); return; }
   _frequencykHz = 0U;
   _pins[0] = bc.pins[0];
@@ -158,7 +158,7 @@ BusDigital::BusDigital(const BusConfig &bc)
       return;
     }
     _pins[1] = bc.pins[1];
-    _frequencykHz = bc.frequency ? bc.frequency : 1000U; // 1MHz clock if undefined  TODO: this is not passed to bus correctly, got lost somewhere in the refacotring
+    _frequencykHz = bc.frequency ? bc.frequency : 1000U; // 1MHz clock if undefined
   }
 
   _hasRgb = hasRGB(bc.type);
@@ -552,7 +552,7 @@ BusPwm::BusPwm(const BusConfig &bc)
       // LEDC timer reset credit @dedehai
       #endif
       // LEDC timer reset credit @dedehai
-      uint8_t group = (channel / 8), timer = ((channel / 2) % 4); // same fromula as in ledcSetup()
+      uint8_t group = (channel / 8), timer = ((channel / 2) % 4); // same formula as in ledcSetup()
       ledc_timer_rst((ledc_mode_t)group, (ledc_timer_t)timer); // reset timer so all timers are almost in sync (for phase shift)
       #endif
     }

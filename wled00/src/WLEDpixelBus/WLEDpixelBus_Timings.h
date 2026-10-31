@@ -82,7 +82,7 @@ inline LedTiming scaleTiming(const LedTiming& timing, float factor) {
 }
 
 // LED type timing lookup table, indexed by getTimingIndex() below.
-static const PROGMEM LedTiming s_ledTimings[] = {
+static const PROGMEM LedTiming _ledTimings[] = {
 // t0h   t0l   t1h   t1l  reset_us
  { 300,  900,  700,  500,  100 },  // WS2812B (and 1CH_X3, 2CH_X3, WWA)
  { 800, 1700, 1600,  900,  300 },  // Generic 400Kbps
@@ -99,7 +99,7 @@ static const PROGMEM LedTiming s_ledTimings[] = {
  { 500,  500,  500,  500, 1000 },  // WS2801
 };
 
-// Maps WLED TYPE_ to an index into s_ledTimings
+// Maps WLED TYPE_ to an index into _ledTimings
 static inline uint8_t getTimingIndex(uint8_t wledType) {
   switch (wledType) {
     case TYPE_WS2812_RGB:

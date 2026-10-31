@@ -406,7 +406,7 @@ static WLEDpixelBus::PixelBus* create(uint8_t busType, uint8_t* pins, uint16_t l
         break;
       case BUSDRV_PARHW:
         #if defined(CONFIG_IDF_TARGET_ESP32C3)  //TODO: should use hardware capabilities instead of MCU types
-        driver = WLEDpixelBus::BusDriver::SPI; // parallel SPI on C3
+        driver = WLEDpixelBus::BusDriver::PARSPI; // parallel SPI on C3
         #elif defined(CONFIG_IDF_TARGET_ESP32C5) || defined(CONFIG_IDF_TARGET_ESP32C6) || defined(CONFIG_IDF_TARGET_ESP32H2) || defined(CONFIG_IDF_TARGET_ESP32P4)
         driver = WLEDpixelBus::BusDriver::PARLIO; // PARLIO on C5, C6, H2, P4
         #else

@@ -6,7 +6,7 @@ written by Damian Schneider @dedehai 2026
 works on all ESP32 variants and ESP8266
 
 Uses software bit-bang timing and outputs data on all set-up pins in parallel.
-Interrupts are are re-enabled after each LED data is written, if the return time is too long, output is aborted
+Interrupts are re-enabled after each LED data is written, if the return time is too long, output is aborted
 The frame is then sent again to avoid effect tearing, this is repeated a few times before giving up
 If reset period is set to zero, interrupts are disabled and the sendout is blocking (flicker free but conflicts with anything that requires timed ISRs, like IR receiver)
 Each bus can have individual configuration of color channels but all must share the same timing

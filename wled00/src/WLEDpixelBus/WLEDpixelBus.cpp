@@ -26,7 +26,7 @@ TODO List
 - need to verify custom bus start indices and color-order overrides on hardware (both should now work)
 - ESP32 C61 has no RMT and no PARLIO, either bit bang or check if parallel SPI can be used
 - I2S/LCD requires more stress-testing to ensure glitch-free outputs, for 16-parallel maybe even 4 buffers are needed under heavy load
-- the DMA buffer count and size need to be checked agains memory usage formulas, they may be incorrect (we could do "worst case" in the UI as it wont matter much for a small amount of LEDs)
+- the DMA buffer count and size need to be checked against memory usage formulas, they may be incorrect (we could do "worst case" in the UI as it wont matter much for a small amount of LEDs)
 - stress-test all parallel drivers for missed interrupts, descriptor races, and watchdog recovery
 - LOOPTEST_CYCLES in BB bus need fine-tuning
 - color orders of some strips may differ from NPB implementation, needs checking and reordering to match legacy behaviour or users will complain (see legacy bus_wrapper where this is defined in neoXXXtype)
@@ -64,14 +64,14 @@ LedTiming getLedTiming(uint8_t wledType) {
   uint8_t idx = getTimingIndex(wledType);
 #ifdef ESP8266
   return LedTiming(
-    (uint16_t)pgm_read_word(&s_ledTimings[idx].t0h_ns),
-    (uint16_t)pgm_read_word(&s_ledTimings[idx].t0l_ns),
-    (uint16_t)pgm_read_word(&s_ledTimings[idx].t1h_ns),
-    (uint16_t)pgm_read_word(&s_ledTimings[idx].t1l_ns),
-    (uint32_t)pgm_read_dword(&s_ledTimings[idx].reset_us)
+    (uint16_t)pgm_read_word(&_ledTimings[idx].t0h_ns),
+    (uint16_t)pgm_read_word(&_ledTimings[idx].t0l_ns),
+    (uint16_t)pgm_read_word(&_ledTimings[idx].t1h_ns),
+    (uint16_t)pgm_read_word(&_ledTimings[idx].t1l_ns),
+    (uint32_t)pgm_read_dword(&_ledTimings[idx].reset_us)
   );
 #else
-  return s_ledTimings[idx];
+  return _ledTimings[idx];
 #endif
 }
 
@@ -303,7 +303,7 @@ PixelBus* createBus(BusDriver driver, int8_t pin, const BusProperties& propertie
 #ifdef WLEDPB_I2S_SUPPORT
     case BusDriver::I2S:
 #if defined(CONFIG_IDF_TARGET_ESP32C3)
-  #error C3 hardware does not support parallel I2S output and single channel output is not implemented, use WLEDPB_PARALLEL_SPI_SUPPORT instead
+  #error C3 hardware does not support parallel I2S output and single channel output is not implemented, use WLEDPB_PARALLELSPI_SUPPORT instead
 #endif
 #if defined(CONFIG_IDF_TARGET_ESP32S2) || defined(CONFIG_IDF_TARGET_ESP32S3)
       bus = new I2sBus(pin, timing, 0, ledType);
@@ -313,8 +313,8 @@ PixelBus* createBus(BusDriver driver, int8_t pin, const BusProperties& propertie
       break;
 #endif
 
-#ifdef WLEDPB_PARALLEL_SPI_SUPPORT
-    case BusDriver::SPI:
+#ifdef WLEDPB_PARALLELSPI_SUPPORT
+    case BusDriver::PARSPI:
       bus = new ParallelSpiBus(pin, timing, ledType);
       break;
 #endif

@@ -35,10 +35,10 @@ Note: S3 would support GDMA for RMT but all others variants do not, it is not im
 namespace WLEDpixelBus {
 
 // Static auto-channel counter for RmtBus
-uint8_t RmtBus::expectedChannels = 1;
-uint8_t RmtBus::allocatedCount = 0;
-uint8_t RmtBus::currentChannelIndex = 0;
-uint8_t RmtBus::usedBlocks = 0;
+uint8_t RmtBus::_expectedChannels = 1;
+uint8_t RmtBus::_allocatedCount = 0;
+uint8_t RmtBus::_currentChannelIndex = 0;
+uint8_t RmtBus::_usedBlocks = 0;
 
 RmtBus::RmtBus(int8_t pin, const LedTiming& timing, uint8_t ledType)
   : _pin(pin)
@@ -67,41 +67,41 @@ bool RmtBus::begin() {
   // available to the channel to minimize the number of interrupts needed for buffer re-fills (less context switching overhead)
   // example: ESP32, 2 channels requested total -> use CH0 with 4 blocks and CH4 with 4 blocks
   // example: ESP32-S3 with 3 channels: use CH0 with 2 block, CH2 with 1 block, and CH3 with 5 blocks
-  if (allocatedCount >= expectedChannels || allocatedCount >= maxTxChannels)
+  if (_allocatedCount >= _expectedChannels || _allocatedCount >= maxTxChannels)
     return false;
 
   // total RMT memory blocks per group equals the total channel count (each channel owns one block,
   // TX and RX channels share the same memory pool)
   const uint8_t totalBlocks = SOC_RMT_CHANNELS_PER_GROUP;
 
-  int left_channels = expectedChannels - allocatedCount - 1;
+  int left_channels = _expectedChannels - _allocatedCount - 1;
 
   if (left_channels == 0) {
-    _channel = currentChannelIndex;
-    blocksToUse = totalBlocks - usedBlocks;
+    _channel = _currentChannelIndex;
+    blocksToUse = totalBlocks - _usedBlocks;
   } else {
-    int k = totalBlocks / expectedChannels;
-    int max_k_for_index = maxTxChannels - currentChannelIndex - left_channels;
+    int k = totalBlocks / _expectedChannels;
+    int max_k_for_index = maxTxChannels - _currentChannelIndex - left_channels;
     if (k > max_k_for_index) k = max_k_for_index;
     if (k < 1) k = 1;
 
-    _channel = currentChannelIndex;
+    _channel = _currentChannelIndex;
     blocksToUse = k;
   }
   #ifdef RMT_USE_SINGLE_MEM_BLOCK
   blocksToUse = 1;
   #endif
 
-  currentChannelIndex += blocksToUse;
-  usedBlocks += blocksToUse;
-  allocatedCount++;
+  _currentChannelIndex += blocksToUse;
+  _usedBlocks += blocksToUse;
+  _allocatedCount++;
 
   if (_channel >= (int8_t)maxTxChannels) {
     //DEBUG_PRINTF_P(PSTR("[WPB] RMT channel %d >= max %u, FAIL\n"), _channel, maxTxChannels);
     return false;
   }
 
-  //DEBUG_PRINTF_P(PSTR("[WPB] RMT channel %d using %u blocks (total allocated: %u/%u)\n"), _channel, blocksToUse, allocatedCount, maxTxChannels);
+  //DEBUG_PRINTF_P(PSTR("[WPB] RMT channel %d using %u blocks (total allocated: %u/%u)\n"), _channel, blocksToUse, _allocatedCount, maxTxChannels);
   // RMT clock: 40MHz -> 25ns per tick
   const float tickNs = 25.0f;
 
@@ -123,7 +123,7 @@ bool RmtBus::begin() {
   esp_err_t err;
 #if ESP_IDF_VERSION >= ESP_IDF_VERSION_VAL(5,0,0)
   // The IDF RMT driver is bypassed entirely; configure the peripheral via rmt_ll register access.
-  if (allocatedCount == 1) {
+  if (_allocatedCount == 1) {
     // first bus: enable and reset the peripheral (register reset is global to all channels)
     rmt_ll_enable_bus_clock(0, true);
     rmt_ll_reset_register(0);

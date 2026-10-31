@@ -60,9 +60,9 @@ typedef struct {
   void* intr;
   void* pm_lock;
   gdma_channel_handle_t dma_chan;
-} WledpbParlioTxUnitHead;
+} WledPbParlioTxUnitHead;
 
-#define WLEDPB_PARLIO_TX_DMA_CHAN(unit) (((const WledpbParlioTxUnitHead*)(unit))->dma_chan)
+#define WLEDPB_PARLIO_TX_DMA_CHAN(unit) (((const WledPbParlioTxUnitHead*)(unit))->dma_chan)
 #endif
 
 namespace WLEDpixelBus {
@@ -108,13 +108,13 @@ private:
   void IRAM_ATTR encode4Step(uint8_t* dest, size_t destLen, uint8_t maxChannel); // 4-step cadence encoding, applies inversion via XOR
   uint32_t IRAM_ATTR _calcResetBytes() const; // bytes of reset period appended at the end of a frame (called from ISR context)
 
-  static IRAM_ATTR bool txDoneCallback(parlio_tx_unit_handle_t tx_unit, const parlio_tx_done_event_data_t* edata, void* user_ctx);
+  static IRAM_ATTR bool parlioTxDoneISR(parlio_tx_unit_handle_t tx_unit, const parlio_tx_done_event_data_t* edata, void* user_ctx);
 
 #if WLEDPB_PARLIO_SEAMLESS_DMA
   bool _initDmaRing();                        // descriptor ring (once) + borrow the unit's GDMA channel + refill callback
   void IRAM_ATTR _armDescriptor(uint8_t idx); // hand a filled buffer's descriptor to the DMA
   void IRAM_ATTR _processChunkEof();          // PARLIO TX EOF: chain next byte-count chunk or finish frame
-  static IRAM_ATTR bool gdmaEofCallback(gdma_channel_handle_t dma_chan, gdma_event_data_t* edata, void* user_ctx);
+  static IRAM_ATTR bool gdmaEofISR(gdma_channel_handle_t dma_chan, gdma_event_data_t* edata, void* user_ctx);
 #else
   bool IRAM_ATTR _queueBuffer(uint8_t bufIdx); // queue the (single) full-frame buffer as one PARLIO transaction
 #endif
@@ -163,7 +163,7 @@ private:
   uint8_t _channelCount;
   uint16_t _channelMask;
   uint16_t _stagedMask;
-  uint8_t _invertMask;     // bit per channel: XOR mask for inverted outputs
+  uint8_t _laneInvertMask;     // bit per channel: XOR mask for inverted outputs
   size_t _maxDataLen;
 
   static ParlioBusContext* _instances[WLEDPB_PARLIO_BUS_COUNT];

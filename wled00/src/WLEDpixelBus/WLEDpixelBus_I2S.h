@@ -98,7 +98,7 @@ private:
   void IRAM_ATTR encode4Step(uint8_t* dest, size_t destLen, uint8_t maxChannel); // Encoding (4-step cadence)
 
 #ifdef CONFIG_IDF_TARGET_ESP32S3
-  static IRAM_ATTR bool txDoneCallback(gdma_channel_handle_t dma_chan, gdma_event_data_t* event_data, void* user_data);
+  static IRAM_ATTR bool gdmaTxDoneISR(gdma_channel_handle_t dma_chan, gdma_event_data_t* event_data, void* user_data);
 #else
   static void IRAM_ATTR dmaISR(void* arg);
 #endif

@@ -17,7 +17,7 @@ Each bus can have individual configuration of color channels but all must share 
 #pragma once
 
 #include "WLEDpixelBus.h"
-#ifdef WLEDPB_PARALLEL_SPI_SUPPORT
+#ifdef WLEDPB_PARALLELSPI_SUPPORT
 #include "esp_private/gdma.h"   // for gdma_channel_handle_t
 namespace WLEDpixelBus {
 
@@ -104,7 +104,7 @@ public:
   bool show() override;
   bool canShow() const override;
 #ifdef WLED_DEBUG_BUS
-  const char* getTypeStr() const override { return "Parallel SPI"; }
+  const char* getTypeStr() const override { return "PARALLEL_SPI"; }
 #endif
 
 private:
@@ -118,5 +118,5 @@ private:
 
 } // namespace WLEDpixelBus
 
-#endif // WLEDPB_PARALLEL_SPI_SUPPORT
+#endif // WLEDPB_PARALLELSPI_SUPPORT
 

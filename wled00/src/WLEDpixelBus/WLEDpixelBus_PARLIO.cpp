@@ -89,7 +89,7 @@ ParlioBusContext::ParlioBusContext(uint8_t /*busNum*/)
   , _channelCount(0)
   , _channelMask(0)
   , _stagedMask(0)
-  , _invertMask(0)
+  , _laneInvertMask(0)
   , _maxDataLen(0)
 {
   for (int i = 0; i < WLEDPB_PARLIO_MAX_CHANNELS; i++) {
@@ -175,14 +175,14 @@ bool ParlioBusContext::hwInit() {
   }
 
   for (int i = 0; i < WLEDPB_PARLIO_MAX_CHANNELS; i++) {
-    if (_channels[i].active && _channels[i].pin >= 0 && (_invertMask & (1 << i))) {
+    if (_channels[i].active && _channels[i].pin >= 0 && (_laneInvertMask & (1 << i))) {
       esp_rom_gpio_connect_out_signal(_channels[i].pin, parlio_periph_signals.groups[0].tx_units[0].data_sigs[i], true, false);  // invert the output using hardware
     }
   }
 
   parlio_tx_event_callbacks_t cbs;
   memset(&cbs, 0, sizeof(cbs));
-  cbs.on_trans_done = txDoneCallback;
+  cbs.on_trans_done = parlioTxDoneISR;
   err = parlio_tx_unit_register_event_callbacks(_txUnit, &cbs, this); 
   if (err != ESP_OK) {
     parlio_del_tx_unit(_txUnit);
@@ -271,7 +271,7 @@ bool ParlioBusContext::_initDmaRing() {
     }
   }
 
-  // borrow the unit's GDMA channel (see WledpbParlioTxUnitHead): already connected to the PARLIO trigger
+  // borrow the unit's GDMA channel (see WledPbParlioTxUnitHead): already connected to the PARLIO trigger
   _dmaChan = WLEDPB_PARLIO_TX_DMA_CHAN(_txUnit);
 
   #if ESP_IDF_VERSION >= ESP_IDF_VERSION_VAL(5, 5, 0)
@@ -297,7 +297,7 @@ bool ParlioBusContext::_initDmaRing() {
 
   // the driver (v5.3-v5.5) never registers GDMA callbacks on this channel, they are ours
   gdma_tx_event_callbacks_t cbs = {};
-  cbs.on_trans_eof = gdmaEofCallback;
+  cbs.on_trans_eof = gdmaEofISR;
   if (gdma_register_tx_event_callbacks(_dmaChan, &cbs, this) != ESP_OK) {
     _dmaChan = nullptr;
     return false;
@@ -313,7 +313,7 @@ void IRAM_ATTR ParlioBusContext::_armDescriptor(uint8_t idx) {
   _desc[idx].dw0.owner = DMA_DESCRIPTOR_BUFFER_OWNER_DMA; // owner write last: hands the descriptor to the DMA
 }
 
-IRAM_ATTR bool ParlioBusContext::gdmaEofCallback(gdma_channel_handle_t /*dma_chan*/, gdma_event_data_t* /*edata*/, void* user_ctx) {
+IRAM_ATTR bool ParlioBusContext::gdmaEofISR(gdma_channel_handle_t /*dma_chan*/, gdma_event_data_t* /*edata*/, void* user_ctx) {
   ParlioBusContext* ctx = (ParlioBusContext*)user_ctx;
   if (ctx->_state != DriverState::Sending) return false; // stale wake-up between frames
 
@@ -414,7 +414,7 @@ int8_t ParlioBusContext::registerChannel(int8_t pin, size_t srcBytes, bool inver
   _channels[idx].active = true;
   _channelCount++;
   _channelMask |= (1 << idx);
-  if (inverted) _invertMask |= (1 << idx);
+  if (inverted) _laneInvertMask |= (1 << idx);
 
   // track the largest source byte count across channels; used in _allocDmaBuffers() to size DMA buffers
   if (srcBytes > _maxSrcBytes) _maxSrcBytes = srcBytes;
@@ -432,7 +432,7 @@ void ParlioBusContext::unregisterChannel(int8_t channelIdx) {
   _channels[channelIdx] = {-1, nullptr, 0, 0, false};
   _channelCount--;
   _channelMask &= ~(1 << channelIdx);
-  _invertMask &= ~(1 << channelIdx);
+  _laneInvertMask &= ~(1 << channelIdx);
 
   if (_txUnit) _unitStale = true; // recreate unit without this pin on next transmit
 }
@@ -529,17 +529,17 @@ void IRAM_ATTR __attribute__((noinline)) ParlioBusContext::fillBuffer(uint8_t bu
     }
   }
 
-  size_t translatedbytes = bytesToEncode * WLEDPB_PARLIO_DMABYTES;
-  if (translatedbytes > _bufferSize) translatedbytes = _bufferSize;
-  translatedbytes -= translatedbytes % WLEDPB_PARLIO_DMABYTES;
-  encode4Step(_dmaBuffer[bufIdx], translatedbytes, maxCh);
-  _txLen[bufIdx] = translatedbytes;
+  size_t translatedBytes = bytesToEncode * WLEDPB_PARLIO_DMABYTES;
+  if (translatedBytes > _bufferSize) translatedBytes = _bufferSize;
+  translatedBytes -= translatedBytes % WLEDPB_PARLIO_DMABYTES;
+  encode4Step(_dmaBuffer[bufIdx], translatedBytes, maxCh);
+  _txLen[bufIdx] = translatedBytes;
 
-  if (translatedbytes < _bufferSize) {
+  if (translatedBytes < _bufferSize) {
     // Data ran out before the buffer was full (i.e. we are done), compute the minimum reset period we must send
     size_t resetBytes = _calcResetBytes();
 
-    size_t newLen = translatedbytes + resetBytes;
+    size_t newLen = translatedBytes + resetBytes;
     if (newLen > _bufferSize) {
       _resetBytesLeft = newLen - _bufferSize; // reset pulse does not fit into this buffer frame, send another one (see above)
       _txLen[bufIdx] = _bufferSize;
@@ -618,7 +618,7 @@ bool ParlioBusContext::hwStartTransfer() {
   _chunkBytesLeft = totalBytes - firstChunk;
 
   // reset the ring: DMA stopped, all descriptors back to CPU, refill from scratch.
-  // note: _state is still Idle here, so a stale pending GDMA/PARLIO EOF interrupt is ignored by the callbacks while we rebuild (see gdmaEofCallback)
+  // note: _state is still Idle here, so a stale pending GDMA/PARLIO EOF interrupt is ignored by the callbacks while we rebuild (see gdmaEofISR)
   gdma_stop(_dmaChan);
   _fillHead = 0;
   for (int i = 0; i < WLEDPB_PARLIO_DMA_BUFFER_COUNT; i++) {
@@ -651,7 +651,7 @@ bool ParlioBusContext::hwStartTransfer() {
 #endif
 }
 
-IRAM_ATTR bool ParlioBusContext::txDoneCallback(parlio_tx_unit_handle_t tx_unit, const parlio_tx_done_event_data_t* edata, void* user_ctx) {
+IRAM_ATTR bool ParlioBusContext::parlioTxDoneISR(parlio_tx_unit_handle_t tx_unit, const parlio_tx_done_event_data_t* edata, void* user_ctx) {
   (void)tx_unit;
   (void)edata;
   ParlioBusContext* ctx = (ParlioBusContext*)user_ctx;

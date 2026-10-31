@@ -204,7 +204,7 @@ bool I2sBusContext::hwInit(const LedTiming& timing) {
   gdma_apply_strategy(_dmaChannel, &strategy_config);
 
   // Register DMA callback
-  gdma_tx_event_callbacks_t tx_cbs = {.on_trans_eof = txDoneCallback};
+  gdma_tx_event_callbacks_t tx_cbs = {.on_trans_eof = gdmaTxDoneISR};
   gdma_register_tx_event_callbacks(_dmaChannel, &tx_cbs, this);
 
   return true;
@@ -230,7 +230,7 @@ void I2sBusContext::hwStartTransfer() {
   LCD_CAM.lcd_user.lcd_start = 1;
 }
 
-void IRAM_ATTR  I2sBusContext::hwStopTransfer() {
+void IRAM_ATTR I2sBusContext::hwStopTransfer() {
   LCD_CAM.lcd_user.lcd_start = 0;
   // Register-level GDMA stop: gdma_stop() lives in flash and must not be called from ISR
   if (_dmaChanId >= 0) GDMA.channel[_dmaChanId].out.link.stop = 1;
@@ -705,17 +705,17 @@ void IRAM_ATTR __attribute__((noinline)) I2sBusContext::fillBuffer(uint8_t bufId
     }
   }
 
-  size_t translatedbytes = bytesToEncode * WLEDPB_I2S_DMABYTES;
-  if (translatedbytes > _bufferSize) translatedbytes = _bufferSize;
-  translatedbytes -= translatedbytes % WLEDPB_I2S_DMABYTES;
-  descSetLength(_dmaDesc[bufIdx], translatedbytes);
-  encode4Step(_dmaBuffer[bufIdx], translatedbytes, maxCh);
+  size_t translatedBytes = bytesToEncode * WLEDPB_I2S_DMABYTES;
+  if (translatedBytes > _bufferSize) translatedBytes = _bufferSize;
+  translatedBytes -= translatedBytes % WLEDPB_I2S_DMABYTES;
+  descSetLength(_dmaDesc[bufIdx], translatedBytes);
+  encode4Step(_dmaBuffer[bufIdx], translatedBytes, maxCh);
 
-  if (translatedbytes < _bufferSize) {
+  if (translatedBytes < _bufferSize) {
     // Data ran out before the buffer was full (i.e. we are done), compute the minimum reset period we must send as zero cycles
     size_t resetBytes = calc4StepResetDmaBytes(_timing, WLEDPB_I2S_DMABYTES / 8);
 
-    size_t newLen = translatedbytes + resetBytes;
+    size_t newLen = translatedBytes + resetBytes;
     if (newLen > _bufferSize) {
       _resetBytesLeft = newLen - _bufferSize; // reset pulse does not fit into this buffer frame, send another one (see above)
       descSetLength(_dmaDesc[bufIdx], _bufferSize);
@@ -767,7 +767,7 @@ bool I2sBusContext::startTransmit() {
 }
 
 #ifdef CONFIG_IDF_TARGET_ESP32S3
-IRAM_ATTR bool I2sBusContext::txDoneCallback(gdma_channel_handle_t dma_chan, gdma_event_data_t* event_data, void* user_data) {
+IRAM_ATTR bool I2sBusContext::gdmaTxDoneISR(gdma_channel_handle_t dma_chan, gdma_event_data_t* event_data, void* user_data) {
   (void)event_data;
   I2sBusContext* ctx = (I2sBusContext*)user_data;
   if (dma_chan != ctx->_dmaChannel || ctx->_dmaChanId < 0) return false; // sanity check, just in case

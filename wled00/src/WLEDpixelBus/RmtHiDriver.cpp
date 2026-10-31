@@ -258,7 +258,7 @@ extern "C" void ld_include_hli_vectors_rmt();   // an object with an address, bu
 #define HI_IRQ_HANDLER nullptr
 #define HI_IRQ_HANDLER_ARG ld_include_hli_vectors_rmt
 #else
-#define HI_IRQ_HANDLER NeoEsp32RmtMethodIsr
+#define HI_IRQ_HANDLER NeoEsp32RmtMethodISR
 #define HI_IRQ_HANDLER_ARG nullptr
 #endif
 
@@ -374,7 +374,7 @@ static void IRAM_ATTR RmtStartWrite(uint8_t channel, NeoEsp32RmtHIChannelState& 
 
 }
 
-extern "C" void IRAM_ATTR NeoEsp32RmtMethodIsr(void *arg) {
+extern "C" void IRAM_ATTR NeoEsp32RmtMethodISR(void *arg) {
   // Tx threshold interrupt
   uint32_t status = rmt_ll_get_tx_thres_interrupt_status(&RMT);
   while (status) {
@@ -451,7 +451,7 @@ esp_err_t RmtHiDriver::Install(uint8_t channel, uint32_t rmtBit0, uint32_t rmtBi
 #if defined(CONFIG_BTDM_CTRL_HLI)
   // Bluetooth driver has taken the empty high-priority interrupt.  Fortunately, it allows us to
   // hook up another handler.
-  err = hli_intr_register(NeoEsp32RmtMethodIsr, nullptr, (uintptr_t) &RMT.int_st, 0xFF000000);
+  err = hli_intr_register(NeoEsp32RmtMethodISR, nullptr, (uintptr_t) &RMT.int_st, 0xFF000000);
   // 25 is the magic number of the bluetooth ISR on ESP32 - see soc/soc.h.
 #if ESP_IDF_VERSION >= ESP_IDF_VERSION_VAL(5, 0, 0)
   intr_matrix_set(esp_cpu_get_core_id(), ETS_RMT_INTR_SOURCE, 25);
