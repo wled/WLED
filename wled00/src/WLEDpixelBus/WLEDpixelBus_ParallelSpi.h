@@ -22,7 +22,7 @@ Each bus can have individual configuration of color channels but all must share 
 namespace WLEDpixelBus {
 
 #define WLEDPB_PARALLELSPI_MAX_CHANNELS 4    // SPI quad mode = 4 data lines
-#define WLEDPB_PARALLELSPI_DMA_DESC_COUNT 2  // number of DMA buffers, increase to 3 if there are flickering issues
+#define WLEDPB_PARALLELSPI_DMA_BUFFER_COUNT 2  // number of DMA buffers, increase to 3 if there are flickering issues
 #define WLEDPB_PARALLELSPI_DMABYTES 16       // 16 DMA bytes per source byte in quad-SPI 4-step encoding
 
  // Parallel-SPI bus context - manages SPI2 quad mode for parallel LED output
@@ -60,8 +60,8 @@ private:
   bool _peripheralsEnabled;
   volatile uint8_t _activeBuffer;   // buffer currently being sent by DMA (like I2S _activeBuffer)
   // DMA
-  uint8_t* _dmaBuffer[WLEDPB_PARALLELSPI_DMA_DESC_COUNT];
-  lldesc_t _dmaDesc[WLEDPB_PARALLELSPI_DMA_DESC_COUNT];
+  uint8_t* _dmaBuffer[WLEDPB_PARALLELSPI_DMA_BUFFER_COUNT];
+  lldesc_t _dmaDesc[WLEDPB_PARALLELSPI_DMA_BUFFER_COUNT];
   size_t _bufferSize;
   size_t _maxSrcBytes;
   bool _dmaAllocated;

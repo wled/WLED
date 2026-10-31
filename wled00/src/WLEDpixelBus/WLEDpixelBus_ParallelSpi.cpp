@@ -103,7 +103,7 @@ ParallelSpiBusContext::ParallelSpiBusContext()
   , _channelMask(0)
 {
   _isrMux = portMUX_INITIALIZER_UNLOCKED;
-  for (int i = 0; i < WLEDPB_PARALLELSPI_DMA_DESC_COUNT; i++) {
+  for (int i = 0; i < WLEDPB_PARALLELSPI_DMA_BUFFER_COUNT; i++) {
     _dmaBuffer[i] = nullptr;
   }
   for (int i = 0; i < WLEDPB_PARALLELSPI_MAX_CHANNELS; i++) {
@@ -283,7 +283,7 @@ bool IRAM_ATTR ParallelSpiBusContext::gdmaISR(gdma_channel_handle_t dma_chan, gd
   }
 
   uint8_t completedBuf = ctx->_activeBuffer;
-  ctx->_activeBuffer = (completedBuf + 1) % WLEDPB_PARALLELSPI_DMA_DESC_COUNT;
+  ctx->_activeBuffer = (completedBuf + 1) % WLEDPB_PARALLELSPI_DMA_BUFFER_COUNT;
   ctx->fillBuffer(completedBuf); // fill the completed buffer with next chunk of data (or zeroes for reset)
   ctx->_dmaDesc[completedBuf].eof = 1; // Give ownership of the descriptor back to DMA so it can keep feeding SPI  TODO: this may be unnecessary
   ctx->_dmaDesc[completedBuf].owner = 1;
@@ -293,14 +293,14 @@ bool IRAM_ATTR ParallelSpiBusContext::gdmaISR(gdma_channel_handle_t dma_chan, gd
 
 bool ParallelSpiBusContext::_allocDmaBuffers() {
   if (_dmaAllocated) return true;
-  _bufferSize = calc4StepBufferSize(_maxSrcBytes, WLEDPB_PARALLELSPI_DMABYTES, WLEDPB_PARALLELSPI_DMA_DESC_COUNT, MIN_DMA_BUFFER_SIZE, DEFAULT_DMA_BUFFER_SIZE);
+  _bufferSize = calc4StepBufferSize(_maxSrcBytes, WLEDPB_PARALLELSPI_DMABYTES, WLEDPB_PARALLELSPI_DMA_BUFFER_COUNT, MIN_DMA_BUFFER_SIZE, DEFAULT_DMA_BUFFER_SIZE);
   if (_bufferSize == 0) return false;
 
   // Allocate DMA buffers
-  for (uint8_t i = 0; i < WLEDPB_PARALLELSPI_DMA_DESC_COUNT; ++i) {
+  for (uint8_t i = 0; i < WLEDPB_PARALLELSPI_DMA_BUFFER_COUNT; ++i) {
     _dmaBuffer[i] = (uint8_t*)heap_caps_aligned_alloc(4, _bufferSize, MALLOC_CAP_DMA | MALLOC_CAP_INTERNAL);
     if (!_dmaBuffer[i]) {
-      for (uint8_t j = 0; j < WLEDPB_PARALLELSPI_DMA_DESC_COUNT; ++j) {
+      for (uint8_t j = 0; j < WLEDPB_PARALLELSPI_DMA_BUFFER_COUNT; ++j) {
         if (_dmaBuffer[j]) heap_caps_free(_dmaBuffer[j]);
         _dmaBuffer[j] = nullptr;
       }
@@ -315,7 +315,7 @@ bool ParallelSpiBusContext::_allocDmaBuffers() {
     _dmaDesc[i].owner = 1;
     _dmaDesc[i].eof = 1;
     _dmaDesc[i].buf = _dmaBuffer[i];
-    _dmaDesc[i].qe.stqe_next = &_dmaDesc[(i + 1) % WLEDPB_PARALLELSPI_DMA_DESC_COUNT];
+    _dmaDesc[i].qe.stqe_next = &_dmaDesc[(i + 1) % WLEDPB_PARALLELSPI_DMA_BUFFER_COUNT];
   }
   _dmaAllocated = true;
   return true;
@@ -437,7 +437,7 @@ void ParallelSpiBusContext::deinit() {
     _spiIsrHandle = nullptr;
   }
 
-  for (int i = 0; i < WLEDPB_PARALLELSPI_DMA_DESC_COUNT; i++) {
+  for (int i = 0; i < WLEDPB_PARALLELSPI_DMA_BUFFER_COUNT; i++) {
     if (_dmaBuffer[i]) heap_caps_free(_dmaBuffer[i]);
     _dmaBuffer[i] = nullptr;
   }
@@ -554,9 +554,9 @@ bool ParallelSpiBusContext::startTransmit() {
   _activeBuffer = 0;
   _state = DriverState::Sending;
 
-  for (int i = 0; i < WLEDPB_PARALLELSPI_DMA_DESC_COUNT; i++) {
+  for (int i = 0; i < WLEDPB_PARALLELSPI_DMA_BUFFER_COUNT; i++) {
     // Restore circular linked list
-    _dmaDesc[i].qe.stqe_next = &_dmaDesc[(i + 1) % WLEDPB_PARALLELSPI_DMA_DESC_COUNT];
+    _dmaDesc[i].qe.stqe_next = &_dmaDesc[(i + 1) % WLEDPB_PARALLELSPI_DMA_BUFFER_COUNT];
     _dmaDesc[i].size = _bufferSize;
     _dmaDesc[i].length = _bufferSize;
     _dmaDesc[i].owner = 1;
