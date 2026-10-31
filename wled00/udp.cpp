@@ -939,7 +939,7 @@ void espNowReceiveCB(uint8_t* address, uint8_t* data, uint8_t len, signed int rs
   if (buffer->packet == 0) {
     packetsReceived = 0; // it will increment later (this is to make sure we start counting packets correctly)
     if (udpIn == nullptr) {
-      udpIn = (uint8_t *)malloc(WLEDPACKETSIZE); // we cannot use stack as we are in callback
+      udpIn = (uint8_t *)p_calloc(WLEDPACKETSIZE, sizeof(uint8_t)); // we cannot use stack as we are in callback
       if (!udpIn) return; // memory alocation failed
       DEBUG_PRINTLN(F("ESP-NOW inited UDP buffer."));
     }
@@ -961,7 +961,7 @@ void espNowReceiveCB(uint8_t* address, uint8_t* data, uint8_t len, signed int rs
   } else {
     // any out of order packet or incorrectly sized packet or if we have no UDP buffer will abort
     DEBUG_PRINTF_P(PSTR("ESP-NOW incorrect packet: %d (%d) [%d]\n"), (int)buffer->packet, (int)len-3, (int)UDP_SEG_SIZE);
-    if (udpIn) free(udpIn);
+    if (udpIn) p_free(udpIn);
     udpIn = nullptr;
     packetsReceived = 0;
     segsReceived = 0;
@@ -973,14 +973,18 @@ void espNowReceiveCB(uint8_t* address, uint8_t* data, uint8_t len, signed int rs
   DEBUG_PRINTF_P(PSTR("ESP-NOW packet received: %d (%d/%d) s:[%d/%d]\n"), (int)buffer->packet, (int)packetsReceived, (int)buffer->noOfPackets, (int)segsReceived, MAX_NUM_SEGMENTS);
   if (packetsReceived >= buffer->noOfPackets) {
     // last packet received
-    if (millis() - lastProcessed > 250) {
-      DEBUG_PRINTLN(F("ESP-NOW processing complete message."));
-      parseNotifyPacket(udpIn, WLEDPACKETSIZE);
-      lastProcessed = millis();
+    if (segsReceived < udpIn[39]) {
+      DEBUG_PRINTLN(F("ESP-NOW ignoring incomplete message."));
     } else {
+      if (millis() - lastProcessed > 250) {
+        DEBUG_PRINTLN(F("ESP-NOW processing complete message."));
+        parseNotifyPacket(udpIn, min(WLEDPACKETSIZE, size_t(SEG_OFFSET + segsReceived * UDP_SEG_SIZE)));
+        lastProcessed = millis();
+      } else {
       DEBUG_PRINTLN(F("ESP-NOW ignoring complete message."));
+      }
     }
-    free(udpIn);
+    p_free(udpIn);
     udpIn = nullptr;
     packetsReceived = 0;
     segsReceived = 0;
