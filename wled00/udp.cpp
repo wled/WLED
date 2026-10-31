@@ -540,7 +540,7 @@ void handleNotifications()
   else        len =  notifierUdp.read(udpIn, packetSize);
 
   // WLED nodes info notifications
-  if (isSupp && udpIn[0] == 255 && udpIn[1] == 1 && len >= 40) {
+  if (isSupp && len >= 40 && udpIn[0] == 255 && udpIn[1] == 1) {
     if (!nodeListEnabled || notifier2Udp.remoteIP() == localIP) { udpDropRXBuffer(notifier2Udp); return; }
 
     unsigned unit = udpIn[39];
