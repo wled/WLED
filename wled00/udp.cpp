@@ -206,7 +206,9 @@ void notify(byte callMode, bool followUp)
 static void parseNotifyPacket(const uint8_t *udpIn, size_t bufSize) {
   //ignore notification if received within a second after sending a notification ourselves
   if (millis() - notificationSentTime < 1000) return;
-  if (udpIn[1] > 199) return; //do not receive custom versions
+  if (bufSize < 12) return;   // the minimal packet size (version 0 from WLED 0.3) is 12 bytes
+  if (udpIn[0] != 0) return;  // only accept wled notifier protocol
+  if (udpIn[1] > 199) return; // do not receive custom versions
 
   //compatibilityVersionByte:
   byte version = udpIn[11];
@@ -559,7 +561,7 @@ void handleNotifications()
   if (udpIn[0] == 0 && !realtimeMode && receiveGroups)
   {
     DEBUG_PRINTF_P(PSTR("UDP notification from: %d.%d.%d.%d, %d bytes.\n"), notifierUdp.remoteIP()[0], notifierUdp.remoteIP()[1], notifierUdp.remoteIP()[2], notifierUdp.remoteIP()[3], len);
-    if (len > 11) parseNotifyPacket(udpIn, len);  // the minimal packet size (version 0 from WLED 0.3) is 12 bytes
+    parseNotifyPacket(udpIn, len);
     return;
   }
 
