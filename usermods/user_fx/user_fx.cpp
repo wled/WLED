@@ -1610,10 +1610,11 @@ static const char _data_FX_MODE_DISSOLVEPLUS[] PROGMEM = "Dissolve Plus@Repeat s
 *   Second slider (intensity) is for the X offset.  In the middle means the center of the pendulum will be in the middle of the LED strip.
 *     Moving the slider left will move the pendulum to the left, etc. (0 = random X offset)
 *   Third slider (blur) is for how much of a trail the pendulum will leave.
-*   Fourth slider (pause/delay) is for how long the effect will pause before restarting the pendulum movement.
+*   Fourth slider (delay) is for how long the effect will wait before restarting the pendulum movement.
 *   Fifth slider (gravity) is for how much the pendulum movement will be changed due to gravity. (0 = random gravity)
 *   Checkbox1 will select the LED color based on it's position on the strip.
 *   Checkbox2 will make the pendulum swing forever (a perpetual pendulum).
+*   Checkbox3 will select the large pendulum.
 *   aux0 stores the settings checksum to detect changes.
 */
 
@@ -1656,7 +1657,8 @@ static void mode_Pendulum(void) {
   uint16_t segLen      = SEGLEN;
   uint16_t segCenter   = segLen / 2;
   uint16_t pause_delay = map(SEGMENT.custom2, 0, 255, 500, 20000);
-  uint16_t cutoff      = segLen / 10;
+  uint16_t sizePx = SEGMENT.check3 ? 3 : 0;   // approx. particle radius in pixels; tune by eye (either 3 or 4)
+  uint16_t cutoff = segLen / 10 + sizePx;
 
   constexpr uint8_t PHASE_STOPPED = 0U;
   constexpr uint8_t PHASE_SWING   = 1U;
@@ -1675,8 +1677,10 @@ static void mode_Pendulum(void) {
 
   PartSys->setColorByPosition(SEGMENT.check1);
 
-  uint32_t settingssum = SEGMENT.speed + SEGMENT.intensity + SEGMENT.custom1 + SEGMENT.custom2 + SEGMENT.custom3 + SEGMENT.check2;
+  uint32_t settingssum = SEGMENT.speed + SEGMENT.intensity + SEGMENT.custom1 + SEGMENT.custom2 + SEGMENT.custom3 + SEGMENT.check2 + SEGMENT.check3;
   bool settingsChanged = (SEGENV.aux0 != settingssum);
+
+  PartSys->setParticleSize(SEGMENT.check3 ? 120 : 1); // large or small particle (pendulum)
 
   if (SEGENV.call == 0 || pd->phase == PHASE_STOPPED || settingsChanged) {
     const uint8_t speed = SEGMENT.speed;
@@ -1699,6 +1703,7 @@ static void mode_Pendulum(void) {
     uint16_t amplitude_px;
     if (pd->offsetX < segCenter) amplitude_px = pd->offsetX;
     else amplitude_px = MIN(pd->offsetX, (uint16_t)(segLen - 1 - pd->offsetX));
+    amplitude_px = (amplitude_px > sizePx) ? (amplitude_px - sizePx) : 0;  // leave room for the particle's width at each end of the swing
     pd->amplitude = (int32_t)amplitude_px * PS_P_RADIUS_1D;
 
     pd->fromPos       = (int32_t)pd->offsetX * PS_P_RADIUS_1D;
@@ -1736,8 +1741,8 @@ static void mode_Pendulum(void) {
       if (!perpetual) {
         pd->amplitude = (pd->amplitude * (int32_t)pd->gravity256) >> 8;  // (Q8 fixed-point)
       }
-
-      if (!perpetual && pd->amplitude < PENDULUM_MIN_AMPLITUDE_SUBPX) {
+      int32_t minAmplitude = SEGMENT.check3 ? PENDULUM_MIN_AMPLITUDE_SUBPX * 3 : PENDULUM_MIN_AMPLITUDE_SUBPX;
+      if (!perpetual && pd->amplitude < minAmplitude) {
         pd->currentPos = (int32_t)pd->offsetX * PS_P_RADIUS_1D;
         pd->phase      = PHASE_PAUSED;
         pd->pauseStart = strip.now;
@@ -1769,7 +1774,7 @@ static void mode_Pendulum(void) {
 
   PartSys->update();
 }
-static const char _data_FX_MODE_PENDULUM[] PROGMEM = "Pendulum@Speed (0=random),X Offset (0=random),Blur,Pause/Delay,Gravity (0=random), Position Color, Perpetual;!,!;!;1;c2=32,c3=4,o1=1";
+static const char _data_FX_MODE_PENDULUM[] PROGMEM = "Pendulum@Speed (0=random),X Offset (0=random),Blur,Delay,Gravity (0=random), Position Color, Perpetual, XL;!,!;!;1;c2=32,c3=4,o1=1";
 #endif
 
 
