@@ -531,10 +531,11 @@ void handleNotifications()
 
   localIP = WLEDNetwork.localIP();
   //notifier and UDP realtime
-  if (!packetSize || packetSize > UDP_IN_MAXSIZE) return;
+  if (packetSize < 1 || packetSize > UDP_IN_MAXSIZE) return;
   if (!isSupp && notifierUdp.remoteIP() == localIP) { udpDropRXBuffer(notifierUdp); return; } //don't process broadcasts we send ourselves
 
   uint8_t udpIn[packetSize +1];
+  memset(udpIn, 0, packetSize +1); // clear buffer
   unsigned len;
   if (isSupp) len = notifier2Udp.read(udpIn, packetSize);
   else        len =  notifierUdp.read(udpIn, packetSize);
@@ -587,7 +588,8 @@ void handleNotifications()
       if (tpmType == 0xaa) { //TPM2.NET polling, expect answer
         sendTPM2Ack(); return;
       }
-      if (tpmType != 0xda) return; //return if notTPM2.NET data
+      if (tpmType != 0xda) return; // return if notTPM2.NET data
+      if (packetSize < 6) return;  // prevent reading past end of buffer
 
       realtimeIP = (isSupp) ? notifier2Udp.remoteIP() : notifierUdp.remoteIP();
       realtimeLock(realtimeTimeoutMs, REALTIME_MODE_TPM2NET);
