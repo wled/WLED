@@ -909,6 +909,7 @@ void espNowSentCB(uint8_t* address, uint8_t status) {
 // ESP-NOW message receive callback function
 void espNowReceiveCB(uint8_t* address, uint8_t* data, uint8_t msgLen, signed int rssi, bool broadcast) {
   sprintf_P(last_signal_src, PSTR("%02x%02x%02x%02x%02x%02x"), address[0], address[1], address[2], address[3], address[4], address[5]);
+  if (msgLen == 0) return;
   size_t len = msgLen; // convert to 32bit, to prevent overflow when calculating assembled message size
 
   #ifdef WLED_DEBUG
