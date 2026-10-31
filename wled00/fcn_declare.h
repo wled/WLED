@@ -311,7 +311,7 @@ void refreshNodeList();
 void sendSysInfoUDP();
 #ifndef WLED_DISABLE_ESPNOW
 void espNowSentCB(uint8_t* address, uint8_t status);
-void espNowReceiveCB(uint8_t* address, uint8_t* data, uint8_t len, signed int rssi, bool broadcast);
+void espNowReceiveCB(uint8_t* address, uint8_t* data, uint8_t msgLen, signed int rssi, bool broadcast);
 #endif
 
 // UDP helper for flushing the WiFiUDP rx buffer - required on ESP32

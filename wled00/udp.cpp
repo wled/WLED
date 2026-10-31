@@ -894,8 +894,9 @@ void espNowSentCB(uint8_t* address, uint8_t status) {
 }
 
 // ESP-NOW message receive callback function
-void espNowReceiveCB(uint8_t* address, uint8_t* data, uint8_t len, signed int rssi, bool broadcast) {
+void espNowReceiveCB(uint8_t* address, uint8_t* data, uint8_t msgLen, signed int rssi, bool broadcast) {
   sprintf_P(last_signal_src, PSTR("%02x%02x%02x%02x%02x%02x"), address[0], address[1], address[2], address[3], address[4], address[5]);
+  size_t len = msgLen; // convert to 32bit, to prevent overflow when calculating assembled message size
 
   #ifdef WLED_DEBUG
     DEBUG_PRINT(F("ESP-NOW: ")); DEBUG_PRINT(last_signal_src); DEBUG_PRINT(F(" -> ")); DEBUG_PRINTLN(len);
@@ -944,7 +945,7 @@ void espNowReceiveCB(uint8_t* address, uint8_t* data, uint8_t len, signed int rs
       DEBUG_PRINTLN(F("ESP-NOW inited UDP buffer."));
     }
     memcpy(udpIn, buffer->data, len-3); // global data (41 bytes + up to 5 segments)
-    segsReceived = (len - 3 - 41) / UDP_SEG_SIZE;
+    segsReceived = (len > 43) ? (len - 3 - 41) / UDP_SEG_SIZE : 0; //  prevent negative numbers of segments
   } else if (buffer->packet == packetsReceived && udpIn && ((len - 3) / UDP_SEG_SIZE) * UDP_SEG_SIZE == (len-3)) {
     // we received a packet full of segments
     if (segsReceived >= MAX_NUM_SEGMENTS) {
@@ -973,8 +974,8 @@ void espNowReceiveCB(uint8_t* address, uint8_t* data, uint8_t len, signed int rs
   DEBUG_PRINTF_P(PSTR("ESP-NOW packet received: %d (%d/%d) s:[%d/%d]\n"), (int)buffer->packet, (int)packetsReceived, (int)buffer->noOfPackets, (int)segsReceived, MAX_NUM_SEGMENTS);
   if (packetsReceived >= buffer->noOfPackets) {
     // last packet received
-    if (segsReceived < udpIn[39]) {
-      DEBUG_PRINTLN(F("ESP-NOW ignoring incomplete message."));
+    if (segsReceived < udpIn[39] || udpIn[11] < 10) { // packet version must be > 9 - esp-now sync was introduced in WLED 0.15.0
+      DEBUG_PRINTLN(F("ESP-NOW ignoring invalid or incomplete message."));
     } else {
       if (millis() - lastProcessed > 250) {
         DEBUG_PRINTLN(F("ESP-NOW processing complete message."));
