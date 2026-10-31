@@ -203,7 +203,7 @@ void notify(byte callMode, bool followUp)
   notificationCount = followUp ? notificationCount + 1 : 0;
 }
 
-static void parseNotifyPacket(const uint8_t *udpIn) {
+static void parseNotifyPacket(const uint8_t *udpIn, size_t bufSize) {
   //ignore notification if received within a second after sending a notification ourselves
   if (millis() - notificationSentTime < 1000) return;
   if (udpIn[1] > 199) return; //do not receive custom versions
@@ -265,7 +265,7 @@ static void parseNotifyPacket(const uint8_t *udpIn) {
     size_t inactiveSegs = 0;
     for (size_t i = 0; i < numSrcSegs && i < WS2812FX::getMaxSegments(); i++) {
       unsigned ofs = 41 + i*udpIn[40]; //start of segment offset byte
-      if (ofs + 36 > UDP_IN_MAXSIZE) break; // avoid reading outside of array
+      if (ofs + 36 > bufSize) break; // avoid reading outside of array
       unsigned id = udpIn[0 +ofs];
       DEBUG_PRINTF_P(PSTR("UDP segment received: %u\n"), id);
       if      (id >  strip.getSegmentsNum()) break;
@@ -559,7 +559,7 @@ void handleNotifications()
   if (udpIn[0] == 0 && !realtimeMode && receiveGroups)
   {
     DEBUG_PRINTF_P(PSTR("UDP notification from: %d.%d.%d.%d, %d bytes.\n"), notifierUdp.remoteIP()[0], notifierUdp.remoteIP()[1], notifierUdp.remoteIP()[2], notifierUdp.remoteIP()[3], len);
-    if (len > 11) parseNotifyPacket(udpIn);  // the minimal packet size (version 0 from WLED 0.3) is 12 bytes
+    if (len > 11) parseNotifyPacket(udpIn, len);  // the minimal packet size (version 0 from WLED 0.3) is 12 bytes
     return;
   }
 
@@ -973,7 +973,7 @@ void espNowReceiveCB(uint8_t* address, uint8_t* data, uint8_t len, signed int rs
     // last packet received
     if (millis() - lastProcessed > 250) {
       DEBUG_PRINTLN(F("ESP-NOW processing complete message."));
-      parseNotifyPacket(udpIn);
+      parseNotifyPacket(udpIn, WLEDPACKETSIZE);
       lastProcessed = millis();
     } else {
       DEBUG_PRINTLN(F("ESP-NOW ignoring complete message."));
