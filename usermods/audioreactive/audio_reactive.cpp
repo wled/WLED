@@ -1445,6 +1445,12 @@ class AudioReactive : public Usermod {
           delay(100);
           if (audioSource) audioSource->initialize(i2swsPin, i2ssdPin, i2sckPin, mclkPin);
           break;
+        case 7:
+          DEBUGSR_PRINTLN(F("AR: ES7210 Microphone (MIC1, left channel)."));
+          audioSource = new ES7210Source(SAMPLE_RATE, BLOCK_SIZE);
+          delay(100);
+          if (audioSource) audioSource->initialize(i2swsPin, i2ssdPin, i2sckPin, mclkPin);
+          break;
 
       #if defined(AR_ANALOG_MIC_SUPPORTED)
         // analog microphone input - ADC over I2S on IDF v4 (classic ESP32), ADC continuous driver on IDF v5/v6
@@ -2162,6 +2168,7 @@ class AudioReactive : public Usermod {
       uiScript.print(F("addOption(dd,'Generic PDM',5);"));
     #endif
     uiScript.print(F("addOption(dd,'ES8388',6);"));
+      uiScript.print(F("addOption(dd,'ES7210',7);"));
       uiScript.print(F("addOption(dd,'None - network receive only',"));
       uiScript.print(SR_DMTYPE_NETWORK_ONLY);
       uiScript.print(F(");"));
