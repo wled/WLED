@@ -24,7 +24,7 @@ Tested working on IDF V4 and V5 API functions and low-level HAL
 /*
 TODO List
 - need to verify custom bus start indices and color-order overrides on hardware (both should now work)
-- ESP32 C61 has no RMT and no PARLIO, either bit bang or check if parallel SPI can be used
+- ESP32 C61 has no RMT and no PARLIO, uses bit bang. check if parallel SPI can be used
 - I2S/LCD requires more stress-testing to ensure glitch-free outputs, for 16-parallel maybe even 4 buffers are needed under heavy load
 - the DMA buffer count and size need to be checked against memory usage formulas, they may be incorrect (we could do "worst case" in the UI as it wont matter much for a small amount of LEDs)
 - stress-test all parallel drivers for missed interrupts, descriptor races, and watchdog recovery
@@ -40,14 +40,14 @@ TODO List
 - PARLIO bus needs further target-hardware testing
 - use chip capabilities instead of individual target ifdefs in buswrapper
 - SM16825_SUFFIX should be made dynamic to increase color range at lower brightness (scale with global brightness)
-- The config rework is unfinished: with the updated workflow the goal is to fully drop "custom" bus handling and tread every bus the same (UI needs rework to do that) -> done now, needs testing and refinement
+- The config rework is unfinished: with the updated workflow the goal is to fully drop "custom" bus handling and tread every bus the same (UI needs rework to do that) -> partially done
 - RMT driver has no canShow() timeout yet, could adopt the "ensureIdle()" approach from I2S/PARLIO
 - the bus capability definitions in const.h should probably be moved to driver level or use driver level constants instead of "overriding" low level hardware capabilities
 - LPD6803 and LPD8806 encoding is done on RGB only, need to add support for more color channels if such stripes exist
-- PARLIO uses software channel inversion, can we use GPIO inversion like in other drivers? code for testing is in place but commented out, see hwInit() in WLEDpixelBus_PARLIO.cpp
 - ESP8266 DMA output uses a slow path to scale and reset buffers, needs optimisation
 - the "non global buffer" path is not optimised, check if this path should not color-encode on the fly so reading buffer back is faster, then do an encode pass before sending
 - ColorEncoder has two overloaded versions, the non mapped one is not really used anymore as mapping is done by legacy shims - should be removed after checking if SPI bus is handled correctly if doing so
+- UI bug: when customizing a bus, then switching type, the custom fields stay (for example for a PWM output)
 */
 
 

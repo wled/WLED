@@ -62,6 +62,8 @@ BitBangBus::BBstate* BitBangBus::_bitBangState = nullptr;
   }
 #if defined(CONFIG_IDF_TARGET_ESP32C3) || defined(CONFIG_IDF_TARGET_ESP32C6) || defined(CONFIG_IDF_TARGET_ESP32H2) || defined(CONFIG_IDF_TARGET_ESP32P4)
   static constexpr uint32_t LOOPTEST_CYCLES = 8;
+#elif defined(CONFIG_IDF_TARGET_ESP32C5)
+  static constexpr uint32_t LOOPTEST_CYCLES = 56; // C5 has high latency from CPU to AHB bus for some reason TODO: needs investigation
 #elif defined(CONFIG_IDF_TARGET_ESP32S3)
   static constexpr uint32_t LOOPTEST_CYCLES = 10;
 #else // ESP32 and S2
