@@ -32,6 +32,7 @@ the whole frame (data + reset period) is encoded into a single buffer up front a
 
 #ifdef SOC_PARLIO_SUPPORTED
 #define WLEDPB_PARLIO_SUPPORT
+#include "WLEDpixelBus_Parallel.h" // shared base classes for the parallel drivers
 
 #include "driver/parlio_tx.h"
 #include "driver/gpio.h"
@@ -79,25 +80,12 @@ namespace WLEDpixelBus {
 #define WLEDPB_PARLIO_XFER_DONE_FLAG 3 // flag to indicate end of transfer, must NOT be a multiple of 4
 
 // PARLIO bus context - manages shared PARLIO unit for parallel output
-class ParlioBusContext {
+class ParlioBusContext : public ParallelBusContext<WLEDPB_PARLIO_MAX_CHANNELS> {
 public:
   static ParlioBusContext* get(uint8_t busNum);
   static void release(uint8_t busNum);
 
-  bool init(const LedTiming& timing);
-  void deinit();
-
-  int8_t registerChannel(int8_t pin, size_t srcBytes, bool inverted = false);
-  void unregisterChannel(int8_t channelIdx);
-  uint8_t getChannelCount() const { return _channelCount; }
-
   bool startTransmit();
-  bool isIdle() const { return _state == DriverState::Idle; }
-  bool ensureIdle(); // non-blocking completion check with timeout recovery
-  void waitForIdle(); // bounded wait; aborts a stalled transfer before returning
-  void abortTransmit(); // watchdog recovery: stop unit and DMA, return to idle
-
-  void setChannelData(int8_t channelIdx, const uint8_t* data, size_t len);
 
 private:
   ParlioBusContext(uint8_t busNum);
@@ -119,26 +107,23 @@ private:
   bool IRAM_ATTR _queueBuffer(uint8_t bufIdx); // queue the (single) full-frame buffer as one PARLIO transaction
 #endif
 
-  bool hwInit();          // creates the PARLIO TX unit with the currently registered pins
-  void hwDeinit();
+  bool hwInit() override; // creates the PARLIO TX unit with the currently registered pins
+  void hwDeinit() override;
+  void releaseResources() override;
   bool hwStartTransfer(); // enables the unit and starts the frame
-  void IRAM_ATTR hwStopTransfer();
+  void IRAM_ATTR stopTransferHw() override;
+  void abortTransferHw() override;
+  void channelAttached(int8_t idx, int8_t pin, bool inverted) override;
+  void channelDetached(int8_t idx, int8_t pin) override;
+  void onChannelDataStaged(int8_t idx, size_t len) override;
 
   parlio_tx_unit_handle_t _txUnit;
   bool _unitEnabled;
   bool _unitStale;        // channels changed after unit creation, recreate on next transmit
 
-  volatile DriverState _state;
-  volatile uint32_t _txStartMillis; // millis() at frame start, used by the stall watchdog in show()/canShow()
-  bool _initialized;
-
   uint8_t* _dmaBuffer[WLEDPB_PARLIO_DMA_BUFFER_COUNT];
   volatile size_t _txLen[WLEDPB_PARLIO_DMA_BUFFER_COUNT];        // bytes per buffer
   volatile bool _endOfFrame[WLEDPB_PARLIO_DMA_BUFFER_COUNT];     // last buffer of the frame
-  size_t _bufferSize;      // actual allocated DMA buffer size (per buffer)
-  size_t _maxSrcBytes;     // max source (encoded pixel) bytes across all registered channels; drives DMA sizing
-  bool _dmaAllocated;
-  volatile size_t _resetBytesLeft;
 
 #if WLEDPB_PARLIO_SEAMLESS_DMA
   // GDMA channel borrowed from the PARLIO unit (owned and deleted by the IDF driver) + our circular descriptor ring
@@ -149,22 +134,8 @@ private:
   volatile uint32_t _chunkBytesLeft; // frame bytes not yet covered by a programmed tx_bytelen chunk
 #endif
 
-  LedTiming _timing;
   uint32_t _outClockHz;    // PARLIO output clock = 4 clocks per LED bit
-
-  struct ChannelData {
-    int8_t pin;
-    const uint8_t* srcData;
-    size_t srcLen;
-    size_t srcPos;
-    bool active;
-  };
-  ChannelData _channels[WLEDPB_PARLIO_MAX_CHANNELS];
-  uint8_t _channelCount;
-  uint16_t _channelMask;
-  uint16_t _stagedMask;
-  uint8_t _laneInvertMask;     // bit per channel: XOR mask for inverted outputs
-  size_t _maxDataLen;
+  size_t _maxDataLen;      // longest source byte count of this frame, drives the frame length
 
   static ParlioBusContext* _instances[WLEDPB_PARLIO_BUS_COUNT];
   static uint8_t _refCount[WLEDPB_PARLIO_BUS_COUNT];
@@ -172,27 +143,12 @@ private:
 
 // PARLIO parallel output bus
 
-class ParlioBus : public PixelBus {
+class ParlioBus : public ParallelBusBase<ParlioBusContext> {
 public:
   ParlioBus(int8_t pin, const LedTiming& timing, uint8_t busNum = 0, uint8_t ledType = 0);
-  ~ParlioBus() override;
-
-  bool begin() override;
-  void end() override;
-
-  bool show() override;
-  bool canShow() const override;
 #ifdef WLED_DEBUG_BUS
   const char* getTypeStr() const override { return "PARLIO"; }
 #endif
-
-private:
-  int8_t _pin;
-  LedTiming _timing;
-  bool _initialized;
-  uint8_t _busNum;
-  int8_t _channelIdx;
-  ParlioBusContext* _ctx;
 };
 
 } // namespace WLEDpixelBus

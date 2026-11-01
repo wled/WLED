@@ -11,6 +11,7 @@ written by Damian Schneider @dedehai 2026
 #include "WLEDpixelBus.h"
 
 #ifdef WLEDPB_I2S_SUPPORT
+#include "WLEDpixelBus_Parallel.h" // shared base classes for the parallel drivers
 
 #if ESP_IDF_VERSION < ESP_IDF_VERSION_VAL(5, 3, 0)
 #include "driver/periph_ctrl.h"
@@ -69,25 +70,12 @@ namespace WLEDpixelBus {
 #define WLEDPB_I2S_XFER_DONE_FLAG 3  // flag to indicate end of transfer, must NOT be a multiple of 4
 
 // I2S bus context - manages shared I2S/LCD peripheral for parallel output
-class I2sBusContext {
+class I2sBusContext : public ParallelBusContext<WLEDPB_I2S_MAX_CHANNELS> {
 public:
   static I2sBusContext* get(uint8_t busNum);
   static void release(uint8_t busNum);
 
-  bool init(const LedTiming& timing);
-  void deinit();
-
-  int8_t registerChannel(int8_t pin, size_t srcBytes, bool inverted = false);
-  void unregisterChannel(int8_t channelIdx);
-  uint8_t getChannelCount() const { return _channelCount; }
-
   bool startTransmit();
-  bool isIdle() const { return _state == DriverState::Idle; }
-  bool ensureIdle(); // non-blocking completion check with timeout recovery
-  void waitForIdle(); // bounded wait; aborts a stalled transfer before returning
-  void abortTransmit(); // abort on timeout (just in case to avoid driver getting stuck)
-
-  void setChannelData(int8_t channelIdx, const uint8_t* data, size_t len);
 
 private:
   I2sBusContext(uint8_t busNum);
@@ -95,7 +83,7 @@ private:
 
   void IRAM_ATTR fillBuffer(uint8_t bufIdx);
   bool _allocDmaBuffers(); // allocate/reallocate DMA buffers sized for the largest registered channel
-  void IRAM_ATTR encode4Step(uint8_t* dest, size_t destLen, uint8_t maxChannel); // Encoding (4-step cadence)
+  void IRAM_ATTR encode4Step(uint8_t* dest, size_t destLen, uint8_t maxChannel); // 4-step cadence encoding
 
 #ifdef CONFIG_IDF_TARGET_ESP32S3
   static IRAM_ATTR bool gdmaTxDoneISR(gdma_channel_handle_t dma_chan, gdma_event_data_t* event_data, void* user_data);
@@ -105,11 +93,13 @@ private:
   void IRAM_ATTR _processEof(int8_t completedBuf);
 
   // Hardware abstraction
-  bool hwInit(const LedTiming& timing);
-  void hwDeinit();
+  bool hwInit() override;
+  void hwDeinit() override;
+  void releaseResources() override;
   void hwStartTransfer();
-  void IRAM_ATTR hwStopTransfer();
-  void hwRoutePin(int8_t pin, int8_t idx, bool inverted);
+  void IRAM_ATTR stopTransferHw() override;
+  void channelAttached(int8_t idx, int8_t pin, bool inverted) override;
+  void channelDetached(int8_t idx, int8_t pin) override;
 
   // DMA descriptor abstraction
 #ifdef CONFIG_IDF_TARGET_ESP32S3
@@ -143,32 +133,10 @@ private:
   intr_handle_t _isrHandle;
 #endif
 
-  volatile DriverState _state;
-  bool _initialized;
-
   // DMA circular buffer chain
   DmaDesc_t* _dmaDesc[WLEDPB_I2S_DMA_BUFFER_COUNT];
   uint8_t* _dmaBuffer[WLEDPB_I2S_DMA_BUFFER_COUNT];
-  size_t _bufferSize;      // actual allocated DMA buffer size (per buffer)
-  size_t _maxSrcBytes;     // max source (encoded pixel) bytes across all registered channels; drives DMA sizing
-  bool _dmaAllocated;      // true when DMA buffers are allocated and reflect current _maxSrcBytes
   volatile uint8_t _lastFilled;       // last DMA buffer that was refilled; next to refill is (_lastFilled + 1) % COUNT
-  volatile size_t _resetBytesLeft;
-  volatile uint32_t _txStartMillis;   // millis() when the current transfer started, watchdog for canShow() and show()
-
-  LedTiming _timing;
-
-  struct ChannelData {
-    int8_t pin;
-    const uint8_t* srcData;
-    size_t srcLen;
-    size_t srcPos;
-    bool active;
-  };
-  ChannelData _channels[WLEDPB_I2S_MAX_CHANNELS];
-  uint8_t _channelCount;
-  uint16_t _channelMask;
-  uint16_t _stagedMask;
 
   static I2sBusContext* _instances[WLEDPB_I2S_BUS_COUNT];
   static uint8_t _refCount[WLEDPB_I2S_BUS_COUNT];
@@ -177,27 +145,12 @@ private:
 // I2S parallel output bus
 // -------------------------
 
-class I2sBus : public PixelBus {
+class I2sBus : public ParallelBusBase<I2sBusContext> {
 public:
   I2sBus(int8_t pin, const LedTiming& timing, uint8_t busNum = 1, uint8_t ledType = 0);
-  ~I2sBus() override;
-
-  bool begin() override;
-  void end() override;
-
-  bool show() override;
-  bool canShow() const override;
 #ifdef WLED_DEBUG_BUS
   const char* getTypeStr() const override { return "I2S"; }
 #endif
-
-private:
-  int8_t _pin;
-  LedTiming _timing;
-  bool _initialized;
-  uint8_t _busNum;
-  int8_t _channelIdx;
-  I2sBusContext* _ctx;
 };
 
 } // namespace WLEDpixelBus

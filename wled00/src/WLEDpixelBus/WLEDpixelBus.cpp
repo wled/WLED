@@ -47,9 +47,6 @@ TODO List
 - PARLIO uses software channel inversion, can we use GPIO inversion like in other drivers? code for testing is in place but commented out, see hwInit() in WLEDpixelBus_PARLIO.cpp
 - ESP8266 DMA output uses a slow path to scale and reset buffers, needs optimisation
 - the "non global buffer" path is not optimised, check if this path should not color-encode on the fly so reading buffer back is faster, then do an encode pass before sending
-- I2S bus and PARLIO use identical 4-step encoding, should use a common function. I2S 16-parallel out still is only used by I2S -> move to WLEDpixelBus.h
-- The 4-step helper functions in WLEDpixelBus_Timings.h should also be moved to WLEDpixelBus.h for common use just like the encoding functions
-- WLEDpixelBus_features.h now only contains current steps - should also be moved into WLEDpixelBus.h and removed
 - ColorEncoder has two overloaded versions, the non mapped one is not really used anymore as mapping is done by legacy shims - should be removed after checking if SPI bus is handled correctly if doing so
 */
 
@@ -57,12 +54,23 @@ TODO List
 #include "WLEDpixelBus.h"
 #include "../../const.h" // needed for color orders
 
+#if defined(ARDUINO_ARCH_ESP32)
+  #include "WLEDpixelBus_RMT.h"
+  #include "WLEDpixelBus_BitBang.h"
+  #include "WLEDpixelBus_I2S.h"
+  #include "WLEDpixelBus_ParallelSpi.h"
+  #include "WLEDpixelBus_PARLIO.h"
+#elif defined(ESP8266)
+  #include "WLEDpixelBus_ESP8266.h"
+  #include "WLEDpixelBus_BitBang.h"
+#endif
+
 namespace WLEDpixelBus {
 
 // LED Timing Lookup
 LedTiming getLedTiming(uint8_t wledType) {
-  uint8_t idx = getTimingIndex(wledType);
-#ifdef ESP8266
+  const uint8_t idx = getTimingIndex(wledType);
+  #ifdef ESP8266
   return LedTiming(
     (uint16_t)pgm_read_word(&_ledTimings[idx].t0h_ns),
     (uint16_t)pgm_read_word(&_ledTimings[idx].t0l_ns),
@@ -70,13 +78,13 @@ LedTiming getLedTiming(uint8_t wledType) {
     (uint16_t)pgm_read_word(&_ledTimings[idx].t1l_ns),
     (uint32_t)pgm_read_dword(&_ledTimings[idx].reset_us)
   );
-#else
+  #else
   return _ledTimings[idx];
-#endif
+  #endif
 }
 
 // Color Encoder
-//===============
+//--------------
 
 // standard encoder from color order and type
 ColorEncoder::ColorEncoder(uint8_t co, uint8_t numChannels, uint8_t ledType)

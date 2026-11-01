@@ -16,9 +16,7 @@ namespace WLEDpixelBus {
 // the drivers will always use a 1/4 - 3/4 duty cycle for '0' and '1' bits (e.g. 250ns high + 750ns low for a 1us period)
 // since the t0h timing is the most critical (according to my testing) make it accurate and derive the rest
 
-/**
- * LED timing parameters in nanoseconds
- */
+// LED timing
 struct LedTiming {
   uint16_t t0h_ns;    // '0' bit high time
   uint16_t t0l_ns;    // '0' bit low time
@@ -36,52 +34,6 @@ struct LedTiming {
   }
 };
 
-static constexpr uint32_t WLEDPB_TRANSFER_TIMEOUT_MS = 1000; // max allowed time for a full transfer, recovery is triggered if exceeded
-
-
-// 4-step cadence helpers for parallel buses (I2S, Parallel SPI, PARLIO, ESP8266)
-// ------------------------------------------------------------------------------
-
-// Compute target clock frequency in Hz for 4-step cadence (4 clock cycles per bit period).
-inline uint32_t calc4StepClockHz(const LedTiming& timing) {
-  uint32_t period = timing.bitPeriod();
-  if (period == 0) period = 1250;
-  return 4000000000UL / period;
-}
-
-// Compute number of DMA bytes for the reset period appended to a frame.
-// dmaBytesPerLedBit = bytes consumed in DMA for one full 4-step LED bit i.e. one bitPeriod
-inline size_t calc4StepResetDmaBytes(const LedTiming& timing, uint8_t dmaBytesPerLedBit) {
-  uint32_t resetNs = timing.reset_us * 1000;
-  uint32_t bitPeriodNs = timing.bitPeriod() + 1; // +1 to prevent div by zero
-  uint32_t zeroCycles = resetNs / bitPeriodNs;
-  return (size_t)zeroCycles * dmaBytesPerLedBit;
-}
-
-// Compute a DMA buffer size aligned to 4 bytes, clamped to bounds and source-byte groups
-inline size_t calc4StepBufferSize(size_t maxSrcBytes, uint8_t dmaBytesPerSrcByte, uint8_t bufCount, size_t minSize, size_t maxSize) {
-  if (bufCount == 0) bufCount = 1;
-  size_t sz = (dmaBytesPerSrcByte * maxSrcBytes) / bufCount;
-  sz = (sz + 3) & ~3; // 4-byte align
-  if (sz > maxSize) sz = maxSize;
-  if (sz < minSize) sz = minSize;
-  // note: dmaBytesPerSrcByte must be a multiple of 4 for proper alignment (true for current 4-step encoding: its 16, 32 or 64 bytes)
-  sz -= sz % dmaBytesPerSrcByte; // align to src byte groups (see xxx_DMABYTES)
-  return sz;
-}
-
-// Scale LED timings by a factor (1=100%), pulse timings (ns) are scaled, reset_us is preserved
-inline LedTiming scaleTiming(const LedTiming& timing, float factor) {
-  auto s = [&](uint32_t v)->uint16_t {
-    uint32_t r = (uint32_t)(v * factor + 0.5f);
-    if (r < 1) r = 1;
-    if (r > 0xFFFF) r = 0xFFFF;
-    return (uint16_t)r;
-  };
-  return LedTiming(s(timing.t0h_ns), s(timing.t0l_ns), s(timing.t1h_ns), s(timing.t1l_ns), timing.reset_us);
-}
-
-// LED type timing lookup table, indexed by getTimingIndex() below.
 static const PROGMEM LedTiming _ledTimings[] = {
 // t0h   t0l   t1h   t1l  reset_us
  { 300,  900,  700,  500,  100 },  // WS2812B (and 1CH_X3, 2CH_X3, WWA)
@@ -99,7 +51,6 @@ static const PROGMEM LedTiming _ledTimings[] = {
  { 500,  500,  500,  500, 1000 },  // WS2801
 };
 
-// Maps WLED TYPE_ to an index into _ledTimings
 static inline uint8_t getTimingIndex(uint8_t wledType) {
   switch (wledType) {
     case TYPE_WS2812_RGB:
@@ -125,6 +76,17 @@ static inline uint8_t getTimingIndex(uint8_t wledType) {
     case TYPE_WS2801:        return 12;
     default:                 return  0; // WS2812 fallback
   }
+}
+
+// Scale LED timings by a factor (1=100%), pulse timings (ns) are scaled, reset_us is preserved
+inline LedTiming scaleTiming(const LedTiming& timing, float factor) {
+  auto s = [&](uint32_t v)->uint16_t {
+    uint32_t r = (uint32_t)(v * factor + 0.5f);
+    if (r < 1) r = 1;
+    if (r > 0xFFFF) r = 0xFFFF;
+    return (uint16_t)r;
+  };
+  return LedTiming(s(timing.t0h_ns), s(timing.t0l_ns), s(timing.t1h_ns), s(timing.t1l_ns), timing.reset_us);
 }
 
 LedTiming getLedTiming(uint8_t wledType);

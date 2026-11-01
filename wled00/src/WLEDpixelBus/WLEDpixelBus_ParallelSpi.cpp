@@ -64,7 +64,7 @@ static constexpr uint32_t WLEDPB_PARALLELSPI_MAX_BITS = (2047 * 128); // 262016 
 ParallelSpiBusContext* ParallelSpiBusContext::_instance = nullptr;
 uint8_t ParallelSpiBusContext::_refCount = 0;
 
-ParallelSpiBusContext* ParallelSpiBusContext::get() {
+ParallelSpiBusContext* ParallelSpiBusContext::get(uint8_t /*busNum*/) {
   if (_instance == nullptr) {
     _instance = new ParallelSpiBusContext();
   }
@@ -72,7 +72,7 @@ ParallelSpiBusContext* ParallelSpiBusContext::get() {
   return _instance;
 }
 
-void ParallelSpiBusContext::release() {
+void ParallelSpiBusContext::release(uint8_t /*busNum*/) {
   if (_refCount == 0) return;
   _refCount--;
   if (_refCount == 0 && _instance) {
@@ -82,32 +82,20 @@ void ParallelSpiBusContext::release() {
 }
 
 ParallelSpiBusContext::ParallelSpiBusContext()
-  : _state(DriverState::Idle)
-  , _initialized(false)
-  , _peripheralsEnabled(false)
+  : _peripheralsEnabled(false)
   , _activeBuffer(0)
-  , _bufferSize(0)
-  , _maxSrcBytes(0)
-  , _dmaAllocated(false)
   , _gdmaChan(nullptr)
   , _dmaChanId(-1)
   , _spiIsrHandle(nullptr)
   , _hw(&GPSPI2)
-  , _channelCount(0)
   , _framePos(0)
   , _numBytes(0)
   , _bitsLeft(0)
   , _resetBits(0)
-  , _txStartMillis(0)
-  , _stagedMask(0)
-  , _channelMask(0)
 {
   _isrMux = portMUX_INITIALIZER_UNLOCKED;
   for (int i = 0; i < WLEDPB_PARALLELSPI_DMA_BUFFER_COUNT; i++) {
     _dmaBuffer[i] = nullptr;
-  }
-  for (int i = 0; i < WLEDPB_PARALLELSPI_MAX_CHANNELS; i++) {
-    _channels[i] = {nullptr, 0, -1, false, false};
   }
 }
 
@@ -132,16 +120,8 @@ bool ParallelSpiBusContext::ensureIdle() {
   return true;
 }
 
-void ParallelSpiBusContext::waitForIdle() {
-  const uint32_t start = millis();
-  while (!ensureIdle() && (uint32_t)(millis() - start) <= WLEDPB_TRANSFER_TIMEOUT_MS) {
-    vTaskDelay(1);
-  }
-  if (!isIdle()) abortTransmit();
-}
-
 // Recovery path for error conditions, cleanly stops DMA, SPI, and disconnects pins to prevent glitches
-void ParallelSpiBusContext::abortTransmit() {
+void ParallelSpiBusContext::abortTransferHw() {
   portENTER_CRITICAL(&_isrMux); // make sure no ISR will disturb the sequence
   // disconnect pins from SPI and set to idle level
   for (int i = 0; i < WLEDPB_PARALLELSPI_MAX_CHANNELS; i++) {
@@ -185,32 +165,8 @@ void IRAM_ATTR __attribute__((noinline)) ParallelSpiBusContext::fillBuffer(uint8
     return; // all pixel data has been encoded, nothing to do, just send out zeroed buffer as idle state
   }
 
-  for (uint8_t lane = 0; lane < WLEDPB_PARALLELSPI_MAX_CHANNELS; lane++) {
-    if (!_channels[lane].active || !_channels[lane].srcData) continue;
-
-    size_t srcLen = _channels[lane].srcLen;
-    if (_framePos >= srcLen) continue; // Past the end of this lane's data, leave buffer 0 (low/no pulse)
-
-    size_t validBytes = srcLen - _framePos;
-    if (validBytes > srcThisChunk) validBytes = srcThisChunk;
-
-    const uint16_t zerobit = WLEDPB_PARALLELSPI_ZERO_BIT << lane;
-    const uint16_t onebit  = WLEDPB_PARALLELSPI_ONE_BIT << lane;
-    const uint8_t* src = _channels[lane].srcData;
-    uint16_t* pOut = (uint16_t*)_dmaBuffer[bufIdx];
-
-    for (size_t i = 0; i < validBytes; i++) {
-      uint8_t v = src[_framePos + i];
-      *pOut++ |= (v & 0x80) ? onebit : zerobit;
-      *pOut++ |= (v & 0x40) ? onebit : zerobit;
-      *pOut++ |= (v & 0x20) ? onebit : zerobit;
-      *pOut++ |= (v & 0x10) ? onebit : zerobit;
-      *pOut++ |= (v & 0x08) ? onebit : zerobit;
-      *pOut++ |= (v & 0x04) ? onebit : zerobit;
-      *pOut++ |= (v & 0x02) ? onebit : zerobit;
-      *pOut++ |= (v & 0x01) ? onebit : zerobit;
-    }
-  }
+  encode4Step4<WLEDPB_PARALLELSPI_ZERO_BIT, WLEDPB_PARALLELSPI_ONE_BIT>(
+    (uint16_t*)_dmaBuffer[bufIdx], _framePos, srcThisChunk, WLEDPB_PARALLELSPI_MAX_CHANNELS, _channels);
   _framePos += srcThisChunk;
 }
 
@@ -321,9 +277,7 @@ bool ParallelSpiBusContext::_allocDmaBuffers() {
   return true;
 }
 
-bool ParallelSpiBusContext::init(const LedTiming& timing) {
-  if (_initialized) return true;
-
+bool ParallelSpiBusContext::hwInit() {
   // Enable peripheral clocks and force-reset SPI2.
   // periph_module_enable() uses ref counting and may be a no-op if the
   // peripheral was already enabled. Explicit reset ensures clean state.
@@ -356,14 +310,14 @@ bool ParallelSpiBusContext::init(const LedTiming& timing) {
 
   // Clock: 4 steps per bit → 4 SPI clock cycles per bit period.
   // targetFreq = 4 / (bitPeriod_ns * 1e-9) = 4,000,000,000 / bitPeriod_ns
-  uint32_t targetFreq = calc4StepClockHz(timing);
+  uint32_t targetFreq = calc4StepClockHz(_timing);
   if (targetFreq < WLEDPB_PARALLELSPI_MIN_CLOCK_HZ) targetFreq = WLEDPB_PARALLELSPI_MIN_CLOCK_HZ;
   if (targetFreq > WLEDPB_PARALLELSPI_MAX_CLOCK_HZ) targetFreq = WLEDPB_PARALLELSPI_MAX_CLOCK_HZ;
 
   spi_ll_master_set_clock(_hw, 80000000, targetFreq, 128);
 
   // reset pulse: zeroes appended after the last data bit. 2 DMA bytes per 4-step bit, transfer length counts 8 bits per DMA byte.
-  _resetBits = (uint32_t)calc4StepResetDmaBytes(timing, 2) * 8;
+  _resetBits = (uint32_t)calc4StepResetDmaBytes(_timing, 2) * 8;
 
   // Route SPI clock to a dummy pin (needed for DMA to work) -> seems to work fine without this (maybe an IDF V5 issue?)
   //pinMatrixOutAttach(11, FSPICLK_OUT_IDX, false, false);
@@ -381,7 +335,6 @@ bool ParallelSpiBusContext::init(const LedTiming& timing) {
   allocCfg.direction = GDMA_CHANNEL_DIRECTION_TX;
   esp_err_t err = gdma_new_ahb_channel(&allocCfg, &_gdmaChan); // get a DMA channel
   if (err != ESP_OK) {
-    deinit();
     return false; // no free TX channel -> clean failure instead of silent corruption
   }
   gdma_get_channel_id(_gdmaChan, &_dmaChanId);
@@ -390,7 +343,7 @@ bool ParallelSpiBusContext::init(const LedTiming& timing) {
   gdma_ll_tx_reset_channel(dma, _dmaChanId);
 
   err = gdma_connect(_gdmaChan, GDMA_MAKE_TRIGGER(GDMA_TRIG_PERIPH_SPI, 2));
-  if (err != ESP_OK) { deinit(); return false; }
+  if (err != ESP_OK) { return false; }
 
   gdma_ll_tx_set_desc_addr(dma, _dmaChanId, (uint32_t)&_dmaDesc[0]);
 
@@ -399,7 +352,6 @@ bool ParallelSpiBusContext::init(const LedTiming& timing) {
   err = gdma_register_tx_event_callbacks(_gdmaChan, &cbs, this);
   if (err != ESP_OK) {
     //Serial.printf("[SPI] GDMA ISR alloc failed: %d\n", err);
-    deinit();
     return false;
   }
   gdma_ll_tx_reset_channel(dma, _dmaChanId);
@@ -414,18 +366,20 @@ bool ParallelSpiBusContext::init(const LedTiming& timing) {
   err = esp_intr_alloc(ETS_SPI2_INTR_SOURCE, ESP_INTR_FLAG_LEVEL3 | ESP_INTR_FLAG_IRAM, spiISR, this, &_spiIsrHandle);
   if (err != ESP_OK) {
     //Serial.printf("[SPI] SPI ISR alloc failed: %d\n", err);
-    deinit();
     return false;
   }
 
-  _initialized = true;
   return true;
 }
 
-void ParallelSpiBusContext::deinit() {
-  // Ensure we're in a clean state before freeing resources
-  abortTransmit();
+void ParallelSpiBusContext::releaseResources() {
+  for (int i = 0; i < WLEDPB_PARALLELSPI_DMA_BUFFER_COUNT; i++) {
+    if (_dmaBuffer[i]) heap_caps_free(_dmaBuffer[i]);
+    _dmaBuffer[i] = nullptr;
+  }
+}
 
+void ParallelSpiBusContext::hwDeinit() {
   if (_gdmaChan) {
     gdma_del_channel(_gdmaChan); // also tears down the callback/interrupt it installed
     _gdmaChan = nullptr;
@@ -437,71 +391,24 @@ void ParallelSpiBusContext::deinit() {
     _spiIsrHandle = nullptr;
   }
 
-  for (int i = 0; i < WLEDPB_PARALLELSPI_DMA_BUFFER_COUNT; i++) {
-    if (_dmaBuffer[i]) heap_caps_free(_dmaBuffer[i]);
-    _dmaBuffer[i] = nullptr;
-  }
-  _bufferSize = 0;
-  _dmaAllocated = false;
-
   if (_peripheralsEnabled) {
     periph_module_disable(PERIPH_SPI2_MODULE);
     // do not call disable on the GDMA, we use a legacy driver here, it may interfere with the modern gdma handling
     // periph_module_disable(PERIPH_GDMA_MODULE);
     _peripheralsEnabled = false;
   }
-  _initialized = false;
 }
 
-int8_t ParallelSpiBusContext::registerChannel(int8_t pin, size_t srcBytes, bool inverted) {
-  int8_t idx = -1;
-  for (int i = 0; i < WLEDPB_PARALLELSPI_MAX_CHANNELS; i++) {
-    if (!_channels[i].active) {
-      idx = i;
-      break;
-    }
-  }
-  if (idx < 0) return -1;
-
-  _channels[idx].pin = pin;
-  _channels[idx].active = true;
-  _channels[idx].inverted = inverted;
-  _channelCount++;
-  _channelMask |= (1 << idx);
-  if (srcBytes > _maxSrcBytes) _maxSrcBytes = srcBytes;
-
-  // Route SPI data signal to GPIO
+// Route SPI data signal to GPIO
+void ParallelSpiBusContext::channelAttached(int8_t idx, int8_t pin, bool inverted) {
   pinMode(pin, OUTPUT);
   esp_rom_gpio_connect_out_signal(pin, WLEDPB_PARALLELSPI_SIGNAL_INDICES[idx], inverted, false);
-
-  return idx;
 }
 
-void ParallelSpiBusContext::unregisterChannel(int8_t channelIdx) {
-  if (channelIdx < 0 || channelIdx >= WLEDPB_PARALLELSPI_MAX_CHANNELS) return;
-  if (!_channels[channelIdx].active) return;
-
-  if (_channels[channelIdx].pin >= 0) {
-    gpio_reset_pin((gpio_num_t)_channels[channelIdx].pin);
+void ParallelSpiBusContext::channelDetached(int8_t /*idx*/, int8_t pin) {
+  if (pin >= 0) {
+    gpio_reset_pin((gpio_num_t)pin);
   }
-
-  _channels[channelIdx] = {nullptr, 0, -1, false, false};
-  _channelCount--;
-  _channelMask &= ~(1 << channelIdx);
-}
-
-void ParallelSpiBusContext::setChannelData(int8_t channelIdx, const uint8_t* data, size_t len) {
-  if (channelIdx < 0 || channelIdx >= WLEDPB_PARALLELSPI_MAX_CHANNELS) return;
-  _channels[channelIdx].srcData = data;
-  _channels[channelIdx].srcLen = len;
-
-  // Safety: If this channel was already staged, it means we somehow missed triggering startTransmit()
-  if (_stagedMask & (1 << channelIdx)) {
-    _stagedMask = 0;
-  }
-
-  // Mark this channel as staged
-  _stagedMask |= (1 << channelIdx);
 }
 
 bool ParallelSpiBusContext::startTransmit() {
@@ -588,74 +495,12 @@ bool ParallelSpiBusContext::startTransmit() {
 }
 
 // ParallelSpiBus implementation
-// ------------------------------
+// the bus handling (begin/end/show/canShow) is provided by ParallelBusBase
 ParallelSpiBus::ParallelSpiBus(int8_t pin, const LedTiming& timing, uint8_t ledType)
-  : _pin(pin)
-  , _timing(timing)
-  , _initialized(false)
-  , _channelIdx(-1)
-  , _ctx(nullptr)
+  : ParallelBusBase<ParallelSpiBusContext>(pin, timing, 0)
 {
   // encoder is installed by createBus() from BusProperties
   _ledType = ledType;
-}
-
-ParallelSpiBus::~ParallelSpiBus() {
-  end();
-}
-
-bool ParallelSpiBus::begin() {
-  if (_initialized) return true;
-
-  _ctx = ParallelSpiBusContext::get();
-  if (!_ctx) return false;
-
-  if (!_ctx->init(_timing)) {
-    ParallelSpiBusContext::release();
-    _ctx = nullptr;
-    return false;
-  }
-
-  const size_t srcBytes = (size_t)_numPixels * _encoder.getBytesPerPixel() + _prefixLen + _suffixLen;
-  _channelIdx = _ctx->registerChannel(_pin, srcBytes, _inverted);
-  if (_channelIdx < 0) {
-    //Serial.printf("[SPI] registerChannel failed for pin %d\n", _pin);
-    ParallelSpiBusContext::release();
-    _ctx = nullptr;
-    return false;
-  }
-
-  _initialized = true;
-  if (!allocateEncodeBuffer(_numPixels, _encoder.getBytesPerPixel())) { end(); return false; }
-  return true;
-}
-
-void ParallelSpiBus::end() {
-
-  if (_ctx) {
-    _ctx->waitForIdle();
-    _ctx->unregisterChannel(_channelIdx);
-    ParallelSpiBusContext::release();
-    _ctx = nullptr;
-  }
-
-  releaseEncodeBuffer();
-
-  _initialized = false;
-}
-
-bool ParallelSpiBus::show() {
-  if (!_initialized || !_ctx || !_encodeBuffer || _numPixels == 0) return false;
-
-  _ctx->waitForIdle();
-
-  _ctx->setChannelData(_channelIdx, _encodeBuffer, _encodeBufferSize);
-  return _ctx->startTransmit();
-}
-
-bool ParallelSpiBus::canShow() const {
-  if (!_initialized) return true; // do not block if init failed! busmanager waits until all buses can show
-  return _ctx && _ctx->ensureIdle();
 }
 
 } // namespace WLEDpixelBus

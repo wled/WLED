@@ -49,11 +49,46 @@ written by Damian Schneider @dedehai 2026
 #endif
 
 #include "WLEDpixelBus_Timings.h"
-#include "WLEDpixelBus_Features.h"
 #include "../../colors.h"
 
 
+
 namespace WLEDpixelBus {
+static constexpr uint32_t WLEDPB_TRANSFER_TIMEOUT_MS = 1000; // max allowed time for a full transfer, recovery is triggered if exceeded
+
+// Brightness to LED hardware current mapping (TM1814, TM1815 and APA102)
+// maps a WLED brightness value (0..255) to a hardware current step and a residual color scale
+// pick the smallest current step whose brightness is >= the target, then scale pixel colors to match total scaling
+inline void mapBrightnessToCurrentStep(uint8_t brightness, uint8_t numSteps, uint8_t minBri, uint8_t& stepOut, uint8_t& scaleOut) {
+  if (brightness == 0 || numSteps == 0) {
+    stepOut = 0; scaleOut = 0;
+    return;
+  }
+
+  const uint8_t maxStep = numSteps - 1;
+  // Q16.8 step size: (255 - minBri) / maxStep
+  const uint32_t range   = 255 - minBri;
+  const uint32_t stepFP  = (range << 8) / maxStep;  // Q16.8
+
+  if (brightness <= minBri) {
+    // Below minimum current floor: use step 0, scale colors down proportionally.
+    stepOut  = 0;
+    scaleOut = ((uint16_t)brightness * 255) / minBri;
+    return;
+  }
+
+  // Compute ceiling step: smallest step whose brightness >= target.
+  const uint32_t diffFP = (uint32_t)(brightness - minBri) << 8;  // Q16.8
+  uint32_t step = (diffFP + stepFP - 1) / stepFP;                 // ceiling division
+  if (step > maxStep) step = maxStep;
+
+  // Actual brightness at this step (integer floor, guaranteed >= brightness).
+  const uint32_t curBri = minBri + (step * range) / maxStep;
+
+  stepOut  = (uint8_t)step;
+  scaleOut = (uint8_t)(((uint16_t)brightness * 255) / curBri);  // always <= 255
+}
+
 
 // DMA Buffer Configuration
 //==========================
@@ -478,16 +513,3 @@ enum class BusDriver : uint8_t {
 PixelBus* createBus(BusDriver driver, int8_t pin, const BusProperties& properties, uint8_t ledType = 0, size_t numPixels = 0);
 
 } // namespace WLEDpixelBus
-
-#include "WLEDpixelBus_SPI.h" // clocked LEDs, supported on all platforms
-
-#if defined(ARDUINO_ARCH_ESP32)
-#include "WLEDpixelBus_RMT.h"
-#include "WLEDpixelBus_I2S.h"
-#include "WLEDpixelBus_ParallelSpi.h"
-#include "WLEDpixelBus_PARLIO.h"
-#include "WLEDpixelBus_BitBang.h"
-#elif defined(ESP8266)
-#include "WLEDpixelBus_ESP8266.h"
-#include "WLEDpixelBus_BitBang.h"
-#endif

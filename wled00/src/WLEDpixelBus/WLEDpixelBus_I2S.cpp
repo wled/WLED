@@ -63,23 +63,8 @@ I2sBusContext::I2sBusContext(uint8_t busNum)
     )
   , _isrHandle(nullptr)
 #endif
-  , _state(DriverState::Idle)
-  , _initialized(false)
-  , _bufferSize(0)
-  , _maxSrcBytes(0)
-  , _dmaAllocated(false)
   , _lastFilled(0)
-  , _resetBytesLeft(0)
-  , _txStartMillis(0)
-  , _timing{0, 0, 0, 0, 0}
-  , _channelCount(0)
-  , _channelMask(0)
-  , _stagedMask(0)
 {
-  for (int i = 0; i < WLEDPB_I2S_MAX_CHANNELS; i++) {
-    _channels[i] = {-1, nullptr, 0, 0, false};
-  }
-
   for (int i = 0; i < WLEDPB_I2S_DMA_BUFFER_COUNT; i++) {
     _dmaDesc[i] = nullptr;
     _dmaBuffer[i] = nullptr;
@@ -90,44 +75,9 @@ I2sBusContext::~I2sBusContext() {
   deinit();
 }
 
-bool I2sBusContext::init(const LedTiming& timing) {
-  if (_initialized) return true;
-
-  _timing = timing;
-  if (!hwInit(timing)) {
-    deinit();
-    return false;
-  }
-
-  _initialized = true;
-  return true;
-}
-
-void I2sBusContext::deinit() {
-  waitForIdle();
-
-  hwStopTransfer();
-
-  for (int i = 0; i < WLEDPB_I2S_DMA_BUFFER_COUNT; i++) {
-    if (_dmaBuffer[i]) {
-      heap_caps_free(_dmaBuffer[i]);
-      _dmaBuffer[i] = nullptr;
-    }
-    if (_dmaDesc[i]) {
-      heap_caps_free(_dmaDesc[i]);
-      _dmaDesc[i] = nullptr;
-    }
-  }
-
-  hwDeinit();
-
-  _dmaAllocated = false;
-  _initialized = false;
-}
-
 #ifdef CONFIG_IDF_TARGET_ESP32S3 // S3 uses the LCD peripheral, not I2S
 
-bool I2sBusContext::hwInit(const LedTiming& timing) {
+bool I2sBusContext::hwInit() {
   // Enable LCD_CAM peripheral
   periph_module_enable(PERIPH_LCD_CAM_MODULE);
   periph_module_reset(PERIPH_LCD_CAM_MODULE);
@@ -139,7 +89,7 @@ bool I2sBusContext::hwInit(const LedTiming& timing) {
   esp_rom_delay_us(100);
 
   // Calculate clock divider for 4-step cadence (240 MHz LCD base clock)
-  double clkm_div = 240000000.0 / (double)calc4StepClockHz(timing);
+  double clkm_div = 240000000.0 / (double)calc4StepClockHz(_timing);
   if (clkm_div > LCD_LL_CLK_FRAC_DIV_N_MAX || clkm_div < 2.0) {
     return false;
   }
@@ -230,14 +180,14 @@ void I2sBusContext::hwStartTransfer() {
   LCD_CAM.lcd_user.lcd_start = 1;
 }
 
-void IRAM_ATTR I2sBusContext::hwStopTransfer() {
+void IRAM_ATTR I2sBusContext::stopTransferHw() {
   LCD_CAM.lcd_user.lcd_start = 0;
   // Register-level GDMA stop: gdma_stop() lives in flash and must not be called from ISR
   if (_dmaChanId >= 0) GDMA.channel[_dmaChanId].out.link.stop = 1;
   _state = DriverState::Idle;
 }
 
-void I2sBusContext::hwRoutePin(int8_t pin, int8_t idx, bool inverted) {
+void I2sBusContext::channelAttached(int8_t idx, int8_t pin, bool inverted) {
   gpio_set_direction((gpio_num_t)pin, GPIO_MODE_OUTPUT);
   esp_rom_gpio_connect_out_signal(pin, LCD_DATA_OUT0_IDX + idx, inverted, false);
   gpio_hal_context_t gpio_hal = { .dev = GPIO_HAL_GET_HW(GPIO_PORT_0) };
@@ -247,7 +197,7 @@ void I2sBusContext::hwRoutePin(int8_t pin, int8_t idx, bool inverted) {
 
 #else // !CONFIG_IDF_TARGET_ESP32S3
 
-bool I2sBusContext::hwInit(const LedTiming& timing) {
+bool I2sBusContext::hwInit() {
   // Enable I2S peripheral
 #if defined(CONFIG_IDF_TARGET_ESP32)
   periph_module_enable(_busNum == 0 ? PERIPH_I2S0_MODULE : PERIPH_I2S1_MODULE);
@@ -338,7 +288,7 @@ bool I2sBusContext::hwInit(const LedTiming& timing) {
   // step_time = clkm_div * bck_div / base_clock_MHz * 1000 ns
   // clkm_div = base_clock_Hz / (4-step cadence clock * bck_div)
   const uint8_t bckDiv = 4;  // must be >= 2
-  const uint32_t clkHz = calc4StepClockHz(timing); // 4 clock cycles per LED bit period
+  const uint32_t clkHz = calc4StepClockHz(_timing); // 4 clock cycles per LED bit period
 
 #if defined(CONFIG_IDF_TARGET_ESP32)
   #ifndef WLED_PIXELBUS_16PARALLEL
@@ -459,7 +409,7 @@ void I2sBusContext::hwStartTransfer() {
   _i2sDev->conf.tx_start = 1;
 }
 
-void IRAM_ATTR I2sBusContext::hwStopTransfer() {
+void IRAM_ATTR I2sBusContext::stopTransferHw() {
   if (_i2sDev) {
     _i2sDev->int_ena.out_eof = 0;
     _i2sDev->int_ena.out_total_eof = 0;
@@ -469,7 +419,7 @@ void IRAM_ATTR I2sBusContext::hwStopTransfer() {
   _state = DriverState::Idle;
 }
 
-void I2sBusContext::hwRoutePin(int8_t pin, int8_t idx, bool inverted) {
+void I2sBusContext::channelAttached(int8_t idx, int8_t pin, bool inverted) {
   gpio_set_direction((gpio_num_t)pin, GPIO_MODE_OUTPUT); // Configure GPIO
   int sigIdx;
 #ifdef WLED_PIXELBUS_16PARALLEL
@@ -493,6 +443,23 @@ void I2sBusContext::hwRoutePin(int8_t pin, int8_t idx, bool inverted) {
   esp_rom_gpio_connect_out_signal(pin, sigIdx, inverted, false);
 }
 #endif // !CONFIG_IDF_TARGET_ESP32S3
+
+void I2sBusContext::channelDetached(int8_t /*idx*/, int8_t pin) {
+  if (pin >= 0) gpio_reset_pin((gpio_num_t)pin);
+}
+
+void I2sBusContext::releaseResources() {
+  for (int i = 0; i < WLEDPB_I2S_DMA_BUFFER_COUNT; i++) {
+    if (_dmaBuffer[i]) {
+      heap_caps_free(_dmaBuffer[i]);
+      _dmaBuffer[i] = nullptr;
+    }
+    if (_dmaDesc[i]) {
+      heap_caps_free(_dmaDesc[i]);
+      _dmaDesc[i] = nullptr;
+    }
+  }
+}
 
 bool I2sBusContext::_allocDmaBuffers() {
   if (_dmaAllocated) return true;
@@ -530,151 +497,28 @@ bool I2sBusContext::_allocDmaBuffers() {
   return true;
 }
 
-int8_t I2sBusContext::registerChannel(int8_t pin, size_t srcBytes, bool inverted) {
-  // Find free slot
-  int8_t idx = -1;
-  for (int i = 0; i < WLEDPB_I2S_MAX_CHANNELS; i++) {
-    if (!_channels[i].active) {
-      idx = i;
-      break;
-    }
-  }
-
-  if (idx < 0) return -1;
-
-  _channels[idx].pin = pin;
-  _channels[idx].active = true;
-  _channelCount++;
-  _channelMask |= (1 << idx);
-
-  // track the largest source byte count across channels; used in _allocDmaBuffers() to size DMA buffers
-  if (srcBytes > _maxSrcBytes) _maxSrcBytes = srcBytes;
-
-  hwRoutePin(pin, idx, inverted);
-
-  return idx;
-}
-
-void I2sBusContext::unregisterChannel(int8_t channelIdx) {
-  if (channelIdx < 0 || channelIdx >= WLEDPB_I2S_MAX_CHANNELS) return;
-  if (!_channels[channelIdx].active) return;
-
-  if (_channels[channelIdx].pin >= 0) {
-    gpio_reset_pin((gpio_num_t)_channels[channelIdx].pin);
-  }
-
-  _channels[channelIdx] = {-1, nullptr, 0, 0, false};
-  _channelCount--;
-  _channelMask &= ~(1 << channelIdx);
-}
-
-void I2sBusContext::setChannelData(int8_t channelIdx, const uint8_t* data, size_t len) {
-  if (channelIdx < 0 || channelIdx >= WLEDPB_I2S_MAX_CHANNELS) return;
-
-  _channels[channelIdx].srcData = data;
-  _channels[channelIdx].srcLen = len;
-  _channels[channelIdx].srcPos = 0;
-
-  // Safety: If this channel was already staged, it means we somehow missed triggering startTransmit()
-  if (_stagedMask & (1 << channelIdx)) {
-    _stagedMask = 0; 
-  }
-  _stagedMask |= (1 << channelIdx);
-}
-
 // encode4Step: 4-step cadence, converts per-channel byte streams to parallel DMA words.
 
 #ifdef WLED_PIXELBUS_16PARALLEL
 // 16-bit parallel encode: branchless gather + scatter, 64 bytes per source byte (16 channels)
 void IRAM_ATTR I2sBusContext::encode4Step(uint8_t* dest, size_t destLen, uint8_t maxChannel) {
-  for (size_t pos = 0; pos + 64 <= destLen; pos += 64) {
-    // alwaysMask: channels with active data (HIGH step); bN: channels with bit N set
-    uint16_t alwaysMask = 0;
-    uint16_t b0 = 0, b1 = 0, b2 = 0, b3 = 0;   // named regs: compiler should keep in regs
-    uint16_t b4 = 0, b5 = 0, b6 = 0, b7 = 0;
-
-    for (int ch = 0; ch < maxChannel; ch++) {
-      if (!_channels[ch].active) continue;
-      if (_channels[ch].srcPos >= _channels[ch].srcLen) continue;
-      const uint16_t m = (uint16_t)(1u << ch);
-      alwaysMask |= m;
-      const uint8_t b = _channels[ch].srcData[_channels[ch].srcPos++];
-      // extract bits, unrolled for speed
-      b0 |= m & (uint16_t)(0u - ((b >> 7) & 1u));
-      b1 |= m & (uint16_t)(0u - ((b >> 6) & 1u));
-      b2 |= m & (uint16_t)(0u - ((b >> 5) & 1u));
-      b3 |= m & (uint16_t)(0u - ((b >> 4) & 1u));
-      b4 |= m & (uint16_t)(0u - ((b >> 3) & 1u));
-      b5 |= m & (uint16_t)(0u - ((b >> 2) & 1u));
-      b6 |= m & (uint16_t)(0u - ((b >> 1) & 1u));
-      b7 |= m & (uint16_t)(0u - ((b >> 0) & 1u));
-    }
-
-    if (!alwaysMask) break;  // no active channels produced data
-
-    uint32_t* p = (uint32_t*)(dest + pos);
 #if defined(CONFIG_IDF_TARGET_ESP32S2) || defined(CONFIG_IDF_TARGET_ESP32S3)
-    // S2/S3 layout: [step0, step1, step2, step3] (no half-word swap)
-    // step0=HIGH, step1=data, step2=data, step3=LOW (or 0b1000, 0b1110)
-    // 32-bit pair: p[0]=(bN<<16)|alwaysMask,  p[1]=(0<<16)|bN
-    #define EMIT(bN, OFF) \
-      p[OFF]   = ((uint32_t)(bN) << 16) | alwaysMask; \
-      p[OFF+1] = (bN);
+  encode4Step16<Step4Layout::Standard>(dest, destLen, maxChannel, _channels);
 #else
-    // Classic ESP32 layout: [S1, S0, S3, S2] (half-words swapped)
-    // Output order: S0=HIGH, S1=data, S2=data, S3=LOW
-    // 32-bit pair: p[0]=(alwaysMask<<16)|bN,  p[1]=(bN<<16)|0
-    const uint32_t AH = (uint32_t)alwaysMask << 16;
-    #define EMIT(bN, OFF) \
-      p[OFF]   = AH | (bN); \
-      p[OFF+1] = (uint32_t)(bN) << 16;
+  encode4Step16<Step4Layout::WordSwapped>(dest, destLen, maxChannel, _channels);
 #endif
-    EMIT(b0, 0)  EMIT(b1, 2)  EMIT(b2, 4)  EMIT(b3, 6)
-    EMIT(b4, 8)  EMIT(b5, 10) EMIT(b6, 12) EMIT(b7, 14)
-    #undef EMIT
-  }
 }
 
 #else
 // 8-bit parallel encode: branchless gather + scatter, 32 bytes per source byte (8 channels)
+// uses the shared 4-step encoder, only the scatter layout differs per target
 void IRAM_ATTR I2sBusContext::encode4Step(uint8_t* dest, size_t destLen, uint8_t maxChannel) {
-  for (size_t pos = 0; pos + 32 <= destLen; pos += 32) {
-    uint8_t alwaysMask = 0;
-    uint8_t b0 = 0, b1 = 0, b2 = 0, b3 = 0;
-    uint8_t b4 = 0, b5 = 0, b6 = 0, b7 = 0;
-
-    for (int ch = 0; ch < maxChannel; ch++) {
-      if (!_channels[ch].active) continue;
-      if (_channels[ch].srcPos >= _channels[ch].srcLen) continue;
-      const uint8_t m = (uint8_t)(1u << ch);
-      alwaysMask |= m;
-      const uint8_t b = _channels[ch].srcData[_channels[ch].srcPos++];
-      b0 |= m & (uint8_t)(0u - ((b >> 7) & 1u));
-      b1 |= m & (uint8_t)(0u - ((b >> 6) & 1u));
-      b2 |= m & (uint8_t)(0u - ((b >> 5) & 1u));
-      b3 |= m & (uint8_t)(0u - ((b >> 4) & 1u));
-      b4 |= m & (uint8_t)(0u - ((b >> 3) & 1u));
-      b5 |= m & (uint8_t)(0u - ((b >> 2) & 1u));
-      b6 |= m & (uint8_t)(0u - ((b >> 1) & 1u));
-      b7 |= m & (uint8_t)(0u - ((b >> 0) & 1u));
-    }
-    if (!alwaysMask) break; // no active channels produced data
-
-    uint32_t* p = (uint32_t*)(dest + pos);
 #if defined(CONFIG_IDF_TARGET_ESP32S2) || defined(CONFIG_IDF_TARGET_ESP32S3)
-    // S2/S3: no swap, layout [S0,S1,S2,S3] = [HIGH,data,data,LOW]
-    #define EMIT8(bN, OFF) \
-      p[OFF] = (uint32_t)(alwaysMask) | ((uint32_t)(bN) << 8) | ((uint32_t)(bN) << 16);
+  encode4Step8<uint8_t, Step4Layout::Standard>(dest, destLen, maxChannel, _channels);
 #else
-    // Classic ESP32: half-word swap, memory [S2,S3,S0,S1] = [data,0,HIGH,data]
-    const uint32_t AH8 = (uint32_t)alwaysMask << 16;
-    #define EMIT8(bN, OFF) \
-      p[OFF] = AH8 | (uint32_t)(bN) | ((uint32_t)(bN) << 24);
+  // Classic ESP32: half-word swap, memory [S2,S3,S0,S1] = [data,0,HIGH,data]
+  encode4Step8<uint8_t, Step4Layout::WordSwapped>(dest, destLen, maxChannel, _channels);
 #endif
-    EMIT8(b0, 0)  EMIT8(b1, 1)  EMIT8(b2, 2)  EMIT8(b3, 3)
-    EMIT8(b4, 4)  EMIT8(b5, 5)  EMIT8(b6, 6)  EMIT8(b7, 7)
-    #undef EMIT8
-  }
 }
 #endif // WLED_PIXELBUS_16PARALLEL
 
@@ -790,7 +634,7 @@ void IRAM_ATTR I2sBusContext::dmaISR(void* arg) {
   dev->int_clr.val = status;
 
   if (status & I2S_OUT_TOTAL_EOF_INT_ST) { // link terminated: frame fully sent
-    ctx->hwStopTransfer();
+    ctx->stopTransferHw();
     return;
   }
   if (!(status & I2S_OUT_EOF_INT_ST)) return;
@@ -812,7 +656,7 @@ void IRAM_ATTR I2sBusContext::_processEof(int8_t completedBuf) {
 
   // end of frame? checks the just finished descriptor for the terminating nullptr
   if (descGetNext(_dmaDesc[completedBuf]) == nullptr) {
-    hwStopTransfer();
+    stopTransferHw();
     return;
   }
 
@@ -835,94 +679,13 @@ void IRAM_ATTR I2sBusContext::_processEof(int8_t completedBuf) {
 #endif
 }
 
-void I2sBusContext::abortTransmit() {
-  hwStopTransfer();
-  _stagedMask = 0;
-  _resetBytesLeft = 0;
-}
-
-bool I2sBusContext::ensureIdle() {
-  if (isIdle()) return true;
-  if ((uint32_t)(millis() - _txStartMillis) <= WLEDPB_TRANSFER_TIMEOUT_MS) return false;
-  abortTransmit();
-  return true;
-}
-
-void I2sBusContext::waitForIdle() {
-  const uint32_t start = millis();
-  while (!ensureIdle() && (uint32_t)(millis() - start) <= WLEDPB_TRANSFER_TIMEOUT_MS) {
-    vTaskDelay(1);
-  }
-  if (!isIdle()) abortTransmit();
-}
-
-
 // I2sBus implementation
+// the bus handling (begin/end/show/canShow) is provided by ParallelBusBase
 I2sBus::I2sBus(int8_t pin, const LedTiming& timing, uint8_t busNum, uint8_t ledType)
-  : _pin(pin)
-  , _timing(timing)
-  , _initialized(false)
-  , _busNum(busNum)
-  , _channelIdx(-1)
-  , _ctx(nullptr)
+  : ParallelBusBase<I2sBusContext>(pin, timing, busNum)
 {
   // encoder is installed by createBus() from BusProperties
   _ledType = ledType;
-}
-
-I2sBus::~I2sBus() {
-  end();
-}
-
-bool I2sBus::begin() {
-  if (_initialized) return true;
-
-  _ctx = I2sBusContext::get(_busNum);
-  if (!_ctx) return false;
-
-  if (!_ctx->init(_timing)) {
-    I2sBusContext::release(_busNum);
-    _ctx = nullptr;
-    return false;
-  }
-
-  // pass our encoded byte count so the context can size DMA buffers for the largest bus
-  const size_t srcBytes = (size_t)_numPixels * _encoder.getBytesPerPixel() + _prefixLen + _suffixLen;
-  _channelIdx = _ctx->registerChannel(_pin, srcBytes, _inverted);
-  if (_channelIdx < 0) {
-    //DEBUG_PRINTF_P(PSTR("[I2S] registerChannel failed for pin %d\n"), _pin);
-    I2sBusContext::release(_busNum);
-    _ctx = nullptr;
-    return false;
-  }
-
-  _initialized = true;
-  if (!allocateEncodeBuffer(_numPixels, _encoder.getBytesPerPixel())) { end(); return false; }
-  //DEBUG_PRINTF_P(PSTR("[I2S] I2sBus::begin() OK: pin=%d, bus=%u, channel=%d\n"), _pin, _busNum, _channelIdx);
-  return true;
-}
-
-void I2sBus::end() {
-  if (_ctx) {
-    _ctx->waitForIdle();
-    _ctx->unregisterChannel(_channelIdx);
-    I2sBusContext::release(_busNum);
-    _ctx = nullptr;
-  }
-  releaseEncodeBuffer();
-  _initialized = false;
-}
-
-bool I2sBus::show() {
-  if (!_initialized || !_ctx || !_encodeBuffer || _numPixels == 0) return false;
-  _ctx->waitForIdle();
-  _ctx->setChannelData(_channelIdx, _encodeBuffer, _encodeBufferSize);
-  return _ctx->startTransmit();
-}
-
-bool I2sBus::canShow() const {
-  if (!_initialized) return true; // do not block if init failed! busmanager waits until all buses can show
-  return _ctx && _ctx->ensureIdle();
 }
 
 } // namespace WLEDpixelBus
