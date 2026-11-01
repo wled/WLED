@@ -167,7 +167,7 @@ _highint_stack_switch:
 
     /* Call C handler */
     mov     a6, sp
-    call4   NeoEsp32RmtMethodIsr
+    call4   NeoEsp32RmtMethodISR
 
     l32e    sp, sp, -12                     /* switch back to the original stack */
 
