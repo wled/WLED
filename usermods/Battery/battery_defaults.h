@@ -117,6 +117,11 @@
   #define USERMOD_BATTERY_LOW_POWER_INDICATOR_DURATION 5
 #endif
 
+// battery capacity in mAh (used for runtime estimation with INA226 current sensor)
+#ifndef USERMOD_BATTERY_CAPACITY
+  #define USERMOD_BATTERY_CAPACITY 3000
+#endif
+
 // battery types
 // fixed uint8_t base so the enum is exactly one byte
 typedef enum : uint8_t
