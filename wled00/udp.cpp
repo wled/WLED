@@ -534,7 +534,7 @@ void handleNotifications()
   if (packetSize < 1) return; // no data received
   if (!isSupp && notifierUdp.remoteIP() == localIP) { udpDropRXBuffer(notifierUdp); return; } //don't process broadcasts we send ourselves
 
-  constexpr size_t maxPacketSize = max(size_t(UDP_IN_MAXSIZE), WLEDPACKETSIZE);
+  const size_t maxPacketSize = max(size_t(UDP_IN_MAXSIZE), WLEDPACKETSIZE);
   bool tooLarge = packetSize > maxPacketSize;
   packetSize = min(packetSize, maxPacketSize);   // only read what's supported on this board (depends on MAX_NUM_SEGMENTS)
 #if (MAX_NUM_SEGMENTS < 33)
