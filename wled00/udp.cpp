@@ -534,7 +534,9 @@ void handleNotifications()
   if (packetSize < 1) return; // no data received
   if (!isSupp && notifierUdp.remoteIP() == localIP) { udpDropRXBuffer(notifierUdp); return; } //don't process broadcasts we send ourselves
 
-  packetSize = min(packetSize, max(size_t(UDP_IN_MAXSIZE), WLEDPACKETSIZE));   // only read what's supported on this board (depends on MAX_NUM_SEGMENTS)
+  constexpr size_t maxPacketSize = max(size_t(UDP_IN_MAXSIZE), WLEDPACKETSIZE);
+  bool tooLarge = packetSize > maxPacketSize;
+  packetSize = min(packetSize, maxPacketSize);   // only read what's supported on this board (depends on MAX_NUM_SEGMENTS)
 #if (MAX_NUM_SEGMENTS < 33)
   uint8_t udpIn[packetSize +1];          // use a VLA when expected max size is < 1500 bytes - avoids adding RAM pressure on small boards like 8266 
 #else
@@ -547,6 +549,7 @@ void handleNotifications()
   if (isSupp) len = notifier2Udp.read(udpIn, packetSize);
   else        len =  notifierUdp.read(udpIn, packetSize);
   udpDropRXBuffer(isSupp ? notifier2Udp: notifierUdp); // drop remaining bytes (if any)
+  if (tooLarge && (udpIn[0] == '{' || (udpIn[0] >= 'A' && udpIn[0] <= 'Z'))) return; //reject oversized HTTP API or JSON API requests
 
   // WLED nodes info notifications
   if (isSupp && len >= 40 && udpIn[0] == 255 && udpIn[1] == 1) {
