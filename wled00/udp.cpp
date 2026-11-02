@@ -6,8 +6,8 @@
 
 #define UDP_SEG_SIZE 36
 #define SEG_OFFSET (41)
-static constexpr size_t WLEDPACKETSIZE = 41+(WS2812FX::getMaxSegments()*UDP_SEG_SIZE);  // make sure this is known at compile-time
-#define UDP_IN_MAXSIZE 1472
+static constexpr size_t WLEDPACKETSIZE = 41+(WS2812FX::getMaxSegments()*UDP_SEG_SIZE);  // size of notifier packet - make sure this is known at compile-time
+#define UDP_IN_MAXSIZE 1472      // enough space for 490 RGB LEDs
 #define PRESUMED_NETWORK_DELAY 3 //how many ms could it take on avg to reach the receiver? This will be added to transmitted times
 
 typedef struct PartialEspNowPacket {
@@ -501,9 +501,9 @@ void handleNotifications()
   if (!udpConnected) return;
 
   bool isSupp = false;
-  size_t packetSize = udpParse(notifierUdp, UDP_IN_MAXSIZE);
+  size_t packetSize = udpParse(notifierUdp, max(size_t(UDP_IN_MAXSIZE), WLEDPACKETSIZE));
   if (!packetSize && udp2Connected) {
-    packetSize = udpParse(notifier2Udp, UDP_IN_MAXSIZE);
+    packetSize = udpParse(notifier2Udp, max(size_t(UDP_IN_MAXSIZE), WLEDPACKETSIZE));
     isSupp = true;
   }
 
@@ -531,7 +531,7 @@ void handleNotifications()
 
   localIP = WLEDNetwork.localIP();
   //notifier and UDP realtime
-  if (packetSize < 1 || packetSize > UDP_IN_MAXSIZE) return;
+  if (packetSize < 1 || packetSize > max(size_t(UDP_IN_MAXSIZE), WLEDPACKETSIZE)) return;
   if (!isSupp && notifierUdp.remoteIP() == localIP) { udpDropRXBuffer(notifierUdp); return; } //don't process broadcasts we send ourselves
 
   uint8_t udpIn[packetSize +1];
