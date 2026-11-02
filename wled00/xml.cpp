@@ -11,7 +11,7 @@ static void appendGPIOinfo(Print& settingsScript);
 //build XML response to HTTP /win API request
 void XML_response(Print& dest)
 {
-  dest.printf_P(PSTR("<?xml version=\"1.0\" ?><vs><ac>%d</ac>"), (nightlightActive && nightlightMode > NL_MODE_SET) ? briT : bri);
+  dest.printf_P(PSTR("<?xml version=\"1.0\" ?><vs><ac>%d</ac>"), (nightlightActive && nightlightMode > NL_MODE_SET) ? (briT16 >> 8) : bri);
   for (int i = 0; i < 3; i++)
   {
    dest.printf_P(PSTR("<cl>%d</cl>"), colPri[i]);

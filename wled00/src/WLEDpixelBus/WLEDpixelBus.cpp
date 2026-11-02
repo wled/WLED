@@ -193,7 +193,7 @@ ColorEncoder::ColorEncoder(const uint8_t channelMap[MAX_CUSTOM_CHANNELS], uint8_
 }
 
 // Generic encoder for non-fast-path cases: NCHF_CUSTOM maps, and inverted channels (hasInvertedChannels()) in any bit mode
-void ColorEncoder::encodeGeneric(uint32_t c, const CctPixel& cct, uint8_t* out, uint8_t bri) const {
+void ColorEncoder::encodeGeneric(uint32_t c, const CctPixel& cct, uint8_t* out, uint16_t bri) const {
   const uint8_t flags     = _pixelFormat & 0xF0;
   const uint8_t wireBytes = _pixelFormat & 0x0F; // total bytes per pixel (numChannels * 2 for 16-bit, numChannels otherwise)
   const bool is16bit = (flags & NCHF_16BIT) != 0; // cache for speed
@@ -213,7 +213,7 @@ void ColorEncoder::encodeGeneric(uint32_t c, const CctPixel& cct, uint8_t* out, 
         default:    val = 0;      break; // CH_UNUSED
       }
       if (is16bit) {
-        uint16_t v16 = (uint16_t)val * bri; // Note: this can "only" reach 99% as 255×255 = 65025. We do not care.
+        uint16_t v16 = ((uint32_t)val * bri) >> 8; // Note: this can "only" reach 99% as "255×255" = 65025. We do not care.
         if (_invertMask & (1u << i)) v16 ^= 0xFFFF; // invert all bits
         out[i*2]   = v16 >> 8;
         out[i*2+1] = v16 & 0xFF;

@@ -36,7 +36,7 @@ struct LedTiming {
 
 static const PROGMEM LedTiming _ledTimings[] = {
 // t0h   t0l   t1h   t1l  reset_us
- { 300,  900,  700,  500,  100 },  // WS2812B (and 1CH_X3, 2CH_X3, WWA)
+ { 300,  900,  700,  500,  100 },  // WS281x
  { 800, 1700, 1600,  900,  300 },  // Generic 400Kbps
  { 300,  900,  800,  400,  200 },  // TM1829
  { 400,  850,  800,  450,  500 },  // UCS8903 / UCS8904 (16-bit)
@@ -47,8 +47,6 @@ static const PROGMEM LedTiming _ledTimings[] = {
  { 400,  850,  800,  450,  300 },  // FW1906 GRBCW
  { 300,  790,  790,  300,  300 },  // WS2805 RGBCW
  { 300,  900,  900,  300,   80 },  // SM16825 (16-bit)
- { 250,  250,  250,  250,    0 },  // APA102 / LPD8806 / P9813 / LPD6803 -> SPI LEDs, timing is not really used
- { 500,  500,  500,  500, 1000 },  // WS2801
 };
 
 static inline uint8_t getTimingIndex(uint8_t wledType) {
@@ -69,12 +67,7 @@ static inline uint8_t getTimingIndex(uint8_t wledType) {
     case TYPE_FW1906:        return  8;
     case TYPE_WS2805:        return  9;
     case TYPE_SM16825:       return 10;
-    case TYPE_APA102:
-    case TYPE_LPD8806:
-    case TYPE_P9813:
-    case TYPE_LPD6803:       return 11;
-    case TYPE_WS2801:        return 12;
-    default:                 return  0; // WS2812 fallback
+    default:                 return  0; // WS281x fallback: SPI buses ignore LED bit timing; use WS281x as metadata stub
   }
 }
 

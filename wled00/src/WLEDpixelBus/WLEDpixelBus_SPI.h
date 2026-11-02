@@ -30,6 +30,7 @@ public:
 
 private:
   uint32_t _clockHz;          // SPI clock in Hz, derived from frequencykHz by the constructor
+  uint32_t _lastWs2801FrameEndUs = 0;
   uint8_t  _apa102HwBri = 31; // APA102 5-bit hardware brightness step (0–31); 31 = max (default)
   int8_t   _dataPin;
   int8_t   _clockPin;

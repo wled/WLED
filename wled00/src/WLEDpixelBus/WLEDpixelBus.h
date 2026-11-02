@@ -57,36 +57,35 @@ namespace WLEDpixelBus {
 static constexpr uint32_t WLEDPB_TRANSFER_TIMEOUT_MS = 1000; // max allowed time for a full transfer, recovery is triggered if exceeded
 
 // Brightness to LED hardware current mapping (TM1814, TM1815 and APA102)
-// maps a WLED brightness value (0..255) to a hardware current step and a residual color scale
+// maps Q8.8 brightness to a hardware current step and an 8-bit residual color scale
 // pick the smallest current step whose brightness is >= the target, then scale pixel colors to match total scaling
-inline void mapBrightnessToCurrentStep(uint8_t brightness, uint8_t numSteps, uint8_t minBri, uint8_t& stepOut, uint8_t& scaleOut) {
+inline void mapBrightnessToCurrentStep(uint16_t brightness, uint8_t numSteps, uint8_t minBri, uint8_t& stepOut, uint8_t& scaleOut) {
   if (brightness == 0 || numSteps == 0) {
     stepOut = 0; scaleOut = 0;
     return;
   }
 
   const uint8_t maxStep = numSteps - 1;
-  // Q16.8 step size: (255 - minBri) / maxStep
-  const uint32_t range   = 255 - minBri;
-  const uint32_t stepFP  = (range << 8) / maxStep;  // Q16.8
+  const uint32_t minBriFP = (uint32_t)minBri << 8;
 
-  if (brightness <= minBri) {
+  if (brightness <= minBriFP) {
     // Below minimum current floor: use step 0, scale colors down proportionally.
     stepOut  = 0;
-    scaleOut = ((uint16_t)brightness * 255) / minBri;
+    scaleOut = ((uint32_t)brightness * 255) / minBriFP;
     return;
   }
 
+  const uint32_t range = (255U << 8) - minBriFP;
+  const uint32_t stepFP = range / maxStep;
   // Compute ceiling step: smallest step whose brightness >= target.
-  const uint32_t diffFP = (uint32_t)(brightness - minBri) << 8;  // Q16.8
-  uint32_t step = (diffFP + stepFP - 1) / stepFP;                 // ceiling division
+  const uint32_t diffFP = brightness - minBriFP;
+  uint32_t step = (diffFP + stepFP - 1) / stepFP;
   if (step > maxStep) step = maxStep;
 
   // Actual brightness at this step (integer floor, guaranteed >= brightness).
-  const uint32_t curBri = minBri + (step * range) / maxStep;
-
+  const uint32_t curBri = minBriFP + (step * range) / maxStep;
   stepOut  = (uint8_t)step;
-  scaleOut = (uint8_t)(((uint16_t)brightness * 255) / curBri);  // always <= 255
+  scaleOut = (uint8_t)(((uint32_t)brightness * 255) / curBri);
 }
 
 
@@ -215,18 +214,18 @@ public:
   }
 
   // Fast encode — 16-bit. Note: only 16bit colors scale during encoding, for 8bit colors, scaling happens in BusDigital
-  inline void encodeRGB16(uint32_t c, uint8_t* out, uint8_t bri) const {
+  inline void encodeRGB16(uint32_t c, uint8_t* out, uint16_t bri) const {
     writeU16(out, _idxR, R(c), bri);
     writeU16(out, _idxG, G(c), bri);
     writeU16(out, _idxB, B(c), bri);
   }
-  inline void encodeRGBW16(uint32_t c, uint8_t* out, uint8_t bri) const {
+  inline void encodeRGBW16(uint32_t c, uint8_t* out, uint16_t bri) const {
     writeU16(out, _idxR, R(c), bri);
     writeU16(out, _idxG, G(c), bri);
     writeU16(out, _idxB, B(c), bri);
     writeU16(out, _idxW, W(c), bri);
   }
-  inline void encodeCCT16(uint32_t c, const CctPixel& cct, uint8_t* out, uint8_t bri) const {
+  inline void encodeCCT16(uint32_t c, const CctPixel& cct, uint8_t* out, uint16_t bri) const {
     writeU16(out, _idxR,  R(c), bri);
     writeU16(out, _idxG,  G(c), bri);
     writeU16(out, _idxB,  B(c), bri);
@@ -246,7 +245,7 @@ public:
   }
 
   // Generic slow encode/decode — handles custom and inverted color channels
-  void     encodeGeneric(uint32_t c, const CctPixel& cct, uint8_t* out, uint8_t bri) const;
+  void     encodeGeneric(uint32_t c, const CctPixel& cct, uint8_t* out, uint16_t bri) const;
   uint32_t decodeGeneric(const uint8_t* in) const;
 
   // pixel color scaling functions, respect color inverted channels, split 8/16 bit for faster for-loops
@@ -296,8 +295,8 @@ private:
   uint8_t _channelMap[MAX_CUSTOM_CHANNELS]; // custom channel map: _channelMap[i] = ChannelSource for wire byte i
 
   // 16bit pixel helper functions
-  static inline void writeU16(uint8_t* out, uint8_t idx, uint8_t val8, uint8_t bri) {
-    const uint16_t v = (uint16_t)val8 * bri; // Note: this can "only" reach 99% as 255×255 = 65025. We do not care.
+  static inline void writeU16(uint8_t* out, uint8_t idx, uint8_t val8, uint16_t bri) {
+    const uint16_t v = ((uint32_t)val8 * bri) >> 8; // Note: this can "only" reach 99% as "255×255" = 65025. We do not care.
     out[idx*2]   = v >> 8;
     out[idx*2+1] = v & 0xFF;
   }
@@ -321,7 +320,7 @@ protected:
   uint8_t  _ledType   = 0;            // LED chip type (e.g. 31=TM1814); 0 = generic
   bool     _inverted  = false;        // physical output signal inversion (per bus), not to be confused by _invertMask which is per-color channel inversion
   uint8_t  _busBri = 255;             // brightness for color_fade() in setPixelColor() (software scaling, can be on top of hardware scaling)
-  uint8_t  _encBri = 255;             // encoder brightness for 16-bit types: uses _encBri * colorchannel
+  uint16_t _encBri = 255U << 8;       // Q8.8 encoder brightness for 16-bit types uses _encBri * colorchannel
   ColorEncoder _encoder;              // color encoder, set by derived class constructors
 
 public:
@@ -357,7 +356,7 @@ public:
   uint8_t getSuffixLen() const { return _suffixLen; }
 
   void setBusBri(uint8_t b) { _busBri = b; }
-  void setEncBri(uint8_t b) { _encBri = b; }
+  void setEncBri(uint16_t b) { _encBri = b; }
   inline uint8_t getBusBri() const { return _busBri; }
   // Set APA102 5-bit per-pixel hardware brightness step (0–31), default implementation is a no-op; overridden by SpiBus for TYPE_APA102
   // coarse control via hardware step, fine via color_fade() - is set globally, same value is used for all pixels

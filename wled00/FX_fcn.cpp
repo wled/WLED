@@ -1384,7 +1384,7 @@ void WS2812FX::finalizeInit() {
     _isOffRefreshRequired |= bus->isOffRefreshRequired() && !bus->isPWM(); // use refresh bit for phase shift with analog
     unsigned busEnd = bus->getStart() + bus->getLength();
     if (busEnd > _length) _length = busEnd;
-    bus->setBrightness(scaledBri(bri));
+    bus->setBrightness(scaledBri16(bri<<8));
   }
   BusManager::initializeABL(); // init brightness limiter
   DEBUG_PRINTF_P(PSTR("Heap after buses: %d\n"), ESP.getFreeHeap());
@@ -2054,19 +2054,25 @@ void WS2812FX::setCCT(uint16_t k) {
 // direct=true either expects the caller to call show() themselves (realtime modes) or be ok waiting for the next frame for the change to apply
 // direct=false immediately triggers an effect redraw
 void WS2812FX::setBrightness(uint8_t b, bool direct) {
+  setBrightness16((uint16_t)b << 8, direct);
+}
+
+void WS2812FX::setBrightness16(uint16_t b, bool direct) {
+  const uint16_t maxBri16 = 255U << 8;
+  if (b > maxBri16) b = maxBri16; // safety clamp just in case
   if (gammaCorrectBri && b > 0) {
-    (int)(powf((float)b / 255.0f, gammaCorrectVal) * 255.0f + 0.5f); // use gamma formula instead of gamma table: gamma table is only for color correction (has unity mapping if color correction is diabled)
-    if (b == 0) b = 1; // dont go to 0 brigthness if input was non zero
+    b = (int)(powf((float)b / maxBri16, gammaCorrectVal) * maxBri16 + 0.5f); // use float math not the gamma LUT to preserve 16bit precision
+    if (b < (1U << 8)) b = 1U << 8; // prevent 0 brightness (after shifting) so LEDs do not turn off
   }
-  if (_brightness == b) return;
-  _brightness = b;
-  if (_brightness == 0) { // unfreeze all segments on power off and stop all ongoing segment transitions
+  if (_brightness16 == b) return;
+  _brightness16 = b;
+  if (_brightness16 == 0) { // unfreeze all segments on power off and stop all ongoing segment transitions
     for (Segment &seg : _segments) {
       seg.freeze = false; // freeze is mutable
       seg.stopTransition(); // stop transition, nothing to display anymore
     }
   }
-  BusManager::setBrightness(scaledBri(b));
+  BusManager::setBrightness16(scaledBri16(b));
   if (!direct) {
     unsigned long t = millis();
     if (t - _lastShow > min(_frametime, uint16_t(FRAMETIME_FIXED))) trigger(); //apply brightness change immediately if no refresh soon, but don't speed up above 42fps
@@ -2482,4 +2488,3 @@ const char JSON_palette_names[] PROGMEM = R"=====([
 "Semi Blue","Pink Candy","Red Reaf","Aqua Flash","Yelblu Hot","Lite Light","Red Flash","Blink Red","Red Shift","Red Tide",
 "Candy2","Traffic Light","Fireworks"
 ])=====";
-

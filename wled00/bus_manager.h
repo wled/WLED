@@ -106,7 +106,7 @@ class Bus {
   public:
     Bus(uint8_t type, uint16_t start, uint8_t aw, uint16_t len = 1, bool reversed = false, bool refresh = false)
     : _type(type)
-    , _bri(255)
+    , _bri16(255U << 8)
     , _totalBusBri(255)
     , _start(start)
     , _len(std::max(len,(uint16_t)1))
@@ -125,7 +125,8 @@ class Bus {
     virtual void     clearPixels()                              {} // zero encode buffer to black (no-op for non-digital buses)
     virtual void     setStatusPixel(uint32_t c)                 {}
     virtual void     setPixelColor(unsigned pix, uint32_t c)    = 0;
-    virtual void     setBrightness(uint8_t b)                   { _bri = b; };
+    virtual void     setBrightness(uint8_t b)                   { setBrightness16((uint16_t)b << 8); };
+    virtual void     setBrightness16(uint16_t b)                { _bri16 = b; };
     virtual void     setColorOrder(uint8_t co)                  {}
     virtual uint32_t getPixelColor(unsigned pix) const          { return 0; }
     virtual size_t   getPins(uint8_t* pinArray = nullptr) const { return 0; }
@@ -198,8 +199,8 @@ class Bus {
 
   protected:
     uint8_t  _type;
-    uint8_t  _bri;    // bus brightness
-    uint8_t  _totalBusBri; // total brightness applied to colors in bus buffers (_bri + ABL)
+    uint16_t _bri16;         // Q8.8 bus brightness
+    uint8_t  _totalBusBri;   // total brightness applied to colors in bus buffers (_bri16>>8 + ABL)
     uint8_t  _autoWhiteMode; // global Auto White Calculation override
     uint16_t _start;
     uint16_t _len;
@@ -252,6 +253,7 @@ class BusDigital : public Bus {
     uint8_t  getDriverType() const override  { return _driverType; }
     void     setCurrentLimit(uint16_t milliAmps) { _milliAmpsLimit = milliAmps; }
     void     setBrightness(uint8_t b) override;
+    void     setBrightness16(uint16_t b) override;
     void     estimateCurrent(); // estimate used current from summed colors
     void     applyBriLimit(uint8_t newBri);
     size_t   getBusSize() const override;
@@ -285,7 +287,7 @@ class BusDigital : public Bus {
         uint8_t* chan = (uint8_t*) &c;
         for (uint_fast8_t i=0; i<4; i++) {
           uint_fast16_t val = chan[i];
-          chan[i] = ((val << 8) + restoreBri) / (restoreBri + 1); //adding _bri slightly improves recovery / stops degradation on re-scale
+          chan[i] = ((val << 8) + restoreBri) / (restoreBri + 1); //adding brightness slightly improves recovery / stops degradation on re-scale
         }
       }
       return c;
@@ -418,6 +420,7 @@ class BusHub75Matrix : public Bus {
     [[gnu::hot]] uint32_t getPixelColor(unsigned pix) const override;
     void show() override;
     void setBrightness(uint8_t b) override;
+    void setBrightness16(uint16_t b) override;
     size_t getPins(uint8_t* pinArray = nullptr) const override;
     void deallocatePins();
     void cleanup();
@@ -498,6 +501,7 @@ namespace BusManager {
   void        blank();  // Set all pixels to black
   inline void setStatusPixel(uint32_t c) { for (auto &bus : busses) bus->setStatusPixel(c);}
   inline void setBrightness(uint8_t b)   { for (auto &bus : busses) bus->setBrightness(b); }
+  inline void setBrightness16(uint16_t b) { for (auto &bus : busses) bus->setBrightness16(b); }
   // for setSegmentCCT(), cct can only be in [-1,255] range; allowWBCorrection will convert it to K
   // WARNING: setSegmentCCT() is a misleading name!!! much better would be setGlobalCCT() or just setCCT()
   void           setSegmentCCT(int16_t cct, bool allowWBCorrection = false);

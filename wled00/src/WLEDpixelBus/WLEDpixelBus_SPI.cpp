@@ -14,6 +14,7 @@ supports hardware brightness on APA102 for improved color resolution
 #endif
 
 #define SPI_MAX_CLOCK_HZ 20000000UL // maximum SPI clock supported by all target platforms (ESP8266 max is 20 MHz, ESP32 can do 80 MHz but we clamp to 20 MHz for compatibility with ESP8266 and timing accuracy)
+static constexpr uint32_t WS2801_LATCH_TIME_US = 500;
 
 namespace WLEDpixelBus {
 
@@ -187,6 +188,10 @@ void SpiBus::sendEndFrame(uint16_t numPixels) {
 bool SpiBus::show() {
   if (!_initialized || !_encodeBuffer || _numPixels == 0) return false;
 
+  if (_ledType == TYPE_WS2801) {
+    while ((uint32_t)(micros() - _lastWs2801FrameEndUs) < WS2801_LATCH_TIME_US) yield();
+  }
+
   const uint8_t pixelBytes = _encoder.getBytesPerPixel();
 
   if (_useHardware) {
@@ -266,6 +271,8 @@ bool SpiBus::show() {
   if (_useHardware) {
     SPI.endTransaction();
   }
+
+  _lastWs2801FrameEndUs = micros(); // record end of frame time
 
   return true;
 }

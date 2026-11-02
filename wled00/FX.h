@@ -868,7 +868,7 @@ class WS2812FX {
       _pixels(nullptr),
       _pixelCCT(nullptr),
       _suspend(false),
-      _brightness(DEFAULT_BRIGHTNESS),
+      _brightness16(DEFAULT_BRIGHTNESS << 8),
       _length(DEFAULT_LED_COUNT),
       _transitionDur(750),
       _frametime(FRAMETIME_FIXED),
@@ -914,6 +914,7 @@ class WS2812FX {
       service(),                                  // executes effect functions when due and calls strip.show()
       setCCT(uint16_t k),                         // sets global CCT (either in relative 0-255 value or in K)
       setBrightness(uint8_t b, bool direct = false),    // sets strip brightness
+      setBrightness16(uint16_t b, bool direct = false),  // sets Q8.8 strip brightness
       setRange(uint16_t i, uint16_t i2, uint32_t col),  // used for clock overlay
       purgeSegments(),                            // removes inactive segments from RAM (may incure penalty and memory fragmentation but reduces vector footprint)
       setMainSegmentId(unsigned n = 0),
@@ -973,7 +974,8 @@ class WS2812FX {
     uint8_t getActiveSegsLightCapabilities(bool selectedOnly = false) const;
     uint8_t addEffect(uint8_t id, mode_ptr mode_fn, const char *mode_name);         // add effect to the list - mode_name must point to PROGMEM; defined in FX.cpp;
 
-    inline uint8_t getBrightness() const    { return _brightness; }       // returns current strip brightness
+    inline uint8_t getBrightness() const    { return _brightness16 >> 8; } // returns current strip brightness
+    inline uint16_t getBrightness16() const { return _brightness16; }
     inline static constexpr unsigned getMaxSegments() { return MAX_NUM_SEGMENTS; }  // returns maximum number of supported segments (fixed value)
     inline uint8_t getSegmentsNum() const   { return _segments.size(); }  // returns currently present segments
     inline uint8_t getCurrSegmentId() const { return _segment_index; }    // returns current segment index (only valid while strip.isServicing())
@@ -1070,7 +1072,7 @@ class WS2812FX {
 
     volatile bool _suspend;
 
-    uint8_t  _brightness;
+    uint16_t _brightness16;
     uint16_t _length;
     uint16_t _transitionDur;
 

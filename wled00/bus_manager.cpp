@@ -251,7 +251,11 @@ BusDigital::BusDigital(const BusConfig &bc)
 // to disable brightness limiter for a bus, set LED current to 0
 
 void BusDigital::setBrightness(uint8_t b) {
-  _bri = b;
+  setBrightness16((uint16_t)b << 8);
+}
+
+void BusDigital::setBrightness16(uint16_t b) {
+  _bri16 = b;
   if (!_busPtr) return;
   if (_type == TYPE_TM1814 || _type == TYPE_TM1815) {
     // coarse brightness via per-strip hardware drive current (64 steps), 0 is 6.5mA, 63 is 38mA
@@ -276,7 +280,7 @@ void BusDigital::setBrightness(uint8_t b) {
     _busPtr->setBusBri(255);
     _busPtr->setEncBri(b);
   } else {
-    _busPtr->setBusBri(b);                // used by color_fade() in setPixelColor()
+    _busPtr->setBusBri(b >> 8);           // used by color_fade() in setPixelColor()
   }
 }
 
@@ -290,10 +294,10 @@ void BusDigital::estimateCurrent() {
     actualMilliampsPerLed = 12; // from testing an actual strip
   }
   // TM1814/TM1815/APA102: colors were accumulated with the fine residual brightness (getBusBri()).
-  // Scale colorSum back to the full _bri level so ABL sees the correct hardware power draw.
+  // Scale colorSum back to full brightness so ABL sees the correct hardware power draw.
   if (_type == TYPE_TM1814 || _type == TYPE_TM1815 || _type == TYPE_APA102) {
     const uint8_t busBri = _busPtr->getBusBri();
-    if (busBri > 0) colorSum = ((uint64_t)colorSum * _bri) / busBri;
+    if (busBri > 0) colorSum = ((uint64_t)colorSum * _bri16) / ((uint32_t)busBri << 8);
   }
   // colorSum has all the values of color channels summed, max would be getLength()*(3*255 + (255 if hasWhite()): convert to milliAmps
   uint32_t clrUnitsPerChannel = hasWhite() ? 4*255 : 3*255;
@@ -332,9 +336,9 @@ void BusDigital::applyBriLimit(uint8_t newBri) {
 void BusDigital::show() {
   if (!_valid) return;
   if (BusManager::_useABL)
-    _totalBusBri = (_totalBusBri * _bri) / 255;      // total applied brightness for use in restoreColorLossy (see applyBriLimit())
+    _totalBusBri = ((uint32_t)_totalBusBri * _bri16) / (255U << 8); // total applied brightness for use in restoreColorLossy (see applyBriLimit())
   else
-    _totalBusBri = _bri; // if not using ABL, total bus brightness is just the bus brightness
+    _totalBusBri = _bri16 >> 8; // if not using ABL, total bus brightness is just the bus brightness
   _busPtr->show();
 }
 
@@ -640,13 +644,14 @@ void BusPwm::show() {
 #endif
   // use CIE brightness formula (linear + cubic) to approximate human eye perceived brightness
   // see: https://en.wikipedia.org/wiki/Lightness
-  unsigned pwmBri = _bri;
-  if (pwmBri < 21) {                                   // linear response for values [0-20]
-    pwmBri = (pwmBri * maxBri + 2300 / 2) / 2300 ;     // adding '0.5' before division for correct rounding, 2300 gives a good match to CIE curve
-  } else {                                             // cubic response for values [21-255]
-    float temp = float(pwmBri + 41) / float(255 + 41); // 41 is to match offset & slope to linear part
-    temp = temp * temp * temp * (float)maxBri;
-    pwmBri = (unsigned)temp;                           // pwmBri is in range [0-maxBri] C
+  float briFloat = float(_bri16) / 256.0f;
+  if (briFloat > 255.0f) briFloat = 255.0f; // safety clamp in case _bri16 is larger than 255<<8
+  float pwmBri = briFloat;
+  if (pwmBri < 21.0f) {
+    pwmBri = pwmBri * maxBri / 2300.0f;
+  } else {
+    float temp = (pwmBri + 41.0f) / (255.0f + 41.0f);
+    pwmBri = temp * temp * temp * maxBri;
   }
 
   [[maybe_unused]] unsigned hPoint = 0;  // phase shift (0 - maxBri)
@@ -657,14 +662,14 @@ void BusPwm::show() {
   // Phase shifting requires that LEDC timers are synchronised (see setup()). For PWM CCT (and H-bridge) it is
   // also mandatory that both channels use the same timer (pinManager takes care of that).
   for (unsigned i = 0; i < numPins; i++) {
-    unsigned duty = (_data[i] * pwmBri) / 255;
+    unsigned duty = (_data[i] * pwmBri) / 255.0f;
     unsigned deadTime = 0;
 
     if (_type == TYPE_ANALOG_2CH && Bus::_cctBlend <= 0) {
       // add dead time between signals (when using dithering, two full 8bit pulses are required)
       deadTime = (1+dithering) << bitShift;
       // we only need to take care of shortening the signal at (almost) full brightness otherwise pulses may overlap
-      if (_bri >= 254 && duty >= maxBri / 2 && duty < maxBri) {
+      if (briFloat >= 254.0f && duty >= maxBri / 2 && duty < maxBri) {
         duty -= deadTime << 1; // shorten duty of larger signal except if full on
       }
     }
@@ -766,7 +771,7 @@ BusOnOff::BusOnOff(const BusConfig &bc)
 
 void BusOnOff::setPixelColor(unsigned pix, uint32_t c) {
   if (pix != 0 || !_valid) return; //only react to first pixel
-  _data = (c > 0) && bool(_bri) ? 0xFF : 0; // if any color channel is on and brightness is not zero, set to on
+  _data = (c > 0) && _bri16 ? 0xFF : 0; // if any color channel is on and brightness is not zero, set to on
 }
 
 uint32_t BusOnOff::getPixelColor(unsigned pix) const {
@@ -845,7 +850,7 @@ uint32_t BusNetwork::getPixelColor(unsigned pix) const {
 void BusNetwork::show() {
   if (!_valid || !canShow()) return;
   _broadcastLock = true;
-  realtimeBroadcast(_UDPtype, _client, _len, _data, _bri, hasWhite());
+  realtimeBroadcast(_UDPtype, _client, _len, _data, _bri16 >> 8, hasWhite());
   _broadcastLock = false;
 }
 
@@ -1286,9 +1291,13 @@ uint32_t BusHub75Matrix::getPixelColor(unsigned pix) const {
 }
 
 void BusHub75Matrix::setBrightness(uint8_t b) {
-  _bri = b;
+  setBrightness16((uint16_t)b << 8);
+}
+
+void BusHub75Matrix::setBrightness16(uint16_t b) {
+  _bri16 = b;
   if (!_valid || !display) return;
-  display->setBrightness(_bri); 
+  display->setBrightness(_bri16 >> 8);
 }
 
 void BusHub75Matrix::show(void) {
@@ -1304,7 +1313,7 @@ void BusHub75Matrix::show(void) {
     for (int y=0; y<height; y++) for (int x=0; x<width; x++) {
       if (getBitFromArray(_ledsDirty, pix) == true) {        // only repaint the "dirty"  pixels
         CRGB c = _ledBuffer[pix];
-        //c.nscale8_video(_bri); // apply brightness
+        //c.nscale8_video(_bri16 >> 8); // apply brightness
         if (_isVirtual) virtualDisp->drawPixelRGB888(int16_t(x), int16_t(y), c.r, c.g, c.b);
         else                display->drawPixelRGB888(int16_t(x), int16_t(y), c.r, c.g, c.b);
       }
