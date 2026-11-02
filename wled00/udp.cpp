@@ -958,6 +958,7 @@ void espNowReceiveCB(uint8_t* address, uint8_t* data, uint8_t msgLen, signed int
   static uint8_t packetsReceived = 0;
   static uint8_t segsReceived = 0;
   static unsigned long lastProcessed = 0;
+  static size_t headerBytes = 0;  // header length from the first notify fragment
 
   if (buffer->packet == 0) {
     packetsReceived = 0; // it will increment later (this is to make sure we start counting packets correctly)
@@ -966,6 +967,7 @@ void espNowReceiveCB(uint8_t* address, uint8_t* data, uint8_t msgLen, signed int
       if (!udpIn) return; // memory alocation failed
       DEBUG_PRINTLN(F("ESP-NOW inited UDP buffer."));
     }
+    headerBytes = min(len - 3, size_t(SEG_OFFSET));  // first packet may contain up to 5 segments - we only want the header size without trailing segments
     memcpy(udpIn, buffer->data, len-3); // global data (41 bytes + up to 5 segments)
     segsReceived = (len > 43) ? (len - 3 - 41) / UDP_SEG_SIZE : 0; //  prevent negative numbers of segments
   } else if (buffer->packet == packetsReceived && udpIn && ((len - 3) / UDP_SEG_SIZE) * UDP_SEG_SIZE == (len-3)) {
@@ -988,6 +990,7 @@ void espNowReceiveCB(uint8_t* address, uint8_t* data, uint8_t msgLen, signed int
     udpIn = nullptr;
     packetsReceived = 0;
     segsReceived = 0;
+    headerBytes = 0;
     return;
   }
   if (!udpIn) return;
@@ -1002,7 +1005,9 @@ void espNowReceiveCB(uint8_t* address, uint8_t* data, uint8_t msgLen, signed int
     } else {
       if (millis() - lastProcessed > 250) {
         DEBUG_PRINTLN(F("ESP-NOW processing complete message."));
-        parseNotifyPacket(udpIn, min(WLEDPACKETSIZE, size_t(SEG_OFFSET + segsReceived * UDP_SEG_SIZE)));
+        // Do not count missing header bytes as received data.
+        size_t udpSize = headerBytes < SEG_OFFSET ? headerBytes : min(WLEDPACKETSIZE, size_t(SEG_OFFSET + segsReceived * UDP_SEG_SIZE));
+        parseNotifyPacket(udpIn, udpSize);
         lastProcessed = millis();
       } else {
       DEBUG_PRINTLN(F("ESP-NOW ignoring complete message."));
@@ -1012,6 +1017,7 @@ void espNowReceiveCB(uint8_t* address, uint8_t* data, uint8_t msgLen, signed int
     udpIn = nullptr;
     packetsReceived = 0;
     segsReceived = 0;
+    headerBytes = 0;
   }
 }
 #endif
