@@ -16,6 +16,7 @@ Enables battery level monitoring of your project.
 
 - 💯 Displays current battery voltage
 - 🚥 Displays battery level
+- 🔌 Charging state detection (voltage trend based)
 - 🚫 Auto-off with configurable threshold
 - 🚨 Low power indicator with many configuration possibilities
 
@@ -173,6 +174,11 @@ Specification from: [Molicel INR18650-M35A, 3500mAh 10A Lithium-ion battery, 3.6
 <br><br>
 
 ## 📝 Change Log
+
+2026-11-03 (charging detection)
+
+- Charging detection from the voltage trend over the last 2.5 minutes (info panel, JSON state, MQTT `charging` topic and Home Assistant binary sensor)
+- Battery voltage, level, charging state and type are exposed to other usermods via `getUMData()`
 
 2026-11-03 (discharge curves)
 

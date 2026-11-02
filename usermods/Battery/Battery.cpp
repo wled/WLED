@@ -43,6 +43,18 @@ class UsermodBattery : public Usermod {
     unsigned long lowPowerActivationTime = 0;
     uint8_t lastPreset = 0;
 
+    // --- Charging detection (voltage trend over sliding window) ---
+    bool charging = false;
+    static const uint8_t VOLTAGE_HISTORY_SIZE = 5;  // 5 × 30s = 2.5 min window
+    float voltageHistory[VOLTAGE_HISTORY_SIZE] = {0};
+    uint8_t voltageHistoryIdx = 0;
+    bool voltageHistoryFull = false;
+    static constexpr float CHARGE_VOLTAGE_THRESHOLD = 0.01f;  // 10mV rise over window
+
+    // --- Inter-usermod data exchange ---
+    float umVoltage = 0.0f;
+    int16_t umLevel = -1;
+
     // --- State ---
     bool initDone = false;
     bool initializing = true;
@@ -198,6 +210,22 @@ class UsermodBattery : public Usermod {
       // First voltage reading is delayed to allow voltage stabilization after powering up
       nextReadTime = millis() + initialDelay;
 
+      // expose battery data for other usermods via getUMData()
+      if (!um_data) {
+        um_data = new um_data_t;
+        um_data->u_size = 4;
+        um_data->u_type = new um_types_t[4];
+        um_data->u_data = new void*[4];
+        um_data->u_data[0] = &umVoltage;   // float, Volts
+        um_data->u_type[0] = UMT_FLOAT;
+        um_data->u_data[1] = &umLevel;     // int16_t, 0-100% (or -1 if invalid)
+        um_data->u_type[1] = UMT_INT16;
+        um_data->u_data[2] = &charging;    // bool
+        um_data->u_type[2] = UMT_BYTE;
+        um_data->u_data[3] = &cfg.type;    // batteryType enum (1=lipo,2=lion,3=lifepo4)
+        um_data->u_type[3] = UMT_BYTE;
+      }
+
       initDone = true;
     }
 
@@ -247,7 +275,20 @@ class UsermodBattery : public Usermod {
         bat->setVoltage(filteredVoltage);
         // translate battery voltage into percentage
         bat->calculateAndSetLevel(filteredVoltage);
+
+        // charging detection: compare current voltage against ~2.5 minutes ago
+        float oldestVoltage = voltageHistory[voltageHistoryIdx];
+        voltageHistory[voltageHistoryIdx] = filteredVoltage;
+        voltageHistoryIdx = (voltageHistoryIdx + 1) % VOLTAGE_HISTORY_SIZE;
+        if (!voltageHistoryFull && voltageHistoryIdx == 0) voltageHistoryFull = true;
+
+        if (voltageHistoryFull && oldestVoltage > 0.0f) {
+          charging = (filteredVoltage - oldestVoltage > CHARGE_VOLTAGE_THRESHOLD);
+        }
       }
+
+      umVoltage = bat->getVoltage();
+      umLevel = bat->getLevel();
 
       // Auto off -- Master power off (only on a valid level)
       if (autoOffEnabled && bat->getLevel() >= 0 && autoOffThreshold >= bat->getLevel())
@@ -256,11 +297,25 @@ class UsermodBattery : public Usermod {
 #ifndef WLED_DISABLE_MQTT
       if (bat->getLevel() >= 0) publishMqtt("battery", String(bat->getLevel()).c_str());
       if (bat->getVoltage() >= 0) publishMqtt("voltage", String(bat->getVoltage()).c_str());
+      publishMqtt("charging", charging ? "on" : "off");
 #endif
     }
 
     uint16_t getId() override {
       return USERMOD_ID_BATTERY;
+    }
+
+    /*
+     * Battery data exposed to other usermods via getUMData():
+     *   slot 0: voltage  (float, Volts)
+     *   slot 1: level    (int16_t, 0-100% or -1 if invalid)
+     *   slot 2: charging (bool)
+     *   slot 3: type     (uint8_t, 1=lipo,2=lion,3=lifepo4)
+     */
+    bool getUMData(um_data_t **data) override {
+      if (!data || !initDone) return false;
+      *data = um_data;
+      return true;
     }
 
     // =============================================
@@ -281,6 +336,7 @@ class UsermodBattery : public Usermod {
       // info modal display names
       JsonArray infoPercentage = user.createNestedArray(F("Battery level"));
       JsonArray infoVoltage = user.createNestedArray(F("Battery voltage"));
+      JsonArray infoCharging = user.createNestedArray(F("Battery charging"));
       JsonArray infoNextUpdate = user.createNestedArray(F("Next update"));
 
       unsigned long now = millis();
@@ -306,6 +362,8 @@ class UsermodBattery : public Usermod {
         infoVoltage.add(dot2round(bat->getVoltage()));
       }
       infoVoltage.add(F(" V"));
+
+      infoCharging.add(charging ? F("Yes") : F("No"));
     }
 
     void addToJsonState(JsonObject& root) override {
@@ -318,6 +376,7 @@ class UsermodBattery : public Usermod {
     void addBatteryToJsonObject(JsonObject& battery, bool forJsonState) {
       if (forJsonState) {
         battery[F("type")] = cfg.type;
+        battery[F("charging")] = charging;
       } else {
         battery[F("type")] = (String)cfg.type;  // has to be a String otherwise it won't get converted to a Dropdown
       }
@@ -453,8 +512,9 @@ class UsermodBattery : public Usermod {
       // Home Assistant Autodiscovery
       if (!HomeAssistantDiscovery) return;
 
-      registerMqttSensor("battery", F("Battery"), "sensor", "battery", "%");
-      registerMqttSensor("voltage", F("Voltage"), "sensor", "voltage", "V");
+      registerMqttSensor("battery",  F("Battery"),  "sensor",        "battery",          "%");
+      registerMqttSensor("voltage",  F("Voltage"),  "sensor",        "voltage",          "V");
+      registerMqttSensor("charging", F("Charging"), "binary_sensor", "battery_charging");
     }
 
     void registerMqttSensor(const char* subtopic, const String &name, const char* type, const char* deviceClass, const char* unit = "", bool diagnostic = true) {
