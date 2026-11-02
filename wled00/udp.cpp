@@ -534,8 +534,14 @@ void handleNotifications()
   if (packetSize < 1 || packetSize > max(size_t(UDP_IN_MAXSIZE), WLEDPACKETSIZE)) return;
   if (!isSupp && notifierUdp.remoteIP() == localIP) { udpDropRXBuffer(notifierUdp); return; } //don't process broadcasts we send ourselves
 
-  uint8_t udpIn[packetSize +1];
-  memset(udpIn, 0, packetSize +1); // clear buffer
+#if (MAX_NUM_SEGMENTS < 33)
+  uint8_t udpIn[packetSize +1];          // use a VLA when expected max size is < 1500 bytes - avoids adding RAM pressure on small boards like 8266 
+#else
+  constexpr size_t BUF_CAPACITY = WLEDPACKETSIZE > size_t(UDP_IN_MAXSIZE) ? WLEDPACKETSIZE : size_t(UDP_IN_MAXSIZE);
+  static uint8_t udpIn[BUF_CAPACITY + 1]; // use static array to prevent heap smashing 
+#endif
+
+  memset(udpIn, 0, packetSize +1);       // clear buffer
   unsigned len;
   if (isSupp) len = notifier2Udp.read(udpIn, packetSize);
   else        len =  notifierUdp.read(udpIn, packetSize);
