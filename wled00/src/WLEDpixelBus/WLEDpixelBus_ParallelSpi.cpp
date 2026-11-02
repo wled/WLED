@@ -337,7 +337,11 @@ bool ParallelSpiBusContext::hwInit() {
   if (err != ESP_OK) {
     return false; // no free TX channel -> clean failure instead of silent corruption
   }
-  gdma_get_channel_id(_gdmaChan, &_dmaChanId);
+  err = gdma_get_channel_id(_gdmaChan, &_dmaChanId);
+  if (err != ESP_OK || _dmaChanId < 0 || _dmaChanId >= SOC_GDMA_PAIRS_PER_GROUP_MAX) {
+    _dmaChanId = -1;
+    return false; // never use an invalid channel ID to index GDMA registers
+  }
 
   gdma_dev_t* dma = &GDMA;
   gdma_ll_tx_reset_channel(dma, _dmaChanId);

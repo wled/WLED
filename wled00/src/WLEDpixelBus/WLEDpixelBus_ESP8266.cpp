@@ -595,10 +595,14 @@ bool Esp8266DmaBus::show() {
   if (!_initialized || !_encodeBuffer || _numPixels == 0) return false;
   waitForIdle();
 
-  // Break the idle loop: state[1] now points to first pixel descriptor
-  _dmaDesc[1].next_link_ptr = &_dmaDesc[c_stateBlockCount];
+  // Publish the active state before breaking the idle loop to avoid race condition on short frames
+  ETS_SLC_INTR_DISABLE();
   _sending = true;
   _txStartMillis = millis();
+  __asm__ __volatile__("" ::: "memory");
+  _dmaDesc[1].next_link_ptr = &_dmaDesc[c_stateBlockCount];  // Break the idle loop: state[1] now points to first pixel descriptor
+  __asm__ __volatile__("" ::: "memory");
+  ETS_SLC_INTR_ENABLE();
 
   return true;
 }

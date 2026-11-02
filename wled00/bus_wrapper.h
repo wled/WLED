@@ -391,7 +391,7 @@ static WLEDpixelBus::PixelBus* create(uint8_t busType, uint8_t* pins, uint16_t l
     }
 
     const uint8_t requestedType = busType;
-    busType = checkParallelType(busType, driverType); // all parallel output buses must share the same type
+    const uint8_t sharedTimingType = checkParallelType(busType, driverType);
 
     WLEDpixelBus::BusDriver driver = WLEDpixelBus::BusDriver::RMT; // always overwritten below; initialised to avoid unused-variable warning
 
@@ -425,13 +425,13 @@ static WLEDpixelBus::PixelBus* create(uint8_t busType, uint8_t* pins, uint16_t l
     if (!properties) return nullptr; // one-wire buses are created from an explicit property set
     WLEDpixelBus::BusProperties wire = *properties;
     // Caller should already have used checkParallelType(). If it did not, keep the shared clock consistent.
-    if (busType != requestedType) wire.timing = WLEDpixelBus::getLedTiming(busType);
+    if (sharedTimingType != requestedType) wire.timing = WLEDpixelBus::getLedTiming(sharedTimingType);
     if (busSpeedFactor != 100) {
       float factor = (float)busSpeedFactor / 100.0f;
       wire.timing = WLEDpixelBus::scaleTiming(wire.timing, factor);
     }
 
-    return WLEDpixelBus::createBus(driver, pins[0], wire, busType, len);
+    return WLEDpixelBus::createBus(driver, pins[0], wire, requestedType, len);
   }
 };
 #endif

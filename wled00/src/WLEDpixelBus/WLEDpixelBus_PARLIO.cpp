@@ -303,8 +303,6 @@ IRAM_ATTR bool ParlioBusContext::gdmaEofISR(gdma_channel_handle_t /*dma_chan*/, 
   // If the DMA caught up with the CPU and paused on a CPU-owned descriptor, restart the outlink
   if (ctx->_dmaChanIdx >= 0) {
     WLEDPB_PARLIO_GDMA_LL_TX_RESTART(WLEDPB_PARLIO_GDMA_DEV, (uint32_t)ctx->_dmaChanIdx);
-  } else {
-    gdma_append(ctx->_dmaChan); // channel index unknown: last resort
   }
   return false;
 }

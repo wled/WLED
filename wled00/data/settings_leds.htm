@@ -1219,7 +1219,7 @@ Swap: <select id="xw${s}" name="XW${s}">
 					}
 					arr.slice(1).forEach(n => {
 						d.Sf["SF"+n].value = speed.value;
-						fields.forEach((f, i) => { d.Sf[f+n].value = values[i]; });
+						if (!isCst(n)) fields.forEach((f, i) => { d.Sf[f+n].value = values[i]; });
 					});
 				}
 				arr.slice(1).forEach(n => {

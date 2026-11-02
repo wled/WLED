@@ -186,10 +186,9 @@ BusDigital::BusDigital(const BusConfig &bc)
 
   bool colorOrderMapApplies = true;
   if (!is2Pin(bc.type)) {
-    // parallel drivers lock every channel to the first bus type. Resolve the wire layout against that type
-    _protocolType = PixelBusAllocator::checkParallelType(bc.type, _driverType);
+    _protocolType = bc.type; // parallel drivers share the first bus's timing, not its complete wire protocol
     BusChannelLayout wireLayout = bc.channels;
-    if (!wireLayout.custom && (wireLayout.numChannels == 0 || _protocolType != bc.type))
+    if (!wireLayout.custom && wireLayout.numChannels == 0)
       resolveChannelLayout(wireLayout, _protocolType, bc.colorOrder);
     _busProperties = makeBusProperties(wireLayout, _protocolType); // single assembly point for the wire descriptor
     if (_busProperties.numChannels == 0 || _busProperties.numChannels > WLEDpixelBus::MAX_CUSTOM_CHANNELS) {

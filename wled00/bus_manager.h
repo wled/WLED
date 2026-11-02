@@ -264,8 +264,8 @@ class BusDigital : public Bus {
 
   private:
     uint8_t  _skip;
-    uint8_t  _colorOrder; // saved color-order byte. Encoder indices are built from it once, at creation.
-    uint8_t  _protocolType; // LED type whose wire layout the encoder was built from (may differ when a shared clock locks the type)
+    uint8_t  _colorOrder;   // saved color-order byte. Encoder indices are built from it once, at creation.
+    uint8_t  _protocolType; // used wire protocol: timing is shared in parallel buses, color channels can differ
     bool     _hasColorOrderMap = false;
     uint8_t  _pins[2] = {255, 255};
     uint8_t  _driverType; // BusDriverType: BUSDRV_RMT / BUSDRV_PARHW / BUSDRV_BITBANG
