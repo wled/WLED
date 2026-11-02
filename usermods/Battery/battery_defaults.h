@@ -27,24 +27,12 @@
 
 
 /* Default Battery Type
- * 0 = unkown
  * 1 = Lipo
  * 2 = Lion
+ * 3 = LiFePO4
  */
 #ifndef USERMOD_BATTERY_DEFAULT_TYPE
-  #define USERMOD_BATTERY_DEFAULT_TYPE 0
-#endif
-/*
- *
- *  Unkown 'Battery' defaults
- *
- */
-#ifndef USERMOD_BATTERY_UNKOWN_MIN_VOLTAGE
-  // Extra save defaults
-  #define USERMOD_BATTERY_UNKOWN_MIN_VOLTAGE 3.3f
-#endif
-#ifndef USERMOD_BATTERY_UNKOWN_MAX_VOLTAGE
-  #define USERMOD_BATTERY_UNKOWN_MAX_VOLTAGE 4.2f
+  #define USERMOD_BATTERY_DEFAULT_TYPE 1
 #endif
 
 /*
@@ -71,6 +59,18 @@
 #endif
 #ifndef USERMOD_BATTERY_LION_MAX_VOLTAGE
   #define USERMOD_BATTERY_LION_MAX_VOLTAGE 4.2f
+#endif
+
+/*
+ *
+ *  Lithium Iron Phosphate (LiFePO4) defaults
+ *
+ */
+#ifndef USERMOD_BATTERY_LIFEPO4_MIN_VOLTAGE
+  #define USERMOD_BATTERY_LIFEPO4_MIN_VOLTAGE 2.8f
+#endif
+#ifndef USERMOD_BATTERY_LIFEPO4_MAX_VOLTAGE
+  #define USERMOD_BATTERY_LIFEPO4_MAX_VOLTAGE 3.6f
 #endif
 
 // the default ratio for the voltage divider
@@ -121,9 +121,9 @@
 // fixed uint8_t base so the enum is exactly one byte
 typedef enum : uint8_t
 {
-  unknown=0,
   lipo=1,
-  lion=2
+  lion=2,
+  lifepo4=3
 } batteryType;
 
 // used for initial configuration after boot

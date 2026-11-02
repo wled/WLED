@@ -1,9 +1,9 @@
 #include "wled.h"
 #include "battery_defaults.h"
 #include "UMBattery.h"
-#include "types/UnkownUMBattery.h"
-#include "types/LionUMBattery.h"
 #include "types/LipoUMBattery.h"
+#include "types/LionUMBattery.h"
+#include "types/Lifepo4UMBattery.h"
 
 /*
  * Usermod by Maximilian Mewes
@@ -17,7 +17,7 @@ class UsermodBattery : public Usermod {
     int8_t batteryPin = USERMOD_BATTERY_MEASUREMENT_PIN;
 
     // --- Battery state ---
-    UMBattery* bat = new UnkownUMBattery();
+    UMBattery* bat = new LipoUMBattery();
     batteryConfig cfg;
     float alpha = USERMOD_BATTERY_AVERAGING_ALPHA;
 
@@ -162,10 +162,10 @@ class UsermodBattery : public Usermod {
 
     static UMBattery* createBattery(batteryType type) {
       switch (type) {
-        case lipo:    return new LipoUMBattery();
         case lion:    return new LionUMBattery();
-        case unknown:
-        default:      return new UnkownUMBattery();
+        case lifepo4: return new Lifepo4UMBattery();
+        case lipo:
+        default:      return new LipoUMBattery();  // also migrates the removed "Unknown" type (0)
       }
     }
 
@@ -359,9 +359,9 @@ class UsermodBattery : public Usermod {
 
     void appendConfigData() override {
       oappend(F("td=addDropdown('Battery','type');"));              // 34 Bytes
-      oappend(F("addOption(td,'Unkown','0');"));                    // 28 Bytes
       oappend(F("addOption(td,'LiPo','1');"));                      // 26 Bytes
       oappend(F("addOption(td,'LiOn','2');"));                      // 26 Bytes
+      oappend(F("addOption(td,'LiFePO4','3');"));                   // 29 Bytes
       oappend(F("addInfo('Battery:type',1,'<small style=\"color:orange\">requires reboot</small>');")); // 81 Bytes
       oappend(F("addInfo('Battery:min-voltage',1,'v');"));          // 38 Bytes
       oappend(F("addInfo('Battery:max-voltage',1,'v');"));          // 38 Bytes
