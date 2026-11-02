@@ -501,15 +501,15 @@ void handleNotifications()
   if (!udpConnected) return;
 
   bool isSupp = false;
-  size_t packetSize = udpParse(notifierUdp, max(size_t(UDP_IN_MAXSIZE), WLEDPACKETSIZE));
+  size_t packetSize = notifierUdp.parsePacket();
   if (!packetSize && udp2Connected) {
-    packetSize = udpParse(notifier2Udp, max(size_t(UDP_IN_MAXSIZE), WLEDPACKETSIZE));
+    packetSize = notifier2Udp.parsePacket();
     isSupp = true;
   }
 
   //hyperion / raw RGB
   if (!packetSize && udpRgbConnected) {
-    packetSize = udpParse(rgbUdp, UDP_IN_MAXSIZE);
+    packetSize = udpParse(rgbUdp, UDP_IN_MAXSIZE); // discards oversized messages
     if (packetSize) {
       if (!receiveDirect) { udpDropRXBuffer(rgbUdp); return; }
       if (packetSize > UDP_IN_MAXSIZE || packetSize < 3)  { udpDropRXBuffer(rgbUdp); return; } // packetSize must not exceed buffersize (UDP_IN_MAXSIZE)
@@ -531,9 +531,10 @@ void handleNotifications()
 
   localIP = WLEDNetwork.localIP();
   //notifier and UDP realtime
-  if (packetSize < 1 || packetSize > max(size_t(UDP_IN_MAXSIZE), WLEDPACKETSIZE)) return;
+  if (packetSize < 1) return; // no data received
   if (!isSupp && notifierUdp.remoteIP() == localIP) { udpDropRXBuffer(notifierUdp); return; } //don't process broadcasts we send ourselves
 
+  packetSize = min(packetSize, max(size_t(UDP_IN_MAXSIZE), WLEDPACKETSIZE));   // only read what's supported on this board (depends on MAX_NUM_SEGMENTS)
 #if (MAX_NUM_SEGMENTS < 33)
   uint8_t udpIn[packetSize +1];          // use a VLA when expected max size is < 1500 bytes - avoids adding RAM pressure on small boards like 8266 
 #else
@@ -545,6 +546,7 @@ void handleNotifications()
   unsigned len;
   if (isSupp) len = notifier2Udp.read(udpIn, packetSize);
   else        len =  notifierUdp.read(udpIn, packetSize);
+  udpDropRXBuffer(isSupp ? notifier2Udp: notifierUdp); // drop remaining bytes (if any)
 
   // WLED nodes info notifications
   if (isSupp && len >= 40 && udpIn[0] == 255 && udpIn[1] == 1) {
