@@ -1384,7 +1384,7 @@ void WS2812FX::finalizeInit() {
     _isOffRefreshRequired |= bus->isOffRefreshRequired() && !bus->isPWM(); // use refresh bit for phase shift with analog
     unsigned busEnd = bus->getStart() + bus->getLength();
     if (busEnd > _length) _length = busEnd;
-    bus->setBrightness(scaledBri16(bri<<8));
+    bus->setBrightness16(scaledBri16(bri<<8));
   }
   BusManager::initializeABL(); // init brightness limiter
   DEBUG_PRINTF_P(PSTR("Heap after buses: %d\n"), ESP.getFreeHeap());

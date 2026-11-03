@@ -500,8 +500,8 @@ namespace BusManager {
   bool        canAllShow();
   void        blank();  // Set all pixels to black
   inline void setStatusPixel(uint32_t c) { for (auto &bus : busses) bus->setStatusPixel(c);}
-  inline void setBrightness(uint8_t b)   { for (auto &bus : busses) bus->setBrightness(b); }
-  inline void setBrightness16(uint16_t b) { for (auto &bus : busses) bus->setBrightness16(b); }
+  inline void setBrightness(uint8_t b)   { for (auto &bus : busses) bus->setBrightness(b); }    // set  8-bit brightness (legacy, not used. For UM compatibility only)
+  inline void setBrightness16(uint16_t b) { for (auto &bus : busses) bus->setBrightness16(b); } // set 16-bit brightness
   // for setSegmentCCT(), cct can only be in [-1,255] range; allowWBCorrection will convert it to K
   // WARNING: setSegmentCCT() is a misleading name!!! much better would be setGlobalCCT() or just setCCT()
   void           setSegmentCCT(int16_t cct, bool allowWBCorrection = false);
