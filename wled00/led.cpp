@@ -160,6 +160,7 @@ void stateUpdated(byte callMode) {
     if (stateChanged) currentPreset = 0; //something changed, so we are no longer in the preset
 
     if (callMode != CALL_MODE_NOTIFICATION && callMode != CALL_MODE_NO_NOTIFY) notify(callMode);
+    else if (callMode == CALL_MODE_NO_NOTIFY) syncV2Diverged(); // changed without sync: stop advertising the synced state
     if (bri != briOld && nodeBroadcastEnabled) sendSysInfoUDP(); // update on state
 
     //set flag to update ws and mqtt

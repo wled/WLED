@@ -314,6 +314,12 @@ void espNowSentCB(uint8_t* address, uint8_t status);
 void espNowReceiveCB(uint8_t* address, uint8_t* data, uint8_t len, signed int rssi, bool broadcast);
 #endif
 
+//sync_v2.cpp
+void syncV2Send(byte callMode, bool followUp);
+void syncV2Diverged();
+void syncV2Handle(const uint8_t *buf, size_t len, const IPAddress &src);
+void syncV2Loop();
+
 //network.cpp
 bool initEthernet(); // result is informational
 int  getSignalQuality(int rssi);
