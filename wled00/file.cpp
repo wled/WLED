@@ -374,6 +374,7 @@ bool readObjectFromFile(const char* file, const char* key, JsonDocument* dest, c
 
   if (jsonErr) {   // EmptyInput, IncompleteInput, InvalidInput, NoMemory, TooDeep
     DEBUG_PRINTF_P(PSTR("readObjectFromFile(%s): JSON %s !\n"), fileName, jsonErr.c_str());
+    if (jsonErr != DeserializationError::NoMemory) dest->clear(); // prevent callers from using partial invalid data
     return jsonErr == DeserializationError::NoMemory || jsonErr == DeserializationError::EmptyInput; // NoMemory => data is partial but usable; empty => handled by caller
   } else return true;
 }
