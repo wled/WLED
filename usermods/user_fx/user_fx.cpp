@@ -1664,14 +1664,14 @@ static void mode_pendulum(void) {
 
   bool largeSize  = SEGMENT.check3;
   uint16_t sizePx  = largeSize ? LARGE_RADIUS_PX : 0;
-  uint16_t cutoff  = sizePx + segLen / 10;
+  uint16_t cutoff  = (segLen < 10) ? 1 : sizePx + segLen / 10;
 
   if (largeSize) {
     if (cutoff < sizePx + MIN_SWING_PX) cutoff = sizePx + MIN_SWING_PX;
     if (segLen < 2 * cutoff + 1) {    // segment is too short for the large pendulum, so use the short pendulum
       largeSize  = false;
       sizePx = 0;
-      cutoff = segLen / 10;
+      cutoff = (segLen < 10) ? 1 : segLen / 10;
     }
   }
   // AI: end
