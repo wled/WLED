@@ -15,7 +15,7 @@ namespace WLEDpixelBus {
 // SPI Bus: Hardware and Software SPI for 2-wire LEDs like APA102, WS2801
 class SpiBus : public PixelBus {
 public:
-  SpiBus(int8_t dataPin, int8_t clockPin, uint16_t frequencykHz, uint8_t colorOrder, uint8_t numChannels, bool useHardware = true, uint8_t ledType = 0);
+  SpiBus(int8_t dataPin, int8_t clockPin, uint16_t frequencykHz, bool useHardware = true, uint8_t ledType = 0);
   ~SpiBus() override;
 
   bool begin() override;

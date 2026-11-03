@@ -26,14 +26,13 @@ static uint32_t kHzToClockHz(uint16_t frequencykHz) {
   return frequencyHz;
 }
 
-SpiBus::SpiBus(int8_t dataPin, int8_t clockPin, uint16_t frequencykHz, uint8_t colorOrder, uint8_t numChannels, bool useHardware, uint8_t ledType)
+SpiBus::SpiBus(int8_t dataPin, int8_t clockPin, uint16_t frequencykHz, bool useHardware, uint8_t ledType)
   : _dataPin(dataPin)
   , _clockPin(clockPin)
   , _useHardware(useHardware)
   , _initialized(false)
   , _clockHz(kHzToClockHz(frequencykHz))
 {
-  _encoder = ColorEncoder(colorOrder, numChannels, ledType);
   _ledType = ledType;
 }
 

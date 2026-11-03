@@ -646,7 +646,7 @@
 // npm run build has trouble minimizing spaces inside string
 				var cn = `<div class="iST" style="background: #111; border-radius: 20px;padding: 12px;margin: 12px">
 ${i+1}:
-<select name="LT${s}" onchange="if(d.Sf['CBen${s}']?.checked)presetCustomDefaults('${s}',parseInt(this.value));UI(true)"></select><br>
+<select name="LT${s}" onchange="let t=parseInt(this.value);if(d.Sf['CBen${s}']?.checked){if(canCst(t))presetCustomDefaults('${s}',t);else d.Sf['CBen${s}'].checked=false;}UI(true)"></select><br>
 <div id="abl${s}">
 mA/LED: <select name="LAsel${s}" onchange="enLA(this,'${s}');UI();">
 <option value="55" selected>55mA (typ. 5V WS281x)</option>

@@ -46,8 +46,6 @@ TODO List
 - LPD6803 and LPD8806 encoding is done on RGB only, need to add support for more color channels if such stripes exist
 - ESP8266 DMA output uses a slow path to scale and reset buffers, needs optimisation
 - the "non global buffer" path is not optimised, check if this path should not color-encode on the fly so reading buffer back is faster, then do an encode pass before sending
-- ColorEncoder has two overloaded versions, the non mapped one is not really used anymore as mapping is done by legacy shims - should be removed after checking if SPI bus is handled correctly if doing so
-- UI bug: when customizing a bus, then switching type, the custom fields stay (for example for a PWM output)
 */
 
 
@@ -85,52 +83,6 @@ LedTiming getLedTiming(uint8_t wledType) {
 
 // Color Encoder
 //--------------
-
-// standard encoder from color order and type
-ColorEncoder::ColorEncoder(uint8_t co, uint8_t numChannels, uint8_t ledType)
-{
-  _invertMask = 0;
-  memset(_channelMap, 0, sizeof(_channelMap));
-
-  // Standard types: fast path via _idxR/_idxG/_idxB/_idxW/_idxCW
-  uint8_t flags = 0;
-
-  // Decode RGB wire positions from color order lower nibble (see ColorOrder enum)
-  uint8_t rPos, gPos, bPos;
-  switch (co & 0x0F) {
-    case COL_ORDER_RGB: rPos=0; gPos=1; bPos=2; break;
-    case COL_ORDER_BRG: rPos=1; gPos=2; bPos=0; break;
-    case COL_ORDER_RBG: rPos=0; gPos=2; bPos=1; break;
-    case COL_ORDER_BGR: rPos=2; gPos=1; bPos=0; break;
-    case COL_ORDER_GBR: rPos=2; gPos=0; bPos=1; break;
-    default:        rPos=1; gPos=0; bPos=2; break; // COL_ORDER_GRB
-  }
-  _idxR = rPos; _idxG = gPos; _idxB = bPos;
-  _idxW = 3; _idxCW = 4; // defaults, overridden below as needed
-
-  // White/CCT channels: numChannels from bus type, W-swap from upper nibble
-  if (numChannels == CHANNELS_RGBW) {
-    if (ledType == TYPE_TM1814 || ledType == TYPE_TM1815) {
-      _idxR++; _idxG++; _idxB++; // Shift RGB indices up by 1 and place W at index 0 before applying wSwap
-      _idxW = 0; // TM1814 and TM1815 send W first
-    }
-    const uint8_t wSwap = co >> 4;
-    if (wSwap == WSWAP_B) { std::swap(_idxW, _idxB); } // swap W & B
-    if (wSwap == WSWAP_G) { std::swap(_idxW, _idxG); } // swap W & G
-    if (wSwap == WSWAP_R) { std::swap(_idxW, _idxR); } // swap W & R
-  } else if (numChannels >= CHANNELS_CCT) {
-    const uint8_t wSwap = co >> 4;
-    if (wSwap == WSWAP_WWCW) { std::swap(_idxW, _idxCW); } // swap WW & CW
-  }
-
-  // 16-bit chips: two wire bytes per logical channel; lower nibble stores wire bytes.
-  if (ledType == TYPE_UCS8903 || ledType == TYPE_UCS8904 || ledType == TYPE_SM16825) {
-    flags |= NCHF_16BIT;
-    numChannels *= 2; // 16bit: two bytes per color channel
-  }
-  _pixelFormat  = numChannels | flags;
-
-}
 
 // custom encoder from channel map, if a standard permutation is detected and no inversion it uses fast path
 ColorEncoder::ColorEncoder(const uint8_t channelMap[MAX_CUSTOM_CHANNELS], uint8_t numChannels, uint8_t invertMask, bool is16bit)

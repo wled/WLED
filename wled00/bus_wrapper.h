@@ -380,8 +380,7 @@ static WLEDpixelBus::PixelBus* create(uint8_t busType, uint8_t* pins, uint16_t l
         _hardwareSPIused++; // claim hardware SPI (currently only one is supported), on C3 this can also be claimed by parallel SPI (done so in allocateHardware)
       }
       #endif
-      const uint8_t numChannels = (uint8_t)busTypeGetNumberOfChannels(busType);
-      WLEDpixelBus::SpiBus* bus = new WLEDpixelBus::SpiBus(pins[0], pins[1], frequencykHz, colorOrder, numChannels, isHSPI, busType); // TODO: move this into createbus function?
+      WLEDpixelBus::SpiBus* bus = new WLEDpixelBus::SpiBus(pins[0], pins[1], frequencykHz, isHSPI, busType); // TODO: move this into createbus function?
       // Override the generic co-based encoder with the legacy chip-specific wire layout
       // (WS2801 = R,B,G; APA102/P9813 = B,G,R; LPD8806/LPD6803 = G,R,B).
       uint8_t channelMap[WLEDpixelBus::MAX_CUSTOM_CHANNELS];

@@ -129,10 +129,6 @@ static constexpr uint8_t TM1914_PREFIX[6] = { 0xFF, 0xFF, 0xFF, 0x00, 0x00, 0x00
 //static constexpr uint8_t SM16825_SUFFIX[4] = { 0x08, 0x42, 0x10, 0x9F }; // 20.3mA for all channels as a safe default - TODO: make this configurable, could use the led current from settings
 static constexpr uint8_t SM16825_SUFFIX[4] = { 0xFF, 0xFF, 0xFF, 0x9F }; // set max current (not really safe but always was the default)
 
-// Logical channel count thresholds used by the ColorEncoder(uint8_t co, ...) constructor to decide which per-channel wiring rules apply
-static constexpr uint8_t CHANNELS_RGBW = 4; // RGBW: W-swap applies, TM1814/TM1815 W-first quirk applies
-static constexpr uint8_t CHANNELS_CCT  = 5; // RGB + WW + CW: WW/CW-swap applies
-
 // White-channel swap selector, decoded from the upper nibble of WLED's color-order byte.
 enum WSwap : uint8_t {
   WSWAP_NONE = 0,
@@ -188,7 +184,6 @@ using ::CctPixel;
 class ColorEncoder {
 public:
   ColorEncoder() : _pixelFormat(0x03), _invertMask(0), _idxR(0), _idxG(1), _idxB(2), _idxW(3), _idxCW(4) { memset(_channelMap, 0, sizeof(_channelMap)); }
-  ColorEncoder(uint8_t co, uint8_t numChannels, uint8_t ledType = 0);
   ColorEncoder(const uint8_t channelMap[MAX_CUSTOM_CHANNELS], uint8_t numChannels, uint8_t invertMask, bool is16bit);
 
   // Fast encode — standard 8-bit
