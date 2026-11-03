@@ -9,7 +9,8 @@ See also: `.github/copilot-instructions.md`, `.github/agent-build.instructions.m
 
 Always reference these instructions - including coding guidelines in `docs/` - first and fallback to search or bash commands only when you encounter unexpected information that does not match the info here.
 
-Design documentation and AI agent temporary notes can placed into sub-folders like `docs/architecture/`, `docs/design/`, `docs/requirements/`, `docs/testing/`, `docs/temp/`. 
+Design documentation and AI agent temporary notes can be placed into `docs/` sub-folders, like `docs/architecture/`, `docs/design/`, `docs/requirements/`, `docs/testing/`, `docs/temp/`. `docs/temp/` is listed in `.gitignore` so its the preferred location for notes that should not become part of a PR.
+
 User-facing documentation should be added in the [WLED-Docs](https://github.com/wled/WLED-Docs) repository via a separate PR.
 
 ## Required User Agreement
