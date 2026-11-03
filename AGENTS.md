@@ -9,6 +9,9 @@ See also: `.github/copilot-instructions.md`, `.github/agent-build.instructions.m
 
 Always reference these instructions - including coding guidelines in `docs/` - first and fallback to search or bash commands only when you encounter unexpected information that does not match the info here.
 
+Design documentation and AI agent temporary notes can placed into sub-folders like `docs/architecture/`, `docs/design/`, `docs/requirements/`, `docs/testing/`, `docs/temp/`. 
+User-facing documentation should be added in the [WLED-Docs](https://github.com/wled/WLED-Docs) repository via a separate PR.
+
 ## Required User Agreement
 
 Before editing files, committing, pushing, or opening a PR, show the human you're working with this notice and wait for an explicit yes in the current conversation:
@@ -358,6 +361,7 @@ These apply to any coding agent (Copilot or otherwise) acting on a contributor's
 - **Confirm before you commit.** Make sure the human understands and can explain the change - especially root-cause claims or refactors - before you open a PR.
 - **Stay scoped, but don't dodge architecture.** Touch only what the task requires, and flag broader fixes to the human instead of silently expanding the change. But don't use "keep it minimal" as an excuse to avoid a needed core-level discussion - if the clean fix requires a new core capability or interface, say so and propose it, rather than bolting on a weak hook, monkey-patch, or board-specific workaround just to keep the diff small.
 - **Warning: avoid overconfident root-cause claims.** When drafting issue tickets or PR descriptions, don't state a root cause with confidence unless you've actually traced the code path or reproduced the failure. A plausible-sounding explanation is not the same as a verified one - overconfident claims that later "dissolve into nothing" under review waste maintainer time and damage trust in the whole PR. When in doubt, say so explicitly.
+- Claim calibration: Do not use 'proves' when the evidence only 'suggests'. Avoid making overly strong or overconfident claims such as 'qualified', 'fully validated' or 'production quality'. Use neutral wording to summarize what was actually tested.
 - **State what's tested.** Distinguish "verified" from "should work based on reading the code" in the PR description.
 - **Disclose AI involvement.** Declare AI assistance in the PR description.
 - **Let issues start non-technical.** When helping draft an issue or feature request, elicit the human's objective or observation in plain language first - don't lead with a proposed code path or fix. Maintainers are better positioned than you to map that objective onto a technical solution.

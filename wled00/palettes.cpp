@@ -768,19 +768,19 @@ const byte Aurora2_gp[] PROGMEM = {
 
 // typical fireworks colors, based on idea by @RussStringham (#5492)
 const byte fireworks_gp[] PROGMEM = {
-    0,   255,  40,   0, // RED (~22%)
-   55,   255,  80,   0,
-   56,   255, 100,   0, // ORANGE (~11%)
-   83,   255, 160,   0,
-   84,   255, 200,   0, // YELLOW (~5%)
-   97,   255, 255,  80,
-   98,   120, 255,   0, // GREEN (~18%)
-  143,     0, 255,  80,
-  144,     0, 120, 255, // BLUE (~22%)
-  199,     0,  80, 255,
-  200,   120,   0, 255, // PURPLE (~15%)
-  237,   180,  40, 255,
-  238,   255, 255, 255, // WHITE (~7%)
+    0,   255,  40,   0, // RED
+   47,   255,  80,   0,
+   48,   255, 100,   0, // ORANGE
+   79,   255, 160,   0,
+   80,   255, 200,   0, // YELLOW
+   95,   255, 255,   0,
+   96,   120, 255,   0, // GREEN
+  127,     0, 255,  80,
+  128,     0, 120, 255, // BLUE
+  159,     0,  80, 255,
+  160,   120,   0, 255, // PURPLE
+  191,   180,  40, 255,
+  192,   255, 255, 255, // WHITE
   255,   255, 255, 180};
 
 // FastLed palettes, corrected with inverse gamma of 2.2 to match original looks
