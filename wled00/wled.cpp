@@ -43,7 +43,7 @@ WLED::WLED()
 // turns all LEDs off and restarts ESP
 void WLED::reset()
 {
-  briT = 0;
+  briT16 = 0;
   #ifdef WLED_ENABLE_WEBSOCKETS
   ws.closeAll(1012);
   #endif
@@ -243,7 +243,7 @@ void WLED::loop()
     strip.finalizeInit(); // will create buses and also load default ledmap if present
     if (aligned) strip.makeAutoSegments();
     else strip.fixInvalidSegments();
-    BusManager::setBrightness(scaledBri(bri)); // fix re-initialised bus' brightness #4005 and #4824
+    BusManager::setBrightness16(scaledBri16(bri<<8)); // fix re-initialised bus' brightness #4005 and #4824
     configNeedsWrite = true;
   }
   if (loadLedmap >= 0) {
