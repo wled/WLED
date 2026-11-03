@@ -46,16 +46,13 @@ namespace WLEDpixelBus {
 #define WLEDPB_I2S_BUS_COUNT SOC_LCD_I80_BUSES
 
 // note: 4-step cadence with 16 parallel outs requires 8 bytes per source bit or 192bytes per RGB LED, i.e. a 1k buffer can hold ~5 LEDs, ISR will fire every 144us
-// I2S DMA buffer count for circular linked list. For 8-parallel output, double buffering is enough, tripple buffering is required for 16-parallel output.
+// I2S DMA buffer count for circular linked list. For 8-parallel output, double buffering is ok, saw some glitches on S2 so use 3 buffers for safety.
+// Tripple buffering also works for 16-parallel output but may be tight under heavy traffic so using 4 is safer
 #ifndef WLEDPB_I2S_DMA_BUFFER_COUNT
   #ifdef WLED_PIXELBUS_16PARALLEL
-    #define WLEDPB_I2S_DMA_BUFFER_COUNT 3 // need 3 buffers in 16x parallel mode
+    #define WLEDPB_I2S_DMA_BUFFER_COUNT 4 // use 4 buffers in 16x parallel mode
   #else
-    #if SOC_RMT_TX_CANDIDATES_PER_GROUP > 4 // supports 8 RMT (ESP32 only)
-    #define WLEDPB_I2S_DMA_BUFFER_COUNT 3   // need triple buffering as RMT eat up a lot of ISR time
-    #else
-    #define WLEDPB_I2S_DMA_BUFFER_COUNT 2 // 2 buffers is enough if not constantly interrupted by RMT (i.e. with 4 RMT outputs)
-    #endif
+    #define WLEDPB_I2S_DMA_BUFFER_COUNT 3 // use triple buffering as RMT and WiFi eat up a lot of ISR time
   #endif
 #endif
 

@@ -127,11 +127,12 @@ bool BitBangBus::begin() {
   t1h             = (t1h    > lo) ? t1h    - lo : 0u;
   uint32_t period = (((uint32_t)_timing.t0h_ns + _timing.t0l_ns) * cpuMHz) / 1000u; // derive the period from the "0" bit
   period          = (period > lo) ? period - lo : 0u;
- // max time allowed before we assume a latch, use half the reset period.
+ // max time allowed before we assume a latch, use a quarter of the reset period.
  // Note: there are strips that latch after just ~10us maybe even less, users can customize this period and set it to 10us if there are issues.
   //      if the reset period is set to 0, interrupts are disabled
-  uint32_t resetus = _timing.reset_us < 10 ? 10 : _timing.reset_us; // note: below 10us the output will starve due to short interrupts
-  const uint32_t latchCycles = resetus * cpuMHz;
+  uint32_t latch_us = _timing.reset_us >> 2;
+  if (latch_us < 10) latch_us = 10; // note: below 10us the output will starve due to short interrupts
+  const uint32_t latchCycles = latch_us * cpuMHz;
 
   // Register in the shared static table
   const uint8_t idx  = _bitBangState->channelCount;

@@ -36,17 +36,17 @@ struct LedTiming {
 
 static const PROGMEM LedTiming _ledTimings[] = {
 // t0h   t0l   t1h   t1l  reset_us
- { 300,  900,  700,  500,  100 },  // WS281x
+ { 300,  900,  700,  500,  300 },  // WS281x
  { 800, 1700, 1600,  900,  300 },  // Generic 400Kbps
- { 300,  900,  800,  400,  200 },  // TM1829
- { 400,  850,  800,  450,  500 },  // UCS8903 / UCS8904 (16-bit)
+ { 300,  900,  800,  400,  200 },  // TM1829 - output inverted!
+ { 400,  850,  800,  450,  300 },  // UCS8903 / UCS8904 (16-bit)
  { 350, 1350, 1350,  350,   50 },  // APA106 / PL9823
- { 360,  890,  720,  530,  200 },  // TM1914 / TM1814 (same timing)
- { 300,  900,  800,  450,  200 },  // SK6812 / SK6812 RGBW
- { 740, 1780, 1440, 1060,  200 },  // TM1815
+ { 360,  890,  720,  530,  250 },  // TM1814 / TM1914 - output inverted!
+ { 740, 1780, 1440, 1060,  200 },  // TM1815 - output inverted!
+ { 300,  900,  700,  500,  200 },  // SK6812 / SK6812 RGBW
  { 400,  850,  800,  450,  300 },  // FW1906 GRBCW
  { 300,  790,  790,  300,  300 },  // WS2805 RGBCW
- { 300,  900,  900,  300,   80 },  // SM16825 (16-bit)
+ { 300,  900,  900,  300,  250 },  // SM16825 (16-bit)
 };
 
 static inline uint8_t getTimingIndex(uint8_t wledType) {
@@ -62,8 +62,8 @@ static inline uint8_t getTimingIndex(uint8_t wledType) {
     case TYPE_APA106:        return  4;
     case TYPE_TM1914:
     case TYPE_TM1814:        return  5; // identical timing
-    case TYPE_SK6812_RGBW:   return  6;
-    case TYPE_TM1815:        return  7;
+    case TYPE_TM1815:        return  6;
+    case TYPE_SK6812_RGBW:   return  7;
     case TYPE_FW1906:        return  8;
     case TYPE_WS2805:        return  9;
     case TYPE_SM16825:       return 10;

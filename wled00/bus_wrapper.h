@@ -198,7 +198,7 @@ inline void resolveChannelLayout(BusChannelLayout& ch, uint8_t busType, uint8_t 
   }
   ch.invertMask = 0;
   ch.is16bit = busTypeIs16bit(busType);
-  ch.invertOutput = busType == TYPE_TM1814 || busType == TYPE_TM1815 || busType == TYPE_TM1914;
+  ch.invertOutput = busType == TYPE_TM1814 || busType == TYPE_TM1815 || busType == TYPE_TM1914 || busType == TYPE_TM1829;
   const WLEDpixelBus::LedTiming timing = WLEDpixelBus::getLedTiming(busType);
   ch.t0h = timing.t0h_ns; ch.t0l = timing.t0l_ns;
   ch.t1h = timing.t1h_ns; ch.t1l = timing.t1l_ns;
