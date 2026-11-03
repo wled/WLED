@@ -68,6 +68,11 @@ uint16_t approximateKelvinFromRGB(uint32_t rgb);
 
 #define NUM_ICS_WS2812_2CH_3X(len) (((len)+1)*2/3) // 2 WS2811 ICs control 3 zones (each zone has 2 LEDs, CW and WW)
 #define IC_INDEX_WS2812_2CH_3X(i)  ((i)*2/3)
+
+// Govee G1151 ICs consume 90 bits each (not a whole number of bytes), the bit stream is sent through a
+// regular 800kHz "RGB" bus where each 3 byte carrier pixel transports 24 bits of the packed stream
+#define G1151_BITS_PER_IC          90
+#define NUM_CARRIERS_G1151(len)    (((len)*G1151_BITS_PER_IC + 23) / 24)
 #define WS2812_2CH_3X_SPANS_2_ICS(i) ((i)&0x01)    // every other LED zone is on two different ICs
 
 struct BusConfig; // forward declaration
@@ -180,13 +185,15 @@ class Bus {
       return  (type >= TYPE_WS2812_1CH && type <= TYPE_WS2812_WWA) ||
               type == TYPE_SK6812_RGBW || type == TYPE_TM1814 || type == TYPE_UCS8904 ||
               type == TYPE_FW1906 || type == TYPE_WS2805 || type == TYPE_SM16825 ||        // digital types with white channel
+              type == TYPE_G1151 ||
               (type > TYPE_ONOFF && type <= TYPE_ANALOG_5CH && type != TYPE_ANALOG_3CH) || // analog types with white channel
               type == TYPE_NET_DDP_RGBW || type == TYPE_NET_ARTNET_RGBW;                   // network types with white channel
     }
     static constexpr bool hasCCT(uint8_t type) {
       return  type == TYPE_WS2812_WWA    || type == TYPE_SM16825 ||
               type == TYPE_ANALOG_2CH    || type == TYPE_ANALOG_5CH ||
-              type == TYPE_FW1906        || type == TYPE_WS2805;
+              type == TYPE_FW1906        || type == TYPE_WS2805 ||
+              type == TYPE_G1151;
     }
     static constexpr bool  isTypeValid(uint8_t type)  { return (type > 15 && type < 128); }
     static constexpr bool  isDigital(uint8_t type)    { return (type >= TYPE_DIGITAL_MIN && type <= TYPE_DIGITAL_MAX) || is2Pin(type); }
@@ -195,7 +202,7 @@ class Bus {
     static constexpr bool  isPWM(uint8_t type)        { return (type >= TYPE_ANALOG_MIN && type <= TYPE_ANALOG_MAX); }
     static constexpr bool  isVirtual(uint8_t type)    { return (type >= TYPE_VIRTUAL_MIN && type <= TYPE_VIRTUAL_MAX); }
     static constexpr bool  isHub75(uint8_t type)      { return (type >= TYPE_HUB75MATRIX_MIN && type <= TYPE_HUB75MATRIX_MAX); }
-    static constexpr bool  is16bit(uint8_t type)      { return type == TYPE_UCS8903 || type == TYPE_UCS8904 || type == TYPE_SM16825; }
+    static constexpr bool  is16bit(uint8_t type)      { return type == TYPE_UCS8903 || type == TYPE_UCS8904 || type == TYPE_SM16825 || type == TYPE_G1151; }
     static constexpr bool  mustRefresh(uint8_t type)  { return type == TYPE_TM1814; }
     static constexpr int   numPWMPins(uint8_t type)   { return (type - 40); }
 
@@ -286,6 +293,9 @@ class BusDigital : public Bus {
     uint16_t _milliAmpsLimit;
     uint32_t _colorSum; // total color value for the bus, updated in setPixelColor(), used to estimate current
     void    *_busPtr;
+    struct G1151Pixel { uint32_t c; uint16_t wwcw; }; // color after brightness, CW in upper byte of wwcw
+    G1151Pixel *_g1151Pixels = nullptr;  // pixel buffer for TYPE_G1151 (packed into the carrier bus in show())
+    void packG1151();
 
     static uint16_t _milliAmpsTotal; // is overwitten/recalculated on each show()
 
