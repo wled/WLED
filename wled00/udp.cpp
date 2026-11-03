@@ -519,7 +519,9 @@ void handleNotifications()
       realtimeIP = rgbUdp.remoteIP();
       DEBUG_PRINTLN(rgbUdp.remoteIP());
       uint8_t lbuf[packetSize];
-      rgbUdp.read(lbuf, packetSize);
+      int rgblen = rgbUdp.read(lbuf, packetSize);
+      udpDropRXBuffer(rgbUdp);              // drop remaining bytes (better safe than sorry)
+      if (rgblen < int(packetSize)) return; // quit on read error
       realtimeLock(realtimeTimeoutMs, REALTIME_MODE_HYPERION);
       if (realtimeOverride) return;
       unsigned totalLen = strip.getLengthTotal();
@@ -548,10 +550,11 @@ void handleNotifications()
 #endif
 
   memset(udpIn, 0, packetSize +1);       // clear buffer
-  unsigned len;
+  int len;
   if (isSupp) len = notifier2Udp.read(udpIn, packetSize);
   else        len =  notifierUdp.read(udpIn, packetSize);
   udpDropRXBuffer(isSupp ? notifier2Udp: notifierUdp); // drop remaining bytes (if any)
+  if (len < int(packetSize)) return; // quit on read error
   if (tooLarge && (udpIn[0] == '{' || (udpIn[0] >= 'A' && udpIn[0] <= 'Z'))) return; //reject oversized HTTP API or JSON API requests
 
   // WLED nodes info notifications
