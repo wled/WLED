@@ -1644,8 +1644,10 @@ static void mode_pendulum(void) {
   if (SEGLEN < 4) FX_FALLBACK_STATIC;
 
   if (SEGMENT.call == 0) {
-    if (!initParticleSystem1D(PartSys, 0, 1, sizeof(PendulumData)))
+    if (!initParticleSystem1D(PartSys, 0, 1, sizeof(PendulumData))) {
+      SEGENV.deallocateData();
       FX_FALLBACK_STATIC;
+    }
   } else {
     PartSys = reinterpret_cast<ParticleSystem1D *>(SEGENV.data);
   }
