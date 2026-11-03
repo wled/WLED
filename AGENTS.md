@@ -13,6 +13,8 @@ Design documentation and AI agent temporary notes can be placed into `docs/` sub
 
 User-facing documentation should be added in the [WLED-Docs](https://github.com/wled/WLED-Docs) repository via a separate PR.
 
+Important: also read `AGENTS.local.md` if present (gitignored personal learnings file); it supplements this document.
+
 ## Required User Agreement
 
 Before editing files, committing, pushing, or opening a PR, show the human you're working with this notice and wait for an explicit yes in the current conversation:
@@ -47,7 +49,6 @@ Co-authored-by: MODEL NAME/VERSION (AGENT PLATFORM) <COAUTHOR EMAIL>
 
 ## Build Commands
 
-Note: also read `AGENTS.local.md` if present (gitignored personal learnings file; it supplements this document).
 
 | Command | Purpose | Timeout |
 |---|---|---|
@@ -118,7 +119,7 @@ main                # Main development trunk (daily/nightly) 17.0.0-devV5. Targe
 ### General
 
 - Follow the existing style in the file you are editing
-- Avoid unexplained "magic numbers". For repeated numbers that have the same meaning, prefer named constants (`constexpr`) or C-style `#define` constants.
+- Avoid unexplained "magic numbers". For repeated numbers that have the same meaning, prefer named contants (`constexpr`) or C-style `#define` constants.
 - If possible, **use `static` for local (C-style) variables and functions** to keep the global namespace clean
 - When moving global items to another scope, do not leave comments such as `// lastMqttReconnectAttempt is now private to wled.cpp - see there`. These comments create technical debt for maintenance and will inevitably become out of date. As a rule of thumb: **describe the code as it is, not the code as it was**.
 - Describe logic/reasoning behind non-standard patterns and complex solutions.
