@@ -29,6 +29,7 @@
 // header flags
 #define SYNC_V2_FLAG_HEARTBEAT 0x01  // periodic re-send of an unchanged state
 #define SYNC_V2_FLAG_RETRY     0x02  // repeated send of a recent change
+#define SYNC_V2_FLAG_RELAY     0x04  // byte-identical re-send of another node's STATE datagram (answer to STATE_REQ)
 
 // TLV types
 #define SYNC_V2_TLV_GLOBAL    1  // SyncV2Global, in every STATE part

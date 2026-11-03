@@ -13,8 +13,10 @@
  * - Receivers apply a STATE only if its version is newer than the last one applied for that sync group, so duplicates,
  *   retries and heartbeats are idempotent and late/reordered datagrams never overwrite newer state.
  * - The origin of the latest change re-sends it periodically (heartbeat), so nodes that missed a change or joined late
- *   converge. A joining node also asks for the state (STATE_REQ). Nodes that applied a state do not re-advertise it:
- *   their copy may differ from the original (receive filters, strip length), and equal versions are never re-applied.
+ *   converge. A joining node also asks for the state (STATE_REQ). Nodes that applied a state do not re-advertise their
+ *   own copy (it may differ from the original due to receive filters or strip length, and equal versions are never
+ *   re-applied); instead they keep the origin's datagrams and relay them unchanged in answer to a STATE_REQ, so a node
+ *   can join even when the origin is gone. Relays are suppressed once any node has answered.
  * - A node that rebooted (and lost its clock) catches up from heartbeats; if its first change is still older than what
  *   others have applied, they answer with a CLOCK message and the node re-sends its change with a newer version.
  * Ideas borrowed from JGroups (identity, sequence numbers, state transfer on join, heartbeats), without reliable delivery:
@@ -60,6 +62,21 @@ static unsigned long nextHeartbeat = 0;
 static unsigned long lastChange = 0;       // time of last local change we originated
 static bool          clockCorrected = true; // last local change was already re-sent after a CLOCK reply
 static unsigned long lastClockSent = 0;
+
+// original datagrams of the latest state received from another node, relayed unchanged to joining nodes; only the
+// header's sender and flags are patched, so the content always matches the version (unlike a re-encoded local copy)
+struct SyncV2Cache {
+  uint32_t seq    = 0;
+  uint32_t origin = 0;
+  uint8_t  groups = 0;            // sync groups of the cached state
+  uint8_t  parts  = 0;            // number of parts, 0: cache empty
+  bool     espNow = false;        // received via ESP-NOW (part numbering depends on the transport)
+  uint8_t *part[SYNC_V2_MAX_PARTS] = {};
+  uint16_t len[SYNC_V2_MAX_PARTS]  = {};
+};
+static SyncV2Cache   cache;
+static bool          relayPending = false; // a STATE_REQ is to be answered from the cache
+static unsigned long relayAt = 0;
 static byte          lastCallMode = CALL_MODE_INIT;
 
 static uint32_t getNodeId() {
@@ -241,8 +258,43 @@ static void markApplied(uint32_t seq, uint32_t origin, uint8_t groups) {
   }
 }
 
+static void clearCache() {
+  for (size_t p = 0; p < SYNC_V2_MAX_PARTS; p++) free(cache.part[p]);
+  cache = SyncV2Cache();
+  relayPending = false;
+}
+
+static bool cacheComplete() {
+  if (!cache.parts) return false;
+  for (size_t p = 0; p < cache.parts; p++) if (!cache.part[p]) return false;
+  return true;
+}
+
+// keep a copy of a received STATE datagram (raw: header + payload) of the latest version
+static void cacheStore(const SyncV2Header &h, const uint8_t *raw, size_t rawLen, bool espNow) {
+  if (h.parts > SYNC_V2_MAX_PARTS) return;
+  if (h.seq != cache.seq || h.origin != cache.origin || !cache.parts) {
+    clearCache();
+    cache.seq    = h.seq;
+    cache.origin = h.origin;
+    cache.groups = h.groups;
+    cache.parts  = h.parts;
+    cache.espNow = espNow;
+  }
+  if (cache.espNow != espNow || cache.parts != h.parts || cache.part[h.part]) return; // other transport, or already stored
+  uint8_t *copy = (uint8_t *)malloc(rawLen);
+  if (!copy) return;
+  memcpy(copy, raw, rawLen);
+  SyncV2Header *ch = reinterpret_cast<SyncV2Header *>(copy); // packed struct, no alignment requirement
+  ch->sender = getNodeId();
+  ch->flags  = (ch->flags & ~(SYNC_V2_FLAG_HEARTBEAT | SYNC_V2_FLAG_RETRY)) | SYNC_V2_FLAG_RELAY;
+  cache.part[h.part] = copy;
+  cache.len[h.part]  = rawLen;
+}
+
 // a local change was made: create a new version, which we own (and heartbeat)
 static void newLocalVersion() {
+  clearCache(); // superseded by our own state, we answer STATE_REQ ourselves
   lamport++;
   myVersion.seq    = lamport;
   myVersion.origin = getNodeId();
@@ -394,7 +446,10 @@ static void updateNodeList(const SyncV2NodeInfo &ni, const IPAddress &src) {
   it->second.build    = ni.build;
 }
 
-static void handleState(const SyncV2Header &h, const uint8_t *tlvs, size_t tlvLen, const IPAddress &src) {
+// raw: complete datagram (header + payload), src: sender IP or 0.0.0.0 for ESP-NOW
+static void handleState(const SyncV2Header &h, const uint8_t *raw, size_t rawLen, const IPAddress &src) {
+  const uint8_t *tlvs = raw + sizeof(SyncV2Header);
+  const size_t tlvLen = rawLen - sizeof(SyncV2Header);
   // validate TLVs and find the global section
   SyncV2Global g {};
   bool hasGlobal = false;
@@ -409,7 +464,8 @@ static void handleState(const SyncV2Header &h, const uint8_t *tlvs, size_t tlvLe
     if (t.type == SYNC_V2_TLV_GLOBAL && t.len >= sizeof(g)) {
       memcpy(&g, tlvs + ofs, sizeof(g));
       hasGlobal = true;
-    } else if (t.type == SYNC_V2_TLV_NODEINFO && t.len >= sizeof(SyncV2NodeInfo)) {
+    } else if (t.type == SYNC_V2_TLV_NODEINFO && t.len >= sizeof(SyncV2NodeInfo) && !(h.flags & SYNC_V2_FLAG_RELAY)) {
+      // (a relayed datagram carries the origin's node info, but comes from the relaying node's IP)
       SyncV2NodeInfo ni;
       memcpy(&ni, tlvs + ofs, sizeof(ni));
       updateNodeList(ni, src);
@@ -420,6 +476,9 @@ static void handleState(const SyncV2Header &h, const uint8_t *tlvs, size_t tlvLe
 
   const uint8_t groups = h.groups & receiveGroups;
   if (!groups || realtimeMode) return;
+
+  // another node already answered a STATE_REQ with the state we were about to relay
+  if (relayPending && h.seq == cache.seq && h.origin == cache.origin) relayPending = false;
 
   // compare with what we applied for each of the message's groups we receive
   bool newer = false, missingPart = false, stale = true;
@@ -432,7 +491,7 @@ static void handleState(const SyncV2Header &h, const uint8_t *tlvs, size_t tlvLe
   }
   if (stale) {
     // the sender is behind (e.g. it rebooted): tell it our clock so it can re-send its change with a newer version
-    if (!(h.flags & SYNC_V2_FLAG_HEARTBEAT) && millis() - lastClockSent > SYNC_V2_CLOCK_MIN_GAP) {
+    if (!(h.flags & (SYNC_V2_FLAG_HEARTBEAT | SYNC_V2_FLAG_RELAY)) && millis() - lastClockSent > SYNC_V2_CLOCK_MIN_GAP) {
       lastClockSent = millis();
       sendControl(SYNC_V2_MSG_CLOCK, groups);
     }
@@ -449,6 +508,7 @@ static void handleState(const SyncV2Header &h, const uint8_t *tlvs, size_t tlvLe
     applied[b].parts |= partBit(h.part);
   }
   applyState(g, tlvs, tlvLen);
+  cacheStore(h, raw, rawLen, src == IPAddress(0,0,0,0));
 
   // only the origin advertises a version: our copy may differ from the original (receive filters, strip length, ...),
   // and an equal version is never re-applied, so re-advertising it could leave late joiners with a wrong state
@@ -494,15 +554,21 @@ void syncV2Handle(const uint8_t *buf, size_t len, const IPAddress &src) {
 
   switch (h.msgType) {
     case SYNC_V2_MSG_STATE:
-      handleState(h, buf + sizeof(h), h.payloadLen, src);
+      handleState(h, buf, sizeof(h) + h.payloadLen, src);
       break;
-    case SYNC_V2_MSG_STATE_REQ:
-      // a node joined: send our state soon (random delay so not all nodes answer at once)
+    case SYNC_V2_MSG_STATE_REQ: {
+      // a node joined: send the state soon (random delay so not all nodes answer at once)
+      unsigned long soon = millis() + 20 + random(300);
       if (hasVersion && sendNotificationsRT && (h.groups & syncGroups)) {
-        unsigned long soon = millis() + 20 + random(300);
+        // we are the origin of our state
         if (int32_t(nextHeartbeat - soon) > 0) nextHeartbeat = soon;
+      } else if ((cache.groups & h.groups) && cacheComplete() && !relayPending) {
+        // relay the origin's datagrams, unless another node does so first (see handleState())
+        relayPending = true;
+        relayAt = soon;
       }
       break;
+    }
     case SYNC_V2_MSG_CLOCK:
       // our recent change was older than what others have: re-send it with a newer version (once)
       if (hasVersion && myVersion.origin == getNodeId() && !clockCorrected && millis() - lastChange < SYNC_V2_CLOCK_WINDOW
@@ -539,6 +605,17 @@ void syncV2Loop() {
 
   if (hasVersion && sendNotificationsRT && syncGroups && int32_t(now - nextHeartbeat) >= 0) {
     sendState(SYNC_V2_FLAG_HEARTBEAT);
+  }
+
+  if (relayPending && int32_t(now - relayAt) >= 0) {
+    relayPending = false;
+    if (cacheComplete()) {
+      DEBUG_PRINTF_P(PSTR("Sync v2: relaying %u/%08x (%u parts)\n"), (unsigned)cache.seq, (unsigned)cache.origin, (unsigned)cache.parts);
+      for (size_t p = 0; p < cache.parts; p++) {
+        if (cache.espNow) sendEspNow(cache.part[p], cache.len[p]);
+        else              sendUdp(cache.part[p], cache.len[p]);
+      }
+    }
   }
 }
 // AI: end

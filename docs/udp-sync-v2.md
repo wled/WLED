@@ -28,7 +28,7 @@ LED state is *idempotent state*, not a log of commands. Only convergence to the 
 | Version | `(seq, origin)`. `seq` is a Lamport clock: the highest seq seen or created, plus 1 for a new local change. `origin` is the `nodeId` where the change was made. `seq` is compared first; `origin` breaks ties. |
 | Apply rule | A receiver applies a STATE only if its version is newer than the last version applied for that sync group. Duplicates, retries and heartbeats are therefore harmless. |
 | Echo suppression | `sender == self` (replaces the legacy 1 s "deaf" window for v2) |
-| Repair / late join | The **origin** of the latest change re-sends it every `WLED_SYNC_V2_HEARTBEAT` ms (default 15 s, plus up to 1 s random jitter). A joining node sends `STATE_REQ`, and the origin answers within about 300 ms. Nodes that only applied a state don't re-advertise it: their copy can differ from the original (receive filters, shorter strip, segment options not synced), and because an equal version is never re-applied, a late joiner could otherwise lock onto a wrong copy. |
+| Repair / late join | The **origin** of the latest change re-sends it every `WLED_SYNC_V2_HEARTBEAT` ms (default 15 s, plus up to 1 s random jitter). A joining node sends `STATE_REQ`, and the origin answers within about 300 ms. Nodes that only applied a state don't re-advertise their *own copy*: it can differ from the original (receive filters, shorter strip, segment options not synced), and because an equal version is never re-applied, a late joiner could otherwise lock onto a wrong copy. Instead, every receiver keeps the origin's datagrams of the latest state and **relays them byte-identical** (only `sender` is patched, and `flags` = `RELAY`) in answer to a `STATE_REQ`. A late joiner therefore gets the state even after the origin is gone. Each relayer waits a random 20–300 ms and cancels if it hears the same version first (the suppression mDNS and IGMP use), so typically only one node answers. |
 | Reboot / clock catch-up | A rebooted node learns the clock from heartbeats. If its first change is still older than what a peer has applied, the peer replies with `CLOCK`. The origin then re-sends its change once with a newer version. |
 | Divergence | A local change that is *not* sent stops heartbeats until the node next sends a change of its own. Examples: call mode filtered out, `nn` / `CALL_MODE_NO_NOTIFY`, sending disabled, state applied from a legacy packet. Without this, a node would advertise a state that doesn't match its version. |
 | Retries | Retries keep the version of the change and carry `FLAG_RETRY`. They are suppressed if the state has diverged since. |
@@ -61,7 +61,7 @@ SyncV2Header (24 B) | TLV | TLV | ...      (TLV = SyncV2Tlv {type, len} + len by
 | `magic` | 4 | `0xA5 'W' 'S' '2'`. The first byte is non-ASCII and unused by any other protocol on the port, so legacy receivers ignore v2 |
 | `version` | 1 | 1. Later versions keep this header layout |
 | `msgType` | 1 | `STATE` = 1, `STATE_REQ` = 2, `CLOCK` = 3 |
-| `flags` | 1 | `HEARTBEAT` = 0x01, `RETRY` = 0x02 |
+| `flags` | 1 | `HEARTBEAT` = 0x01, `RETRY` = 0x02, `RELAY` = 0x04 (another node's datagram, re-sent unchanged. Receivers ignore its `NODEINFO`, because the IP is the relayer's) |
 | `groups` | 1 | sync groups (bit mapped) |
 | `sender` | 4 | node id of the sender |
 | `origin` | 4 | node id where the change was made |
@@ -113,6 +113,6 @@ No application CRC is used: the UDP checksum and the 802.11 and ESP-NOW FCS alre
 2. **Port:** stay on 21324 or move to a dedicated port?
 3. **Membership view:** expose v2 peers (node id, last heartbeat, groups) in `/json/nodes`, and replace the 65506 beacon?
 4. **Heartbeat interval:** make it a UI setting?
-5. **Repair after the origin leaves:** only the origin heartbeats, so a node joining after the origin was switched off gets no state. One option is a "state digest" TLV, so that a copy can be told apart from the original. Then any node holding an *identical* copy could answer.
+5. **Relay cache cost:** each node keeps the latest state's datagrams on the heap. That's 133–718 bytes on ESP8266 over UDP, about 1 KB over ESP-NOW, and up to about 3.2 KB on PSRAM builds over ESP-NOW (13 parts). Relays go out on the transport the state arrived on. Periodic repair after the origin leaves is still heartbeat-only (by the origin); relays only answer `STATE_REQ`.
 6. **Late join opt-out:** make the boot-preset behaviour above a setting?
 7. **Nightlight and receive filters:** the receiver applies nightlight state whatever the receive filters say (legacy behaviour, kept for now).
