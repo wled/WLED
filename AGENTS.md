@@ -119,7 +119,7 @@ main                # Main development trunk (daily/nightly) 17.0.0-devV5. Targe
 ### General
 
 - Follow the existing style in the file you are editing
-- Avoid unexplained "magic numbers". For repeated numbers that have the same meaning, prefer named contants (`constexpr`) or C-style `#define` constants.
+- Avoid unexplained "magic numbers". For repeated numbers that have the same meaning, prefer named constants (`constexpr`) or C-style `#define` constants.
 - If possible, **use `static` for local (C-style) variables and functions** to keep the global namespace clean
 - When moving global items to another scope, do not leave comments such as `// lastMqttReconnectAttempt is now private to wled.cpp - see there`. These comments create technical debt for maintenance and will inevitably become out of date. As a rule of thumb: **describe the code as it is, not the code as it was**.
 - Describe logic/reasoning behind non-standard patterns and complex solutions.
