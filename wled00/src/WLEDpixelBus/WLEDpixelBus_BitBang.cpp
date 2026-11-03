@@ -50,7 +50,7 @@ BitBangBus::BBstate* BitBangBus::_bitBangState = nullptr;
     __asm__ __volatile__("rsr %0,ccount" : "=a"(ccount));
     return ccount;
   }
-  static constexpr uint32_t LOOPTEST_CYCLES = 16;
+  static constexpr uint32_t LATENCY_CYCLES = 16;
 #else
 
   static inline __attribute__((always_inline)) uint32_t getCycleCount() {
@@ -61,13 +61,15 @@ BitBangBus::BBstate* BitBangBus::_bitBangState = nullptr;
   #endif
   }
 #if defined(CONFIG_IDF_TARGET_ESP32C3) || defined(CONFIG_IDF_TARGET_ESP32C6) || defined(CONFIG_IDF_TARGET_ESP32H2) || defined(CONFIG_IDF_TARGET_ESP32P4)
-  static constexpr uint32_t LOOPTEST_CYCLES = 8;
+  static constexpr uint32_t LATENCY_CYCLES = 8;
 #elif defined(CONFIG_IDF_TARGET_ESP32C5)
-  static constexpr uint32_t LOOPTEST_CYCLES = 56; // C5 has high latency from CPU to AHB bus for some reason TODO: needs investigation
+  static constexpr uint32_t LATENCY_CYCLES = 56; // C5 has high latency from CPU to AHB bus for some reason TODO: needs investigation
+#elif defined(CONFIG_IDF_TARGET_ESP32S2)
+  static constexpr uint32_t LATENCY_CYCLES = 24;
 #elif defined(CONFIG_IDF_TARGET_ESP32S3)
-  static constexpr uint32_t LOOPTEST_CYCLES = 10;
-#else // ESP32 and S2
-  static constexpr uint32_t LOOPTEST_CYCLES = 12; // note: LOOPTEST_CYCLES values need fine-tuning
+  static constexpr uint32_t LATENCY_CYCLES = 10;
+#else // ESP32 classic
+  static constexpr uint32_t LATENCY_CYCLES = 12;
 #endif
 #endif
 
@@ -117,7 +119,7 @@ bool BitBangBus::begin() {
 #endif
 
   // Subtract the while-loop test overhead (one extra iteration) to compensate for the latency between the condition passing and the actual GPIO write.
-  const uint32_t lo = LOOPTEST_CYCLES;
+  const uint32_t lo = LATENCY_CYCLES;
 
   uint32_t t0h    = (_timing.t0h_ns  * cpuMHz) / 1000u;
   uint32_t t1h    = (_timing.t1h_ns  * cpuMHz) / 1000u;

@@ -28,7 +28,6 @@ TODO List
 - I2S/LCD requires more stress-testing to ensure glitch-free outputs, for 16-parallel maybe even 4 buffers are needed under heavy load
 - the DMA buffer count and size need to be checked against memory usage formulas, they may be incorrect (we could do "worst case" in the UI as it wont matter much for a small amount of LEDs)
 - stress-test all parallel drivers for missed interrupts, descriptor races, and watchdog recovery
-- LOOPTEST_CYCLES in BB bus need fine-tuning
 - color orders of some strips may differ from NPB implementation, needs checking and reordering to match legacy behaviour or users will complain (see legacy bus_wrapper where this is defined in neoXXXtype)
 - move gamma down to bus level, see pending PR
 - brightness scaling for special buses with LED current (or 16bit) may need fine-tuning
