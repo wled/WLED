@@ -180,7 +180,7 @@ void I2sBusContext::hwStartTransfer() {
   LCD_CAM.lcd_user.lcd_start = 1;
 }
 
-void IRAM_ATTR I2sBusContext::stopTransferHw() {
+void IRAM_ATTR I2sBusContext::stopTransferHwIram() {
   LCD_CAM.lcd_user.lcd_start = 0;
   // Register-level GDMA stop: gdma_stop() lives in flash and must not be called from ISR
   if (_dmaChanId >= 0) GDMA.channel[_dmaChanId].out.link.stop = 1;
@@ -409,7 +409,7 @@ void I2sBusContext::hwStartTransfer() {
   _i2sDev->conf.tx_start = 1;
 }
 
-void IRAM_ATTR I2sBusContext::stopTransferHw() {
+void IRAM_ATTR I2sBusContext::stopTransferHwIram() {
   if (_i2sDev) {
     _i2sDev->int_ena.out_eof = 0;
     _i2sDev->int_ena.out_total_eof = 0;
@@ -634,7 +634,7 @@ void IRAM_ATTR I2sBusContext::dmaISR(void* arg) {
   dev->int_clr.val = status;
 
   if (status & I2S_OUT_TOTAL_EOF_INT_ST) { // link terminated: frame fully sent
-    ctx->stopTransferHw();
+    ctx->stopTransferHwIram();
     return;
   }
   if (!(status & I2S_OUT_EOF_INT_ST)) return;
@@ -656,7 +656,7 @@ void IRAM_ATTR I2sBusContext::_processEof(int8_t completedBuf) {
 
   // end of frame? checks the just finished descriptor for the terminating nullptr
   if (descGetNext(_dmaDesc[completedBuf]) == nullptr) {
-    stopTransferHw();
+    stopTransferHwIram();
     return;
   }
 

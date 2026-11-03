@@ -282,8 +282,8 @@ inline uint32_t calc4StepClockHz(const LedTiming& timing) {
 }
 
 // Compute number of DMA bytes for the reset period appended to a frame.
-// dmaBytesPerLedBit = bytes consumed in DMA for one full 4-step LED bit i.e. one bitPeriod
-inline size_t calc4StepResetDmaBytes(const LedTiming& timing, uint8_t dmaBytesPerLedBit) {
+// dmaBytesPerLedBit = bytes consumed in DMA for one full 4-step LED bit i.e. one bitPeriod (called from ISR context)
+inline __attribute__((always_inline)) size_t calc4StepResetDmaBytes(const LedTiming& timing, uint8_t dmaBytesPerLedBit) {
   uint32_t resetNs = timing.reset_us * 1000;
   uint32_t bitPeriodNs = timing.bitPeriod() + 1; // +1 to prevent div by zero
   uint32_t zeroCycles = resetNs / bitPeriodNs;

@@ -97,7 +97,8 @@ private:
   void hwDeinit() override;
   void releaseResources() override;
   void hwStartTransfer();
-  void IRAM_ATTR stopTransferHw() override;
+  void stopTransferHw() override { stopTransferHwIram(); } // base class hook, called from task context only
+  void IRAM_ATTR stopTransferHwIram();                     // called from the DMA ISR
   void channelAttached(int8_t idx, int8_t pin, bool inverted) override;
   void channelDetached(int8_t idx, int8_t pin) override;
 
