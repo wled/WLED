@@ -37,7 +37,7 @@ void notify(byte callMode, bool followUp)
     case CALL_MODE_ALEXA:         if (!notifyAlexa)  return; break;
     default: return;
   }
-  byte udpOut[WLEDPACKETSIZE];  //TODO: optimize size to use only active segments
+  byte udpOut[WLEDPACKETSIZE] = {'\0'};  //TODO: optimize size to use only active segments
   Segment& mainseg = strip.getMainSegment();
   udpOut[0] = 0; //0: wled notifier protocol 1: WARLS protocol
   udpOut[1] = callMode;
@@ -192,8 +192,11 @@ void notify(byte callMode, bool followUp)
   if (udpConnected) 
 #endif
   {
-    DEBUG_PRINTLN(F("UDP sending packet."));
+    DEBUG_PRINTF_P(PSTR("UDP sending broadcast packet: %u bytes, %u used.\n"),  WLEDPACKETSIZE, SEG_OFFSET + s * UDP_SEG_SIZE); // ToDO: not sure if the "used" calculation is correct.
     IPAddress broadcastIp = ~uint32_t(WLEDNetwork.subnetMask()) | uint32_t(WLEDNetwork.gatewayIP());
+    // ToDO: if WLEDPACKETSIZE >= 1460, WiFiUDP:write will automaticially split the packet (see NetworkUDP::write(), line ~277).
+    //       The split packets are two independent UDP datagrams, not IP fragments. The receiver cannot automatically reassemble them into one notifier.
+    //       The second packet only has meaningful segment data when _active_ segments > 39 (MAX_NUM_SEGMENTS = 64 on boards with PSRAM)
     notifierUdp.beginPacket(broadcastIp, udpPort);
     notifierUdp.write(udpOut, WLEDPACKETSIZE); // TODO: add actual used buffer size
     notifierUdp.endPacket();
