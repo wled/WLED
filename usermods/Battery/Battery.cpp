@@ -406,13 +406,15 @@ class UsermodBattery : public Usermod {
       HomeAssistantDiscovery = battery[FPSTR(_haDiscovery)] | HomeAssistantDiscovery;
 
       JsonObject ao = battery[F("auto-off")];
-      autoOffEnabled = ao[FPSTR(_enabled)] | autoOffEnabled;
-      setAutoOffThreshold(ao[FPSTR(_threshold)] | autoOffThreshold);
-
       JsonObject lp = battery[F("indicator")];
+      autoOffEnabled = ao[FPSTR(_enabled)] | autoOffEnabled;
       lowPowerIndicatorEnabled = lp[FPSTR(_enabled)] | lowPowerIndicatorEnabled;
       lowPowerIndicatorPreset = lp[FPSTR(_preset)] | lowPowerIndicatorPreset;
-      setLowPowerIndicatorThreshold(lp[FPSTR(_threshold)] | lowPowerIndicatorThreshold);
+      // the two thresholds constrain each other: load the raw indicator threshold first,
+      // then run both setters so neither clamps against a stale value
+      lowPowerIndicatorThreshold = constrain((int)(lp[FPSTR(_threshold)] | lowPowerIndicatorThreshold), 1, 100);
+      setAutoOffThreshold(ao[FPSTR(_threshold)] | autoOffThreshold);
+      setLowPowerIndicatorThreshold(lowPowerIndicatorThreshold);
       updateReactivationThreshold();
       lowPowerIndicatorDuration = lp[FPSTR(_duration)] | lowPowerIndicatorDuration;
 
