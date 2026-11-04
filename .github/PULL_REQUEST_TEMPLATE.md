@@ -1,18 +1,20 @@
 <!-- Thank you for contributing to WLED! -->
+
 ## What it does
 <!-- Describe what you wanted to achieve or what was bothering you, in plain language. No essay needed. Best practice: showcase new features using a video or screenshots. -->
 
 ### Additional references and context
 <!-- If this PR relates to a bug report or previous discussions, add a few bullet points linking to them. Examples: "Related to #123", "Closes #123", "as discussed on discord ..." -->
 
+## How it works
+<!-- Short technical overview - focus on important aspects that might not be obvious when reading the source code. -->
+
 ## AI assistance: _yes/no_
 <!-- Please be honest about any AI assistance used for this PR. If you haven't used any AI tools, simply delete this section. -->
+
 * What the AI drafted: _e.g. the initial fix in usermod X, refactoring of function Y_
 * What I verified/tested myself: _e.g. read through the diff, tested on ESP32 + WS2812B, confirmed the root cause with a debug build_
 * Untested / unsure about: _anything you didn't get to verify_
-
-## How it works
-<!-- Short technical overview - focus on important aspects that might not be obvious when reading the source code. -->
 
 ## Testing and Validation
 <!-- Testing you performed, and known limitations. Anything you couldn't quite solve. Let us know if you'd like guidance from a maintainer -->
