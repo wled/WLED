@@ -7,10 +7,13 @@ See also: `.github/copilot-instructions.md`, `.github/agent-build.instructions.m
 `docs/cpp.instructions.md`, `docs/web.instructions.md`, `docs/cicd.instructions.md`,
 `docs/hardening.instructions.md`, `docs/securecode.instructions.md`.
 
-Always reference these instructions - including coding guidelines in `docs/` - first and fallback to search or bash commands only when you encounter unexpected information that does not match the info here.
+Always reference these instructions - including coding guidelines in `docs/*.instructions.md` - first and fallback to search or bash commands only when you encounter unexpected information that does not match the info here.
 
-Design documentation and AI agent temporary notes can placed into sub-folders like `docs/architecture/`, `docs/design/`, `docs/requirements/`, `docs/testing/`, `docs/temp/`. 
+Design documentation and AI agent temporary notes can be placed into `docs/` sub-folders, like `docs/architecture/`, `docs/design/`, `docs/requirements/`, `docs/testing/`, `docs/temp/`. `docs/temp/` is listed in `.gitignore` so its the preferred location for notes that should not become part of a PR.
+
 User-facing documentation should be added in the [WLED-Docs](https://github.com/wled/WLED-Docs) repository via a separate PR.
+
+Important: also read `AGENTS.local.md` if present (gitignored personal learnings file); it supplements this document.
 
 ## Required User Agreement
 
@@ -46,7 +49,6 @@ Co-authored-by: MODEL NAME/VERSION (AGENT PLATFORM) <COAUTHOR EMAIL>
 
 ## Build Commands
 
-Note: also read `AGENTS.local.md` if present (gitignored personal learnings file; it supplements this document).
 
 | Command | Purpose | Timeout |
 |---|---|---|
