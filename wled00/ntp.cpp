@@ -516,8 +516,9 @@ static int getTimerMinuteOfDay(const Timer& t, time_t day, int latest)
  */
 static void applyBootTimerPreset()
 {
-  if (bootTimerApplied || !bootTimerWindow) return;
-  bootTimerApplied = true;
+  if (bootTimerApplied) return;
+  bootTimerApplied = true;  // only the first sync after boot, even if the window is enabled later
+  if (!bootTimerWindow) return;
 
   const int currentMinuteOfDay = elapsedSecsToday(localTime) / 60;
   int minutesAgo = MINUTES_PER_DAY + 1;  // more than the lookback, so any timer found is more recent
