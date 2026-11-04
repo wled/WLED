@@ -6569,6 +6569,8 @@ void mode_2Dscrollingtext(void) {
     }
   }
   totalTextWidth -= letterSpacing; // remove spacing after last character
+  const uint32_t scrollInterval = map(SEGMENT.speed, 0, 255, 250, 50);
+  const bool scrollStepDue = strip.now - SEGENV.step >= scrollInterval;
 
   // y-offset calculation
   int yoffset = map(SEGMENT.intensity, 0, 255, -rows / 2, rows / 2);
@@ -6585,7 +6587,7 @@ void mode_2Dscrollingtext(void) {
   }
 
   // scroll step (AUX0 is current scrolling offset)
-  if (SEGENV.step < strip.now) {
+  if (scrollStepDue) {
     if (totalTextWidth > cols) {
       if (SEGMENT.check3) { // reverse direction
         if (SEGENV.aux0 == 0) SEGENV.aux0 = totalTextWidth + cols - 1;
@@ -6597,7 +6599,7 @@ void mode_2Dscrollingtext(void) {
       SEGENV.aux0 = (cols + totalTextWidth) / 2; // text fits, position it at the center
     }
     ++SEGENV.aux1 &= 0xFF; // color shift
-    SEGENV.step = strip.now + map(SEGMENT.speed, 0, 255, 250, 50);
+    SEGENV.step = strip.now;
   }
 
   SEGMENT.fade_out(255 - (SEGMENT.custom1>>4));  // trail
