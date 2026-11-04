@@ -336,6 +336,7 @@ No automated linting is configured. Match existing code style in files you edit.
 - **No force-push** on open PRs!
 - Every pull request needs a **clear description of what changed and why**. If the change affects user-visible behavior, describe the expected impact. Link to related issues where applicable.
 - Best practice: Consider adding screenshots to showcase new features.
+- **Always use the repository's PR template** located at `.github/PULL_REQUEST_TEMPLATE.md`, do not create free-form PR descriptions. Populate every section of the template.
 - **Do not prefix the PR title** with `fix:`, `feat:`, `doc:` or other keywords meant to define the type of PR. Use combinations of labels (`bug`, `enhancement`, `effect`, `usermod`, `slop`, etc.) instead.
 - **Do not fix trailing whitespace** or perform pretty-formatting in unrelated code. Such fixes can lead to merge conflicts when other forks want to cherry-pick changes. A separate PR should be used for whitespace optimisation and pretty-formatting.
 - Important: **Fully or partially AI coded PRs MUST be declared clearly** in the description - in addition to comments markers in the source code (see Comments section).
