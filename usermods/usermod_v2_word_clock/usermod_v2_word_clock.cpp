@@ -228,7 +228,7 @@ class WordClockUsermod : public Usermod
       }
 
       // set single minute dots
-      setSingleMinuteDots(minutes);
+      if (minuteDots) setSingleMinuteDots(minutes);
 
       // switch minutes
       switch (minutes / 5) 
