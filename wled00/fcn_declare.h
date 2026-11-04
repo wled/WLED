@@ -271,6 +271,7 @@ void handleOverlayDraw();
 //playlist.cpp
 void shufflePlaylist();
 void unloadPlaylist();
+void setPlaylistSeek(byte presetId, uint32_t elapsedMs);
 int16_t loadPlaylist(JsonObject playlistObject, byte presetId = 0);
 void handlePlaylist();
 void serializePlaylist(JsonObject obj);

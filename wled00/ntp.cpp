@@ -548,6 +548,9 @@ static void applyBootTimerPreset()
   if (latestPreset > 0 && minutesAgo <= bootTimerWindow) {
     DEBUG_PRINTF_P(PSTR("Applying boot timer preset %d (triggered %d min ago)\n"), latestPreset, minutesAgo);
     applyPreset(latestPreset);
+    // if it is a playlist, continue where it would be by now (timers trigger at the start of the minute)
+    uint32_t elapsedSecs = minutesAgo * 60 + elapsedSecsToday(localTime) % 60;
+    setPlaylistSeek(latestPreset, elapsedSecs * 1000);
   } else {
     DEBUG_PRINTLN(F("No applicable boot timer preset found."));
   }
