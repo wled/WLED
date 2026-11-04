@@ -12,7 +12,7 @@
 
 <!-- Examples: "Related to #123", "Closes #123", "as discussed on discord ..." -->
 
-## AI assistance: yes/no
+## AI assistance: _yes/no_
 
 <!-- Please be honest about any AI assistance used for this PR. If you haven't used any AI tools, simply delete this section. -->
 
@@ -31,7 +31,8 @@
 <!-- Testing you performed, and known limitations. Anything you couldn't quite solve. Let us know if you'd like guidance from a maintainer -->
 
 * [ ] It compiles without error: _please list platformio build environments_
-* [ ] Tested on actual hardware: _please elaborate_
+* [ ] Tested on actual hardware:
+   - _please elaborate_
 * Open ends, known limitations, breaking changes: 
    - _please elaborate_
 * Anything you couldn't quite solve? 
