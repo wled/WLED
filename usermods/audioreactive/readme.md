@@ -1,4 +1,4 @@
-# Audioreactive usermod
+# Audioreactive V1 usermod
 
 ## WARNING - Audioreactive V1 is Deprecated
 
