@@ -299,8 +299,8 @@ void BusDigital::estimateCurrent() {
     const uint8_t busBri = _busPtr->getBusBri();
     if (busBri > 0) colorSum = ((uint64_t)colorSum * _bri16) / ((uint32_t)busBri << 8);
   }
-  // colorSum has all the values of color channels summed, max would be getLength()*(3*255 + (255 if hasWhite()): convert to milliAmps
-  uint32_t clrUnitsPerChannel = hasWhite() ? 4*255 : 3*255;
+  // colorSum has all the values of color channels summed, max would be getLength()*(3*255 + 255 if hasWhite() or 2*255 if hasCCT()): convert to milliAmps
+  uint32_t clrUnitsPerChannel = hasCCT() ? 5*255 : hasWhite() ? 4*255 : 3*255;
   _milliAmpsTotal = ((uint64_t)colorSum * actualMilliampsPerLed) / clrUnitsPerChannel + getLength(); // add 1mA standby current per LED
 }
 
@@ -385,7 +385,8 @@ void BusDigital::setPixelColor(unsigned pix, uint32_t c) {
       // For 16-bit types c is unscaled (bri=255 above); ABL slightly over-estimates at low brightness.
       uint8_t r = R(c), g = G(c), b = B(c);
       if (_milliAmpsPerLed < 255) { // normal ABL
-        _colorSum += r + g + b + W(c);
+        // CCT LEDs drive warm and cold white separately (both can be on), not the combined W
+        _colorSum += r + g + b + (hasCCT() ? cct.ww + cct.cw : W(c));
       } else { // wacky WS2815 power model, ignore white channel, use max of RGB (issue #549)
         _colorSum += ((r > g) ? ((r > b) ? r : b) : ((g > b) ? g : b));
       }
