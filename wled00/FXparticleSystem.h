@@ -211,8 +211,8 @@ private:
   void getParticleXYsize(PSadvancedParticle *advprops, PSsizeControl *advsize, uint32_t &xsize, uint32_t &ysize);
   [[gnu::hot]] void bounce(int8_t &incomingspeed, int8_t &parallelspeed, int32_t &position, const uint32_t maxposition); // bounce on a wall
   // note: variables that are accessed often are 32bit for speed
-  uint32_t *framebuffer; // frame buffer for rendering. note: using CRGBW as the buffer is slower, ESP compiler seems to optimize this better giving more consistent FPS
   PSsettings2D particlesettings; // settings used when updating particles (can also used by FX to move sources), do not edit properties directly, use functions above
+  uint32_t *framebuffer; // frame buffer for rendering. note: using CRGBW as the buffer is slower, ESP compiler seems to optimize this better giving more consistent FPS
   uint32_t numParticles;  // total number of particles allocated by this system
   uint32_t emitIndex; // index to count through particles to emit so searching for dead pixels is faster
   int32_t collisionHardness;
@@ -397,17 +397,17 @@ private:
   //void updateSize(PSadvancedParticle *advprops, PSsizeControl *advsize); // advanced size control
   [[gnu::hot]] void bounce(int8_t &incomingspeed, int8_t &parallelspeed, int32_t &position, const uint32_t maxposition); // bounce on a wall
   // note: variables that are accessed often are 32bit for speed
-  uint32_t *framebuffer; // frame buffer for rendering. note: using CRGBW as the buffer is slower, ESP compiler seems to optimize this better giving more consistent FPS
   PSsettings1D particlesettings; // settings used when updating particles
+  uint32_t *framebuffer; // frame buffer for rendering. note: using CRGBW as the buffer is slower, ESP compiler seems to optimize this better giving more consistent FPS
   uint32_t numParticles;  // total number of particles allocated by this system
   uint32_t emitIndex; // index to count through particles to emit so searching for dead pixels is faster
   int32_t collisionHardness;
   uint32_t particleHardRadius; // hard surface radius of a particle, used for collision detection
   uint32_t wallHardness;
+  uint16_t collisionStartIdx; // particle array start index for collision detection
   uint8_t gforcecounter; // counter for global gravity
   int8_t gforce; // gravity strength, default is 8 (negative is allowed, positive is downwards)
   uint8_t forcecounter; // counter for globally applied forces
-  uint16_t collisionStartIdx; // particle array start index for collision detection
   //global particle properties for basic particles
   uint8_t particlesize; // global particle size, 0 = 1 pixel, 1 = 2 pixels, is overruled by advanced particle size
   uint8_t motionBlur; // enable motion blur, values > 100 gives smoother animations
