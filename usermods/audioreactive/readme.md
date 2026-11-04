@@ -5,10 +5,10 @@
 > [!CAUTION]
 > This V1 audioreactive usermod's source code is for historical reference only.
 
-We are currently merging the main WLED audioreactive source code with the advanced audioreactive usermod from the [MoonModules fork](https://github.com/MoonModules/WLED-MM). 
+We are currently merging the WLED's audioreactive source code with the advanced audioreactive usermod from the [MoonModules fork](https://github.com/MoonModules/WLED-MM). 
 The result will be 'Audioreactive V2', which will contain the best features from both branches.  
 
-As the merging and code clean-up are ongoing, we cannot accept any new PRs for audioreactive. 
+As the merging and code clean-up are ongoing, we cannot accept any new PRs for audioreactive, until work on V2 has stabilised. 
 
 Once the new out-of-tree usermod is ready and integrated into WLED, the in-tree usermod will be obsolete. 
 New pull requests must be made against the out-of-tree V2 usermod.
