@@ -367,7 +367,7 @@ bool ParallelSpiBusContext::hwInit() {
   _hw->dma_int_ena.trans_done = 1;
   _hw->dma_int_ena.outfifo_empty_err = 1;
   // _hw->dma_int_ena.val = 0xFFFFFFFF; // REMOVED: Do not enable all interrupts, they trigger false aborts!
-  err = esp_intr_alloc(ETS_SPI2_INTR_SOURCE, ESP_INTR_FLAG_LEVEL3 | ESP_INTR_FLAG_IRAM, spiISR, this, &_spiIsrHandle);
+  err = esp_intr_alloc(ETS_SPI2_INTR_SOURCE, ESP_INTR_FLAG_LEVEL2 | ESP_INTR_FLAG_IRAM, spiISR, this, &_spiIsrHandle); // note: use level 2 for SPI, must be lower than RMT to avoid RMT glitches
   if (err != ESP_OK) {
     //Serial.printf("[SPI] SPI ISR alloc failed: %d\n", err);
     return false;
