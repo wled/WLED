@@ -33,9 +33,9 @@
 * [ ] It compiles without error: _please list platformio build environments_
 * [ ] Tested on actual hardware: _please elaborate_
 * Open ends, known limitations, breaking changes: 
-  _please elaborate_
+   - _please elaborate_
 * Anything you couldn't quite solve? 
-  _please elaborate_
+  - _please elaborate_
 
 
 ## Checklist
