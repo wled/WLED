@@ -1,6 +1,7 @@
 //  WLED OTA update interface
 
 #include <Arduino.h>
+
 #ifdef ESP8266
   #include <Updater.h>
 #else
@@ -32,12 +33,18 @@ bool initOTA(AsyncWebServerRequest *request);
  */
 void setOTAReplied(AsyncWebServerRequest *request);
 
+
 /**
  *  Retrieve the OTA result.
  * @param request Pointer to web request object
- * @return bool indicating if a reply is necessary; string with error message if the update failed.
+ * @return OTAResultStatus indicating result state; string with error message if the update failed.
  */
-std::pair<bool, String> getOTAResult(AsyncWebServerRequest *request);
+enum class OTAResultStatus {
+  TryAgain,  // caller must deferResponse() and retry - need additional resources (JSON lock) to complete validation
+  Replied,   // response already sent; no action needed
+  Ready,     // result available; send response based on error string
+};
+std::pair<OTAResultStatus, String> getOTAResult(AsyncWebServerRequest *request);
 
 /**
  *  Process a block of OTA data.  This is a passthrough of an ArUploadHandlerFunction.

@@ -107,6 +107,7 @@ body {
 @keyframes spin { to { transform: rotate(360deg); } }
 </style>
 <script>
+window.__noDevBanner = true; // editor layout assumes viewport starts at y=0
 // load common.js with retry on error, then load Ace editor from CDN with retries, then load style.css
 function loadFiles(u, r, cb) {
 	var s = document.createElement('script'),

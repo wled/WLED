@@ -9,20 +9,21 @@
 		(function loadFiles() {
 			const l = document.createElement('script');
 			l.src = 'common.js';
-			// load style.css then initialize
-			l.onload = () => loadResources(['style.css'], () => {
+			// note: loading style.css here causes ugly white button flashes so @import url("style.css") below inlines it for this page (only costs ~30bytes of flash)
+			l.onload = () => {
 				getLoc();
 				loadJS(getURL('/settings/s.js?p=0'), false);
-			});
+			};
 			l.onerror = () => setTimeout(loadFiles, 100);
 			document.head.appendChild(l);
 		})();
 	</script>
 	<style>
-	  @import url("style.css");
+		@import url("style.css");
 		body {
 			height: 100px;
-			margin: 0;
+			margin: 0 auto;
+			max-width: 520px;
 		}
 		html {
 			--h: 9vh;
@@ -30,7 +31,7 @@
 		button {
 			display: block;
 			border-radius: var(--h);
-			font-size: 6vmin;
+			font-size: clamp(1rem, 6vw, 2rem);
 			height: var(--h);
 			width: calc(100% - 40px);
 			margin: 2vh auto 0;
