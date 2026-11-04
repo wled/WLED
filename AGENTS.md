@@ -366,6 +366,7 @@ These apply to any coding agent (Copilot or otherwise) acting on a contributor's
 - Claim calibration: Do not use 'proves' when the evidence only 'suggests'. Avoid making overly strong or overconfident claims such as 'qualified', 'fully validated' or 'production quality'. Use neutral wording to summarize what was actually tested.
 - **State what's tested.** Distinguish "verified" from "should work based on reading the code" in the PR description.
 - **Disclose AI involvement.** Declare AI assistance in the PR description.
+- **Use the repository's PR template** located at `.github/PULL_REQUEST_TEMPLATE.md`, do not create free-form PR descriptions. Populate every section of the template. If necessary, add extra information below the template.
 - **Let issues start non-technical.** When helping draft an issue or feature request, elicit the human's objective or observation in plain language first - don't lead with a proposed code path or fix. Maintainers are better positioned than you to map that objective onto a technical solution.
 
 ### Supporting Reviews and Discussions
