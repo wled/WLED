@@ -499,7 +499,7 @@ static int getTimerMinuteOfDay(const Timer& t, time_t day, int latest)
   if (t.isSunrise() || t.isSunset()) {
     time_t sun = t.isSunrise() ? sunrise : sunset;
     if (!sun) return -1;
-    m = elapsedSecsToday(sun + t.minute * 60) / 60;
+    m = elapsedSecsToday((sun + t.minute * 60)) / 60;  // extra parentheses: the macro doesn't wrap its argument
   } else if (t.hour == 24) {
     m = (latest / 60) * 60 + t.minute;  // "every hour" at this minute
     if (m > latest) m -= 60;            // not reached yet this hour, so the hour before
