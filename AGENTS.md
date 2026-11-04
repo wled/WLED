@@ -336,7 +336,6 @@ No automated linting is configured. Match existing code style in files you edit.
 - **No force-push** on open PRs!
 - Every pull request needs a **clear description of what changed and why**. If the change affects user-visible behavior, describe the expected impact. Link to related issues where applicable.
 - Best practice: Consider adding screenshots to showcase new features.
-- **Always use the repository's PR template** located at `.github/PULL_REQUEST_TEMPLATE.md`, do not create free-form PR descriptions. Populate every section of the template. If necessary, add extra information below the template.
 - **Do not prefix the PR title** with `fix:`, `feat:`, `doc:` or other keywords meant to define the type of PR. Use combinations of labels (`bug`, `enhancement`, `effect`, `usermod`, `slop`, etc.) instead.
 - **Do not fix trailing whitespace** or perform pretty-formatting in unrelated code. Such fixes can lead to merge conflicts when other forks want to cherry-pick changes. A separate PR should be used for whitespace optimisation and pretty-formatting.
 - Important: **Fully or partially AI coded PRs MUST be declared clearly** in the description - in addition to comments markers in the source code (see Comments section).
@@ -367,6 +366,7 @@ These apply to any coding agent (Copilot or otherwise) acting on a contributor's
 - Claim calibration: Do not use 'proves' when the evidence only 'suggests'. Avoid making overly strong or overconfident claims such as 'qualified', 'fully validated' or 'production quality'. Use neutral wording to summarize what was actually tested.
 - **State what's tested.** Distinguish "verified" from "should work based on reading the code" in the PR description.
 - **Disclose AI involvement.** Declare AI assistance in the PR description.
+- **Use the repository's PR template** located at `.github/PULL_REQUEST_TEMPLATE.md`, do not create free-form PR descriptions. Populate every section of the template. If necessary, add extra information below the template.
 - **Let issues start non-technical.** When helping draft an issue or feature request, elicit the human's objective or observation in plain language first - don't lead with a proposed code path or fix. Maintainers are better positioned than you to map that objective onto a technical solution.
 
 ### Supporting Reviews and Discussions
