@@ -1,6 +1,7 @@
 #include "wled.h"
 
 #include <atomic>
+#include <cmath>
 #include <HTTPClient.h>
 
 /*
@@ -25,8 +26,8 @@
  *    uses for its processing task. Blocking calls there cannot stall the LED
  *    pipeline on the main loop task, and there is no async client lifecycle
  *    to race on. ESP32 only (platform restriction in library.json).
- *  - The task publishes plain 32-bit values (atomic on ESP32); host strings
- *    are exchanged under a FreeRTOS mutex, per docs/cpp.instructions.md.
+ *  - Scalars crossing the task boundary are std::atomic; host strings are
+ *    exchanged under a FreeRTOS mutex with a bounded wait.
  *  - The main loop low-pass filters the power value; the effect renders only
  *    from filtered values so all transitions are smooth.
  */
@@ -46,6 +47,16 @@ static float p1PowerSmoothW = 0.0f;            // low-pass filtered power drivin
 static float p1Presence     = 0.0f;            // 0..1, fades in/out as data becomes (in)valid (main loop)
 static int   p1DeadbandW    = 50;              // |power| below this is treated as "neutral"
 static int   p1FullScaleW   = 2500;            // |power| at which flow speed/brightness reach maximum
+
+// IP of mDNS query result idx. Arduino-ESP32 3.x renamed MDNS.IP() to
+// MDNS.address(); upstream still checks that code builds on the 2.x core.
+static IPAddress p1MdnsAddress(int idx) {
+#if ESP_ARDUINO_VERSION_MAJOR >= 3
+  return MDNS.address(idx);
+#else
+  return MDNS.IP(idx);
+#endif
+}
 
 // Fixed identity colors (matching common energy-app conventions)
 static const uint32_t P1_COLOR_IMPORT = RGBW32(160,   0, 255, 0); // purple
@@ -157,10 +168,15 @@ private:
 
   // Configuration (Usermod Settings, main thread)
   bool enabled = true;
+  // Set once by setup() if the mutex or task could not be created. Kept apart
+  // from 'enabled' so saving the settings page cannot re-activate a usermod
+  // whose mutex/task does not exist.
+  bool initFailed = false;
+  bool isActive() const { return enabled && !initFailed; }
   String host = "";                              // empty = discover via mDNS; may be "host:port"
   std::atomic<uint16_t> updateIntervalMs{2000};  // poll interval; P1 v1 data updates about once per second
   std::atomic<bool> autoDiscover{true};
-  std::atomic<bool> cfgEnabled{true};            // task-visible copy of 'enabled'
+  std::atomic<bool> cfgEnabled{true};            // task-visible copy of isActive()
 
   // Task status codes for the info page
   enum : int8_t { ST_IDLE = 0, ST_DISCOVERING, ST_OK, ST_HTTP_ERR, ST_CONN_ERR, ST_JSON_ERR, ST_NO_METER, ST_TASK_FAIL };
@@ -200,13 +216,13 @@ private:
     int found = -1;
     for (int i = 0; i < n; i++) {
       String productType = MDNS.txt(i, "product_type");
-      DEBUG_PRINTF_P(PSTR("P1: mDNS result %d: %s (%s)\n"), i, MDNS.IP(i).toString().c_str(), productType.c_str());
+      DEBUG_PRINTF_P(PSTR("P1: mDNS result %d: %s (%s)\n"), i, p1MdnsAddress(i).toString().c_str(), productType.c_str());
       // HWE-P1 is the P1 meter; other HomeWizard products (kWh meter, socket) also announce hwenergy
       if (productType.startsWith(F("HWE-P1"))) { found = i; break; }
     }
     if (found < 0 && n > 0) found = 0;  // no explicit P1: fall back to the first device
     if (found >= 0) {
-      String ip = MDNS.IP(found).toString();
+      String ip = p1MdnsAddress(found).toString();
       if (xSemaphoreTake(p1Mutex, MUTEX_WAIT) == pdTRUE) {
         strlcpy(discoveredHost, ip.c_str(), sizeof(discoveredHost));
         xSemaphoreGive(p1Mutex);
@@ -320,9 +336,9 @@ private:
 public:
   void setup() override {
     strip.addEffect(255, &mode_grid_flow, _data_FX_MODE_GRID_FLOW);
-    // Handle init failures once, here: on any failure the usermod disables
-    // itself (info page shows why, effect falls back to the segment color),
-    // so the runtime code needs no null-handle checks.
+    // Handle init failures once, here: on any failure the usermod stays
+    // inactive for good (info page shows why, effect falls back to the
+    // segment color), so the runtime code needs no null-handle checks.
     p1Mutex = xSemaphoreCreateMutex();
     if (p1Mutex != nullptr) {
       if (xSemaphoreTake(p1Mutex, MUTEX_WAIT) == pdTRUE) {   // uncontended: task not started yet
@@ -336,16 +352,16 @@ public:
       if (xTaskCreate(fetchTask, "P1Fetch", 4096, this, 1, &fetchTaskHandle) != pdPASS) fetchTaskHandle = nullptr;
     }
     if (p1Mutex == nullptr || fetchTaskHandle == nullptr) {
-      enabled = false;
+      initFailed = true;
       taskStatus = ST_TASK_FAIL;
-      DEBUG_PRINTLN(F("P1: init failed (out of memory), usermod disabled"));
+      DEBUG_PRINTLN(F("P1: init failed (out of memory), usermod inactive"));
     }
-    cfgEnabled = enabled;
+    cfgEnabled = isActive();
   }
 
   void loop() override {
-    p1Enabled = enabled;
-    if (!enabled) {
+    p1Enabled = isActive();
+    if (!p1Enabled) {
       // Reset the visuals so a disabled usermod doesn't keep showing stale
       // import/export state through the still-registered effect
       p1DataValid = false;
@@ -373,8 +389,8 @@ public:
       p1Presence += (presenceTarget - p1Presence) * a;
       // A NaN would poison the filters permanently (NaN + x*a stays NaN);
       // guard so a bad sample can never freeze the visuals until power cycle
-      if (!isfinite(p1PowerSmoothW)) p1PowerSmoothW = 0.0f;
-      if (!isfinite(p1Presence))     p1Presence = 0.0f;
+      if (!std::isfinite(p1PowerSmoothW)) p1PowerSmoothW = 0.0f;
+      if (!std::isfinite(p1Presence))     p1Presence = 0.0f;
     }
   }
 
@@ -383,10 +399,8 @@ public:
     if (user.isNull()) user = root.createNestedObject("u");
     JsonArray info = user.createNestedArray(FPSTR(_name));
 
-    if (!enabled) {
-      info.add(taskStatus == ST_TASK_FAIL ? F("init failed (out of memory)") : F("disabled"));
-      return;
-    }
+    if (initFailed) { info.add(F("init failed (out of memory)")); return; }
+    if (!enabled)   { info.add(F("disabled")); return; }
 
     char hostBuf[64] = "";
     getEffectiveHost(hostBuf, sizeof(hostBuf));
@@ -450,7 +464,7 @@ public:
 
     autoDiscover = ad;
     updateIntervalMs = max((uint16_t)1000, iv);
-    cfgEnabled = enabled;
+    cfgEnabled = isActive();
     // Clamp deadband before deriving the full-scale floor so deadband+1
     // cannot overflow; 1 MW is a generous ceiling for a home connection
     p1DeadbandW = constrain(p1DeadbandW, 0, 100000);

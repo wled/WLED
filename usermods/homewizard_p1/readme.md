@@ -78,8 +78,8 @@ rendered colors over HTTP via `/json/live`.
 - Uses the HomeWizard [local API v1](https://api-documentation.homewizard.com/docs/v1/)
   endpoint `GET /api/v1/data`, field `active_power_w` (positive = import, negative = export).
 - All networking (mDNS discovery and HTTP polling) runs on a dedicated
-  low-priority FreeRTOS task pinned to core 0, so blocking calls can never
-  stall the LED pipeline. The task publishes plain 32-bit values (atomic on
-  ESP32); host strings are exchanged under a mutex. ESP32 only.
+  low-priority FreeRTOS task, so blocking calls can never stall the LED
+  pipeline. Values shared with the main loop are `std::atomic`; host strings
+  are exchanged under a mutex. ESP32 only.
 - The pulse position is integrated over time (not derived from `time * speed`),
   so speed changes shift the animation continuously without jumps.
