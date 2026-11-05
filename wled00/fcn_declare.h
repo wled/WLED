@@ -236,6 +236,7 @@ void setTimeFromAPI(uint32_t timein);
 
 const uint8_t TH_SUNRISE = 255;
 const uint8_t TH_SUNSET = 254;
+const uint16_t BOOT_TIMER_WINDOW_MAX = 24 * 60;  // minutes; on boot, timers are looked for at most one day back
 
 struct Timer {
   uint8_t preset;
@@ -270,6 +271,7 @@ void handleOverlayDraw();
 //playlist.cpp
 void shufflePlaylist();
 void unloadPlaylist();
+void setPlaylistSeek(byte presetId, uint32_t elapsedMs);
 int16_t loadPlaylist(JsonObject playlistObject, byte presetId = 0);
 void handlePlaylist();
 void serializePlaylist(JsonObject obj);

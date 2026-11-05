@@ -24,6 +24,11 @@ static int16_t        parentPlaylistIndex = -1;
 static byte           parentPlaylistRepeat = 0;
 static byte           parentPlaylistPresetId = 0; //for re-loading
 
+//fast-forwarding a playlist that should already have been running (see setPlaylistSeek())
+static byte           seekPresetId = 0;          //preset ID of the playlist to fast-forward when it is loaded
+static uint32_t       seekElapsed = 0;           //how long ago (ms) that playlist should have started
+static uint32_t       seekEntryOffset = 0;       //how long (ms) the first entry played after a seek has already been running
+
 
 void shufflePlaylist() {
   int currentIndex = playlistLen;
@@ -51,12 +56,66 @@ void unloadPlaylist() {
   playlistLen = 0;
   playlistOptions = 0;
   playlistEntryDur = 0;
+  seekPresetId = 0;
+  seekEntryOffset = 0;
   DEBUG_PRINTLN(F("Playlist unloaded."));
+}
+
+
+/*
+ * Make playlist preset presetId, when it is next loaded, start where it would be had it started elapsedMs ago.
+ * Call after applyPreset(), which discards any pending seek (by unloading the playlist).
+ * Has no effect if the preset turns out not to be a playlist.
+ */
+void setPlaylistSeek(byte presetId, uint32_t elapsedMs) {
+  seekPresetId = presetId;
+  seekElapsed = elapsedMs;
+}
+
+
+/*
+ * Fast-forward the just loaded playlist to where it would be had it started elapsedMs ago.
+ * rep is the number of repetitions (0 = endless).
+ * Nested playlists are not followed: if one would be playing, it starts from its beginning.
+ */
+static void seekPlaylist(uint32_t elapsedMs, int rep) {
+  if (playlistOptions & PL_OPTION_SHUFFLE) return; // order is random, so there is no telling where it would be
+
+  // an entry with no duration plays until advanced manually, so the playlist never gets past it
+  uint64_t cycleMs = 0;
+  bool hasEndlessEntry = false;
+  for (unsigned i = 0; i < playlistLen; i++) {
+    if (playlistEntries[i].dur == 0) { hasEndlessEntry = true; break; }
+    cycleMs += playlistEntries[i].dur;
+  }
+
+  uint32_t cycles = 0;
+  if (!hasEndlessEntry) {
+    cycles = elapsedMs / cycleMs;
+    if (rep > 0 && cycles >= (uint32_t)rep) {
+      // it would have finished: let handlePlaylist() end it, staying on the last entry if there is no end preset
+      if (!playlistEndPreset) playlistEndPreset = playlistEntries[playlistLen - 1].preset;
+      playlistIndex = playlistLen - 1;
+      playlistRepeat = 1;
+      DEBUG_PRINTLN(F("Playlist seek: already finished."));
+      return;
+    }
+    elapsedMs %= cycleMs;
+  }
+
+  unsigned i = 0;
+  while (i < playlistLen - 1u && playlistEntries[i].dur > 0 && elapsedMs >= playlistEntries[i].dur) elapsedMs -= playlistEntries[i++].dur;
+  playlistIndex = (int)i - 1; // handlePlaylist() advances to entry i
+  // handlePlaylist() counts down a repetition when it wraps round to entry 0
+  if (rep > 0) playlistRepeat = rep + 1 - cycles - (i > 0);
+  seekEntryOffset = elapsedMs;
+  DEBUG_PRINTF_P(PSTR("Playlist seek: entry %u, %u ms in.\n"), i, (unsigned)elapsedMs);
 }
 
 
 int16_t loadPlaylist(JsonObject playlistObj, byte presetId) {
   if (currentPlaylist > 0 && parentPlaylistPresetId > 0) return -1; // we are already in nested playlist, do nothing
+  uint32_t seekMs = (presetId > 0 && presetId == seekPresetId) ? seekElapsed : 0; // read before unloadPlaylist() clears it
   if (currentPlaylist > 0) {
     parentPlaylistIndex = playlistIndex;
     parentPlaylistRepeat = playlistRepeat;
@@ -144,6 +203,7 @@ int16_t loadPlaylist(JsonObject playlistObj, byte presetId) {
   }
 
   currentPlaylist = presetId;
+  if (seekMs && playlistIndex < 0) seekPlaylist(seekMs, rep);
   DEBUG_PRINTLN(F("Playlist loaded."));
   return currentPlaylist;
 }
@@ -177,6 +237,8 @@ void handlePlaylist() {
     jsonTransitionOnce = true;
     strip.setTransition(playlistEntries[playlistIndex].tr * 100);
     playlistEntryDur = playlistEntries[playlistIndex].dur > 0 ? playlistEntries[playlistIndex].dur : UINT32_MAX; // UINT32_MAX means infinite
+    presetCycledTime -= seekEntryOffset; // after a seek, the entry has already been playing this long
+    seekEntryOffset = 0;
     applyPresetFromPlaylist(playlistEntries[playlistIndex].preset);
     doAdvancePlaylist = false;
   }
