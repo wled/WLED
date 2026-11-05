@@ -8,13 +8,13 @@
 ; USERMOD_DHT_MQTT                 - publish measurements to the MQTT broker
 ; USERMOD_DHT_STATS                - For debug, report delay stats
 
-[env:d1_mini_usermod_dht_C]
-extends = env:d1_mini
-custom_usermods = ${env:d1_mini.custom_usermods} DHT
-build_flags = ${env:d1_mini.build_flags} -D USERMOD_DHT_CELSIUS
+[env:esp8266_2m_usermod_dht_C]
+extends = env:esp8266_2m
+custom_usermods = ${env:esp8266_2m.custom_usermods} DHT
+build_flags = ${env:esp8266_2m.build_flags} -D USERMOD_DHT_CELSIUS
 
-[env:custom32_LEDPIN_16_usermod_dht_C]
-extends = env:custom32_LEDPIN_16
-custom_usermods = ${env:custom32_LEDPIN_16.custom_usermods} DHT
-build_flags = ${env:custom32_LEDPIN_16.build_flags} -D USERMOD_DHT_CELSIUS -D USERMOD_DHT_STATS
+[env:esp32dev_LEDPIN_16_usermod_dht_C]
+extends = env:esp32dev
+custom_usermods = ${env:esp32dev.custom_usermods} DHT
+build_flags = ${env:esp32dev.build_flags} -D LEDPIN=16 -D USERMOD_DHT_CELSIUS -D USERMOD_DHT_STATS
 
