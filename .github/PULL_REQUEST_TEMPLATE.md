@@ -19,7 +19,6 @@
 ## Testing and Validation
 <!-- Testing you performed, and known limitations. Anything you couldn't quite solve. Let us know if you'd like guidance from a maintainer -->
 
-* [ ] It compiles without error: _please list platformio build environments_
 * [ ] Tested on actual hardware:
    - _please elaborate_
 * Open ends, known limitations, breaking changes: 
