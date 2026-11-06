@@ -6,7 +6,7 @@
 
 /**
  *  Unkown / Default Battery
- * 
+ *
  */
 class UnkownUMBattery : public UMBattery
 {
@@ -19,7 +19,7 @@ class UnkownUMBattery : public UMBattery
             this->setMaxVoltage(USERMOD_BATTERY_UNKOWN_MAX_VOLTAGE);
         }
 
-        void update(batteryConfig cfg)
+        void update(batteryConfig cfg) override
         {
             if(cfg.minVoltage) this->setMinVoltage(cfg.minVoltage); else this->setMinVoltage(USERMOD_BATTERY_UNKOWN_MIN_VOLTAGE);
             if(cfg.maxVoltage) this->setMaxVoltage(cfg.maxVoltage); else this->setMaxVoltage(USERMOD_BATTERY_UNKOWN_MAX_VOLTAGE);
@@ -28,11 +28,6 @@ class UnkownUMBattery : public UMBattery
         float mapVoltage(float v, float min, float max) override
         {
             return this->linearMapping(v, min, max); // basic mapping
-        };
-
-        void calculateAndSetLevel(float voltage) override
-        {
-            this->setLevel(this->mapVoltage(voltage, this->getMinVoltage(), this->getMaxVoltage()));
         };
 };
 
