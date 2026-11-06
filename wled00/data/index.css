@@ -1411,6 +1411,10 @@ dialog {
 	top: var(--stp);
 }
 
+#fxlist summary,#pallist summary{list-style:none;position:relative;margin:0 0 12px;width:calc(100% - 16px)}
+#fxlist summary::-webkit-details-marker,#pallist summary::-webkit-details-marker{display:none}
+details[open]>summary .flr{transform:rotate(180deg)}
+
 /* list item content */
 .lstIcontent {
 	padding: 9px 0 7px;

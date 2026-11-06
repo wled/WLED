@@ -164,7 +164,7 @@
 	
 	function Save() {
 		SetLS();
-		if (d.Sf.DS.value != initial_ds || /*d.Sf.ST.checked != initial_st ||*/ d.Sf.SU.checked != initial_su) d.Sf.submit();
+		fpS(() => { if (d.Sf.DS.value != initial_ds || /*d.Sf.ST.checked != initial_st ||*/ d.Sf.SU.checked != initial_su) d.Sf.submit(); });
 	}
 	
 	function S() {
@@ -174,6 +174,7 @@
 			//initial_st = d.Sf.ST.checked;
 			initial_su = d.Sf.SU.checked;
 			GetLS();
+			loadFxPal();
 		});	// If we set async false, file is loaded and executed, then next statement is processed
 		if (loc) d.Sf.action = getURL('/settings/ui');
 	}
@@ -215,6 +216,27 @@
 		gId("bg_url").classList.remove("hide");
 		if (gId("theme_bg_rnd").checked) toggle("Image");
 		gId("theme_bg_rnd").checked = false;
+	}
+
+	var fpd=0;
+	async function loadFxPal(){
+		const j=async(u,r=5)=>{try{const x=await fetch(getURL(u));if(x.ok)return x.json()}catch(e){}if(r){await new Promise(f=>setTimeout(f,100));return j(u,r-1)}throw u};
+		try{
+			const e=await j('/json/effects'),p=await j('/json/palettes'),i=await j('/json/info');
+			const c=await fetch(getURL('/fxpal-config.json')).then(r=>r.ok?r.json():{}).catch(()=>({}));
+			const fx=e.map((n,id)=>[id,n]).filter(x=>x[0]&&!x[1].includes('RSVD'));
+			const pal=p.map((n,id)=>[id,n]).filter(x=>x[0]);
+			for(let k=0;k<i.umpalcount;k++)pal.push([255-k,i.umpalnames[k]]);
+			for(let k=0;k<i.cpalcount;k++)pal.push([200-k,'~ Custom '+k+' ~']);
+			fpR('fxl',fx,c.fx);fpR('pall',pal,c.pal);
+		}catch(e){showToast('Loading lists failed',true);}
+	}
+	function fpR(k,a,h=[]){gId(k).innerHTML=a.sort((x,y)=>x[1].localeCompare(y[1])).map(x=>`${esc(x[1])}: <input type=checkbox value=${x[0]}${h.includes(x[0])?'':' checked'}><br>`).join('')}
+	function fpA(k,v){gId(k).querySelectorAll('input').forEach(e=>e.checked=v);fpd=1}
+	function fpS(cb){
+		if(!fpd)return cb();
+		const h=k=>[...gId(k).querySelectorAll('input:not(:checked)')].map(e=>+e.value);
+		uploadFile({files:[new File([JSON.stringify({fx:h('fxl'),pal:h('pall')})],'fxpal-config.json')]},'/fxpal-config.json',ok=>{fpd=!ok;cb()});
 	}
 	</script>
 </head>
@@ -273,6 +295,18 @@
 		<input id="theme_base" class="agi" style="display:none">
 		<span class="l"></span>: <input type="checkbox" id="comp_hdays" class="agi cb"><br>
 		<div id="holidays">Holidays: <input type="file" name="data2" accept=".json"> <input type="button" value="Upload" onclick="uploadFile(d.Sf.data2,'/holidays.json');"><br></div>
+	</div>
+	<h2>Hide Effects &amp; Palettes</h2>
+	<div class="sec">
+		<i>Unchecked items are collapsed into a seperate "Show All" section</i>
+		<h3>Effects</h3>
+		<details><summary>List</summary>
+			<button type="button" onclick="fpA('fxl',1)">All</button><button type="button" onclick="fpA('fxl',0)">None</button>
+			<div id="fxl" onchange="fpd=1">Loading...</div></details>
+		<h3>Palettes</h3>
+		<details><summary>List</summary>
+			<button type="button" onclick="fpA('pall',1)">All</button><button type="button" onclick="fpA('pall',0)">None</button>
+			<div id="pall" onchange="fpd=1">Loading...</div></details>
 	</div>
 		<div id="toast"></div>
 		<hr><button type="button" onclick="cLS()">Clear local storage</button>
