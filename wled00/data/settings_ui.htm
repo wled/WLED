@@ -296,13 +296,15 @@
 		<span class="l"></span>: <input type="checkbox" id="comp_hdays" class="agi cb"><br>
 		<div id="holidays">Holidays: <input type="file" name="data2" accept=".json"> <input type="button" value="Upload" onclick="uploadFile(d.Sf.data2,'/holidays.json');"><br></div>
 	</div>
-	<h2>Effects &amp; Palettes</h2>
+	<h2>Hide Effects &amp; Palettes</h2>
 	<div class="sec">
-		<i>Unchecked items are moved to a collapsed "Hidden" box at the end of the lists in the main UI.</i>
-		<details><summary>Effects</summary>
+		<i>Unchecked items are collapsed into a seperate "Show All" section</i>
+		<h3>Effects</h3>
+		<details><summary>List</summary>
 			<button type="button" onclick="fpA('fxl',1)">All</button><button type="button" onclick="fpA('fxl',0)">None</button>
 			<div id="fxl" onchange="fpd=1">Loading...</div></details>
-		<details><summary>Palettes</summary>
+		<h3>Palettes</h3>
+		<details><summary>List</summary>
 			<button type="button" onclick="fpA('pall',1)">All</button><button type="button" onclick="fpA('pall',0)">None</button>
 			<div id="pall" onchange="fpd=1">Loading...</div></details>
 	</div>
