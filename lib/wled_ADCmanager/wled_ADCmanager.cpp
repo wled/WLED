@@ -207,9 +207,9 @@ void WLEDAdcManager::_drainToCache() {
 
 // read samples acquired in continuous mode. They are written as 12bit unsigned values into the passed buffer
 // tries to read "numSamples" and returns the actual number of samples written into the buffer
-// it waits up to timeoutMs total while fetching tmpBfrSize (128) samples at a time, if not enough samples are available, it returns what it got
+// it waits up to timeoutMs (capped at ADCMANAGER_LOCK_TIMEOUT_MS) while fetching tmpBfrSize (128) samples at a time, if not enough samples are available, it returns what it got
 // to poll the buffer and "just give me what you got" use a timeout of 0. On read error, it restarts the driver so no action needed by caller.
-// note: maximum timeout is ADCMANAGER_LOCK_TIMEOUT_MS-1, so make sure to call this function in reasonable intervals if you need all samples (or increase the lock time)
+// note: maximum timeout is ADCMANAGER_LOCK_TIMEOUT_MS-1, so make sure to call this function in reasonable intervals if you need all samples at once(or increase the lock time)
 uint16_t WLEDAdcManager::readSamples(int16_t* buffer, uint16_t numSamples, uint32_t timeoutMs) {
   if (!buffer || !numSamples) return 0;
   // note: DMA uses SOC_ADC_DIGI_MAX_BITWIDTH which is 12bits on all checked units TODO: should make sure and handle this to future proof it

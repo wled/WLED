@@ -41,7 +41,7 @@ void applyValuesToSelectedSegs() {
 
 void toggleOnOff()
 {
-  briOld = briT; // briT = 0 when off, briT = bri when on or in between while transitioning, store current value so brightness does not jump when toggling on/off during a transition
+  briOld16 = briT16; // adopt current brightness so toggling during a transition does not jump
   if (bri == 0) {
     bri = briLast;
     strip.setPowerFlag(TRANSITION_POWER_ON | TRANSITION_POWER_TRIGGER);
@@ -55,32 +55,32 @@ void toggleOnOff()
 
 
 //scales the brightness with the briMultiplier factor
-byte scaledBri(byte in)
+uint16_t scaledBri16(uint16_t in)
 {
-  unsigned val = ((unsigned)in*briMultiplier)/100;
-  if (val > 255) val = 255;
-  return (byte)val;
+  uint32_t val = ((uint32_t)in * briMultiplier) / 100;
+  if (val > (255U << 8)) val = 255U << 8;
+  return (uint16_t)val;
 }
 
 
-//applies global temporary brightness (briT) to strip
+//applies global temporary brightness (briT16) to strip
 void applyBri() {
   if (realtimeOverride || !(realtimeMode && arlsForceMaxBri))
-    strip.setBrightness(briT);
+    strip.setBrightness16(briT16);
 }
 
 
 //applies global brightness and sets it as the "current" brightness (no transition)
 void applyFinalBri() {
-  briOld = bri;
-  briT = bri;
+  briOld16 = (uint16_t)bri << 8;
+  briT16 = briOld16;
   applyBri();
   strip.trigger(); // force one last update
 }
 
 // local function to handle global brightness transition, called from stateUpdated(). Note: power flags are set in toggleOnOff()
 void handleBriChange() {
-  //DEBUG_PRINTF_P(PSTR("state update: briT: %d bri: %d briOld: %d, isPoweron: %d , isPoweroff %d, trigger: %d\n"), (int)briT, (int)bri, (int)briOld, (int)strip.isPoweringOn(), (int)strip.isPoweringOff(), (int)strip.isPowerTrigger());
+  //DEBUG_PRINTF_P(PSTR("state update: briT16: %d bri: %d briOld16: %d, isPoweron: %d , isPoweroff %d, trigger: %d\n"), (int)briT16, (int)bri, (int)briOld16, (int)strip.isPoweringOn(), (int)strip.isPoweringOff(), (int)strip.isPowerTrigger());
   if (strip.getTransition() == 0) {
     jsonTransitionOnce = false;
     transitionActive = false;
@@ -89,10 +89,10 @@ void handleBriChange() {
   } else {
     uint32_t now = millis();
 
-    if ((!strip.isPoweringOn() && bri > 0 && (briOld == 0 || strip.isPoweringOff()))) {
+    if ((!strip.isPoweringOn() && bri > 0 && (briOld16 == 0 || strip.isPoweringOff()))) {
       // Brightness was increased from zero; treat as power on if we're not already
       strip.setPowerFlag(TRANSITION_POWER_ON | TRANSITION_POWER_TRIGGER);
-    } else if (!strip.isPoweringOff() && bri == 0 && (briOld > 0 || strip.isPoweringOn())) {
+    } else if (!strip.isPoweringOff() && bri == 0 && (briOld16 > 0 || strip.isPoweringOn())) {
       // Brightness was decreased to zero; treat as power off if we're not already
       strip.setPowerFlag(TRANSITION_POWER_OFF | TRANSITION_POWER_TRIGGER);
     }
@@ -105,13 +105,15 @@ void handleBriChange() {
         int duration = strip.getTransition();
         int elapsed  = constrain((int)(now - transitionStartTime), 0, duration); // duration may have changed mid-flight
         int progress = duration - elapsed;
-        int delta    = (bri > 0 || blendingStyle == TRANSITION_FADE) ? (int)briT - (int)bri : 0; // spatial power-off doesn't fade
+        const int32_t targetBri = (uint16_t)bri << 8;
+        int32_t delta = (bri > 0 || blendingStyle == TRANSITION_FADE) ? (int32_t)briT16 - targetBri : 0; // spatial power-off doesn't fade
         if (delta) {
-          int room = (delta > 0) ? 255 - bri : bri;                           // headroom for the fade start on briT's side of bri
-          elapsed  = max(elapsed, (duration * abs(delta) + room - 1) / room); // target moved: stretch so the start stays in range
+          int32_t room = (delta > 0) ? (255U << 8) - targetBri : targetBri; // headroom for the fade start on briT's side of bri
+          int32_t absDelta = delta > 0 ? delta : -delta;
+          elapsed = max(elapsed, (int)((duration * (int64_t)absDelta + room - 1) / room)); // target moved: stretch so the start stays in range
         }
-        if (elapsed) briOld = bri + delta * duration / elapsed;               // extrapolate from bri back through briT
-        transitionStartTime = now - (duration - elapsed);                     // invert progress        
+        if (elapsed) briOld16 = targetBri + (int32_t)((int64_t)delta * duration / elapsed); // extrapolate from bri back through briT
+        transitionStartTime = now - (duration - elapsed); // invert progress
         strip.clearPowerFlag((bri > 0) ? TRANSITION_POWER_OFF : TRANSITION_POWER_ON); // bri carries the target state
       }
       else
@@ -123,7 +125,7 @@ void handleBriChange() {
           strip.restartRuntime();         // and restart any running effect when powering on
           if (blendingStyle != TRANSITION_FADE) applyFinalBri(); // set brightness immediately, otherwise it will fade-in -> this does not yet work. need to set to bri old? or bri last?
         }
-        briOld = briT;  // Adopt the current state of any existing fade transition
+        briOld16 = briT16;  // Adopt the current state of any existing fade transition
         transitionStartTime = now;  // (Re)start global transition timer
       }
 
@@ -133,13 +135,13 @@ void handleBriChange() {
 
       strip.clearPowerFlag(TRANSITION_POWER_TRIGGER);
     } else {
-      if (bri == briOld) return; // no change found
+      if (((uint16_t)bri << 8) == briOld16) return; // no change found
 
       // Purely a brightness change.
       // Strictly speaking someone might have set brightness 0->0 so we have to ignore that case during power off.
       if (!strip.isPoweringOff()) {
         // Any existing transition re-starts from where we are
-        briOld = briT;
+        briOld16 = briT16;
         transitionStartTime = now;
       }
     }
@@ -156,11 +158,11 @@ void stateUpdated(byte callMode) {
   //                     6: fx changed 7: hue 8: preset cycle 9: blynk 10: alexa 11: ws send only 12: button preset
   setValuesFromFirstSelectedSeg();  // a much better approach would be to use main segment: setValuesFromMainSeg()
 
-  if (bri != briOld || stateChanged) {
+  if (((uint16_t)bri << 8) != briOld16 || stateChanged) {
     if (stateChanged) currentPreset = 0; //something changed, so we are no longer in the preset
 
     if (callMode != CALL_MODE_NOTIFICATION && callMode != CALL_MODE_NO_NOTIFY) notify(callMode);
-    if (bri != briOld && nodeBroadcastEnabled) sendSysInfoUDP(); // update on state
+    if (((uint16_t)bri << 8) != briOld16 && nodeBroadcastEnabled) sendSysInfoUDP(); // update on state
 
     //set flag to update ws and mqtt
     interfaceUpdateCallMode = callMode;
@@ -177,7 +179,7 @@ void stateUpdated(byte callMode) {
     nightlightDelayMs -= (now - nightlightStartTime);
     nightlightStartTime = now;
   }
-  if (briT == 0) {
+  if (briT16 == 0) {
     if (callMode != CALL_MODE_NOTIFICATION) strip.resetTimebase(); //effect start from beginning
   }
 
@@ -234,13 +236,13 @@ void handleTransitions() {
       applyFinalBri();
       return;
     }
-    // fade global brightness from briOld to bri, skip if powering off using spatial transition (avoid fading in parallel)
-    // note: power on sets briOld = bri so it wont fade but still allows global brightness change during that transition which then will fade
+    // fade global brightness from briOld16 to bri, skip if powering off using spatial transition (avoid fading in parallel)
+    // note: power on starts at the target brightness, but a later brightness change can still fade
     if (!strip.isPoweringOff() || blendingStyle == TRANSITION_FADE) {
-      byte briTO = briT;
-      int deltaBri = (int)bri - (int)briOld;
-      briT = briOld + (deltaBri * progress / duration);
-      if (briTO != briT) applyBri();
+      uint16_t briTO = briT16;
+      int32_t deltaBri = (int32_t)((uint16_t)bri << 8) - (int32_t)briOld16;
+      briT16 = (uint16_t)((int32_t)briOld16 + ((int64_t)deltaBri * progress / duration));
+      if (briTO != briT16) applyBri();
     }
   }
 }
