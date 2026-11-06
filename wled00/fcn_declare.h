@@ -311,8 +311,29 @@ void refreshNodeList();
 void sendSysInfoUDP();
 #ifndef WLED_DISABLE_ESPNOW
 void espNowSentCB(uint8_t* address, uint8_t status);
-void espNowReceiveCB(uint8_t* address, uint8_t* data, uint8_t len, signed int rssi, bool broadcast);
+void espNowReceiveCB(uint8_t* address, uint8_t* data, uint8_t msgLen, signed int rssi, bool broadcast);
 #endif
+
+// UDP helper for flushing the WiFiUDP rx buffer - required on ESP32
+// On ESP32, parsePacket() must be followed by a full buffer read() or by clear(). Otherwise the next packet will not be parsed and a subsequent parsePacket() returns 0.
+// Not needed on ESP8266: the next packet will simply discard the previous rx buffer.
+static inline void udpDropRXBuffer(WiFiUDP &myUDP) {
+  #ifdef ARDUINO_ARCH_ESP32
+    #if ESP_IDF_VERSION >= ESP_IDF_VERSION_VAL(5, 0, 0)
+      myUDP.clear();  // flush() is deprecated in arduino-esp32 3.x.y
+    #else
+      myUDP.flush();
+    #endif
+  #endif  
+}
+// UDP helper: start parsing, discard oversized messages
+static inline size_t udpParse(WiFiUDP& udpHandler, size_t maxBufSize) {
+  size_t result = udpHandler.parsePacket();
+  if (result > maxBufSize) {
+    udpDropRXBuffer(udpHandler); // drop message RX buffer
+    return 0;
+  } else return result;
+}
 
 //network.cpp
 bool initEthernet(); // result is informational
