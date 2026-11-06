@@ -1,0 +1,22 @@
+{
+  "name": "sendspin",
+  "version": "0.1.0",
+  "description": "Sendspin visualizer provider for WLED sound-reactive effects",
+  "build": {
+    "libArchive": false,
+    "extraScript": "build_sendspin.py"
+  },
+  "dependencies": [
+    {
+      "owner": "bblanchon",
+      "name": "ArduinoJson",
+      "version": "7.4.2"
+    },
+    {
+      "name": "noise-c",
+      "version": "https://github.com/esphome/noise-c.git#62c2fdca7a874ea898761147bb062ca1cde9f36d"
+    }
+  ],
+  "frameworks": "arduino",
+  "platforms": "espressif32"
+}
