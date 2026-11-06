@@ -1016,7 +1016,7 @@ static const char _data_FX_MODE_ANTS[] PROGMEM = "Ants@Ant speed,# of ants,Ant s
 *   Checkbox1 displays all letters in a word with the same color
 *   Checkbox2 displays punctuation or not
 *   Checkbox3 displays the End-of-message code or not
-*   We get the text from the SEGMENT.name and convert it to morse code
+*   We get the text from the effect text parameter (SEGMENT.fxText) and convert it to morse code
 *   This effect uses a bit array, instead of bool array, for efficient storage - 8x memory reduction (128 bytes vs 1024 bytes)
 *
 *   Morse Code rules:
@@ -1101,14 +1101,14 @@ static void mode_morsecode(void) {
   };
 
   // Get the text to display
-  char text[WLED_MAX_SEGNAME_LEN+1] = {'\0'};
+  char text[WLED_MAX_FXTEXT_LEN+1] = {'\0'};
   size_t len = 0;
 
-  if (SEGMENT.name) len = strlen(SEGMENT.name);
+  if (SEGMENT.fxText) len = strlen(SEGMENT.fxText);
   if (len == 0) {
     strcpy_P(text, PSTR("I Love WLED!"));
   } else {
-    strcpy(text, SEGMENT.name);
+    strcpy(text, SEGMENT.fxText);
   }
 
   // Convert to uppercase in place
@@ -1255,7 +1255,7 @@ static void mode_morsecode(void) {
     }
   }
 }
-static const char _data_FX_MODE_MORSECODE[] PROGMEM = "Morse Code@Speed,,,,Color mode,Color by Word,Punctuation,EndOfMessage;;!;1;sx=192,c3=8,o1=1,o2=1";
+static const char _data_FX_MODE_MORSECODE[] PROGMEM = "Morse Code@Speed,,,,Color mode,Color by Word,Punctuation,EndOfMessage,Text;;!;1;sx=192,c3=8,o1=1,o2=1";
 
 
 /*

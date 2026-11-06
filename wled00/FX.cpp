@@ -4650,7 +4650,7 @@ void mode_image(void) {
   //   Serial.println(status);
   // }
 }
-static const char _data_FX_MODE_IMAGE[] PROGMEM = "Image@!,Blur,;;;12;sx=128,ix=0";
+static const char _data_FX_MODE_IMAGE[] PROGMEM = "Image@!,Blur,,,,,,,File;;;12;sx=128,ix=0";
 
 /*
   Blends random colors across palette
@@ -6461,8 +6461,8 @@ void mode_2Dscrollingtext(void) {
   const int cols = SEG_W;
   const int rows = SEG_H;
 
-  // generate time/date if there are any # tokens or no segment name set
-  char text[WLED_MAX_SEGNAME_LEN+1] = {'\0'};
+  // generate time/date if there are any # tokens or no text set
+  char text[WLED_MAX_FXTEXT_LEN+1] = {'\0'};
   size_t result_pos = 0;
   char sec[5];
   int  AmPmHour = hour(localTime);
@@ -6475,22 +6475,22 @@ void mode_2Dscrollingtext(void) {
     sprintf_P(sec, PSTR(":%02d"), second(localTime));
   }
 
-  // prepare text string from segment name
+  // prepare text string from effect text parameter
   size_t len = 0;
-  if (SEGMENT.name) len = strlen(SEGMENT.name); // note: SEGMENT.name is limited to WLED_MAX_SEGNAME_LEN
+  if (SEGMENT.fxText) len = strlen(SEGMENT.fxText); // note: SEGMENT.fxText is limited to WLED_MAX_FXTEXT_LEN
   if (len == 0) {
-    // fallback if empty segment name: display date and time "#MON #DD #YYYY #TIME"
+    // fallback if empty text: display date and time "#MON #DD #YYYY #TIME"
     sprintf_P(text, PSTR("%s %d, %d %d:%02d%s"), monthShortStr(month(localTime)), day(localTime), year(localTime), AmPmHour, minute(localTime), sec);
     fontManager.cacheNumbers(true); // cache all numbers when using clock to avoid frequent re-caching
   } else {
     size_t i = 0;
     while (i < len) {
-      if (SEGMENT.name[i] == '#') {
+      if (SEGMENT.fxText[i] == '#') {
         char token[7]; // copy up to 6 chars + null terminator
         bool zero = false; // a 0 suffix means display leading zeros
         size_t j = 0;
         while (j < 6 && i + j < len) {
-          token[j] = std::toupper(SEGMENT.name[i + j]);
+          token[j] = std::toupper(SEGMENT.fxText[i + j]);
           if(token[j] == '0')
             zero = true; // 0 suffix found. Note: there is an edge case where a '0' could be part of a trailing text and not the token, handling it is not worth the effort
           j++;
@@ -6520,7 +6520,7 @@ void mode_2Dscrollingtext(void) {
 
         if(zero) advance++; // skip the '0' suffix
         size_t temp_len = strlen(temp);
-        if (result_pos + temp_len < WLED_MAX_SEGNAME_LEN) {
+        if (result_pos + temp_len < WLED_MAX_FXTEXT_LEN) {
           strcpy(text + result_pos, temp);
           result_pos += temp_len;
         }
@@ -6528,8 +6528,8 @@ void mode_2Dscrollingtext(void) {
         i += advance;
       }
       else {
-        if (result_pos < WLED_MAX_SEGNAME_LEN) {
-          text[result_pos++] = SEGMENT.name[i++]; // no token, just copy char
+        if (result_pos < WLED_MAX_FXTEXT_LEN) {
+          text[result_pos++] = SEGMENT.fxText[i++]; // no token, just copy char
         } else
           break; // buffer full
       }
@@ -6642,7 +6642,7 @@ void mode_2Dscrollingtext(void) {
     currentXOffset += advance;
   }
 }
-static const char _data_FX_MODE_2DSCROLLTEXT[] PROGMEM = "Scrolling Text@!,Y Offset,Trail,Font size,Rotate,Gradient,Custom Font,Reverse;!,!,Gradient;!;2;ix=128,c1=0,rev=0,mi=0,rY=0,mY=0";
+static const char _data_FX_MODE_2DSCROLLTEXT[] PROGMEM = "Scrolling Text@!,Y Offset,Trail,Font size,Rotate,Gradient,Custom Font,Reverse,Text;!,!,Gradient;!;2;ix=128,c1=0,rev=0,mi=0,rY=0,mY=0";
 
 
 ////////////////////////////

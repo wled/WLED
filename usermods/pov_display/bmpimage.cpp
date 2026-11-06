@@ -74,9 +74,9 @@ bool BMPimage::init(const char * fn) {
     }
 
     bmpFile.close();
-    // Ensure filename fits our buffer (segment name length constraint).
+    // Ensure filename fits our buffer (effect text length constraint).
     size_t len = strlen(fn);
-    if (len > WLED_MAX_SEGNAME_LEN) {
+    if (len > WLED_MAX_FXTEXT_LEN) {
       return false;
     }
     strncpy(filename, fn, sizeof(filename));
