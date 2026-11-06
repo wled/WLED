@@ -99,6 +99,14 @@ static void handleDDPPacket(e131_packet_t* p, size_t packetLen) {
 
 //E1.31 and Art-Net protocol support
 void handleE131Packet(e131_packet_t* p, IPAddress clientIP, byte protocol, size_t packetLen){
+  // a new stream after realtime mode ended must not be filtered against the previous stream's sequence numbers;
+  // clear them once on the first packet after realtime mode ended (preset mode never enters realtime mode)
+  static bool realtimeSeen = false;
+  if (realtimeMode != REALTIME_MODE_INACTIVE) realtimeSeen = true;
+  else if (realtimeSeen) {
+    memset(e131LastSequenceNumber, 0, sizeof(e131LastSequenceNumber));
+    realtimeSeen = false;
+  }
 
   int uni = 0, dmxChannels = 0;
   uint8_t* e131_data = nullptr;
