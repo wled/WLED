@@ -9,6 +9,7 @@
 #include "src/dependencies/network/Network.h" // for isConnected() (& WiFi)
 #include "driver/ledc.h"
 #include "soc/ledc_struct.h"
+#include "soc/ledc_periph.h" // needed for signal inversion
 #endif
 #ifdef ESP8266
 #include "core_esp8266_waveform.h"
@@ -552,12 +553,17 @@ BusPwm::BusPwm(const BusConfig &bc)
       ledcAttachPin(_pins[i], channel);
       // LEDC timer reset credit @dedehai
       uint8_t group = (channel / 8), timer = ((channel / 2) % 4); // same formula as in ledcSetup()
+      uint8_t ch = channel % 8;
+      esp_rom_gpio_connect_out_signal(_pins[i], ledc_periph_signal[group].sig_out0_idx + ch, _reversed, false); // apply hardware inversion if needed
       ledc_timer_rst((ledc_mode_t)group, (ledc_timer_t)timer); // reset timer so all timers are (almost) in sync (for phase shift)
       #else
       if (!ledcAttachChannel(_pins[i], _frequency,  _depth - (dithering*4), channel)) { // reduce to 8bit when using dithering
         // clean up on failure
         for (unsigned j = 0; j < i; j++) {
-          if (PinManager::isPinOk(_pins[j])) ledcDetach(_pins[j]);
+          if (PinManager::isPinOk(_pins[j])) { 
+            ledcDetach(_pins[j]);
+            esp_rom_gpio_connect_out_signal(_pins[j], SIG_GPIO_OUT_IDX, false, false); // clear signal inversion in case it was set above
+          }
         }
         PinManager::deallocateMultiplePins(pins, numPins, PinOwner::BusPwm);
         PinManager::deallocateLedc(_ledcStart, numPins);
@@ -565,6 +571,7 @@ BusPwm::BusPwm(const BusConfig &bc)
       }
       uint8_t group = channel / SOC_LEDC_CHANNEL_NUM;
       uint8_t ch    = channel % SOC_LEDC_CHANNEL_NUM;
+      esp_rom_gpio_connect_out_signal(_pins[i], ledc_periph_signal[group].sig_out0_idx + ch, _reversed, false); // apply hardware inversion if needed
       uint8_t timer = LEDC.channel_group[group].channel[ch].conf0.timer_sel;
       ledc_timer_rst((ledc_mode_t)group, (ledc_timer_t)timer);   // reset timer so all timers are (almost) in sync (for phase shift)
       // reset duty to avoid garbage output during setup
@@ -651,7 +658,6 @@ void BusPwm::show() {
 #ifdef ESP8266
    const unsigned analogPeriod = F_CPU / _frequency;
    const unsigned maxBri = analogPeriod;  // compute to clock cycle accuracy
-   constexpr bool dithering = false;
    constexpr unsigned bitShift = 8;  // 256 clocks for dead time, ~3us at 80MHz
 #else
   // if _needsRefresh is true (UI hack) we are using dithering (credit @dedehai & @zalatnaicsongor)
@@ -672,6 +678,32 @@ void BusPwm::show() {
     pwmBri = temp * temp * temp * maxBri;              // pwmBri is in range [0-maxBri]
   }
 
+  #ifdef ESP8266
+  unsigned hPoint = 0;  // phase shift (0 - maxBri)
+  for (unsigned i = 0; i < numPins; i++) {
+    unsigned duty = (_data[i] * pwmBri) / 255;
+    unsigned deadTime = 0;
+
+    if (_type == TYPE_ANALOG_2CH && Bus::_cctBlend <= 0 && !cctICused) {
+      deadTime = 1 << bitShift;
+      // only shorten the larger signal at (almost) full brightness, otherwise pulses may overlap
+      if ((_bri16 >> 8) >= 254 && duty >= maxBri / 2 && duty < maxBri) {
+        duty -= deadTime << 1;
+      }
+    }
+    if (_reversed) {
+      if (i) hPoint += duty;  // align start at time zero
+      duty = maxBri - duty;
+    }
+    //stopWaveform(_pins[i]);  // can cause the waveform to miss a cycle. instead we risk crossovers.
+    startWaveformClockCycles(_pins[i], duty, analogPeriod - duty, 0, i ? _pins[0] : -1, hPoint, false);
+
+    if (!_reversed) hPoint += duty;
+    hPoint += deadTime;                      // offset to cascade the signals
+    if (hPoint >= maxBri) hPoint -= maxBri;  // offset is out of bounds, reset
+  }
+  return;
+  #else
   // TODO: different PWM buses are not shifted towards each other, i.e. 2 PWM white channels run in sync (no load spreading)
   // we will be phase shifting every channel to distribute pulses as evenly as possible across the PWM cycle
   // CCT (2 wire) LED type absolutely require phase shifting, for other cases it helps spread the load on the PSU
@@ -688,7 +720,6 @@ void BusPwm::show() {
 
   for (unsigned i = 0; i < numPins; i++) {
     duty[i] = (_data[i] * pwmBri) / 255.0f;
-    if (_reversed) duty[i] = maxBri - duty[i]; // note: inverted signals use the same "positive pulse" spreading logic
     totalDuty += duty[i];
   }
   int undershoot = maxBri - totalDuty;   // >=0 means signals will fit within one period, <0 means they will overlap
@@ -728,10 +759,6 @@ void BusPwm::show() {
       if (phaseShift > maxBri) phaseShift = 0; // safeguard if "negative", should not happen
     }
 
-    #ifdef ESP8266
-    //stopWaveform(_pins[i]);  // can cause the waveform to miss a cycle. instead we risk crossovers.
-    startWaveformClockCycles(_pins[i], duty[i], analogPeriod - duty[i], 0, i ? _pins[0] : -1, phaseShift, false);
-    #else
     unsigned channel = _ledcStart + i;
     unsigned gr = channel / SOC_LEDC_CHANNEL_NUM;  // high/low speed group
     unsigned ch = channel % SOC_LEDC_CHANNEL_NUM;  // group channel
@@ -744,10 +771,10 @@ void BusPwm::show() {
     unsigned hpoint = duty[i] < maxBri ? phaseShift >> bitShift : 0; // do not shift if fully on (causes duty reduction in LEDC without duty wraparound support)
     LEDC.channel_group[gr].channel[ch].hpoint.hpoint = hpoint; // phaseShift is at _depth resolution, needs shifting if dithering
     ledc_update_duty((ledc_mode_t)gr, (ledc_channel_t)ch);
-    #endif // 8266
     runningDuty += duty[i];
     if (pulseGap > 0) runningDuty += pulseGap; // note: calulation of pulseGap ensures runningDuty+duty[i] <= maxBri
   }
+  #endif
 }
 
 size_t BusPwm::getPins(uint8_t* pinArray) const {
@@ -782,6 +809,7 @@ void BusPwm::deallocatePins() {
     #else
     if (_ledcStart < WLED_MAX_ANALOG_CHANNELS) ledcDetach(_pins[i]);
     #endif
+    esp_rom_gpio_connect_out_signal(_pins[i], SIG_GPIO_OUT_IDX, false, false); // clear signal inversion (just in case the IDF does not)
     #endif
   }
   #ifdef ARDUINO_ARCH_ESP32
