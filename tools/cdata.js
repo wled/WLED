@@ -26,7 +26,7 @@ const packageJson = require("../package.json");
 // Export functions for testing
 module.exports = { isFileNewerThan, isAnyFileInFolderNewerThan };
 
-const output = ["wled00/html_ui.h", "wled00/html_pixart.h", "wled00/html_cpal.h", "wled00/html_edit.h", "wled00/html_pxmagic.h", "wled00/html_pixelforge.h", "wled00/html_settings.h", "wled00/html_other.h", "wled00/js_iro.h", "wled00/js_omggif.h"]
+const output = ["wled00/html_ui.h", "wled00/html_pixart.h", "wled00/html_cpal.h", "wled00/html_edit.h", "wled00/html_pxmagic.h", "wled00/html_pixelforge.h", "wled00/html_settings.h", "wled00/html_other.h", "wled00/html_log.h", "wled00/js_iro.h", "wled00/js_omggif.h"]
 
 // \x1b[34m is blue, \x1b[36m is cyan, \x1b[0m is reset
 const wledBanner = `
@@ -477,4 +477,19 @@ const char PAGE_dmxmap[] PROGMEM = R"=====()=====";
     }
   ],
   "wled00/html_other.h"
+);
+
+// Log viewer page — compiled into its own header so it can be conditionally
+// included only on BOARD_HAS_PSRAM builds without bloating other targets.
+writeChunks(
+  "wled00/data",
+  [
+    {
+      file: "log.htm",
+      name: "PAGE_log",
+      method: "gzip",
+      filter: "html-minify",
+    }
+  ],
+  "wled00/html_log.h"
 );
