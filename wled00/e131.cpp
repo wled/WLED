@@ -244,10 +244,15 @@ void handleDMXData(uint16_t uni, uint16_t dmxChannels, uint8_t* e131_data, uint8
         }
 
         // only change brightness if value changed
-        if (bri != e131_data[dataOffset]) {                                        
+        if (bri != e131_data[dataOffset]) {
           bri = e131_data[dataOffset];
           strip.setBrightness(bri, false);
           stateUpdated(CALL_MODE_WS_SEND);
+          // AI: the following condition was drafted with AI assistance (reviewed and hardware-tested)
+          // optionally treat the DMX dimmer as a live control: follow it immediately instead of fading over the transition time
+          // (otherwise every packet restarts the brightness fade and brightness lags behind, e.g. during preset transitions)
+          // spatial power on/off transitions are left untouched
+          if (DMXInstantBri && (blendingStyle == TRANSITION_FADE || !(strip.isPoweringOn() || strip.isPoweringOff()))) applyFinalBri();
         }
         return;
         break;
