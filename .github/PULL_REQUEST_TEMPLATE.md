@@ -29,5 +29,5 @@
 ## Checklist
 <!-- Mark each item with an X to confirm -->
 - [ ] I have personally reviewed all changes (incl. source code) before opening this PR.
-- [ ] I'm ready to explain my proposed changes (without an AI agent answering for me).
+- [ ] I'm ready to explain my proposed source code changes in detail (without an AI agent answering for me).
 - [ ] I agree to follow this project's Code of Conduct
