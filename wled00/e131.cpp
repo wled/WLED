@@ -252,7 +252,11 @@ void handleDMXData(uint16_t uni, uint16_t dmxChannels, uint8_t* e131_data, uint8
           // optionally treat the DMX dimmer as a live control: follow it immediately instead of fading over the transition time
           // (otherwise every packet restarts the brightness fade and brightness lags behind, e.g. during preset transitions)
           // spatial power on/off transitions are left untouched
-          if (DMXInstantBri && (blendingStyle == TRANSITION_FADE || !(strip.isPoweringOn() || strip.isPoweringOff()))) applyFinalBri();
+          // note: not using applyFinalBri() as it calls strip.trigger(), which would force an extra frame for every DMX packet
+          if (DMXInstantBri && (blendingStyle == TRANSITION_FADE || !(strip.isPoweringOn() || strip.isPoweringOff()))) {
+            briOld16 = briT16 = (uint16_t)bri << 8;
+            applyBri();
+          }
         }
         return;
         break;
