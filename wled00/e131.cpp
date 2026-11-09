@@ -256,6 +256,7 @@ void handleDMXData(uint16_t uni, uint16_t dmxChannels, uint8_t* e131_data, uint8
           if (DMXInstantBri && (blendingStyle == TRANSITION_FADE || !(strip.isPoweringOn() || strip.isPoweringOff()))) {
             briOld16 = briT16 = (uint16_t)bri << 8;
             applyBri();
+            if (bri == 0) strip.trigger(); // make sure the blackout frame is sent before off mode stops rendering (only once, bri changed)
           }
         }
         return;
