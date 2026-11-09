@@ -81,8 +81,8 @@ void Bus::calculateCCT(uint32_t c, uint8_t &ww, uint8_t &cw) {
   }
 
   // CCT blending modes (_cctBlend):
-  // blend<0: ww: â–“â–“â–’â–‘__  | blend=0: ww: â–“â–’â–’â–‘â–‘ |  blend>0 ww: â–“â–“â–“â–’â–‘
-  //          cw: __â–‘â–’â–“â–“  |          cw: â–‘â–‘â–’â–’â–“ |          cw: â–‘â–’â–“â–“â–“
+  // blend<0: ww: ▓▓▒░__  | blend=0: ww: ▓▒▒░░ |  blend>0 ww: ▓▓▓▒░
+  //          cw: __░▒▓▓  |          cw: ░░▒▒▓ |          cw: ░▒▓▓▓
   int32_t ww_val, cw_val;
   if (_cctBlend < 0) {
     uint16_t range = 255 - 2 * (uint16_t)(-_cctBlend);
@@ -174,7 +174,7 @@ uint32_t Bus::autoWhiteCalc(uint32_t c, uint8_t &ww, uint8_t &cw) const {
       // floor-biased so wMax never over-estimates. Max product
       // (256*256-1)*32768 fits in 32 bits. A zero coefficient (_wB at/below
       // 1900 K) gives reciprocal 32768 and a cap >= 255, i.e. that channel
-      // does not constrain w â€” same as the previous explicit guard.
+      // does not constrain w — same as the previous explicit guard.
       unsigned wMaxR = (((r + 1U) << 8) - 1U) * _rwR >> WK_Q15_SHIFT;
       unsigned wMaxG = (((g + 1U) << 8) - 1U) * _rwG >> WK_Q15_SHIFT;
       unsigned wMaxB = (((b + 1U) << 8) - 1U) * _rwB >> WK_Q15_SHIFT;
@@ -197,7 +197,7 @@ uint32_t Bus::autoWhiteCalc(uint32_t c, uint8_t &ww, uint8_t &cw) const {
   return c;
 }
 
-// Default implementation for Bus::getChannelLayout() â€” returns a static default.
+// Default implementation for Bus::getChannelLayout() — returns a static default.
 // BusDigital and BusPlaceholder return their stored layout instead.
 const BusChannelLayout& Bus::getChannelLayout() const {
   static const BusChannelLayout _defaultLayout;
@@ -1524,6 +1524,7 @@ BusPlaceholder::BusPlaceholder(const BusConfig &bc)
 , _channels(bc.channels) // configured layout as passed (user-entered values when custom)
 {
   _busSpeedFactor = bc.busSpeedFactor; // preserve so config is restored faithfully on reboot
+  _whiteKelvin = bc.whiteKelvin;       // preserve verbatim (no eligibility check: a placeholder has no capabilities) so the setting survives a failed init
   memcpy(_pins, bc.pins, sizeof(_pins));
   PinOwner pinOwner = PinOwner::None;
   if (Bus::isDigital(bc.type) && bc.type != TYPE_ONOFF) pinOwner = PinOwner::BusDigital;
@@ -1604,13 +1605,16 @@ int BusManager::add(const BusConfig &bc, bool placeholder) {
   // If the newly constructed bus failed to acquire resources (OOM, DMA failure, pin conflict, etc.)
   // replace it with a BusPlaceholder so the configuration is preserved for the next reboot,
   // where memory may be available and the bus can initialize successfully.
+  bool isPlaceholder = placeholder;
   if (!placeholder && !busses.back()->isOk()) {
     DEBUG_PRINTF_P(PSTR("Bus %u (type %u) failed initialization; replacing with placeholder.\n"), (unsigned)busses.size(), (unsigned)bc.type);
     errorFlag = ERR_NORAM;
     busses.back() = make_unique<BusPlaceholder>(bc);
+    isPlaceholder = true;
   }
-  // apply the per-bus W colour temperature to whichever bus object survived (real bus or placeholder)
-  if (!busses.empty()) busses.back()->setWhiteKelvin(bc.whiteKelvin);
+  // apply the per-bus W colour temperature to a real bus (validated against its capabilities);
+  // a placeholder already carries the configured value verbatim so it round-trips through cfg.json
+  if (!isPlaceholder) busses.back()->setWhiteKelvin(bc.whiteKelvin);
   return busses.size();
 }
 
@@ -1799,7 +1803,7 @@ uint32_t BusManager::getPixelColor(unsigned pix) {
 }
 
 void BusManager::clearPixels(size_t n) {
-  // memset each bus encode buffer directly â€” vastly faster than N encode calls.
+  // memset each bus encode buffer directly — vastly faster than N encode calls.
   // All-zero bytes encode as black for all supported LED protocols (RGB, RGBW, GRB, I2S 4-step, etc).
   unsigned covered = 0;
   for (auto &bus : busses) {

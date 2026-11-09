@@ -64,7 +64,7 @@ struct BusChannelLayout {
   uint16_t t0l = 900;  // '0' bit low  time, ns
   uint16_t t1h = 700;  // '1' bit high time, ns
   uint16_t t1l = 500;  // '1' bit low  time, ns
-  uint16_t trst = 300; // reset/latch time, Âµs
+  uint16_t trst = 300; // reset/latch time, µs
 };
 
 // Transient bus configuration, filled by JSON/HTTP parsing and consumed by the

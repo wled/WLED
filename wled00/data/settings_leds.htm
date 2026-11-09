@@ -180,7 +180,7 @@
 				if (LC.value!="" && LC.value!="-1") {
 					let p = d.rsvd.concat(d.um_p); // used pin array
 					//d.Sf.querySelectorAll("select.pin").forEach((e)=>{if(e.value>-1)p.push(parseInt(e.value));}) // buttons, IR & relay
-					// only non-LED selects (buttons, IR, relay) Ã¢â‚¬â€ LED pins check against each other below
+					// only non-LED selects (buttons, IR, relay) — LED pins check against each other below
 					d.Sf.querySelectorAll("select.pin").forEach((e)=>{if(!/^L[0-4]/.test(e.name) && e.value>-1)p.push(parseInt(e.value));})
 					if (p.some((e)=>e==parseInt(LC.value))) {
 						alert(`Sorry, pins ${JSON.stringify(p)} can't be used.`);
@@ -226,7 +226,7 @@
 			forEachBus((n, t, s, i)=>{
 				if (isHub75(t)) {
 					let p = parseInt(d.Sf["L2"+n].value)||1, r = parseInt(d.Sf["L3"+n].value)||1, c = parseInt(d.Sf["L4"+n].value)||1, h = parseInt(d.Sf["L1"+n].value)||1;
-					if (r*c !== p) {alert(`HUB75 error: panelsÃ¢â€°Â rowsÃƒâ€”cols`); e.stopPropagation(); return false;}
+					if (r*c !== p) {alert(`HUB75 error: panels≠rows×cols`); e.stopPropagation(); return false;}
 					if (h >= 64 && p > 1 && !hasPSRAM) {alert(`HUB75 error: height >= 64, only single panel allowed`); e.stopPropagation(); return false;}
 					if(isS3()) {
 					  alert("HUB75 changes require a reboot"); // TODO: only throw this if panel config changed?
@@ -287,7 +287,7 @@
 		// name, so it is never submitted): the backend knows only WK<n>, where
 		// 0 means off. The Kelvin input lives in a wrapper div (dig<n>wkv) that
 		// UI() shows/hides based on the checkbox; the input itself is also
-		// disabled when off, so it isn't submitted with the form Ã¢â‚¬â€ backend then
+		// disabled when off, so it isn't submitted with the form — backend then
 		// sees no WK<n> arg and stores wk=0 (legacy fast path). Seed the field
 		// to 6500 K when enabling from 0/blank/sub-min so the UI default matches
 		// the sRGB white point.
@@ -484,7 +484,7 @@
 				// The "Correct auto-white for W channel color temperature" control is
 				// only meaningful for true single-white RGBW buses (hasW && hasRGB &&
 				// !hasCCT) AND when autoWhiteCalc uses the per-channel-cap path that
-				// consumes _wR/_wG/_wB Ã¢â‚¬â€ i.e. AW mode is Accurate (2).
+				// consumes _wR/_wG/_wB — i.e. AW mode is Accurate (2).
 				// Brighter (1) and Dual (3, which is Brighter when manual w==0) never
 				// subtract W from RGB, so they stay on plain min(r,g,b) and the
 				// control is not offered for them. Hide
@@ -517,7 +517,7 @@
 				}
 				// AI: end
 				gId("dig"+n+"l").style.display = (isD2P(t) || isPWM(t)) ? "inline":"none";  // bus clock speed / PWM speed (relative) (not On/Off)
-				gId("rev"+n).innerHTML = isAna(t) ? "Inverted output":"Reversed";           // change reverse text for analog else (rotated 180Ã‚Â°)
+				gId("rev"+n).innerHTML = isAna(t) ? "Inverted output":"Reversed";           // change reverse text for analog else (rotated 180°)
 				//gId("psd"+n).innerHTML = isAna(t) ? "Index:":"Start:";                      // change analog start description
 				gId("net"+n+"h").style.display = isNet(t) && !is8266() ? "block" : "none";  // show host field for network types except on ESP8266
 				if (!isNet(t) || is8266()) d.Sf["HS"+n].value = "";                         // cleart host field if not network type or ESP8266
@@ -771,9 +771,9 @@ LED Timing: <select name="SF${s}">
 </select>
 <br>16-bit: <input type="checkbox" name="CBb${s}" onchange="UI()">
 <div id="CBio${s}"><br>Invert Out: <input type="checkbox" name="CBio${s}"></div>
-<br>Timing (ns/Ã‚Âµs):
+<br>Timing (ns/µs):
 <table style="font-size:0.85em;margin:0 auto">
-<tr><th>T0H</th><th>T0L</th><th>T1H</th><th>T1L</th><th>Reset(Ã‚Âµs)</th></tr>
+<tr><th>T0H</th><th>T0L</th><th>T1H</th><th>T1L</th><th>Reset(µs)</th></tr>
 <tr>
 <td><input type="number" name="CBt0h${s}" min="50" max="9999" style="width:4.5em"></td>
 <td><input type="number" name="CBt0l${s}" min="50" max="9999" style="width:4.5em"></td>
@@ -1392,9 +1392,9 @@ Swap: <select id="xw${s}" name="XW${s}">
 			<br>
 			Calculate CCT from RGB: <input type="checkbox" name="CR"><br>
 			CCT IC used (Athom 15W): <input type="checkbox" name="IC"><br>
-			CCT blending (Ã‚Â±100%): <input type="number" class="s" min="-100" max="100" name="CB" onchange="UI()" required> %<br>
+			CCT blending (±100%): <input type="number" class="s" min="-100" max="100" name="CB" onchange="UI()" required> %<br>
 			<small>Positive: additive blend, Negative: exclusive blend<br></small>
-			<i class="warn"><b>Ã¢Å¡Â </b> Set to 0 when using 2-wire (reverse polarity) CCT strips</i><br><br>
+			<i class="warn"><b>⚠</b> Set to 0 when using 2-wire (reverse polarity) CCT strips</i><br><br>
 		</div>
 	</div>
 	<h2>Hardware setup</h2>
