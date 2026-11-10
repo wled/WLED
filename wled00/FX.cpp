@@ -11136,8 +11136,7 @@ void mode_liquid(void) {
   /*
    * Maximum possible weighted wave amplitude.
    */
-  uint16_t maxWeightedAmplitude =
-      (uint16_t)maxAmplitudeSum * 255U;
+  uint16_t maxWeightedAmplitude = (uint16_t)maxAmplitudeSum * 255U;
 
   // Calculate color for all pixels.
   for (unsigned px = 0; px < len; px++) {
@@ -11145,8 +11144,7 @@ void mode_liquid(void) {
     /*
      * Scale the pixel position to one 16-bit turn.
      */
-    uint16_t position =
-        ((uint32_t)px * 65535U) / len;
+    uint16_t position = ((uint32_t)px * 65535U) / len;
 
     /*
      * The RGB accumulators need uint32_t because a color channel
@@ -11168,8 +11166,7 @@ void mode_liquid(void) {
        * Spatial frequency increases with wave index.
        * Odd waves travel in the opposite direction.
        */
-      uint16_t spatialPhase =
-          ((uint32_t)position * wavelength * (k + 1U)) >> 8;
+      uint16_t spatialPhase = ((uint32_t)position * wavelength * (k + 1U)) >> 8;
 
       uint16_t phase;
 
@@ -11182,14 +11179,12 @@ void mode_liquid(void) {
       /*
        * Convert sin16_t() from -32768..32767 to brightness 0..255.
        */
-      uint8_t amplitude =
-          ((int32_t)sin16_t(phase) + 32768) >> 8;
+      uint8_t amplitude = ((int32_t)sin16_t(phase) + 32768) >> 8;
 
       /*
        * Apply this wave's relative amplitude.
        */
-      uint16_t contribution =
-          (uint16_t)amplitude * LIQ_AMPS[k];
+      uint16_t contribution = (uint16_t)amplitude * LIQ_AMPS[k];
 
       totalWaveBrightness += contribution;
 
