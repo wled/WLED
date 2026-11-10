@@ -19,6 +19,7 @@
 #include <vector>
 #include "wled.h"
 #include "colors.h"
+#include "power_animation.h"
 #ifdef WLED_DEBUG
   // enable additional debug output
   #if defined(WLED_DEBUG_HOST)
@@ -895,6 +896,7 @@ class WS2812FX {
 
     ~WS2812FX() {
       p_free(_pixels);
+      d_free(_powerLevels);
       p_free(_pixelCCT); // just in case
       d_free(customMappingTable);
       _mode.clear();
@@ -966,6 +968,10 @@ class WS2812FX {
     inline bool isPowerTrigger() const       { return _poweringOnOff & TRANSITION_POWER_TRIGGER; }   // returns true if transition was triggered by toggleOnOff()
     inline void setPowerFlag(uint8_t flag)   { _poweringOnOff |= flag; }        // set a global power transition flag
     inline void clearPowerFlag(uint8_t flag) { _poweringOnOff &= ~flag; }       // clear a global power transition flag
+    inline void requestPowerAnimation(bool on)      { _powerAnimation.request(on); }      // start the power animation towards on/off (safe from any task)
+    inline bool getPowerAnimationTarget() const     { return _powerAnimation.target(); }  // last requested power animation state
+    inline bool isPowerAnimationRunning() const     { return _powerAnimation.isRunning(); }
+    inline uint8_t getPowerAnimationLevel(unsigned i) const { return _powerAnimation.sentLevel(i); } // last level sent for pixel i (live view)
 
     // uint8_t paletteBlend;  // obsolete - use global paletteBlend instead of strip.paletteBlend
     uint8_t getActiveSegmentsNum() const;
@@ -1080,6 +1086,9 @@ class WS2812FX {
     uint16_t _cumulativeFps;
     uint8_t  _targetFps;
     uint8_t  _poweringOnOff; // global power transition in progress: TRANSITION_POWER_ON/OFF, 0 = none (suppresses new segment transitions, see Segment::startTransition())
+    PowerAnimation _powerAnimation;  // optional power on/off animation, rendered in show()
+    uint8_t *_powerLevels = nullptr; // its buffer (2 bytes per pixel), allocated only while the animation is enabled or running
+    bool preparePowerAnimation(unsigned long now);
 
     bool _isServicing;
     bool _isOffRefreshRequired; //periodic refresh is required for the strip to remain off.

@@ -223,19 +223,21 @@ static bool sendLiveLedsWs(uint32_t wsClient)
   }
 #endif
 
+  const bool lit = bri || strip.isPowerAnimationRunning(); // the OFF animation is still visible while bri is already 0
   for (size_t i = 0; pos < bufSize -2; i += n)
   {
 #ifndef WLED_DISABLE_2D
     if (strip.isMatrix && n>1 && (i/Segment::maxWidth)%n) i += Segment::maxWidth * (n-1);
 #endif
     uint32_t c = strip.getPixelColor(i); // note: LEDs mapped outside of valid range are set to black
+    c = color_fade(c, strip.getPowerAnimationLevel(i)); // show the power animation like the LEDs
     uint8_t r = R(c);
     uint8_t g = G(c);
     uint8_t b = B(c);
     uint8_t w = W(c);
-    buffer[pos++] = bri ? qadd8(w, r) : 0; //R, add white channel to RGB channels as a simple RGBW -> RGB map
-    buffer[pos++] = bri ? qadd8(w, g) : 0; //G
-    buffer[pos++] = bri ? qadd8(w, b) : 0; //B
+    buffer[pos++] = lit ? qadd8(w, r) : 0; //R, add white channel to RGB channels as a simple RGBW -> RGB map
+    buffer[pos++] = lit ? qadd8(w, g) : 0; //G
+    buffer[pos++] = lit ? qadd8(w, b) : 0; //B
   }
 
   wsc->binary(std::move(wsBuf));

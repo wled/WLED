@@ -1467,7 +1467,7 @@ bool serveLiveLeds(AsyncWebServerRequest* request, uint32_t wsClient)
 #ifndef WLED_DISABLE_2D
     if (strip.isMatrix && n>1 && (i/Segment::maxWidth)%n) i += Segment::maxWidth * (n-1);
 #endif
-    uint32_t c = strip.getPixelColor(i);
+    uint32_t c = color_fade(strip.getPixelColor(i), strip.getPowerAnimationLevel(i)); // show the power animation like the LEDs
     uint8_t r = R(c);
     uint8_t g = G(c);
     uint8_t b = B(c);

@@ -1964,6 +1964,7 @@ void WS2812FX::show() {
   // when cctFromRgb is true we implicitly calculate WW and CW from RGB values (cct==-1)
   if (cctFromRgb) BusManager::setSegmentCCT(-1);
   else if (!_pixelCCT) BusManager::setSegmentCCT(uniformCCT, correctWB); // uniform CCT: set once before loop
+  const bool powerAnimationFrame = preparePowerAnimation(showNow);
 
   for (size_t i = 0; i < totalLen; i++) {
     // when correctWB is true setSegmentCCT() will convert CCT into K with which we can then
@@ -1975,6 +1976,7 @@ void WS2812FX::show() {
     uint32_t c = _pixels[i]; // need a copy, do not modify _pixels directly (no byte access allowed on ESP32)
     if (c > 0 && useGammaCorrection)
       c = gamma32(c); // apply gamma correction if enabled note: applying gamma after brightness has too much color loss
+    if (powerAnimationFrame) c = color_fade(c, _powerAnimation.level(i)); // scales R, G, B and W alike
     BusManager::setPixelColor(getMappedPixelIndex(i), c);
   }
   Bus::setCCT(oldCCT);  // restore old CCT for ABL adjustments
@@ -1993,6 +1995,25 @@ void WS2812FX::show() {
     _cumulativeFps = (FPS_CALC_AVG * _cumulativeFps + fpsCurr + FPS_CALC_AVG / 2) / (FPS_CALC_AVG + 1);   // "+FPS_CALC_AVG/2" for proper rounding
     _lastShow = showNow;
   }
+}
+
+// keeps the power animation buffer in step with the "powerAnimation" setting and the strip length, then prepares
+// the animation for this frame; returns true if show() must scale each pixel by _powerAnimation.level()
+bool WS2812FX::preparePowerAnimation(unsigned long now) {
+  const unsigned len = getLengthTotal();
+  const bool wanted = (powerAnimation || _powerAnimation.isRunning()) && len > 0 && len <= UINT16_MAX;
+  if (_powerAnimation.isAttached() && (!wanted || _powerAnimation.count() != len)) {
+    _powerAnimation.detach();
+    d_free(_powerLevels);
+    _powerLevels = nullptr;
+  }
+  if (wanted && !_powerAnimation.isAttached()) {
+    _powerLevels = static_cast<uint8_t*>(d_malloc(2 * len));
+    if (!_powerLevels) return false; // not enough memory: plain power on/off
+    // nothing has been shown since boot (_lastShow == 0): LEDs are dark, so turning on at boot animates
+    _powerAnimation.attach(_powerLevels, len, isMatrix ? Segment::maxWidth : len, _brightness16 > 0 && _lastShow != 0, bri > 0);
+  }
+  return _powerAnimation.beginFrame(now);
 }
 
 void WS2812FX::setRealtimePixelColor(unsigned i, uint32_t c) {
