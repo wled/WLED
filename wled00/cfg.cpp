@@ -489,10 +489,13 @@ bool deserializeConfig(JsonObject doc, bool fromFS) {
   updateBaudRate(serialBaud *100);
 
   JsonArray hw_if_i2c = hw[F("if")][F("i2c-pin")];
+  const int8_t oldSda = i2c_sda, oldScl = i2c_scl;
   CJSON(i2c_sda, hw_if_i2c[0]);
   CJSON(i2c_scl, hw_if_i2c[1]);
   PinManagerPinType i2c[2] = { { i2c_sda, true }, { i2c_scl, true } };
-  if (i2c_scl >= 0 && i2c_sda >= 0 && PinManager::allocateMultiplePins(i2c, 2, PinOwner::HW_I2C)) {
+  if (!fromFS && i2c_sda == oldSda && i2c_scl == oldScl) {
+    // config POST with unchanged pins: keep the running bus, on ESP32 Wire.setPins() fails once Wire is started
+  } else if (i2c_scl >= 0 && i2c_sda >= 0 && PinManager::allocateMultiplePins(i2c, 2, PinOwner::HW_I2C)) {
     #ifdef ESP32
     if (!Wire.setPins(i2c_sda, i2c_scl)) { i2c_scl = i2c_sda = -1; } // this will fail if Wire is initialised (Wire.begin() called prior)
     else Wire.begin();
