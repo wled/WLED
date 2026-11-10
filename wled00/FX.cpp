@@ -11039,7 +11039,7 @@ static const char _data_FX_MODE_SLOW_TRANSITION[] PROGMEM = "Slow Transition@Tim
  *
  * Sliders (0..255; "Shimmer Width" uses the 0..31 slider on WLED 17):
  *   0  Speed           wave motion (0 = frozen in place)
- *   1  Waves           number of active waves (byte / 16; 0 = off)
+ *   1  Waves           number of active waves (byte / 16)
  *   2  Wavelength      spatial scale (0 = tiny waves; 255 = enormous but flat waves)
  *   3  Shimmer Height  wave height around which shimmer occurs
  *   4  Shimmer Width   band half-width around the shimmer height
