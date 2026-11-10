@@ -663,6 +663,7 @@ bool deserializeConfig(JsonObject doc, bool fromFS) {
 
   CJSON(arlsForceMaxBri, if_live[F("maxbri")]);
   CJSON(arlsDisableGammaCorrection, if_live[F("no-gc")]); // false
+  CJSON(realtimeWhiteBoth, if_live[F("wboth")]); // false
   CJSON(arlsOffset, if_live[F("offset")]); // 0
 
 #ifndef WLED_DISABLE_ALEXA
@@ -1222,6 +1223,7 @@ void serializeConfig(JsonObject root) {
   setConfigValue(if_live, F("timeout"), realtimeTimeoutMs / 100);
   setConfigValue(if_live, F("maxbri"), arlsForceMaxBri);
   setConfigValue(if_live, F("no-gc"), arlsDisableGammaCorrection);
+  setConfigValue(if_live, F("wboth"), realtimeWhiteBoth);
   setConfigValue(if_live, F("offset"), arlsOffset);
 
 #ifndef WLED_DISABLE_ALEXA

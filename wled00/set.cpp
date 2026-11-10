@@ -534,6 +534,7 @@ void handleSettingsSet(AsyncWebServerRequest *request, byte subPage)
     if (t > 99  && t <= 65000) realtimeTimeoutMs = t;
     arlsForceMaxBri = request->hasArg(F("FB"));
     arlsDisableGammaCorrection = request->hasArg(F("RG"));
+    realtimeWhiteBoth = request->hasArg(F("WB"));
     t = request->arg(F("WO")).toInt();
     if (t >= -255  && t <= 255) arlsOffset = t;
 
