@@ -530,7 +530,9 @@ bool deserializeConfig(JsonObject doc, bool fromFS) {
   CJSON(i2c_scl, hw_if_i2c[1]);
   PinManagerPinType i2c[2] = { { i2c_sda, true }, { i2c_scl, true } };
   const bool i2cUnchanged = !fromFS && i2c_sda == oldSda && i2c_scl == oldScl;
-  if (!fromFS && !i2cUnchanged && oldSda >= 0 && oldScl >= 0) {
+  const bool oldI2cPins = !fromFS && !i2cUnchanged && oldSda >= 0 && oldScl >= 0;
+  bool i2cMoved = false;
+  if (oldI2cPins) {
     // config POST with changed pins: release the old ones first, as the settings page does
     const uint8_t oldI2c[2] = { static_cast<uint8_t>(oldSda), static_cast<uint8_t>(oldScl) };
     PinManager::deallocateMultiplePins(oldI2c, 2, PinOwner::HW_I2C);
@@ -539,15 +541,21 @@ bool deserializeConfig(JsonObject doc, bool fromFS) {
     // config POST with unchanged pins: keep the running bus, on ESP32 Wire.setPins() fails once Wire is started
   } else if (i2c_scl >= 0 && i2c_sda >= 0 && PinManager::allocateMultiplePins(i2c, 2, PinOwner::HW_I2C)) {
     #ifdef ESP32
-    if (Wire.setPins(i2c_sda, i2c_scl)) Wire.begin(); // this will fail if Wire is initialised (Wire.begin() called prior)
+    if (Wire.setPins(i2c_sda, i2c_scl)) { Wire.begin(); i2cMoved = true; } // this will fail if Wire is initialised (Wire.begin() called prior)
     else if (fromFS) { i2c_scl = i2c_sda = -1; }
     // else config POST on a started bus: keep the new pins, they are used after a reboot (no bus re-initialisation, as on the settings page)
     #else
     Wire.begin(i2c_sda, i2c_scl);
+    i2cMoved = true;
     #endif
   } else {
     i2c_sda = -1;
     i2c_scl = -1;
+  }
+  if (oldI2cPins && !i2cMoved) {
+    // Wire still runs on the old pins until a reboot (there is no Wire.end()), keep them reserved so nothing else takes them
+    PinManagerPinType oldI2c[2] = { { oldSda, true }, { oldScl, true } };
+    PinManager::allocateMultiplePins(oldI2c, 2, PinOwner::HW_I2C);
   }
   JsonArray hw_if_spi = hw[F("if")][F("spi-pin")];
   CJSON(spi_mosi, hw_if_spi[0]);
