@@ -194,9 +194,9 @@ bool deserializeConfig(JsonObject doc, bool fromFS) {
   JsonObject matrix = hw_led[F("matrix")];
   if (!matrix.isNull()) {
     strip.isMatrix = true;
-    unsigned numPanels = matrix[F("mpc")] | 1;
-    numPanels = constrain(numPanels, 1, WLED_MAX_PANELS);
     JsonArray panels = matrix[F("panels")];
+    unsigned numPanels = matrix[F("mpc")] | panels.size(); // no count given: take all listed panels
+    numPanels = constrain(numPanels, 1, WLED_MAX_PANELS);
     unsigned s = 0;
     if (!panels.isNull()) {
       strip.panel.clear(); // absent = keep current panels
