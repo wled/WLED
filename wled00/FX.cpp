@@ -11076,12 +11076,7 @@ void mode_liquid(void) {
 
   unsigned len = SEGLEN;
 
-  uint8_t waves = SEGMENT.intensity / 16; // "Waves": 0..15
-
-  if (waves == 0) {
-    SEGMENT.fill(0);
-    return;
-  }
+  uint8_t waves = SEGMENT.intensity / 16 + 1; // "Waves": 1-16
 
   // Original spatial scale:
   // 5.0 - custom1 / 51.0 = (255 - custom1) / 51
@@ -11104,31 +11099,56 @@ void mode_liquid(void) {
   uint8_t timeRemainder = strip.now % 255U;
 
   uint32_t scaledTime =
-      (timeQuotient * speedScale
-      + (uint16_t)timeRemainder * speedScale / 255U)
-      % 1000000U;
+      (timeQuotient * speedScale + (uint16_t)timeRemainder * speedScale / 255U) % 1000000U;
 
   /*
-   * Temporal phase depends only on time and wave index, so calculate it
-   * once per frame instead of once for every pixel.
+   * Precompute all values that depend on the wave index but not on
+   * the pixel position.
    */
-  uint16_t temporalPhase[16];
+  uint16_t phaseOffset[16];
 
-  for (uint8_t k = 0; k < waves; k++) {
-    uint32_t frequencyPosition =
-        (scaledTime * LIQ_FREQ[k]) % 1000000U;
-
-    temporalPhase[k] =
-        (frequencyPosition * 4096U) / 62500U;
-  }
+  uint8_t waveR[16];
+  uint8_t waveG[16];
+  uint8_t waveB[16];
 
   // Sum of the relative amplitudes of all active waves.
   uint8_t maxAmplitudeSum = 0;
 
+  // Pre-compute wave characteristics to avoid the same calculations for each pixel
   for (uint8_t k = 0; k < waves; k++) {
+    uint32_t frequencyPosition = (scaledTime * LIQ_FREQ[k]) % 1000000U;
+    uint16_t temporalPhase = (frequencyPosition * 4096U) / 62500U;
+
+    /*
+     * Combine the temporal phase, travel direction and fixed phase
+     * offset into one value per wave.
+     */
+    phaseOffset[k] = (k & 1) ? LIQ_PHI[k] - temporalPhase : LIQ_PHI[k] + temporalPhase;
+
+    /*
+     * Distribute the waves evenly over the complete palette:
+     *
+     * 1 wave  ->   0
+     * 2 waves ->   0, 255
+     * 3 waves ->   0, 128, 255
+     * 4 waves ->   0, 85, 170, 255
+     *
+     * The result depends only on the wave index and number of waves,
+     * so calculate the palette color once per frame.
+     */
+    uint8_t paletteIndex = 0;
+    if (waves > 1) {
+      paletteIndex = ((uint16_t)k * 255U + (waves - 1U) / 2U) / (waves - 1U);
+    }
+
+    uint32_t waveColor = SEGMENT.color_from_palette(paletteIndex, false, true, 255);
+
+    waveR[k] = (waveColor >> 16) & 0xFF;
+    waveG[k] = (waveColor >> 8)  & 0xFF;
+    waveB[k] =  waveColor        & 0xFF;
+
     maxAmplitudeSum += LIQ_AMPS[k];
   }
-
   if (maxAmplitudeSum == 0) {
     maxAmplitudeSum = 1;
   }
@@ -11138,13 +11158,27 @@ void mode_liquid(void) {
    */
   uint16_t maxWeightedAmplitude = (uint16_t)maxAmplitudeSum * 255U;
 
+  /*
+   * Precompute the rounding offset used during normalization.
+   */
+  uint16_t maxWeightedAmplitudeRounding = maxWeightedAmplitude / 2U;
+
   // Calculate color for all pixels.
   for (unsigned px = 0; px < len; px++) {
-
     /*
      * Scale the pixel position to one 16-bit turn.
      */
     uint16_t position = ((uint32_t)px * 65535U) / len;
+
+    /*
+     * Calculate the spatial phase increment once per pixel.
+     *
+     * Each wave adds this increment, producing:
+     *
+     * position * wavelength * (k + 1)
+     */
+    uint32_t spatialIncrement = (uint32_t)position * wavelength;
+    uint32_t spatialAccumulator = 0;
 
     /*
      * The RGB accumulators need uint32_t because a color channel
@@ -11161,20 +11195,14 @@ void mode_liquid(void) {
     uint16_t totalWaveBrightness = 0;
 
     for (uint8_t k = 0; k < waves; k++) {
-
       /*
-       * Spatial frequency increases with wave index.
-       * Odd waves travel in the opposite direction.
+       * Spatial frequency increases with wave index. Using an
+       * accumulator avoids multiplying by (k + 1) inside the loop.
        */
-      uint16_t spatialPhase = ((uint32_t)position * wavelength * (k + 1U)) >> 8;
+      spatialAccumulator += spatialIncrement;
+      uint16_t spatialPhase = spatialAccumulator >> 8;
 
-      uint16_t phase;
-
-      if (k & 1) {
-        phase = spatialPhase - temporalPhase[k] + LIQ_PHI[k];
-      } else {
-        phase = spatialPhase + temporalPhase[k] + LIQ_PHI[k];
-      }
+      uint16_t phase = spatialPhase + phaseOffset[k];
 
       /*
        * Convert sin16_t() from -32768..32767 to brightness 0..255.
@@ -11189,33 +11217,12 @@ void mode_liquid(void) {
       totalWaveBrightness += contribution;
 
       /*
-       * Distribute the waves evenly over the complete palette:
-       *
-       * 1 wave  ->   0
-       * 2 waves ->   0, 255
-       * 3 waves ->   0, 128, 255
-       * 4 waves ->   0, 85, 170, 255
+       * Add this wave's precomputed color contribution directly
+       * to the pixel.
        */
-      uint8_t paletteIndex = 0;
-
-      if (waves > 1) {
-        paletteIndex =
-            ((uint16_t)k * 255U + (waves - 1U) / 2U)
-            / (waves - 1U);
-      }
-
-      uint32_t waveColor = SEGMENT.color_from_palette(paletteIndex, false, true, 255);
-
-      uint8_t waveR = (waveColor >> 16) & 0xFF;
-      uint8_t waveG = (waveColor >>  8) & 0xFF;
-      uint8_t waveB =  waveColor        & 0xFF;
-
-      /*
-       * Add this wave's colored contribution directly to the pixel.
-       */
-      red   += (uint32_t)waveR * contribution;
-      green += (uint32_t)waveG * contribution;
-      blue  += (uint32_t)waveB * contribution;
+      red   += (uint32_t)waveR[k] * contribution;
+      green += (uint32_t)waveG[k] * contribution;
+      blue  += (uint32_t)waveB[k] * contribution;
     }
 
     /*
@@ -11224,40 +11231,26 @@ void mode_liquid(void) {
      * Division happens only once per channel, rather than once
      * for every individual wave.
      */
-    uint8_t r =
-        (red + maxWeightedAmplitude / 2U)
-        / maxWeightedAmplitude;
-
-    uint8_t g =
-        (green + maxWeightedAmplitude / 2U)
-        / maxWeightedAmplitude;
-
-    uint8_t b =
-        (blue + maxWeightedAmplitude / 2U)
-        / maxWeightedAmplitude;
+    uint8_t r = (red + maxWeightedAmplitudeRounding) / maxWeightedAmplitude;
+    uint8_t g = (green + maxWeightedAmplitudeRounding) / maxWeightedAmplitude;
+    uint8_t b = (blue + maxWeightedAmplitudeRounding) / maxWeightedAmplitude;
 
     /*
      * Normalize the underlying wave brightness independently of color.
      * Therefore changing the palette does not change where shimmer occurs.
      */
     uint8_t pixelBrightness =
-        ((uint32_t)totalWaveBrightness * 255U
-        + maxWeightedAmplitude / 2U)
-        / maxWeightedAmplitude;
+        ((uint32_t)totalWaveBrightness * 255U + maxWeightedAmplitudeRounding) / maxWeightedAmplitude;
 
     // Calculate shimmer strength, with a maximum 70% blend (178U).
     uint8_t shimmerMix = 0;
 
     if (shimmerWidth > 0) {
       uint8_t brightnessDistance =
-          (pixelBrightness >= shimmerCenter)
-            ? pixelBrightness - shimmerCenter
-            : shimmerCenter - pixelBrightness;
+          (pixelBrightness >= shimmerCenter) ? pixelBrightness - shimmerCenter : shimmerCenter - pixelBrightness;
 
       if (brightnessDistance < shimmerWidth) {
-        shimmerMix =
-            ((uint16_t)(shimmerWidth - brightnessDistance) * 178U)
-            / shimmerWidth;
+        shimmerMix = ((uint16_t)(shimmerWidth - brightnessDistance) * 178U) / shimmerWidth;
       }
     }
 
@@ -11265,14 +11258,9 @@ void mode_liquid(void) {
      * Blend toward the tertiary color where shimmer is active.
      */
     if (shimmerMix > 0) {
-      r = ((uint16_t)r * (255U - shimmerMix)
-          + (uint16_t)shimmerR * shimmerMix) / 255U;
-
-      g = ((uint16_t)g * (255U - shimmerMix)
-          + (uint16_t)shimmerG * shimmerMix) / 255U;
-
-      b = ((uint16_t)b * (255U - shimmerMix)
-          + (uint16_t)shimmerB * shimmerMix) / 255U;
+      r = ((uint16_t)r * (255U - shimmerMix) + (uint16_t)shimmerR * shimmerMix) / 255U;
+      g = ((uint16_t)g * (255U - shimmerMix) + (uint16_t)shimmerG * shimmerMix) / 255U;
+      b = ((uint16_t)b * (255U - shimmerMix) + (uint16_t)shimmerB * shimmerMix) / 255U;
     }
 
     SEGMENT.setPixelColor(px, RGBW32(r, g, b, 0));
