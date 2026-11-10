@@ -193,7 +193,6 @@ bool deserializeConfig(JsonObject doc, bool fromFS) {
   // 2D Matrix Settings
   JsonObject matrix = hw_led[F("matrix")];
   if (!matrix.isNull()) {
-    strip.isMatrix = true;
     JsonArray panels = matrix[F("panels")];
     unsigned numPanels = matrix[F("mpc")] | panels.size(); // no count given: take all listed panels
     numPanels = constrain(numPanels, 1, WLED_MAX_PANELS);
@@ -216,6 +215,7 @@ bool deserializeConfig(JsonObject doc, bool fromFS) {
       }
     }
     strip.panel.shrink_to_fit();  // release unused memory (just in case)
+    if (!strip.panel.empty()) strip.isMatrix = true; // no panels: 2D stays as it is, setUpMatrix() turns a matrix without panels off again
     // cannot call strip.deserializeLedmap()/strip.setUpMatrix() here due to already locked JSON buffer
     //if (!fromFS) doInit2D = true; // if called at boot (fromFS==true), WLED::beginStrip() will take care of setting up matrix
   }
