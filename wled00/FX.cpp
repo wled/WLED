@@ -11089,6 +11089,7 @@ void mode_liquid(void) {
   uint8_t shimmerWidth = ((uint16_t)SEGMENT.custom3 * 77U) / 31U;
 
   // Tertiary color is used for shimmer.
+  uint8_t shimmerW = (SEGCOLOR(2) >> 24) & 0xFF;
   uint8_t shimmerR = (SEGCOLOR(2) >> 16) & 0xFF;
   uint8_t shimmerG = (SEGCOLOR(2) >> 8)  & 0xFF;
   uint8_t shimmerB =  SEGCOLOR(2)        & 0xFF;
@@ -11107,6 +11108,7 @@ void mode_liquid(void) {
    */
   uint16_t phaseOffset[16];
 
+  uint8_t waveW[16];
   uint8_t waveR[16];
   uint8_t waveG[16];
   uint8_t waveB[16];
@@ -11143,6 +11145,7 @@ void mode_liquid(void) {
 
     uint32_t waveColor = SEGMENT.color_from_palette(paletteIndex, false, true, 255);
 
+    waveW[k] = (waveColor >> 24) & 0xFF;
     waveR[k] = (waveColor >> 16) & 0xFF;
     waveG[k] = (waveColor >> 8)  & 0xFF;
     waveB[k] =  waveColor        & 0xFF;
@@ -11181,9 +11184,10 @@ void mode_liquid(void) {
     uint32_t spatialAccumulator = 0;
 
     /*
-     * The RGB accumulators need uint32_t because a color channel
+     * The RGBW accumulators need uint32_t because a color channel
      * (0..255) is multiplied by the weighted wave contribution.
      */
+    uint32_t white = 0;
     uint32_t red   = 0;
     uint32_t green = 0;
     uint32_t blue  = 0;
@@ -11220,20 +11224,22 @@ void mode_liquid(void) {
        * Add this wave's precomputed color contribution directly
        * to the pixel.
        */
+      white += (uint32_t)waveW[k] * contribution;
       red   += (uint32_t)waveR[k] * contribution;
       green += (uint32_t)waveG[k] * contribution;
       blue  += (uint32_t)waveB[k] * contribution;
     }
 
     /*
-     * Normalize the accumulated colored waves to 8-bit RGB.
+     * Normalize the accumulated colored waves to 8-bit RGBW.
      *
      * Division happens only once per channel, rather than once
      * for every individual wave.
      */
-    uint8_t r = (red + maxWeightedAmplitudeRounding) / maxWeightedAmplitude;
+    uint8_t w = (white + maxWeightedAmplitudeRounding) / maxWeightedAmplitude;
+    uint8_t r = (red   + maxWeightedAmplitudeRounding) / maxWeightedAmplitude;
     uint8_t g = (green + maxWeightedAmplitudeRounding) / maxWeightedAmplitude;
-    uint8_t b = (blue + maxWeightedAmplitudeRounding) / maxWeightedAmplitude;
+    uint8_t b = (blue  + maxWeightedAmplitudeRounding) / maxWeightedAmplitude;
 
     /*
      * Normalize the underlying wave brightness independently of color.
@@ -11258,12 +11264,13 @@ void mode_liquid(void) {
      * Blend toward the tertiary color where shimmer is active.
      */
     if (shimmerMix > 0) {
+      w = ((uint16_t)w * (255U - shimmerMix) + (uint16_t)shimmerW * shimmerMix) / 255U;
       r = ((uint16_t)r * (255U - shimmerMix) + (uint16_t)shimmerR * shimmerMix) / 255U;
       g = ((uint16_t)g * (255U - shimmerMix) + (uint16_t)shimmerG * shimmerMix) / 255U;
       b = ((uint16_t)b * (255U - shimmerMix) + (uint16_t)shimmerB * shimmerMix) / 255U;
     }
 
-    SEGMENT.setPixelColor(px, RGBW32(r, g, b, 0));
+    SEGMENT.setPixelColor(px, RGBW32(r, g, b, w));
   }
 }
 static const char _data_FX_MODE_LIQUID[] PROGMEM =
