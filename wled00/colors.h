@@ -26,6 +26,16 @@
 #define B(c) (byte(c))
 #define W(c) (byte((c) >> 24))
 
+struct CctPixel {
+  union {
+    uint16_t wwcw; // Packed as 0xCWWW: cool white in the high byte, warm white in the low byte
+    struct {
+      uint8_t ww;
+      uint8_t cw;
+    };
+  };
+};
+
 struct CRGBW; // forward declations
 struct CHSV32;
 

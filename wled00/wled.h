@@ -115,6 +115,9 @@
     #include <LittleFS.h>
   #endif
   #include "esp_task_wdt.h"
+  #if ESP_IDF_VERSION >= ESP_IDF_VERSION_VAL(5, 5, 0)
+  #include <wled_ADCmanager.h>
+  #endif
 #endif
 #include <Wire.h>
 #include <SPI.h>
@@ -615,8 +618,8 @@ WLED_GLOBAL byte colNlT[] _INIT_N(({ 0, 0, 0, 0 }));        // current nightligh
 WLED_GLOBAL bool offMode             _INIT(!turnOnAtBoot);
 WLED_GLOBAL byte briS                _INIT(128);           // default brightness
 WLED_GLOBAL byte bri                 _INIT(briS);          // global brightness (set)
-WLED_GLOBAL byte briOld              _INIT(0);             // global brightness while in transition loop (previous iteration)
-WLED_GLOBAL byte briT                _INIT(0);             // global brightness during transition
+WLED_GLOBAL uint16_t briOld16        _INIT(0);             // Q8.8 global brightness while in transition loop (previous iteration)
+WLED_GLOBAL uint16_t briT16          _INIT(0);             // Q8.8 global brightness during transition
 WLED_GLOBAL byte briLast             _INIT(128);           // brightness before turned off. Used for toggle function
 // whiteLast is private to ir.cpp - see there.
 

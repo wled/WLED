@@ -1,5 +1,5 @@
 {
-  "name": "audioreactive",
+  "name": "audioreactive_v1",
   "build": {
     "libArchive": false,
     "extraScript": "override_sqrt.py"
