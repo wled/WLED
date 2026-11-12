@@ -388,7 +388,7 @@ void IRAM_ATTR __attribute__((noinline)) ParlioBusContext::fillBuffer(uint8_t bu
 
   _endOfFrame[bufIdx] = false;
 
-  if (_resetBytesLeft > 0 && _resetBytesLeft != WLEDPB_PARLIO_XFER_DONE_FLAG) {
+  if (_resetBytesLeft > WLEDPB_PARLIO_XFER_DONE_FLAG) {
     // reset pulse continuation: this buffer is pure reset level. Long reset periods span several buffers; only the last one is flagged as end of frame. Never let _txLen
     if (_resetBytesLeft <= _bufferSize) {
       _txLen[bufIdx] = _resetBytesLeft;
