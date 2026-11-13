@@ -1,1 +1,0 @@
-The wireguard usermod is currently not compiling with WLED v17, due to a library incompatibility - see https://github.com/wled/WLED/issues/5937

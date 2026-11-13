@@ -109,8 +109,7 @@ int16_t loadPlaylist(JsonObject playlistObj, byte presetId) {
       it++;
     }
   }
-  if (it > 0) // should never happen but just in case
-    for (int i = it; i < playlistLen; i++) playlistEntries[i].tr = playlistEntries[it -1].tr;
+  for (int i = it; i < playlistLen; i++) playlistEntries[i].tr = playlistEntries[it -1].tr;
 
   int rep = playlistObj[F("repeat")];
   bool shuffle = false;

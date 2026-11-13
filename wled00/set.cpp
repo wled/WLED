@@ -1,5 +1,4 @@
 #include "wled.h"
-#include "bus_wrapper.h" // resolveBusConfigLayout()
 
 /*
  * Receives client input
@@ -22,9 +21,9 @@ void handleSettingsSet(AsyncWebServerRequest *request, byte subPage)
   //0: menu 1: wifi 2: leds 3: ui 4: sync 5: time 6: sec 7: DMX 8: usermods 9: N/A 10: 2D
   if (subPage < 1 || subPage > 10 || !correctPIN) return;
 
-  switch (subPage) {
   //WIFI SETTINGS
-  case SUBPAGE_WIFI: {
+  if (subPage == SUBPAGE_WIFI)
+  {
     unsigned cnt = 0;
     for (size_t n = 0; n < WLED_MAX_WIFI_COUNT; n++) {
       char cs[4] = "CS"; cs[2] = 48+n; cs[3] = 0; //client SSID
@@ -171,10 +170,11 @@ void handleSettingsSet(AsyncWebServerRequest *request, byte subPage)
     ethernetType = request->arg(F("ETH")).toInt();
     initEthernet();
     #endif
-  } break;
+  }
 
   //LED SETTINGS
-  case SUBPAGE_LEDS: {
+  if (subPage == SUBPAGE_LEDS)
+  {
     int t = 0;
 
     if (rlyPin>=0 && PinManager::isPinAllocated(rlyPin, PinOwner::Relay)) {
@@ -228,7 +228,6 @@ void handleSettingsSet(AsyncWebServerRequest *request, byte subPage)
       char aw[4] = "AW"; aw[2] = offset+s; aw[3] = 0; //auto white mode
       char wo[4] = "WO"; wo[2] = offset+s; wo[3] = 0; //channel swap
       char sp[4] = "SP"; sp[2] = offset+s; sp[3] = 0; //bus clock speed (DotStar & PWM)
-      char sf[4] = "SF"; sf[2] = offset+s; sf[3] = 0; //bus speed factor (Fast/Default/Slow)
       char la[4] = "LA"; la[2] = offset+s; la[3] = 0; //LED mA
       char ma[4] = "MA"; ma[2] = offset+s; ma[3] = 0; //max mA
       char ld[4] = "LD"; ld[2] = offset+s; ld[3] = 0; //driver type (RMT=0, I2S=1)
@@ -282,54 +281,12 @@ void handleSettingsSet(AsyncWebServerRequest *request, byte subPage)
         maPerLed = request->arg(la).toInt();
         maMax = request->arg(ma).toInt() * request->hasArg(F("PPL")); // if PP-ABL is disabled maMax (per bus) must be 0
       }
+      type |= request->hasArg(rf) << 7; // off refresh override
       driverType = request->arg(ld).toInt(); // 0=RMT (default), 1=I2S
       text = request->arg(hs).substring(0,31);
       // actual finalization is done in WLED::loop() (removing old busses and adding new)
       // this may happen even before this loop is finished so we do "doInitBusses" after the loop
-      uint8_t bsf = request->hasArg(sf) ? (uint8_t)request->arg(sf).toInt() : 100;
-      busConfigs.emplace_back(type, pins, start, length);
-      BusConfig& bc = busConfigs.back();
-      bc.colorOrder = colorOrder | (channelSwap<<4);
-      bc.reversed = request->hasArg(cv);
-      bc.skipAmount = skip;
-      bc.refreshReq = request->hasArg(rf); // off refresh override
-      bc.autoWhite = awmode;
-      bc.frequency = freq;
-      bc.milliAmpsPerLed = maPerLed;
-      bc.milliAmpsMax = maMax;
-      bc.driverType = driverType;
-      bc.text = text;
-      bc.busSpeedFactor = bsf;
-      // Customized channel map/timing override: parsed for any digital LED type when the "customize" checkbox (CBen) is submitted.
-      char cben[7] = "CBen"; cben[4] = offset+s; cben[5] = 0;
-      bc.channels.custom = request->hasArg(cben);
-      if (bc.channels.custom) {
-        char cbch[7]  = "CBch";  cbch[4]  = offset+s; cbch[5]  = 0;
-        char cbio[7]  = "CBio";  cbio[4]  = offset+s; cbio[5]  = 0;
-        char cbb[6]   = "CBb";   cbb[3]   = offset+s; cbb[4]   = 0;
-        char cbt0h[7] = "CBt0h"; cbt0h[5] = offset+s; cbt0h[6] = 0;
-        char cbt0l[7] = "CBt0l"; cbt0l[5] = offset+s; cbt0l[6] = 0;
-        char cbt1h[7] = "CBt1h"; cbt1h[5] = offset+s; cbt1h[6] = 0;
-        char cbt1l[7] = "CBt1l"; cbt1l[5] = offset+s; cbt1l[6] = 0;
-        char cbrst[7] = "CBrst"; cbrst[5] = offset+s; cbrst[6] = 0;
-        bc.channels.numChannels  = (uint8_t)constrain(request->arg(cbch).toInt(), 0, WLEDpixelBus::MAX_CUSTOM_CHANNELS);
-        bc.channels.invertOutput = request->hasArg(cbio);
-        bc.channels.is16bit      = request->hasArg(cbb);
-        bc.channels.t0h  = request->arg(cbt0h).toInt();
-        bc.channels.t0l  = request->arg(cbt0l).toInt();
-        bc.channels.t1h  = request->arg(cbt1h).toInt();
-        bc.channels.t1l  = request->arg(cbt1l).toInt();
-        bc.channels.trst = request->arg(cbrst).toInt();
-        bc.channels.invertMask   = 0;
-        for (uint8_t ci = 0; ci < 6; ci++) {
-          char cbc[7] = "CBc"; cbc[3] = '0'+ci; cbc[4] = offset+s; cbc[5] = 0;
-          char cbi[7] = "CBi"; cbi[3] = '0'+ci; cbi[4] = offset+s; cbi[5] = 0;
-          bc.channels.channelMap[ci] = (uint8_t)constrain(request->arg(cbc).toInt(), 0, 6);
-          if (request->hasArg(cbi)) bc.channels.invertMask |= (1u << ci);
-        }
-      }
-      if (bc.channels.numChannels == 0) bc.channels.custom = false; // no channels entered: fall back to type defaults
-      resolveBusConfigLayout(bc); // fill the wire layout from type + color order unless custom
+      busConfigs.emplace_back(type, pins, start, length, colorOrder | (channelSwap<<4), request->hasArg(cv), skip, awmode, freq, maPerLed, maMax, driverType, text);
       busesChanged = true;
     }
     //doInitBusses = busesChanged; // we will do that below to ensure all input data is processed
@@ -467,20 +424,22 @@ void handleSettingsSet(AsyncWebServerRequest *request, byte subPage)
     if (t > 0) briMultiplier = t;
 
     doInitBusses = busesChanged;
-  } break;
+  }
 
   //UI
-  case SUBPAGE_UI: {
+  if (subPage == SUBPAGE_UI)
+  {
     strlcpy(serverDescription, request->arg(F("DS")).c_str(), 33);
     simplifiedUI = request->hasArg(F("SU"));
     DEBUG_PRINTLN(F("Enumerating ledmaps"));
     enumerateLedmaps();
     DEBUG_PRINTLN(F("Loading custom palettes"));
     loadCustomPalettes(); // (re)load all custom palettes
-  } break;
+  }
 
   //SYNC
-  case SUBPAGE_SYNC: {
+  if (subPage == SUBPAGE_SYNC)
+  {
     int t = request->arg(F("UP")).toInt();
     if (t > 0) udpPort = t;
     t = request->arg(F("U2")).toInt();
@@ -589,10 +548,11 @@ void handleSettingsSet(AsyncWebServerRequest *request, byte subPage)
     t = request->arg(F("BD")).toInt();
     if (t >= 96 && t <= 15000) serialBaud = t;
     updateBaudRate(serialBaud *100);
-  } break;
+  }
 
   //TIME
-  case SUBPAGE_TIME: {
+  if (subPage == SUBPAGE_TIME)
+  {
     ntpEnabled = request->hasArg(F("NT"));
     strlcpy(ntpServerName, request->arg(F("NS")).c_str(), 33);
     useAMPM = !request->hasArg(F("CF"));
@@ -682,10 +642,11 @@ void handleSettingsSet(AsyncWebServerRequest *request, byte subPage)
     }
     compactTimers();
 
-  } break;
+  }
 
   //SECURITY
-  case SUBPAGE_SEC: {
+  if (subPage == SUBPAGE_SEC)
+  {
     if (request->hasArg(F("RS"))) //complete factory reset
     {
       WLED_FS.format();
@@ -729,10 +690,11 @@ void handleSettingsSet(AsyncWebServerRequest *request, byte subPage)
       #endif
       otaSameSubnet = request->hasArg(F("SU"));
     }
-  } break;
+  }
 
   #ifdef WLED_ENABLE_DMX // include only if DMX is enabled
-  case SUBPAGE_DMX: {
+  if (subPage == SUBPAGE_DMX)
+  {
     int t = request->arg(F("PU")).toInt();
     if (t >= 0  && t <= 63999) e131ProxyUniverse = t;
 
@@ -757,11 +719,12 @@ void handleSettingsSet(AsyncWebServerRequest *request, byte subPage)
       t = request->arg(argname).toInt();
       DMXFixtureMap[i] = t;
     }
-  } break;
+  }
   #endif
 
   //USERMODS
-  case SUBPAGE_UM: {
+  if (subPage == SUBPAGE_UM)
+  {
     if (!requestJSONBufferLock(JSON_LOCK_SETTINGS)) {
       request->deferResponse();
       return;
@@ -860,13 +823,16 @@ void handleSettingsSet(AsyncWebServerRequest *request, byte subPage)
       if (name.endsWith("[]")) {
         name.replace("[]","");
         value.replace(",",".");      // just in case conversion
-        JsonArray ar = subObj[name].as<JsonArray>();
-        bool newArray = ar.isNull();
-        if (newArray) ar = subObj.createNestedArray(name);
-        if (value.indexOf(".") >= 0) ar.add(value.toFloat());  // we do have a float
-        else                         ar.add(value.toInt());    // we may have an int
-        if (newArray) j=0;
-        else          j++;
+        if (!subObj[name].is<JsonArray>()) {
+          JsonArray ar = subObj.createNestedArray(name);
+          if (value.indexOf(".") >= 0) ar.add(value.toFloat());  // we do have a float
+          else                         ar.add(value.toInt());    // we may have an int
+          j=0;
+        } else {
+          if (value.indexOf(".") >= 0) subObj[name].add(value.toFloat());  // we do have a float
+          else                         subObj[name].add(value.toInt());    // we may have an int
+          j++;
+        }
         DEBUG_PRINTF_P(PSTR("[%d] = %s\n"), j, value.c_str());
       } else {
         // we are using a hidden field with the same name as our parameter (!before the actual parameter!)
@@ -892,11 +858,12 @@ void handleSettingsSet(AsyncWebServerRequest *request, byte subPage)
     UsermodManager::readFromConfig(um);  // force change of usermod parameters
     DEBUG_PRINTLN(F("Done re-init UsermodManager::"));
     releaseJSONBufferLock();
-  } break;
+  }
 
   #ifndef WLED_DISABLE_2D
   //2D panels
-  case SUBPAGE_2D: {
+  if (subPage == SUBPAGE_2D)
+  {
     strip.isMatrix = request->arg(F("SOMP")).toInt();
     strip.panel.clear();
     if (strip.isMatrix) {
@@ -929,11 +896,8 @@ void handleSettingsSet(AsyncWebServerRequest *request, byte subPage)
     strip.deserializeMap(); // (re)load default ledmap (will also setUpMatrix() if ledmap does not exist)
     strip.makeAutoSegments(true); // force re-creation of segments
     strip.resume();
-  } break;
-  #endif
-  default:
-    break;
   }
+  #endif
 
   lastEditTime = millis();
   // do not save if factory reset or LED settings (which are saved after LED re-init)

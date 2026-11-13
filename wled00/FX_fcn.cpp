@@ -148,9 +148,11 @@ bool Segment::allocateData(size_t len) {
   if (len == 0) return false;    // nothing to do
   if (data && _dataLen >= len) { // already allocated enough (reduce fragmentation)
     if (call == 0) {
+      if (_dataLen < FAIR_DATA_PER_SEG) { // segment data is small
         //DEBUG_PRINTF_P(PSTR("--   Clearing data (%d): %p\n"), len, this);
         memset(data, 0, len);  // erase buffer if called during effect initialisation
         return true; // no need to reallocate
+      }
     }
     else
       return true;
@@ -194,7 +196,7 @@ void Segment::deallocateData() {
     DEBUG_PRINTF_P(PSTR("---- Released data (%p): inconsistent UsedSegmentData (%d/%d), cowardly refusing to free nothing.\n"), this, _dataLen, Segment::getUsedSegmentData());
   }
   data = nullptr;
-  Segment::addUsedSegmentData(-_dataLen); // addUsedSegmentData guards agains negative and sets zero if underrun so this is safe
+  Segment::addUsedSegmentData(_dataLen <= Segment::getUsedSegmentData() ? -_dataLen : -Segment::getUsedSegmentData());
   _dataLen = 0;
 }
 
@@ -223,7 +225,7 @@ void Segment::resetIfRequired() {
 
 void Segment::loadPalette(CRGBPalette16 &targetPalette, uint8_t pal) {
   // there is one randomly generated palette (1) followed by 4 palettes created from segment colors (2-5)
-  // those are followed by 7 fastled palettes (6-12) and GRADIENT_PALETTE_COUNT built in gradient palettes
+  // those are followed by 7 fastled palettes (6-12) and 59 gradient palettes (13-71)
   // then come user custom palettes (IDs <=200) and usermod palettes (IDs 201-255), both growing downward from their respective base IDs
   // palette 0 is a varying palette depending on effect and may be replaced by segment's color if so
   // instructed in color_from_palette()
@@ -285,176 +287,74 @@ void Segment::loadPalette(CRGBPalette16 &targetPalette, uint8_t pal) {
   }
 }
 
-void Segment::handleTransition() {
-  updateTransitionProgress();
-  if (isInTransition() && !strip.isPoweringOff()) {
-    // end transitions if completed but wait for a global power-off transition to complete to avoid revealing pixels (see blendSegment() blanking)
-    const bool spatialDone = spatialProgress() == (_t->_flags & TRANSITION_FLAG_REVERSED ? 0 : 0xFFFFU);    
-    if (_t->_oldSegment && spatialDone) {
-      delete _t->_oldSegment; _t->_oldSegment = nullptr;
-    }
-    if (spatialDone && fadeProgress() == 0xFFFFU) {
-      stopTransition(); // Transition frees a kept copy
-    }
-  }
-}
-
-/* Note on how transitions work:
-  There are three transition channels: global on strip level that handles global brightness fading and triggering of segment spatial transitions (see led.cpp)
-  on segment level there are two independent channels: a fade channel (_fadeProgress) that handles opacity/brightness & CCT (and colors/palette if FADE or as a fallback)
-  and a spatial channel (_progress) that handles FX blending and swipe/push/etc. using a copy of the previous segment (aka oldSegment).
-  FX transitions always need the oldSegment but can be spatial or fade and always use the spatial channel.
-  There are many "special rules" that apply to handle transition updates i.e. calling startTransition() while a transition is already running.
-  In general the transition logic was chosen to avoid glitches or flashing while allowing segments to act as individual "lights".
-  Here is a short summary of the rules:
-  - Segment opacity or global brightness always uses fade, they can run in parallel to any other transition (and even parallel to each other)
-  - Off transition takes priority, in general no other transitions are allowed to simplify the logic, "offMode" is set once the global off finishes
-    since this would require careful sync to spatial transition, the segment is held in transition until global finishes (see handleTransition() & blendSegment())
-  - On strip level, there are flags to check for global on/off transitions which are set in toggleOnOff()
-  - A global transition is started in stateUpdated() and triggers segment transitions if needed for spatial transitions
-  - When a spatial on/off transition is triggered during an ongoing on/off transition, it is reversed by inverting the transition style (e.g. swipe-right becomes swipe-left)
-  - Fade transitions continue from the current blend state if issued during a running transition
-  - If a spatial transition is running it is never restarted. A subsequent change is deferred to the fade channel instead
-  - For more details, see the comments throughout the code
-*/
-
-// startTransition() is called before changing a sement parameter, it captures the current state into _t and/or _t->_oldSegment and starts/updates transition timers.
-// note: _t has the temporary "from" segment value(s) and the current segment holds the "to" values which are set after the transition starts.
-//       the transition has two independent channels:
-//       the fade channel (_fadeStart/_fadeDur/_fadeProgress) crossfades colors, palette, CCT and opacity and never needs a segment copy
-//       the spatial channel (_spatialStart/_spatialDur/_progress and _oldSegment) renders wipe/push/etc. using a copy of the current state (oldSegment)
-// kind: low nibble = TRANSITION_KIND_x identifying which change triggered the transition (determines whether a segment copy is needed)
-//       high nibble = TRANSITION_POWER_x flags: POWER_ON/POWER_OFF = global on/off, POWER_TOGGLE = segment on/off (both flags are set)
-
-void Segment::startTransition(uint16_t dur, uint8_t kind) {
-  const uint8_t power = kind & TRANSITION_POWER_MASK;       // power flags (TRANSITION_POWER_*)
-  kind &= TRANSITION_KIND_MASK;                             // strip the power flags
-  const bool targetOn = power == TRANSITION_POWER_TOGGLE ? !on : power == TRANSITION_POWER_ON; // target on-state for power transitions
-  // check if we even need to start a transition: abort if transitions disabled, not an active segment or not in an on state (unless this is a power-on request)
-  if (dur == 0 || !isActive() || ((power != TRANSITION_POWER_TOGGLE) && !on)) {
+// starting a transition has to occur before change so we get current values 1st
+// note: _t is the temporary segment that holds the values transitioned from (palette, colors, brightness,...) and the current segment holds the "to" values
+//       if this is a non FADE transition or an FX change, the _oldSegment is created which is a full copy of the segment before the change
+void Segment::startTransition(uint16_t dur, bool segmentCopy) {
+  if (dur == 0 || !isActive()) {
+    if (isInTransition()) _t->_dur = 0;
     return;
   }
-  // check if we need a copy of current segment: only effect transitions and transitions using a spatial (non-FADE) style
-  const bool segmentCopy = kind == TRANSITION_KIND_EFFECT || (kind != TRANSITION_KIND_FADE && blendingStyle != TRANSITION_FADE);
-  // helper lambda function to capture current _bri/_cct and optionally _colors to the segments transitions (_t) state  TDODO: needs refinement
-  const auto captureBlend = [&](unsigned long fadeStart) {
-    for (unsigned i = 0; i < NUM_COLORS; i++) _t->_colors[i] = color_blend16(_t->_colors[i], colors[i], _t->_fadeProgress);
-    _t->_bri       = currentBri();
-    _t->_cct       = currentCCT();
-    _t->_prevPaletteBlends = 0;
-    _t->_fadeDur   = dur;
-    _t->_fadeStart = fadeStart;
-  };
-
-  // create a copy of the current segment to be used for spatial transitions (FX, palette, color, opacity, CCT)
-  const auto createOldSegment = [&](uint16_t colorProgress) {
-    if (_t->_oldSegment) { delete _t->_oldSegment; _t->_oldSegment = nullptr; }
-    _t->_oldSegment = new(std::nothrow) Segment(*this); // store/copy current segment settings
-    if (_t->_oldSegment) {
-      for (unsigned i = 0; i < NUM_COLORS; i++) _t->_oldSegment->colors[i] = color_blend16(_t->_colors[i], colors[i], colorProgress);
-      _t->_oldSegment->opacity = currentBri(); // capture current opacity in case it was being faded
-      _t->_oldSegment->cct     = currentCCT(); // capture current CCT in case it was being faded
-      if (!_t->_oldSegment->isActive()) { delete _t->_oldSegment; _t->_oldSegment = nullptr; } // pixel buffer allocation failed, use fallback
-    }
-    return _t->_oldSegment != nullptr;
-  };
-
   if (isInTransition()) {
-    // re-targeting a running transition: fade restarts, starting from current blend; a running spatial transition continues to completion
-    if (!power) {
-      // opacity/CCT/color/palette/FX change: rebase fades to the current visual blend and restart it (no jump). A running spatial transition continues
-      if (segmentCopy && _t->_oldSegment == nullptr) {
-        // no old segment means a fade transition is going on (color, palette, opacity, cct), capture current state into the old segment
-        if (createOldSegment(_t->_fadeProgress)) {
-          _t->_spatialStart = millis(); // start spatial transition (fading continues on current segment)
-          _t->_spatialDur   = dur;
-          DEBUGFX_PRINTF_P(PSTR("-- Updated transition with segment copy: S=%p T(%p) O[%p] OP[%p]\n"), this, _t, _t->_oldSegment, _t->_oldSegment->pixels);
-        } else {
-          // not enough RAM for segment copy: degrade to pure fade instead of dropping the transition
-          captureBlend(millis()); // rebase fade channel to the current visual blend and restart it
+    if (segmentCopy && !_t->_oldSegment) {
+      // already in transition but segment copy requested and not yet created
+      _t->_oldSegment = new(std::nothrow) Segment(*this); // store/copy current segment settings
+      _t->_start = millis(); // restart transition timer
+      _t->_dur   = dur;
+      _t->_prevPaletteBlends = 0; // reset palette blends
+      if (_t->_oldSegment) {
+        _t->_oldSegment->palette = _t->_palette; // restore original palette, colors, brightness and CCT (from start of transition)
+        for (unsigned i = 0; i < NUM_COLORS; i++) _t->_oldSegment->colors[i] = _t->_colors[i];
+        _t->_oldSegment->opacity = _t->_bri;
+        _t->_oldSegment->cct     = _t->_cct;
+        // if already partway through a FADE transition, set old segment's colors to current blend to avoid jumping back to original colors
+        if (_t->_progress > 0) {
+          // already in a transition, see comment below
+          for (unsigned i = 0; i < NUM_COLORS; i++) _t->_oldSegment->colors[i] = color_blend16(_t->_colors[i], colors[i], _t->_progress);
+          _t->_oldSegment->opacity = currentBri(); // update "original" brightness note: _t->_progress is updated in updateTransitionProgress() so still valid here
+          _t->_oldSegment->cct     = currentCCT(); // update "original" CCT (reduces jump)
         }
+        DEBUGFX_PRINTF_P(PSTR("-- Updated transition with segment copy: S=%p T(%p) O[%p] OP[%p]\n"), this, _t, _t->_oldSegment, _t->_oldSegment->pixels);
+        if (!_t->_oldSegment->isActive()) stopTransition();
       }
-      else if (_t->_spatialProgress > 0 || _t->_oldSegment == nullptr) {
-        // note: if spatialProgress == 0, do not capture captureBlend(): for example an FX change also changes palette, we do not want that to fade in prallel
-        if (!fadeTransitionActive() && _t->_oldSegment != nullptr) {
-          // spatial transition with no fade running: enable fade and let the spatial transition continue. Need to capture the current "revealed" state i.e. copy segment colors to _t
-          for (unsigned i = 0; i < NUM_COLORS; i++) _t->_colors[i] = colors[i]; // rebase transition colors&palette from current final state
-          loadPalette(_t->_palT, palette);
+    } else if (_t->_progress > 0) {
+      // already in a transition: capture the current visual blend as the new "from" state so the incoming change does not cause a visible jump.
+      // _palT already holds the intermediate blended palette and will continue blending toward the new target (see beginDraw()), so no palette action needed.
+      // initial version by @blazoncek (https://github.com/blazoncek/WLED/commit/40d9812)
+      for (unsigned i = 0; i < NUM_COLORS; i++) _t->_colors[i] = color_blend16(_t->_colors[i], colors[i], _t->_progress);
+      _t->_bri = currentBri(); // update "original" brightness note: _t->_progress is updated in updateTransitionProgress() so still valid here
+      _t->_cct = currentCCT(); // update "original" CCT (reduces jump)
+      // restart transition timer only if a pure FADE transition, otherwise let the FX change or non-FADE transition finish
+      // this avoids a re-start of the transition if color or brightness is changed during an ongoing FX or non-FADE transition
+      if (blendingStyle == TRANSITION_FADE) {
+        if (_t->_oldSegment != nullptr) {
+          if (_t->_oldSegment->mode != mode)
+            return; // do not reset transition if this is an FX change, note: the disadvantage is that colors still jump in that case
         }
-        captureBlend(millis()); // restart fade channel from the current visual state
-        if (segmentCopy) {
-          // if this is a deferred spatial request align fade duration with ongoing spatial channel
-          const unsigned remainingProgress = (_t->_flags & TRANSITION_FLAG_REVERSED) ? _t->_spatialProgress : invertProgress(_t->_spatialProgress);
-          _t->_fadeDur = ((uint32_t)_t->_spatialDur * remainingProgress) / 0xFFFFU;
-        }
+        _t->_start = millis();
+        _t->_dur   = dur;
+        _t->_prevPaletteBlends = 0;
       }
-      return;
-    }
-    // power transition (on or off) request
-    if (_t->_flags & TRANSITION_FLAG_POWER) {
-      // power transition request (per segment or global) during an ongoing power transition
-      if (targetOn == ((_t->_flags & TRANSITION_FLAG_POWER_ON) != 0)) return; // same target re-issued, let the running transition finish
-      if (blendingStyle != TRANSITION_FADE) {
-        // already in a power transition reverse the animation: setting the REVERSED flag inverts the transition style
-        // the timeline is flipped so it continues smoothly: e.g. 20%-on swipe-right becomes a 80% off swipe-left
-        _t->_flags ^= TRANSITION_FLAG_REVERSED;
-        unsigned prog  = (_t->_flags & TRANSITION_FLAG_REVERSED) ? invertProgress(_t->_spatialProgress) : _t->_spatialProgress; // "used time"
-         _t->_spatialDur = dur;
-        _t->_spatialStart = millis() - ((prog * dur) / 0xFFFFU);
-        _t->_fadeDur = 0; // disable fading (any ongoing fade completes immediately)
-        createOldSegment(0xFFFFU); // create a fresh copy from the final state which is currently displayed
-      } else captureBlend(millis()); // capture current fade status and restart fade when toggling
-      if (power == TRANSITION_POWER_TOGGLE) {
-        // segment-level on/off
-        if (_t->_oldSegment) {
-          if (strip.isPoweringOff()) _t->_flags ^= TRANSITION_FLAG_POWER_ON; // flip POWER_ON flag, it is flipped back below, we need it to stay off if a segment is turned on during global off
-          _t->_oldSegment->opacity = opacity;
-          _t->_oldSegment->cct = cct;
-        }
-      }
-      _t->_flags ^= TRANSITION_FLAG_POWER_ON; // flip POWER_ON flag
-    } else {
-      // global or segment on/off initiated: stop ongoing segment transition immediately, we do need the spatial channel and want to start a new transition
-      if (_t->_oldSegment) { delete _t->_oldSegment; _t->_oldSegment = nullptr; }
-      captureBlend(millis()); // rebase transition values to current visual blend before starting the new power transition
-      if (segmentCopy) {
-        if (createOldSegment(0xFFFFU)) { // spatial transition, need a fresh copy (colors as-is, old side captures the current transition brightness)
-          _t->_spatialStart = millis();
-          _t->_spatialDur   = dur;
-          _t->_fadeDur = 0; // non-fade power transition, do not fade anything but reveal the final state (same as a fresh power start)
-          DEBUGFX_PRINTF_P(PSTR("-- Restarted power transition: S=%p T(%p) O[%p] OP[%p]\n"), this, _t, _t->_oldSegment, _t->_oldSegment->pixels);
-        } else {
-          // not enough RAM for segment copy: degrade to pure fade (restarted above) instead of dropping the transition
-          _t->_spatialStart = 0; // disables the spatial channel and uses fade instead
-        }
-      } else {
-        // FADE blending: the fade channel (restarted above) carries the power transition
-        _t->_spatialStart = 0; // FADE blending: disables the spatial channel and uses fade instead
-      }
-      _t->_flags = TRANSITION_FLAG_POWER | (targetOn ? TRANSITION_FLAG_POWER_ON : 0);
     }
     return;
   }
-  // no previous transition running, start by allocating memory for transition values
+
+  // no previous transition running, start by allocating memory for segment copy
   _t = new(std::nothrow) Transition(dur);
   if (_t) {
-    if (on) _t->_bri = opacity; // if segment is on, start from current opacity instead of the default 0 for proper opacity fade
-    if (blendingStyle != TRANSITION_FADE && power) {
-      _t->_fadeDur = 0; // if non-fade power transition, do not fade anything but reveal the final state
-    }
+    _t->_bri = on ? opacity : 0;
     _t->_cct = cct;
     _t->_palette = palette;
-    _t->_flags = power ? TRANSITION_FLAG_POWER | (targetOn ? TRANSITION_FLAG_POWER_ON : 0) : 0;
-    loadPalette(_t->_palT, palette); // load target palette, will be blended in beginDraw() if FADE is used
+    loadPalette(_t->_palT, palette);
     for (int i=0; i<NUM_COLORS; i++) _t->_colors[i] = colors[i];
-    if (segmentCopy) createOldSegment(0xFFFFU); // spatial transition, create copy of current segment (falls back to fade if this fails)
+    if (segmentCopy) _t->_oldSegment = new(std::nothrow) Segment(*this); // store/copy current segment settings
     if (_t->_oldSegment) {
       DEBUGFX_PRINTF_P(PSTR("-- Started transition: S=%p T(%p) O[%p] OP[%p]\n"), this, _t, _t->_oldSegment, _t->_oldSegment->pixels);
+      if (!_t->_oldSegment->isActive()) stopTransition();
     } else {
-      _t->_spatialStart = 0; // disables the spatial channel and use fade i.e. enable fadeTransitionActive()
       DEBUGFX_PRINTF_P(PSTR("-- Started transition without old segment: S=%p T(%p)\n"), this, _t);
     }
-  }
+  };
 }
 
 void Segment::stopTransition() {
@@ -464,43 +364,41 @@ void Segment::stopTransition() {
   _t = nullptr;
 }
 
-// sets transition progress variables (0-65535) based on time passed since transition start
+// sets transition progress variable (0-65535) based on time passed since transition start
 void Segment::updateTransitionProgress() const {
   if (isInTransition()) {
-    _t->_spatialProgress = _t->_fadeProgress = 0xFFFFU;
-    unsigned diff = millis() - _t->_spatialStart;
-    if (_t->_spatialDur > 0 && diff < _t->_spatialDur) _t->_spatialProgress = diff * 0xFFFFU / _t->_spatialDur;
-    if (_t->_flags & TRANSITION_FLAG_REVERSED) _t->_spatialProgress = invertProgress(_t->_spatialProgress);
-    diff = millis() - _t->_fadeStart;
-    if (_t->_fadeDur > 0 && diff < _t->_fadeDur) _t->_fadeProgress = diff * 0xFFFFU / _t->_fadeDur;
-    // Fade transitions are never calculated reversed: instead we adjust the target and timing in startTranstion(.)
+    _t->_progress = 0xFFFF;
+    unsigned diff = millis() - _t->_start;
+    if (_t->_dur > 0 && diff < _t->_dur) _t->_progress = diff * 0xFFFFU / _t->_dur;
   }
 }
 
 // will return segment's CCT during a transition
 // isPreviousMode() is actually not implemented for CCT in strip.service() as WLED does not support per-pixel CCT
 uint8_t Segment::currentCCT() const {
-  unsigned prog = fadeProgress();
+  unsigned prog = progress();
   if (prog < 0xFFFFU) {
-    // fade channel always crossfades CCT (never needs a segment copy)
-    return (cct * prog + (_t->_cct * (0xFFFFU - prog))) / 0xFFFFU;
+    if (blendingStyle == TRANSITION_FADE) return (cct * prog + (_t->_cct * (0xFFFFU - prog))) / 0xFFFFU;
+    //else                                   return Segment::isPreviousMode() ? _t->_cct : cct;
   }
   return cct;
 }
 
 // will return segment's opacity during a transition (blending it with old in case of FADE transition)
 uint8_t Segment::currentBri() const {
-  unsigned prog = fadeProgress();
+  unsigned prog = progress();
   unsigned curBri = on ? opacity : 0;
   if (prog < 0xFFFFU) {
-    curBri = (prog * curBri + _t->_bri * (0xFFFFU - prog)) / 0xFFFFU;
+    // this will blend opacity in new mode if style is FADE (single effect call)
+    if (blendingStyle == TRANSITION_FADE) curBri = (prog * curBri + _t->_bri * (0xFFFFU - prog)) / 0xFFFFU;
+    else                                  curBri = Segment::isPreviousMode() ? _t->_bri : curBri;
   }
   return curBri;
 }
 
 // pre-calculate drawing parameters for faster access (based on the idea from @softhack007 from MM fork)
 // and blends colors and palettes if necessary
-// prog is the progress of the fade channel (0-65535) and is passed to the function as it may be called in the context of old segment
+// prog is the progress of the transition (0-65535) and is passed to the function as it may be called in the context of old segment
 // which does not have transition structure
 void Segment::beginDraw(uint16_t prog) {
   setDrawDimensions();
@@ -508,9 +406,7 @@ void Segment::beginDraw(uint16_t prog) {
   for (unsigned i = 0; i < NUM_COLORS; i++) _currentColors[i] = colors[i];
   // load palette into _currentPalette
   loadPalette(Segment::_currentPalette, palette);
-
-  // color&palette fade blending: if using FADE or if changed during an ongoing spatial (swipe etc.) transition i.e. fadeTransitionActive()
-  if (isInTransition() && prog < 0xFFFFU && fadeTransitionActive()) {
+  if (isInTransition() && prog < 0xFFFFU && blendingStyle == TRANSITION_FADE) {
     // blend colors
     for (unsigned i = 0; i < NUM_COLORS; i++) _currentColors[i] = color_blend16(_t->_colors[i], colors[i], prog);
     // blend palettes
@@ -666,7 +562,7 @@ Segment &Segment::setColor(uint8_t slot, uint32_t c) {
     if (slot == 1 && c != BLACK) return *this; // on/off segment cannot have secondary color non black
   }
   //DEBUG_PRINTF_P(PSTR("- Starting color transition: %d [0x%X]\n"), slot, c);
-  startTransition(strip.getTransition(), TRANSITION_KIND_DEFAULT); // start transition prior to change
+  startTransition(strip.getTransition(), blendingStyle != TRANSITION_FADE); // start transition prior to change
   colors[slot] = c;
   stateChanged = true; // send UDP/WS broadcast
   return *this;
@@ -680,7 +576,7 @@ Segment &Segment::setCCT(uint16_t k) {
   }
   if (cct != k) {
     //DEBUG_PRINTF_P(PSTR("- Starting CCT transition: %d\n"), k);
-    startTransition(strip.getTransition(), TRANSITION_KIND_FADE); // start transition prior to change (no need to copy segment)
+    startTransition(strip.getTransition(), false); // start transition prior to change (no need to copy segment)
     cct = k;
     stateChanged = true; // send UDP/WS broadcast
   }
@@ -689,8 +585,8 @@ Segment &Segment::setCCT(uint16_t k) {
 
 Segment &Segment::setOpacity(uint8_t o) {
   if (opacity != o) {
-    DEBUG_PRINTF_P(PSTR("- Starting opacity transition: %d\n"), o);
-    startTransition(strip.getTransition(), TRANSITION_KIND_FADE); // opacity change always fades (no segment copy needed)
+    //DEBUG_PRINTF_P(PSTR("- Starting opacity transition: %d\n"), o);
+    startTransition(strip.getTransition(), blendingStyle != TRANSITION_FADE); // start transition prior to change
     opacity = o;
     stateChanged = true; // send UDP/WS broadcast
   }
@@ -701,7 +597,7 @@ Segment &Segment::setOption(uint8_t n, bool val) {
   bool prev = (options >> n) & 0x01;
   if (val == prev) return *this;
   //DEBUG_PRINTF_P(PSTR("- Starting option transition: %d\n"), n);
-  if (n == SEG_OPTION_ON) startTransition(strip.getTransition(), TRANSITION_KIND_DEFAULT | TRANSITION_POWER_TOGGLE); // on/off toggled, start transition
+  if (n == SEG_OPTION_ON) startTransition(strip.getTransition(), blendingStyle != TRANSITION_FADE); // start transition prior to change
   if (val) options |=   0x01 << n;
   else     options &= ~(0x01 << n);
   stateChanged = true; // send UDP/WS broadcast
@@ -714,7 +610,7 @@ Segment &Segment::setMode(uint8_t fx, bool loadDefaults) {
   if (fx >= strip.getModeCount()) fx = 0; // set solid mode
   // if we have a valid mode & is not reserved
   if (fx != mode) {
-    startTransition(strip.getTransition(), TRANSITION_KIND_EFFECT); // set effect transitions (always needs a segment copy for blending)
+    startTransition(strip.getTransition(), true); // set effect transitions (must create segment copy)
     mode = fx;
     int sOpt;
     // load default values from effect string
@@ -754,7 +650,7 @@ Segment &Segment::setPalette(uint8_t pal) {
   }
   if (pal != palette) {
     //DEBUG_PRINTF_P(PSTR("- Starting palette transition: %d\n"), pal);
-    startTransition(strip.getTransition(), TRANSITION_KIND_DEFAULT); // start transition prior to change
+    startTransition(strip.getTransition(), blendingStyle != TRANSITION_FADE); // start transition prior to change (no need to copy segment)
     palette = pal;
     stateChanged = true; // send UDP/WS broadcast
   }
@@ -768,7 +664,7 @@ Segment &Segment::setName(const char *newName) {
       char *newBuf = static_cast<char*>(allocate_buffer(newLen+1, BFRALLOC_PREFER_PSRAM));
       if (newBuf) {
         strlcpy(newBuf, newName, newLen+1);
-        if (mode == FX_MODE_2DSCROLLTEXT) startTransition(strip.getTransition(), TRANSITION_KIND_EFFECT); // if the name changes in scrolling text mode, we need to copy the segment for blending
+        if (mode == FX_MODE_2DSCROLLTEXT) startTransition(strip.getTransition(), true); // if the name changes in scrolling text mode, we need to copy the segment for blending
         char *oldName = name;
         name = newBuf;
         if (oldName) p_free(oldName);
@@ -833,7 +729,7 @@ uint16_t Segment::virtualLength() const {
         vLen = max(vW,vH); // get the longest dimension
         break;
       case M12_pArc:
-        vLen = (sqrt32_bw((vH*vH + vW*vW) << 2) + 1) >> 1; // diagonal rounded
+        vLen = sqrt32_bw(vH*vH + vW*vW); // use diagonal
         break;
       case M12_sPinwheel:
         vLen = getPinwheelLength(vW, vH);
@@ -861,21 +757,20 @@ uint16_t Segment::maxMappingLength() const {
 #endif
 // pixel is clipped if it falls outside clipping range
 // if clipping start > stop the clipping range is inverted
-bool Segment::isPixelClipped(int i, uint8_t style) const {
-  if (style != TRANSITION_FADE && isInTransition() && _clipStart != _clipStop) {
+bool Segment::isPixelClipped(int i) const {
+  if (blendingStyle != TRANSITION_FADE && isInTransition() && _clipStart != _clipStop) {
     bool invert = _clipStart > _clipStop;  // ineverted start & stop
     int start = invert ? _clipStop : _clipStart;
     int stop  = invert ? _clipStart : _clipStop;
-    if (style == TRANSITION_FAIRY_DUST) {
+    if (blendingStyle == TRANSITION_FAIRY_DUST) {
       unsigned len = stop - start;
       if (len < 2) return false;
       unsigned shuffled = hashInt(i) % len;
       unsigned pos = (shuffled * 0xFFFFU) / len;
-      return (spatialProgress() <= pos);
+      return progress() <= pos;
     }
     const bool iInside = (i >= start && i < stop);
-    bool isClipped = !iInside ^ invert; // thanks @willmmiles (https://github.com/wled/WLED/pull/3877#discussion_r1554633876)
-    return isClipped;
+    return !iInside ^ invert; // thanks @willmmiles (https://github.com/wled/WLED/pull/3877#discussion_r1554633876)
   }
   return false;
 }
@@ -913,28 +808,36 @@ void WLED_O2_ATTR Segment::setPixelColor(int i, uint32_t col) const
         if (vStrip > 0)                   setPixelColorRaw(XY(vStrip - 1, vH - i - 1), col);
         else for (int x = 0; x < vW; x++) setPixelColorRaw(XY(x, vH - i - 1), col);
         break;
-      case M12_pArc: {
-        // expand in circular fashion from top left corner
-        // Tony Barrera's circle algorithm
-        // https://softwareengineering.stackexchange.com/questions/287478/drawing-concentric-circles-without-gaps/357445#357445 
-        
-        if      (i == 0)           setPixelColorXYRaw(0, 0, col); // 0 and 2 special cases to prevent square
-        else if (i == 2)           setPixelColorXYRaw(1, 1, col);
-        else if (i == vLength()-1) setPixelColorXYRaw(vW-1, vH-1, col); // last i always draws bottom right corner
-
-        int x = 0, y = i;  // i is the radius
-        int d = -(i >> 1); // Initial decision parameter
-
-        while (x <= y) {
-          if (i != x || i != y) { // prevent early square
-            if (y < vH && x < vW) setPixelColorXYRaw(x, y, col);
-            if (y < vW && x < vH) setPixelColorXYRaw(y, x, col);
+      case M12_pArc:
+        // expand in circular fashion from center
+        if (i == 0)
+          setPixelColorRaw(XY(0, 0), col);
+        else {
+          float r = i;
+          float step = HALF_PI / (2.8284f * r + 4); // we only need (PI/4)/(r/sqrt(2)+1) steps
+          for (float rad = 0.0f; rad <= (HALF_PI/2)+step/2; rad += step) {
+            int x = roundf(sin_t(rad) * r);
+            int y = roundf(cos_t(rad) * r);
+            // exploit symmetry
+            setPixelColorXY(x, y, col);
+            setPixelColorXY(y, x, col);
           }
-          if (d <= 0) d += ++x;
-          else d -= --y;
+          // Bresenham’s Algorithm (may not fill every pixel)
+          //int d = 3 - (2*i);
+          //int y = i, x = 0;
+          //while (y >= x) {
+          //  setPixelColorXY(x, y, col);
+          //  setPixelColorXY(y, x, col);
+          //  x++;
+          //  if (d > 0) {
+          //    y--;
+          //    d += 4 * (x - y) + 10;
+          //  } else {
+          //    d += 4 * x + 6;
+          //  }
+          //}
         }
         break;
-      }
       case M12_pCorner:
         for (int x = 0; x <= i; x++) setPixelColorXY(x, i, col); // note: <= to include i=0. Relies on overflow check in sPC()
         for (int y = 0; y <  i; y++) setPixelColorXY(i, y, col);
@@ -1110,17 +1013,9 @@ uint32_t WLED_O2_ATTR Segment::getPixelColor(int i) const
         else            { y = vH - i - 1; };
         break;
       case M12_pArc:
-        if (i >= vW && i >= vH) { // Barrera's circle algorithm
-          x = vW - 1; y = vH - 1; // default to bottom right if not found
-          int x2 = 0, y2 = i, d = -(i >> 1);
-          int validCount = 0; // return 2nd non mirrored pixel if available
-          while (x2 <= y2 && validCount < 2) {
-            if      (y2 < vH && x2 < vW) {x = x2, y = y2; validCount++;}
-            else if (y2 < vW && x2 < vH) {x = y2, y = x2; validCount++;}
-
-            if (d <= 0) d += ++x2; else d -= --y2;
-          }
-          break;
+        if (i > vW && i > vH) {
+          x = y = sqrt32_bw(i*i/2);
+          break; // use diagonal
         }
         // otherwise fallthrough
       case M12_pCorner:
@@ -1331,60 +1226,89 @@ void WS2812FX::finalizeInit() {
   _hasWhiteChannel = _isOffRefreshRequired = false;
   BusManager::removeAll();
   // TODO: ideally we would free everything segment related here to reduce fragmentation (pixel buffers, ledamp, segments, etc) but that somehow leads to heap corruption if touchig any of the buffers.
-  // First assign driver types (RMT/I2S/... channels) for all buses before any are constructed. If hardware allocation fails
-  // (no free channels, no fallback) the bus is still constructed below and might fail construction.
-  // BusManager::add() replaces failed buses with a BusPlaceholder, edge cases of bad configs can slip through.
-  #if defined(ARDUINO_ARCH_ESP32)
-  unsigned rmtBusCount = 0;
-  unsigned parHwBusCount = 0; // used for debug print only
-  #endif
-  for (auto &bus : busConfigs) {
-    if (!Bus::isDigital(bus.type)) continue;
-    if (!BusManager::allocateHardware(bus.type, bus.pins, bus.driverType)) {
-      DEBUG_PRINTLN(F("Bus driver allocation failed."));
-      continue; // TODO: avoid constructing this bus when no driver could be allocated?
-    }
-    #if defined(ARDUINO_ARCH_ESP32)
-    // Count buses that will occupy an RMT channel (driverType is final after allocateHardware())
-    if (!Bus::is2Pin(bus.type)) {
-      if (bus.driverType == BUSDRV_RMT) rmtBusCount++;
-      else if (bus.driverType == BUSDRV_PARHW) parHwBusCount++; // parallel bus: I2S/LCD/SPI/PARLIO depending on chip (hardware driven, not BB)
-    }
-    #endif
-  }
+  unsigned digitalCount = 0;
+  #if defined(ARDUINO_ARCH_ESP32) && defined(WLED_HAS_PARALLEL_I2S)
+  // validate the bus config: count I2S buses and check if they meet requirements
+  unsigned i2sBusCount = 0;
 
-  #if defined(ARDUINO_ARCH_ESP32)
-  DEBUG_PRINTF_P(PSTR("Digital RMT buses: %u, parallel buses: %u\n"), rmtBusCount, parHwBusCount);
-  // RMT channel tracking was already reset by BusManager::removeAll() -> resetChannelTracking()
-  BusManager::setExpectedRmtChannelCount((uint8_t)rmtBusCount);
+  for (const auto &bus : busConfigs) {
+    if (Bus::isDigital(bus.type) && !Bus::is2Pin(bus.type)) {
+      digitalCount++;
+      if (bus.driverType == 1)
+        i2sBusCount++;
+    }
+  }
+  DEBUG_PRINTF_P(PSTR("Digital buses: %u, I2S buses: %u\n"), digitalCount, i2sBusCount);
+
+  // Determine parallel vs single I2S usage (used for memory calculation only)
+  bool useParallelI2S = false;
+  #if defined(CONFIG_IDF_TARGET_ESP32S3)
+  // ESP32-S3 always uses parallel LCD driver for I2S
+  if (i2sBusCount > 0) {
+    useParallelI2S = true;
+  }
+  #else
+  if (i2sBusCount > 1) {
+    useParallelI2S = true;
+  }
+  #endif
   #endif
 
   DEBUG_PRINTF_P(PSTR("Heap before buses: %d\n"), getFreeHeapSize());
-  // Now construct each bus. BusManager::add() automatically falls back to a BusPlaceholder if it fails
+  // create buses/outputs
+  unsigned mem = 0; // memory estimation including DMA buffer for I2S and pixel buffers
+  unsigned I2SdmaMem = 0;
   for (auto &bus : busConfigs) {
-    BusManager::add(bus, false);
+    // assign bus types: call to getI() determines bus types/drivers, allocates and tracks polybus channels
+    // store the result in iType for later use during bus creation (getI() must only be called once per BusConfig)
+    // note: this needs to be determined for all buses prior to creating them as it also determines parallel I2S usage
+    bus.iType = BusManager::getI(bus.type, bus.pins, bus.driverType);
   }
+  for (auto &bus : busConfigs) {
+    bool use_placeholder = false;
+    unsigned busMemUsage = bus.memUsage(); // does not include DMA/RMT buffer but includes pixel buffers (segment buffer + global buffer)
+    mem += busMemUsage;
+    // estimate maximum I2S memory usage (only relevant for digital non-2pin busses when I2S is enabled)
+    #if defined(WLED_HAS_PARALLEL_I2S)
+    bool usesI2S = (bus.iType & 0x01) == 0; // I2S bus types are even numbered, can't use bus.driverType == 1 as getI() may have defaulted to RMT
+    if (Bus::isDigital(bus.type) && !Bus::is2Pin(bus.type) && usesI2S) {
+      #ifdef NPB_CONF_4STEP_CADENCE
+      constexpr unsigned stepFactor = 4; // 4 step cadence (4 bits per pixel bit)
+      #else
+      constexpr unsigned stepFactor = 3; // 3 step cadence (3 bits per pixel bit)
+      #endif
+      unsigned i2sCommonMem = (stepFactor * bus.count * (3*Bus::hasRGB(bus.type)+Bus::hasWhite(bus.type)+Bus::hasCCT(bus.type)) * (Bus::is16bit(bus.type)+1));
+      if (useParallelI2S) i2sCommonMem *= 8; // parallel I2S uses 8 channels, requiring 8x the DMA buffer size (common buffer shared between all parallel busses)
+      if (i2sCommonMem > I2SdmaMem) I2SdmaMem = i2sCommonMem;
+    }
+    #endif
+    if (mem + I2SdmaMem > MAX_LED_MEMORY + 1024) { // +1k to allow some margin to not drop buses that are allowed in UI (calculation here includes bus overhead)
+      DEBUG_PRINTF_P(PSTR("Bus %d with %d LEDS memory usage exceeds limit\n"), (int)bus.type, bus.count);
+      errorFlag = ERR_NORAM; // alert UI  TODO: make this a distinct error: not enough memory for bus
+      use_placeholder = true;
+    }
+    if (BusManager::add(bus, use_placeholder) != -1) {
+      mem += BusManager::busses.back()->getBusSize();
+      if (Bus::isDigital(bus.type) && !Bus::is2Pin(bus.type) && BusManager::busses.back()->isPlaceholder()) digitalCount--; // remove placeholder from digital count
+    }
+  }
+  DEBUG_PRINTF_P(PSTR("Estimated buses + pixel-buffers size: %uB\n"), mem + I2SdmaMem);
   busConfigs.clear();
   busConfigs.shrink_to_fit();
 
   _length = 0;
   for (size_t i=0; i<BusManager::getNumBusses(); i++) {
     Bus *bus = BusManager::getBus(i);
-    if (!bus || bus->getStart() + bus->getLength() > MAX_LEDS) break;
-    if (!bus->isOk()) continue; // placeholder bus (failed init) — skip but keep initializing remaining buses
-    // This must be done after all buses have been created, as parallel buses interact.
-    bus->begin();
-    if (!bus->isOk()) {
-      DEBUG_PRINTF_P(PSTR("Bus %u failed hardware initialization.\n"), (unsigned)i);
-      continue; // TODO: preserve the original configuration when late initialization fails?
-    }
+    if (!bus || !bus->isOk() || bus->getStart() + bus->getLength() > MAX_LEDS) break;
     //RGBW mode is enabled if at least one of the strips is RGBW
     _hasWhiteChannel |= bus->hasWhite();
     //refresh is required to remain off if at least one of the strips requires the refresh.
     _isOffRefreshRequired |= bus->isOffRefreshRequired() && !bus->isPWM(); // use refresh bit for phase shift with analog
     unsigned busEnd = bus->getStart() + bus->getLength();
     if (busEnd > _length) _length = busEnd;
-    bus->setBrightness16(scaledBri16(bri<<8));
+    // This must be done after all buses have been created, as some kinds (parallel I2S) interact
+    bus->begin();
+    bus->setBrightness(scaledBri(bri));
   }
   BusManager::initializeABL(); // init brightness limiter
   DEBUG_PRINTF_P(PSTR("Heap after buses: %d\n"), ESP.getFreeHeap());
@@ -1405,17 +1329,11 @@ void WS2812FX::finalizeInit() {
 
 // update global _pixels[] buffer to match getLengthTotal() note: if allocation fails, WLED will not render anything
 void WS2812FX::updatePixelBuffer() {
-  p_free(_pixels); // using realloc on large buffers can cause additional fragmentation instead of reducing it
-  _pixels = nullptr;
-  #ifdef WLED_DISABLE_GLOBAL_PIXELBUFFER
-  // Skip the global framebuffer: blendSegment() encodes directly into bus encode buffers.
-  // This saves N*4 bytes of heap (e.g. 1200B for 300 LEDs, 2000B for 500 LEDs).
-  #else
   uint32_t requiredMem = getLengthTotal() * sizeof(uint32_t);
+  p_free(_pixels); // using realloc on large buffers can cause additional fragmentation instead of reducing it
   // use PSRAM if available: there is no measurable perfomance impact between PSRAM and DRAM on S2/S3 with QSPI PSRAM for this buffer
   _pixels = static_cast<uint32_t*>(allocate_buffer(requiredMem, BFRALLOC_ENFORCE_PSRAM | BFRALLOC_NOBYTEACCESS | BFRALLOC_CLEAR));
   DEBUG_PRINTF_P(PSTR("strip buffer size: %uB\n"), requiredMem);
-  #endif
 }
 
 void WS2812FX::service() {
@@ -1446,8 +1364,8 @@ void WS2812FX::service() {
       doShow = true;
       if (!seg.freeze) { //only run effect function if not frozen
         // Effect blending
-        uint16_t prog = seg.fadeProgress(); // color blending uses fade channel progress
-        seg.beginDraw(prog);                // set up parameters for get/setPixelColor() (will also blend colors and palette)
+        uint16_t prog = seg.progress();
+        seg.beginDraw(prog);                // set up parameters for get/setPixelColor() (will also blend colors and palette if blend style is FADE)
         _currentSegment = &seg;             // set current segment for effect functions (SEGMENT & SEGENV)
         // workaround for on/off transition to respect blending style
         _mode[seg.mode]();                  // run new/current mode (needed for bri workaround)
@@ -1458,7 +1376,6 @@ void WS2812FX::service() {
         if (segO && segO->isActive() && (seg.mode != segO->mode || blendingStyle != TRANSITION_FADE ||
             (segO->name != seg.name && segO->name && seg.name && strncmp(segO->name, seg.name, WLED_MAX_SEGNAME_LEN) != 0))) {
           Segment::modeBlend(true);         // set flag for beginDraw() to blend colors and palette
-          //segO->beginDraw(0xFFFFU);         // old segment renders its captured state (no fade), parent segment holds transition progress
           segO->beginDraw(prog);            // set up palette & colors (also sets draw dimensions), parent segment has transition progress
           _currentSegment = segO;           // set current segment
           // workaround for on/off transition to respect blending style
@@ -1555,40 +1472,14 @@ void WS2812FX::blendSegment(const Segment &topSegment) const {
   const size_t  startIndx  = XY(topSegment.start, topSegment.startY);
   const size_t  stopIndx   = startIndx + length;
   uint8_t       opacity    = topSegment.currentBri(); // returns transitioned opacity for style FADE
-  uint8_t       opacityOld = opacity;                 // we set this to opacity of old segment in non-FADE transitions below
   uint8_t       cct        = topSegment.currentCCT();
-  const Segment *segO      = topSegment.getOldSegment();
-  uint8_t style = blendingStyle; // need a copy as the function may modify it to FADE
-  if (segO && style != TRANSITION_FADE) opacityOld = segO->currentBri();  // get old segment opacity note: can not use segO->opacity as that breaks off->on transition
-  if (gammaCorrectCol) {
-    opacity = gamma8inv(opacity); // use inverse gamma on brightness for correct color scaling after gamma correction (see #5343 for details)
-    opacityOld = gamma8inv(opacityOld);
-  }
+  if (gammaCorrectCol) opacity = gamma8inv(opacity); // use inverse gamma on brightness for correct color scaling after gamma correction (see #5343 for details)
+
+  const Segment *segO = topSegment.getOldSegment();
   const bool hasGrouping = topSegment.groupLength() != 1;
 
-  #ifdef WLED_DISABLE_GLOBAL_PIXELBUFFER
-  // Direct-to-bus mode: read/write pixels through the bus encode buffer instead of _pixels[].
-  // CCT is set per-segment (not per-pixel) — acceptable trade-off for the RAM saved.
-  // Gamma is applied inline when writing; multi-segment blending occurs in gamma-compressed space.
-  if (!cctFromRgb) BusManager::setSegmentCCT(cct, correctWB);
-  const auto blendPixelIntoFrame = [&](size_t idx, uint32_t newC, uint8_t o) {
-    unsigned physIdx = getMappedPixelIndex(idx);
-    uint32_t result;
-    // Fast path: fully-opaque top layer — result is just newC, no readback needed.
-    // This covers the dominant case (single segment, full brightness, default blend mode)
-    // and avoids an expensive bus decode call per pixel for fast effects like Palette.
-    if (o == 255 && blendMode == 0) {
-      result = newC;
-    } else {
-      uint32_t existing = BusManager::getPixelColor(physIdx);
-      result = color_blend(existing, segblend(newC, existing), o);
-    }
-    BusManager::setPixelColor(physIdx, result);
-  };
-  #endif
-
   // fast path: handle the default case - no transitions, no grouping/spacing, no mirroring, no CCT
-  if (!segO && style == TRANSITION_FADE && !hasGrouping && !topSegment.mirror && !topSegment.mirror_y) {
+  if (!segO && blendingStyle == TRANSITION_FADE && !hasGrouping && !topSegment.mirror && !topSegment.mirror_y) {
     if (isMatrix && stopIndx <= matrixSize && !_pixelCCT) {
 #ifndef WLED_DISABLE_2D
       // Calculate pointer steps to avoid 'if' and 'XY()' inside loops
@@ -1603,18 +1494,12 @@ void WS2812FX::blendSegment(const Segment &topSegment) const {
         if (topSegment.reverse_y) { start_offset += (height - 1) * Segment::maxWidth; y_inc = -Segment::maxWidth; }
 
         for (int y = 0; y < height; y++) {
-          #ifndef WLED_DISABLE_GLOBAL_PIXELBUFFER
           uint32_t* pRow = &_pixels[start_offset + y * y_inc];
-          #endif
           const int y_width = y * width;
           for (int x = 0; x < width; x++) {
-            uint32_t c_a = topSegment.getPixelColorRaw(x + y_width);
-            #ifdef WLED_DISABLE_GLOBAL_PIXELBUFFER
-            blendPixelIntoFrame((size_t)(start_offset + y * y_inc + x * x_inc), c_a, opacity);
-            #else
             uint32_t* p = pRow + x * x_inc;
+            uint32_t c_a = topSegment.getPixelColorRaw(x + y_width);
             *p = color_blend(*p, segblend(c_a, *p), opacity);
-            #endif
           }
         }
       } else { // transposed
@@ -1624,11 +1509,7 @@ void WS2812FX::blendSegment(const Segment &topSegment) const {
             const int py = topSegment.reverse_y ? (width  - x - 1) : x;  // source pixel: swap x into y, reverse if needed
             const uint32_t c_a = topSegment.getPixelColorRaw(px + py * height); // height = virtual width
             const size_t idx = XY(topSegment.start + x, topSegment.startY + y); // write logical (non swapped) pixel coordinate
-            #ifdef WLED_DISABLE_GLOBAL_PIXELBUFFER
-            blendPixelIntoFrame(idx, c_a, opacity);
-            #else
             _pixels[idx] = color_blend(_pixels[idx], segblend(c_a, _pixels[idx]), opacity);
-            #endif
           }
         }
       }
@@ -1636,9 +1517,7 @@ void WS2812FX::blendSegment(const Segment &topSegment) const {
 #endif
     } else if (!isMatrix) {
       // 1D fast path, include CCT as it is more common on 1D setups
-      #ifndef WLED_DISABLE_GLOBAL_PIXELBUFFER
       uint32_t* strip = _pixels;
-      #endif
       int start = topSegment.start;
       int off   = topSegment.offset;
       for (int i = 0; i < length; i++) {
@@ -1646,12 +1525,8 @@ void WS2812FX::blendSegment(const Segment &topSegment) const {
         int p = topSegment.reverse ? (length - i - 1) : i;
         int idx = start + p + off;
         if (idx >= topSegment.stop) idx -= length;
-        #ifdef WLED_DISABLE_GLOBAL_PIXELBUFFER
-        blendPixelIntoFrame((size_t)idx, c_a, opacity);
-        #else
         strip[idx] = color_blend(strip[idx], segblend(c_a, strip[idx]), opacity);
         if (_pixelCCT) _pixelCCT[idx] = cct;
-        #endif
       }
       return;
     }
@@ -1659,15 +1534,13 @@ void WS2812FX::blendSegment(const Segment &topSegment) const {
 
   // slow path: handle transitions, grouping/spacing, segments with clipping and CCT pixels
   Segment::setClippingRect(0, 0);  // disable clipping by default
-  unsigned progress =  (style==TRANSITION_OUTSIDE_IN) ? Segment::invertProgress(topSegment.spatialProgress()) : topSegment.spatialProgress();
-  unsigned progInv  = Segment::invertProgress(progress);
-  const unsigned dw = (progress * width) / 0xFFFFU + 1;
-  const unsigned dh = (progress * height) / 0xFFFFU + 1;
-  const bool invertClipping = (style != TRANSITION_FADE) && topSegment.isTransitionReversed();
-
-  // single pixel segments or transitions without a rendered old segment: use fade
-  if (width*height == 1 || !segO) style = TRANSITION_FADE;
-  switch (style) {
+  const unsigned progress = topSegment.progress();
+  const unsigned progInv  = 0xFFFFU - progress;
+  const unsigned dw = (blendingStyle==TRANSITION_OUTSIDE_IN ? progInv : progress) * width / 0xFFFFU + 1;
+  const unsigned dh = (blendingStyle==TRANSITION_OUTSIDE_IN ? progInv : progress) * height / 0xFFFFU + 1;
+  const unsigned orgBS = blendingStyle;
+  if (width*height == 1) blendingStyle = TRANSITION_FADE; // disable style for single pixel segments (use fade instead)
+  switch (blendingStyle) {
     case TRANSITION_CIRCULAR_IN: // (must set entire segment, see isPixelXYClipped())
     case TRANSITION_CIRCULAR_OUT:// (must set entire segment, see isPixelXYClipped())
     case TRANSITION_FAIRY_DUST:  // fairy dust (must set entire segment, see isPixelXYClipped())
@@ -1682,7 +1555,7 @@ void WS2812FX::blendSegment(const Segment &topSegment) const {
       Segment::setClippingRect(width - dw, width, 0, height);
       break;
     case TRANSITION_OUTSIDE_IN:   // corners
-      Segment::setClippingRect((width + dw)/2, (width - dw)/2, (height + dh)/2, (height - dh)/2); // inverted!
+      Segment::setClippingRect((width + dw)/2, (width - dw)/2, (height + dh)/2, (height - dh)/2); // inverted!!
       break;
     case TRANSITION_INSIDE_OUT:  // outward
       Segment::setClippingRect((width - dw)/2, (width + dw)/2, (height - dh)/2, (height + dh)/2);
@@ -1730,12 +1603,8 @@ void WS2812FX::blendSegment(const Segment &topSegment) const {
       const int baseX = topSegment.start  + x;
       const int baseY = topSegment.startY + y;
       size_t indx = XY(baseX, baseY); // absolute address on strip
-      #ifdef WLED_DISABLE_GLOBAL_PIXELBUFFER
-      blendPixelIntoFrame(indx, c, o);
-      #else
       _pixels[indx] = color_blend(_pixels[indx], segblend(c, _pixels[indx]), o);
       if (_pixelCCT) _pixelCCT[indx] = cct;
-      #endif
       // Apply mirroring if enabled
       if (topSegment.mirror || topSegment.mirror_y) {
         const int mirrorX = topSegment.start  + width  - x - 1;
@@ -1743,11 +1612,6 @@ void WS2812FX::blendSegment(const Segment &topSegment) const {
         const size_t idxMX = XY(topSegment.transpose ? baseX : mirrorX, topSegment.transpose ? mirrorY : baseY);
         const size_t idxMY = XY(topSegment.transpose ? mirrorX : baseX, topSegment.transpose ? baseY : mirrorY);
         const size_t idxMM = XY(mirrorX, mirrorY);
-        #ifdef WLED_DISABLE_GLOBAL_PIXELBUFFER
-        if (topSegment.mirror)                        blendPixelIntoFrame(idxMX, c, o);
-        if (topSegment.mirror_y)                      blendPixelIntoFrame(idxMY, c, o);
-        if (topSegment.mirror && topSegment.mirror_y) blendPixelIntoFrame(idxMM, c, o);
-        #else
         if (topSegment.mirror)                        _pixels[idxMX] = color_blend(_pixels[idxMX], segblend(c, _pixels[idxMX]), o);
         if (topSegment.mirror_y)                      _pixels[idxMY] = color_blend(_pixels[idxMY], segblend(c, _pixels[idxMY]), o);
         if (topSegment.mirror && topSegment.mirror_y) _pixels[idxMM] = color_blend(_pixels[idxMM], segblend(c, _pixels[idxMM]), o);
@@ -1756,18 +1620,17 @@ void WS2812FX::blendSegment(const Segment &topSegment) const {
           if (topSegment.mirror_y)                      _pixelCCT[idxMY] = cct;
           if (topSegment.mirror && topSegment.mirror_y) _pixelCCT[idxMM] = cct;
         }
-        #endif
       }
     };
 
     // if we blend using "push" style we need to "shift" canvas to left/right/up/down
-    unsigned offsetX = (style == TRANSITION_PUSH_UP   || style == TRANSITION_PUSH_DOWN)  ? 0 : progInv * nCols / 0xFFFFU;
-    unsigned offsetY = (style == TRANSITION_PUSH_LEFT || style == TRANSITION_PUSH_RIGHT) ? 0 : progInv * nRows / 0xFFFFU;
+    unsigned offsetX = (blendingStyle == TRANSITION_PUSH_UP   || blendingStyle == TRANSITION_PUSH_DOWN)  ? 0 : progInv * nCols / 0xFFFFU;
+    unsigned offsetY = (blendingStyle == TRANSITION_PUSH_LEFT || blendingStyle == TRANSITION_PUSH_RIGHT) ? 0 : progInv * nRows / 0xFFFFU;
     const unsigned groupLen = topSegment.groupLength();
     bool applyReverse = topSegment.reverse || topSegment.reverse_y || topSegment.transpose;
     int pushOffsetX = 0, pushOffsetY = 0;
     // if we blend using "push" style we need to "shift" canvas to left/right/up/down
-    switch (style) {
+    switch (blendingStyle) {
       case TRANSITION_PUSH_RIGHT: pushOffsetX = offsetX; break;
       case TRANSITION_PUSH_LEFT:  pushOffsetX = -offsetX + nCols; break;
       case TRANSITION_PUSH_DOWN:  pushOffsetY = offsetY; break;
@@ -1779,8 +1642,7 @@ void WS2812FX::blendSegment(const Segment &topSegment) const {
     }
     // we only traverse new segment, not old one
     for (int r = 0; r < nRows; r++) for (int c = 0; c < nCols; c++) {
-      bool clipped = topSegment.isPixelXYClipped(c, r, style) ^ invertClipping;
-      uint8_t pixelOpacity = clipped ? opacityOld : opacity;
+      const bool clipped = topSegment.isPixelXYClipped(c, r);
       // if segment is in transition and pixel is clipped take old segment's pixel and opacity
       const Segment *seg = clipped && segO ? segO : &topSegment;  // pixel is never clipped for FADE
       int vCols = seg == segO ? oCols : nCols;         // old segment may have different dimensions
@@ -1791,14 +1653,19 @@ void WS2812FX::blendSegment(const Segment &topSegment) const {
       if (pushOffsetY != 0) y = (y + pushOffsetY) % nRows;
       uint32_t c_a = BLACK;
       if (x < vCols && y < vRows) c_a = seg->getPixelColorRaw(x + y*vCols); // will get clipped pixel from old segment or unclipped pixel from new segment
-      if (segO && style == TRANSITION_FADE
+      if (segO && blendingStyle == TRANSITION_FADE
         && (topSegment.mode != segO->mode || (segO->name != topSegment.name && segO->name && topSegment.name && strncmp(segO->name, topSegment.name, WLED_MAX_SEGNAME_LEN) != 0))
         && x < oCols && y < oRows) {
         // we need to blend old segment using fade as pixels are not clipped
         c_a = color_blend16(c_a, segO->getPixelColorRaw(x + y*oCols), progInv);
-      } else if (style != TRANSITION_FADE) {
-        // on/off transition workaround: pixels not yet revealed by a wipe-to-off are black, pixels still covered by a wipe-to-on are black
-        if ((topSegment.isPowerOffTransition() && !clipped) || (topSegment.isPowerOnTransition() && clipped)) c_a = BLACK;
+      } else if (blendingStyle != TRANSITION_FADE) {
+        // if we have global brightness change (not On/Off change) we will ignore transition style and just fade brightness (see led.cpp)
+        // workaround for On/Off transition
+        // (bri != briT) && !bri => from On to Off
+        // (bri != briT) &&  bri => from Off to On
+        // note: only blank pixels once the segment transition has actually started; bri changes before
+        // startTransition() is called (stateUpdated()) and a frame rendered in that window would blank the whole segment
+        if (topSegment.isInTransition() && (briOld == 0 || bri == 0) && ((!clipped && (bri != briT) && !bri) || (clipped && (bri != briT) && bri))) c_a = BLACK;
       }
       // map it into frame buffer
       x = c;  // restore coordiates if we were PUSHing
@@ -1810,7 +1677,7 @@ void WS2812FX::blendSegment(const Segment &topSegment) const {
       }
       // expand pixel
       if (groupLen == 1) {
-        setMirroredPixel(x, y, c_a, pixelOpacity);
+        setMirroredPixel(x, y, c_a, opacity);
       } else {
         // handle grouping and spacing
         x *= groupLen; // expand to physical pixels
@@ -1819,7 +1686,7 @@ void WS2812FX::blendSegment(const Segment &topSegment) const {
         const int maxY = std::min(y + topSegment.grouping, height);
         while (y < maxY) {
           int _x = x;
-          while (_x < maxX) setMirroredPixel(_x++, y, c_a, pixelOpacity);
+          while (_x < maxX) setMirroredPixel(_x++, y, c_a, opacity);
           y++;
         }
       }
@@ -1832,18 +1699,6 @@ void WS2812FX::blendSegment(const Segment &topSegment) const {
 
     const auto setMirroredPixel = [&](int i, uint32_t c, uint8_t o) {
       int indx = topSegment.start + i;
-      #ifdef WLED_DISABLE_GLOBAL_PIXELBUFFER
-      // direct-to-bus: apply mirroring then encode
-      if (topSegment.mirror) {
-        unsigned indxM = topSegment.stop - i - 1;
-        indxM += topSegment.offset; // offset/phase
-        if (indxM >= topSegment.stop) indxM -= length; // wrap
-        blendPixelIntoFrame(indxM, c, o);
-      }
-      indx += topSegment.offset; // offset/phase
-      if (indx >= topSegment.stop) indx -= length; // wrap
-      blendPixelIntoFrame((size_t)indx, c, o);
-      #else
       // Apply mirroring
       if (topSegment.mirror) {
         unsigned indxM = topSegment.stop - i - 1;
@@ -1856,32 +1711,35 @@ void WS2812FX::blendSegment(const Segment &topSegment) const {
       if (indx >= topSegment.stop) indx -= length; // wrap
       _pixels[indx] = color_blend(_pixels[indx], segblend(c, _pixels[indx]), o);
       if (_pixelCCT) _pixelCCT[indx] = cct;
-      #endif
     };
 
     // if we blend using "push" style we need to "shift" canvas to left/right/
     unsigned offsetI = progInv * nLen / 0xFFFFU;
 
     for (int k = 0; k < nLen; k++) {
-      bool clipped = topSegment.isPixelClipped(k, style) ^ invertClipping;
-      uint8_t pixelOpacity = clipped ? opacityOld : opacity;
+      const bool clipped = topSegment.isPixelClipped(k);
       // if segment is in transition and pixel is clipped take old segment's pixel and opacity
       const Segment *seg = clipped && segO ? segO : &topSegment;  // pixel is never clipped for FADE
       const int vLen = seg == segO ? oLen : nLen;
       int i = k;
       // if we blend using "push" style we need to "shift" canvas to left or right
-      switch (style) {
+      switch (blendingStyle) {
         case TRANSITION_PUSH_RIGHT: i = (i + offsetI) % nLen;        break;
         case TRANSITION_PUSH_LEFT:  i = (i - offsetI + nLen) % nLen; break;
       }
       uint32_t c_a = BLACK;
       if (i < vLen) c_a = seg->getPixelColorRaw(i); // will get clipped pixel from old segment or unclipped pixel from new segment
-      if (segO && style == TRANSITION_FADE && topSegment.mode != segO->mode && i < oLen) {
+      if (segO && blendingStyle == TRANSITION_FADE && topSegment.mode != segO->mode && i < oLen) {
         // we need to blend old segment using fade as pixels are not clipped
         c_a = color_blend16(c_a, segO->getPixelColorRaw(i), progInv);
-      } else if (style != TRANSITION_FADE) {
-        // on/off transition workaround: pixels not yet revealed by a wipe-to-off are black, pixels still covered by a wipe-to-on are black
-        if ((topSegment.isPowerOffTransition() && !clipped) || (topSegment.isPowerOnTransition() && clipped)) c_a = BLACK;
+      } else if (blendingStyle != TRANSITION_FADE) {
+        // if we have global brightness change (not On/Off change) we will ignore transition style and just fade brightness (see led.cpp)
+        // workaround for On/Off transition
+        // (bri != briT) && !bri => from On to Off
+        // (bri != briT) &&  bri => from Off to On
+        // note: only blank pixels once the segment transition has actually started; bri changes before
+        // startTransition() is called (stateUpdated()) and a frame rendered in that window would blank the whole segment
+        if (topSegment.isInTransition() && (briOld == 0 || bri == 0) && ((!clipped && (bri != briT) && !bri) || (clipped && (bri != briT) && bri))) c_a = BLACK;
       }
       // map into frame buffer
       i = k; // restore index if we were PUSHing
@@ -1890,86 +1748,55 @@ void WS2812FX::blendSegment(const Segment &topSegment) const {
       i *= topSegment.groupLength();
       // set all the pixels in the group
       const int maxI = std::min(i + topSegment.grouping, length); // make sure to not go beyond physical length
-      while (i < maxI) setMirroredPixel(i++, c_a, pixelOpacity);
+      while (i < maxI) setMirroredPixel(i++, c_a, opacity);
     }
   }
 
+  blendingStyle = orgBS;
   Segment::setClippingRect(0, 0);             // disable clipping for overlays
 }
 
 void WS2812FX::show() {
-  #ifndef WLED_DISABLE_GLOBAL_PIXELBUFFER
   if (!_pixels) {
     DEBUGFX_PRINTLN(F("Error: no _pixels!"));
     errorFlag = ERR_NORAM;
     return; // no pixels allocated, nothing to show
   }
-  #endif
+
   BusManager::updateGammaUse(); // update gamma use (and bus brightness correction) in case something changed
   unsigned long showNow = millis();
   size_t diff = showNow - _lastShow;
-  // use color gamma correction if enabled, not in realtime mode with gamma disabled or currently overriding RT mode
-  bool useGammaCorrection = gammaCorrectCol && !(realtimeMode && arlsDisableGammaCorrection && !realtimeOverride);
 
   size_t totalLen = getLengthTotal();
-  // CCT per-pixel tracking: only needed when multiple active segments have *different* CCT values.
-  // When all segments share the same CCT we skip the allocation entirely and set Bus::_cct once
-  // before the paint loop — identical to the original per-pixel-change path but without the buffer.
-  #ifndef WLED_DISABLE_GLOBAL_PIXELBUFFER
-  uint8_t uniformCCT = 127; // neutral 50:50 CCT; used when no buffer is allocated
-  if ((hasCCTBus() || correctWB) && !cctFromRgb) {
-    int16_t firstCCT = -1; // -1 = "no active segment seen yet"
-    for (const Segment &seg : _segments) {
-      if (!seg.isActive() || (!seg.on && !seg.isInTransition())) continue;
-      uint8_t segCCT = seg.currentCCT();
-      if (firstCCT < 0) {
-        firstCCT = segCCT;
-        uniformCCT = segCCT;
-      } else if ((uint8_t)firstCCT != segCCT) {
-        // segments have different CCT values — need per-pixel buffer
-        _pixelCCT = static_cast<uint8_t*>(allocate_buffer(totalLen * sizeof(uint8_t), BFRALLOC_PREFER_PSRAM));
-        if (_pixelCCT) memset(_pixelCCT, 127, totalLen); // set neutral (50:50) CCT
-        break;
-      }
-    }
-  }
-  #endif
+  // WARNING: as WLED doesn't handle CCT on pixel level but on Segment level instead
+  // we need to keep track of each pixel's CCT when blending segments (if CCT is present)
+  // and then set appropriate CCT from that pixel during paint (see below).
+  if ((hasCCTBus() || correctWB) && !cctFromRgb)
+    _pixelCCT = static_cast<uint8_t*>(allocate_buffer(totalLen * sizeof(uint8_t), BFRALLOC_PREFER_PSRAM)); // allocate CCT buffer if necessary, prefer PSRAM
+  if (_pixelCCT) memset(_pixelCCT, 127, totalLen); // set neutral (50:50) CCT
 
   if (realtimeMode == REALTIME_MODE_INACTIVE || useMainSegmentOnly || realtimeOverride > REALTIME_OVERRIDE_NONE) {
-    #ifdef WLED_DISABLE_GLOBAL_PIXELBUFFER
-    while (!BusManager::canAllShow()) yield(); // wait for all buses to finish sending the previous frame
-    // Direct-to-bus mode: clear bus encode buffers then blend segments directly into them.
-    // Per-pixel CCT tracking is not supported; CCT is set per-segment in blendSegment().
-    if (cctFromRgb) BusManager::setSegmentCCT(-1); // set once; blendSegment skips CCT if cctFromRgb
-    BusManager::clearPixels(totalLen);
-    for (Segment &seg : _segments) if (seg.isActive() && (seg.on || seg.isInTransition())) {
-      blendSegment(seg);
-    }
-    #else
     // clear frame buffer
     memset(_pixels, 0, sizeof(uint32_t) * totalLen);
     // blend all segments into (cleared) buffer
     for (Segment &seg : _segments) if (seg.isActive() && (seg.on || seg.isInTransition())) {
       blendSegment(seg);              // blend segment's buffer into frame buffer
     }
-    #endif
   }
 
-  // Paint overlays in to pixel buffer
-  handleOverlayDraw();
+  // avoid race condition, capture _callback value
+  show_callback callback = _callback;
+  if (callback) callback(); // will call setPixelColor or setRealtimePixelColor
 
-  #ifndef WLED_DISABLE_GLOBAL_PIXELBUFFER
-  while (!BusManager::canAllShow()) yield(); // wait for all buses to finish sending the previous frame
   // paint actual pixels
   int oldCCT = Bus::getCCT(); // store original CCT value (since it is global)
   // when cctFromRgb is true we implicitly calculate WW and CW from RGB values (cct==-1)
   if (cctFromRgb) BusManager::setSegmentCCT(-1);
-  else if (!_pixelCCT) BusManager::setSegmentCCT(uniformCCT, correctWB); // uniform CCT: set once before loop
 
   for (size_t i = 0; i < totalLen; i++) {
     // when correctWB is true setSegmentCCT() will convert CCT into K with which we can then
     // correct/adjust RGB value according to desired CCT value, it will still affect actual WW/CW ratio
-    if (_pixelCCT) { // cctFromRgb already excluded at allocation
+    if (_pixelCCT) { // cctFromRgb already exluded at allocation
       if (i == 0 || _pixelCCT[i-1] != _pixelCCT[i]) BusManager::setSegmentCCT(_pixelCCT[i], correctWB);
     }
     uint32_t c = _pixels[i]; // need a copy, do not modify _pixels directly (no byte access allowed on ESP32)
@@ -1979,11 +1806,10 @@ void WS2812FX::show() {
 
   p_free(_pixelCCT);
   _pixelCCT = nullptr;
-  #else
-  // TODO: implement bus level gamma, see PR #5722
-  #endif
 
-  // pass the pixels on to the buses and start sending them out
+  // some buses send asynchronously and this method will return before
+  // all of the data has been sent.
+  // See https://github.com/Makuna/NeoPixelBus/wiki/ESP32-NeoMethods#neoesp32rmt-methods
   BusManager::show();
 
   if (diff > 0) { // skip calculation if no time has passed
@@ -2010,14 +1836,11 @@ void WS2812FX::restartRuntime() {
   resume();
 }
 
-// start global power on/off or stop transition for all segments
-void WS2812FX::setTransitionMode(bool start) {
+// start or stop transition for all segments
+void WS2812FX::setTransitionMode(bool t) {
   suspend();
   waitForIt();
-  for (Segment &seg : _segments) {
-    if (start) seg.startTransition(_transitionDur, TRANSITION_KIND_DEFAULT | _poweringOnOff); // set color kind to let startTransition() determine if we need a segment copy or not
-    else seg.stopTransition();
-  }
+  for (Segment &seg : _segments) seg.startTransition(t ? _transitionDur : 0);
   resume();
 }
 
@@ -2052,13 +1875,14 @@ void WS2812FX::setCCT(uint16_t k) {
 // direct=true either expects the caller to call show() themselves (realtime modes) or be ok waiting for the next frame for the change to apply
 // direct=false immediately triggers an effect redraw
 void WS2812FX::setBrightness(uint8_t b, bool direct) {
-  if (gammaCorrectBri) b = gamma8(b);
+  if (b > 0 && gammaCorrectBri)
+    b = gamma8(map(b, 1, 255, gamma8inv(1), 255)); // map from 1 to 255 in gamma space or strip will turn off at low brightness as gamma(b) goes to 0
   if (_brightness == b) return;
   _brightness = b;
   if (_brightness == 0) { //unfreeze all segments on power off
     for (const Segment &seg : _segments) seg.freeze = false; // freeze is mutable
   }
-  BusManager::setBrightness16(scaledBri16(b));
+  BusManager::setBrightness(scaledBri(b));
   if (!direct) {
     unsigned long t = millis();
     if (t - _lastShow > min(_frametime, uint16_t(FRAMETIME_FIXED))) trigger(); //apply brightness change immediately if no refresh soon, but don't speed up above 42fps
@@ -2472,5 +2296,5 @@ const char JSON_palette_names[] PROGMEM = R"=====([
 "Magenta","Magred","Yelmag","Yelblu","Orange & Teal","Tiamat","April Night","Orangery","C9","Sakura",
 "Aurora","Atlantica","C9 2","C9 New","Temperature","Aurora 2","Retro Clown","Candy","Toxy Reaf","Fairy Reaf",
 "Semi Blue","Pink Candy","Red Reaf","Aqua Flash","Yelblu Hot","Lite Light","Red Flash","Blink Red","Red Shift","Red Tide",
-"Candy2","Traffic Light","Fireworks"
+"Candy2","Traffic Light"
 ])=====";

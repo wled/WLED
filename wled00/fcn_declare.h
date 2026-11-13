@@ -207,7 +207,7 @@ void stateUpdated(byte callMode);
 void updateInterfaces(uint8_t callMode);
 void handleTransitions();
 void handleNightlight();
-uint16_t scaledBri16(uint16_t in);
+byte scaledBri(byte in);
 
 #ifdef WLED_ENABLE_LOXONE
 //lx_parser.cpp

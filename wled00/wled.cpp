@@ -43,7 +43,7 @@ WLED::WLED()
 // turns all LEDs off and restarts ESP
 void WLED::reset()
 {
-  briT16 = 0;
+  briT = 0;
   #ifdef WLED_ENABLE_WEBSOCKETS
   ws.closeAll(1012);
   #endif
@@ -243,7 +243,7 @@ void WLED::loop()
     strip.finalizeInit(); // will create buses and also load default ledmap if present
     if (aligned) strip.makeAutoSegments();
     else strip.fixInvalidSegments();
-    BusManager::setBrightness16(scaledBri16(bri<<8)); // fix re-initialised bus' brightness #4005 and #4824
+    BusManager::setBrightness(scaledBri(bri)); // fix re-initialised bus' brightness #4005 and #4824
     configNeedsWrite = true;
   }
   if (loadLedmap >= 0) {
@@ -665,16 +665,13 @@ void WLED::beginStrip()
   strip.finalizeInit(); // busses created during deserializeConfig() if config existed
   strip.makeAutoSegments();
   strip.setBrightness(0);
+  strip.setShowCallback(handleOverlayDraw);
   doInitBusses = false;
 
   // init offMode and relay
   offMode = false;   // init to on state to allow proper relay init
   handleOnOff(true); // init relay and force off
-  if (rlyPin < 0) {
-    // ensure LEDs are off if no relay is used
-    BusManager::blank();
-    BusManager::show();
-  }
+  if (rlyPin < 0) strip.show(); // ensure LEDs are off if no relay is used
 
   // Note on how bootup behaviour works:
   // if turnOnAtBoot is false: strip is set to black. It will fade in to startup brightness and orange when turned on

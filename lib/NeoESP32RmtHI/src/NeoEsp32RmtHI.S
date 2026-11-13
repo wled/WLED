@@ -2,16 +2,16 @@
  * Bridges from a high-level interrupt to the C++ code.
  *
  * This code is largely derived from Espressif's 'hli_vector.S' Bluetooth ISR.
- * implemented by @willmmiles
+ *
  */
 
-#if defined(__XTENSA__) && defined(ARDUINO_ARCH_ESP32)
+#if defined(__XTENSA__) && defined(ESP32)
 
 #include "esp_idf_version.h"
 #include "sdkconfig.h"
 
 /* If the Bluetooth driver has hooked the high-priority interrupt, we piggyback on it and don't need this. */
-#if !defined(CONFIG_BTDM_CTRL_HLI)
+#if !defined(CONFIG_BTDM_CTRL_HLI) && ESP_IDF_VERSION < ESP_IDF_VERSION_VAL(5, 0, 0)
 
 #include <freertos/xtensa_context.h>
 #include "soc/soc.h"
@@ -167,7 +167,7 @@ _highint_stack_switch:
 
     /* Call C handler */
     mov     a6, sp
-    call4   NeoEsp32RmtMethodISR
+    call4   NeoEsp32RmtMethodIsr
 
     l32e    sp, sp, -12                     /* switch back to the original stack */
 

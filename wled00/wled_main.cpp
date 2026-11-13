@@ -15,27 +15,6 @@
  */
 #include "wled.h"
 
-// debug support - report USB configuration of this build
-#if defined(WLED_DEBUG)
-  #if ARDUINO_USB_CDC_ON_BOOT
-    #warning ARDUINO_USB_CDC_ON_BOOT=1
-  #elif defined(ARDUINO_USB_CDC_ON_BOOT) && !ARDUINO_USB_CDC_ON_BOOT
-    #warning ARDUINO_USB_CDC_ON_BOOT=0
-  #endif  // ARDUINO_USB_CDC_ON_BOOT
-  #if ARDUINO_USB_MODE
-    #warning ARDUINO_USB_MODE=1
-  #elif defined(ARDUINO_USB_MODE) && !ARDUINO_USB_MODE
-    #warning ARDUINO_USB_MODE=0
-  #endif  // ARDUINO_USB_MODE
-
-  #if ARDUINO_USB_DFU_ON_BOOT
-    #warning ARDUINO_USB_DFU_ON_BOOT
-  #endif  // ARDUINO_USB_DFU_ON_BOOT
-  #if ARDUINO_USB_MSC_ON_BOOT
-    #warning ARDUINO_USB_MSC_ON_BOOT
-  #endif  // ARDUINO_USB_MSC_ON_BOOT
-#endif // WLED_DEBUG
-
 void setup() {
   WLED::instance().setup();
 }
