@@ -1,0 +1,185 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+	<meta charset="utf-8">
+	<meta content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" name="viewport">
+	<title>Effect Visibility</title>
+	<style> html { visibility: hidden; } </style>
+	<style>
+		.fxcols { display: flex; flex-direction: column; gap: 6px; }
+		.fxcol  { display: flex; flex-direction: column; }
+		.fxcol h3 { margin: 0 0 4px 0; font-size: 0.95em; display: flex; align-items: center; gap: 6px; }
+		.fxcol h3 .selbtns { margin-left: auto; display: inline-flex; gap: 4px; }
+		.fxcol h3 .selbtns button {
+			font-size: 0.8em; padding: 2px 8px; border-radius: 3px;
+			background: #444; color: #fff; border: 0; cursor: pointer;
+			margin: 0; min-width: 0;
+		}
+		.fxcol h3 .selbtns button:hover { background: #555; }
+		.fxlist {
+			border: 1px solid #555;
+			background: #111;
+			min-height: 200px; max-height: 50vh; overflow-y: auto;
+			padding: 2px; border-radius: 4px;
+			text-align: left;
+		}
+		.fxitem {
+			padding: 4px 6px; margin: 1px 0; border-radius: 3px;
+			cursor: pointer; user-select: none;
+			white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+			font-size: 0.9em;
+		}
+		.fxitem:hover { background: #333; }
+		.fxitem.sel  { background: #888; color: #111; }
+		.fxitem.solid { opacity: 0.55; cursor: not-allowed; font-style: italic; }
+		.fxbtns { display: flex; flex-direction: row; justify-content: center; gap: 6px; }
+		.fxbtns button { padding: 6px 10px; margin: 4px 0; min-width: 80px; font-size: 0.95em; }
+		.counts { font-size: 0.8em; opacity: 0.7; }
+	</style>
+	<script>
+	// load common.js with retry on error
+	(function loadFiles() {
+		const l = document.createElement('script');
+		l.src = 'common.js';
+		l.onload = () => loadResources(['style.css'], S);
+		l.onerror = () => setTimeout(loadFiles, 100);
+		document.head.appendChild(l);
+	})();
+
+	var allEffects = [];   // [{id,name}], id 0 always first
+	var hiddenSet = new Set();   // ids currently hidden
+	var dirty = false;
+
+	function S() {
+		getLoc();
+		if (loc) d.Sf.action = getURL('/settings/fx');
+		// ?all=1 returns real names for user-hidden effects so the Hidden list is populated
+		Promise.all([
+			fetch(getURL('/json/effects?all=1')).then(r=>r.json()),
+			fetch(getURL('/json/cfg')).then(r=>r.json())
+		]).then(([effs, cfg]) => {
+			allEffects = effs.map((name, id) => ({id, name}));
+			let h = (cfg && cfg.fx && cfg.fx.hidden) || [];
+			hiddenSet = new Set(h.filter(id => id !== 0));
+			render();
+			d.documentElement.style.visibility='visible';
+		}).catch(e => {
+			alert('Load failed: '+e);
+			d.documentElement.style.visibility='visible';
+		});
+	}
+
+	// build-disabled or deprecated slot, not user-toggleable
+	function isReserved(name) { return name && name.indexOf('RSVD') >= 0; }
+
+	function render() {
+		const visList = gId('visList');
+		const hidList = gId('hidList');
+		visList.innerHTML = '';
+		hidList.innerHTML = '';
+		let visN = 0, hidN = 0;
+		for (const e of allEffects) {
+			if (isReserved(e.name)) continue; // never show RSVD slots in either list
+			const inHidden = hiddenSet.has(e.id);
+			const li = d.createElement('div');
+			li.className = 'fxitem';
+			li.dataset.id = e.id;
+			li.textContent = e.name;
+			if (e.id === 0) {
+				li.classList.add('solid');
+				li.title = 'Solid cannot be hidden';
+			} else {
+				li.onclick = () => toggleSel(li);
+			}
+			if (inHidden && e.id !== 0) { hidList.appendChild(li); hidN++; }
+			else                        { visList.appendChild(li); visN++; }
+		}
+		gId('visCount').textContent = visN;
+		gId('hidCount').textContent = hidN;
+		updateBtns();
+	}
+
+	function toggleSel(li) {
+		li.classList.toggle('sel');
+		updateBtns();
+	}
+
+	function selectAll(listId, sel) {
+		// skip Solid (non-selectable, has .solid class)
+		const items = d.querySelectorAll('#'+listId+' .fxitem:not(.solid)');
+		for (const li of items) li.classList.toggle('sel', sel);
+		updateBtns();
+	}
+
+	function updateBtns() {
+		gId('toHideBtn').disabled = !d.querySelectorAll('#visList .sel').length;
+		gId('toShowBtn').disabled = !d.querySelectorAll('#hidList .sel').length;
+	}
+
+	function moveSel(fromId, hide) {
+		const sel = d.querySelectorAll('#'+fromId+' .sel');
+		if (!sel.length) return;
+		for (const li of sel) {
+			const id = parseInt(li.dataset.id);
+			if (id === 0) continue; // safety: Solid never moves
+			if (hide) hiddenSet.add(id); else hiddenSet.delete(id);
+		}
+		dirty = true;
+		render();
+	}
+
+	function Save() {
+		gId('FXH').value = Array.from(hiddenSet).sort((a,b)=>a-b).join(',');
+		dirty = false;
+		d.Sf.submit();
+	}
+
+	window.addEventListener('beforeunload', e => {
+		if (dirty) { e.preventDefault(); e.returnValue = ''; }
+	});
+	</script>
+</head>
+<body>
+<form id="form_s" name="Sf" method="post">
+	<div class="toprow">
+		<div class="helpB"><button type="button" onclick="H('features/effects/#effect-visibility')">?</button></div>
+		<button type="button" onclick="B()">Back</button><button type="button" onclick="Save()">Save</button><hr>
+	</div>
+	<h2>Effect Visibility</h2>
+	<div class="sec">
+		<i>Hide effects you don't use so they don't clutter the main UI's effect picker.
+		Hidden effects are reported as <code>RSVD</code> on the JSON API.</i><br><br>
+		<i>Presets, playlists, or external API calls that reference a hidden effect will fall
+		through to the next visible effect — un-hide to restore the original mapping.</i>
+
+	<div class="fxcols">
+		<div class="fxcol">
+			<h3>Visible <span class="counts">(<span id="visCount">0</span>)</span>
+				<span class="selbtns">
+					<button type="button" onclick="selectAll('visList', true)">All</button>
+					<button type="button" onclick="selectAll('visList', false)">None</button>
+				</span>
+			</h3>
+			<div id="visList" class="fxlist"></div>
+		</div>
+		<div class="fxbtns">
+			<button id="toHideBtn" type="button" onclick="moveSel('visList', true)" disabled>Hide &darr;</button>
+			<button id="toShowBtn" type="button" onclick="moveSel('hidList', false)" disabled>&uarr; Show</button>
+		</div>
+		<div class="fxcol">
+			<h3>Hidden <span class="counts">(<span id="hidCount">0</span>)</span>
+				<span class="selbtns">
+					<button type="button" onclick="selectAll('hidList', true)">All</button>
+					<button type="button" onclick="selectAll('hidList', false)">None</button>
+				</span>
+			</h3>
+			<div id="hidList" class="fxlist"></div>
+		</div>
+	</div>
+
+	<input type="hidden" name="FXH" id="FXH" value="">
+	</div>
+	<hr><button type="button" onclick="B()">Back</button><button type="button" onclick="Save()">Save</button>
+</form>
+</body>
+</html>
