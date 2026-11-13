@@ -129,6 +129,21 @@ Specification from: [Molicel INR18650-M35A, 3500mAh 10A Lithium-ion battery, 3.6
 
 ## 📝 Change Log
 
+2026-11-03
+
+- Code cleanup: removed dead code, template comments and unused getters/setters
+- Battery type selection moved into a `createBattery()` factory, base class got a virtual destructor
+- `calculateAndSetLevel()` moved into the base class, battery types only implement `mapVoltage()`
+- Config reading consolidated into `readFromConfig()`, `override` added to all overridden methods
+- MQTT sensor registration moved into a `registerMqttSensor()` helper
+- Out-of-range voltage readings are rejected: voltage and level become `invalid` instead of poisoning the smoothing filter
+- Auto-off and low power indicator wait for the first valid reading instead of acting on the initial level
+- Low power indication always finishes its duration, also when the level recovers or becomes invalid meanwhile
+- Low power thresholds are clamped to 0-100 %, reactivation threshold stays reachable
+- `addToConfig()` no longer reads the ADC as a side effect, `addToJsonState()` is guarded during boot
+- "Next update" in the info panel no longer wraps when a reading is overdue
+- `batteryType` enum has a fixed `uint8_t` base, `batteryConfig` is seeded with `USERMOD_BATTERY_DEFAULT_TYPE`
+
 2024-08-19
 
 - Improved MQTT support

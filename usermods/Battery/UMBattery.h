@@ -18,7 +18,7 @@ class UMBattery
         int8_t level = 100;
         float calibration; // offset or calibration value to fine tune the calculated voltage
         float voltageMultiplier; // ratio for the voltage divider
-        
+
         float linearMapping(float v, float min, float max, float oMin = 0.0f, float oMax = 100.0f)
         {
             return (v-min) * (oMax-oMin) / (max-min) + oMin;
@@ -30,6 +30,8 @@ class UMBattery
             this->setVoltageMultiplier(USERMOD_BATTERY_VOLTAGE_MULTIPLIER);
             this->setCalibration(USERMOD_BATTERY_CALIBRATION);
         }
+
+        virtual ~UMBattery() = default;
 
         virtual void update(batteryConfig cfg)
         {
@@ -45,12 +47,11 @@ class UMBattery
          * calculates the level in % (0-100) with given voltage and possible voltage range
          */
         virtual float mapVoltage(float v, float min, float max) = 0;
-        // { 
-        //     example implementation, linear mapping
-        //     return (v-min) * 100 / (max-min);
-        // };
 
-        virtual void calculateAndSetLevel(float voltage) = 0;
+        void calculateAndSetLevel(float voltage)
+        {
+            this->setLevel(this->mapVoltage(voltage, this->getMinVoltage(), this->getMaxVoltage()));
+        }
 
 
 
@@ -72,9 +73,9 @@ class UMBattery
          * Set lowest battery voltage
          * can't be below 0 volt
          */
-        virtual void setMinVoltage(float voltage)
+        virtual void setMinVoltage(float newVoltage)
         {
-            this->minVoltage = max(0.0f, voltage);
+            this->minVoltage = max(0.0f, newVoltage);
         }
 
         /*
@@ -89,9 +90,9 @@ class UMBattery
          * Set highest battery voltage
          * can't be below minVoltage
          */
-        virtual void setMaxVoltage(float voltage)
+        virtual void setMaxVoltage(float newVoltage)
         {
-            this->maxVoltage = max(getMinVoltage()+.5f, voltage);
+            this->maxVoltage = max(getMinVoltage()+.5f, newVoltage);
         }
 
         float getVoltage()
@@ -100,24 +101,38 @@ class UMBattery
         }
 
         /**
-         * check if voltage is within specified voltage range, allow 10% over/under voltage
+         * check if voltage is within specified voltage range, allow 15% under / 10% over voltage
          */
-        void setVoltage(float voltage)
+        bool isValidVoltage(float newVoltage)
         {
-            // this->voltage = ( (voltage < this->getMinVoltage() * 0.85f) || (voltage > this->getMaxVoltage() * 1.1f) ) 
-            //     ? -1.0f 
-            //     : voltage;
-            this->voltage = voltage;
+            return newVoltage >= this->getMinVoltage() * 0.85f && newVoltage <= this->getMaxVoltage() * 1.1f;
         }
 
-        float getLevel()
+        // out-of-range readings are stored as -1 (invalid)
+        void setVoltage(float newVoltage)
+        {
+            this->voltage = this->isValidVoltage(newVoltage) ? newVoltage : -1.0f;
+        }
+
+        int8_t getLevel()
         {
             return this->level;
         }
 
-        void setLevel(float level)
+        /*
+         * The 110% upper bound is headroom for charging / USB charger voltage above
+         * the discharge curve's 100% point. Values above 100 are a voltage-derived
+         * indication, not physical state of charge.
+         */
+        void setLevel(float newLevel)
         {
-            this->level = constrain(level, 0.0f, 110.0f);
+            this->level = (int8_t)constrain(newLevel, 0.0f, 110.0f);
+        }
+
+        // mark level as unknown (-1), e.g. after an out-of-range voltage reading
+        void invalidateLevel()
+        {
+            this->level = -1;
         }
 
         /*
