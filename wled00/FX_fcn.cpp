@@ -2052,21 +2052,11 @@ void WS2812FX::setCCT(uint16_t k) {
 // direct=true either expects the caller to call show() themselves (realtime modes) or be ok waiting for the next frame for the change to apply
 // direct=false immediately triggers an effect redraw
 void WS2812FX::setBrightness(uint8_t b, bool direct) {
-  setBrightness16((uint16_t)b << 8, direct);
-}
-void WS2812FX::setBrightness16(uint16_t b, bool direct) {
-  const uint16_t maxBri16 = 255U << 8;
-  if (b > maxBri16) b = maxBri16; // safety clamp just in case
-  if (gammaCorrectBri && b > 0) {
-    b = gamma8(b>>8) << 8; // apply gamma to brightness
-  }
-  if (_brightness16 == b) return;
-  _brightness16 = b;
-  if (_brightness16 == 0) { // unfreeze all segments on power off and stop all ongoing segment transitions
-    for (Segment &seg : _segments) {
-      seg.freeze = false; // freeze is mutable
-      seg.stopTransition(); // stop transition, nothing to display anymore
-    }
+  if (gammaCorrectBri) b = gamma8(b);
+  if (_brightness == b) return;
+  _brightness = b;
+  if (_brightness == 0) { //unfreeze all segments on power off
+    for (const Segment &seg : _segments) seg.freeze = false; // freeze is mutable
   }
   BusManager::setBrightness16(scaledBri16(b));
   if (!direct) {
