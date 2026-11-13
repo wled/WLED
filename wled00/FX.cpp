@@ -11103,7 +11103,7 @@ void mode_liquid(void) {
       }
     }
 
-    uint32_t color = SEGMENT.color_from_palette(paletteIndex, false, true, 255);
+    uint32_t color = SEGMENT.color_from_palette(paletteIndex, false, false, 255);
     for (uint8_t channel = 0; channel < 4; channel++) {
       waveColors[k][channel] = color >> (24U - channel * 8U);
     }
