@@ -38,6 +38,11 @@ bool BMPimage::init(const char * fn) {
       return false;
     }
 
+    // Past this point image metadata is re-parsed, so any previously loaded
+    // image must be treated as unloaded: its pixel buffer no longer matches
+    // the new metadata, and load() may free the buffer even when it fails.
+    _loaded = false;
+
     //read and ingnore file size
     read32(bmpFile);
     (void)read32(bmpFile); // Read & ignore creator bytes
@@ -46,6 +51,13 @@ bool BMPimage::init(const char * fn) {
     read32(bmpFile);
     _width  = read32(bmpFile);
     _height = read32(bmpFile);
+    // Reject non-positive widths: callers use width() as a divisor, so a
+    // zero width would cause a division by zero in the POV effect
+    if(_width <= 0) {
+        _valid=false;
+        bmpFile.close();
+        return false;
+    }
     if(read16(bmpFile) != 1) { // # planes -- must be '1'
         _valid=false;
         bmpFile.close();
