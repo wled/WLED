@@ -63,9 +63,9 @@ bool deserializeConfig(JsonObject doc, bool fromFS) {
   JsonObject nw = doc["nw"];
 #ifndef WLED_DISABLE_ESPNOW
   CJSON(enableESPNow, nw[F("espnow")]);
-  linked_remotes.clear();
   JsonVariant lrem = nw[F("linked_remote")];
   if (!lrem.isNull()) {
+    linked_remotes.clear();
      if (lrem.is<JsonArray>()) {
       for (size_t i = 0; i < lrem.size(); i++) {
         std::array<char, 13> entry{};
@@ -95,7 +95,7 @@ bool deserializeConfig(JsonObject doc, bool fromFS) {
       char ssid[33] = "";
       char pass[65] = "";
       char bssid[13] = "";
-      IPAddress nIP = (uint32_t)0U, nGW = (uint32_t)0U, nSN = (uint32_t)0x00FFFFFF; // little endian
+      IPAddress nIP = multiWiFi[n].staticIP, nGW = multiWiFi[n].staticGW, nSN = multiWiFi[n].staticSN; // absent = keep current
       getStringFromJson(ssid, wifi[F("ssid")], 33);
       getStringFromJson(pass, wifi["psk"], 65); // password is not normally present but if it is, use it
       getStringFromJson(bssid, wifi[F("bssid")], 13);
@@ -181,26 +181,25 @@ bool deserializeConfig(JsonObject doc, bool fromFS) {
   uint16_t total = hw_led[F("total")] | strip.getLengthTotal();
   uint16_t ablMilliampsMax = hw_led[F("maxpwr")] | BusManager::ablMilliampsMax();
   BusManager::setMilliampsMax(ablMilliampsMax);
-  Bus::setGlobalAWMode(hw_led[F("rgbwm")] | AW_GLOBAL_DISABLED);
+  Bus::setGlobalAWMode(hw_led[F("rgbwm")] | Bus::getGlobalAWMode());
   CJSON(strip.correctWB, hw_led["cct"]);
   CJSON(strip.cctFromRgb, hw_led[F("cr")]);
   CJSON(cctICused, hw_led[F("ic")]);
   uint8_t cctBlending = hw_led[F("cb")] | Bus::getCCTBlend();
   Bus::setCCTBlend(cctBlending);
-  unsigned targetFPS = hw_led["fps"] | WLED_FPS;
+  unsigned targetFPS = hw_led["fps"] | strip.getTargetFps();
   strip.setTargetFps(targetFPS); //unlimited if 0, default 42 FPS
 
   #ifndef WLED_DISABLE_2D
   // 2D Matrix Settings
   JsonObject matrix = hw_led[F("matrix")];
   if (!matrix.isNull()) {
-    strip.isMatrix = true;
-    unsigned numPanels = matrix[F("mpc")] | 1;
-    numPanels = constrain(numPanels, 1, WLED_MAX_PANELS);
-    strip.panel.clear();
     JsonArray panels = matrix[F("panels")];
+    unsigned numPanels = matrix[F("mpc")] | panels.size(); // no count given: take all listed panels
+    numPanels = constrain(numPanels, 1, WLED_MAX_PANELS);
     unsigned s = 0;
     if (!panels.isNull()) {
+      strip.panel.clear(); // absent = keep current panels
       strip.panel.reserve(numPanels);  // pre-allocate default 8x8 panels
       for (JsonObject pnl : panels) {
         WS2812FX::Panel p;
@@ -217,6 +216,7 @@ bool deserializeConfig(JsonObject doc, bool fromFS) {
       }
     }
     strip.panel.shrink_to_fit();  // release unused memory (just in case)
+    if (!strip.panel.empty()) strip.isMatrix = true; // no panels: 2D stays as it is, setUpMatrix() turns a matrix without panels off again
     // cannot call strip.deserializeLedmap()/strip.setUpMatrix() here due to already locked JSON buffer
     //if (!fromFS) doInit2D = true; // if called at boot (fromFS==true), WLED::beginStrip() will take care of setting up matrix
   }
@@ -525,19 +525,37 @@ bool deserializeConfig(JsonObject doc, bool fromFS) {
   updateBaudRate(serialBaud *100);
 
   JsonArray hw_if_i2c = hw[F("if")][F("i2c-pin")];
+  const int8_t oldSda = i2c_sda, oldScl = i2c_scl;
   CJSON(i2c_sda, hw_if_i2c[0]);
   CJSON(i2c_scl, hw_if_i2c[1]);
   PinManagerPinType i2c[2] = { { i2c_sda, true }, { i2c_scl, true } };
-  if (i2c_scl >= 0 && i2c_sda >= 0 && PinManager::allocateMultiplePins(i2c, 2, PinOwner::HW_I2C)) {
+  const bool i2cUnchanged = !fromFS && i2c_sda == oldSda && i2c_scl == oldScl;
+  const bool oldI2cPins = !fromFS && !i2cUnchanged && oldSda >= 0 && oldScl >= 0;
+  bool i2cMoved = false;
+  if (oldI2cPins) {
+    // config POST with changed pins: release the old ones first, as the settings page does
+    const uint8_t oldI2c[2] = { static_cast<uint8_t>(oldSda), static_cast<uint8_t>(oldScl) };
+    PinManager::deallocateMultiplePins(oldI2c, 2, PinOwner::HW_I2C);
+  }
+  if (i2cUnchanged) {
+    // config POST with unchanged pins: keep the running bus, on ESP32 Wire.setPins() fails once Wire is started
+  } else if (i2c_scl >= 0 && i2c_sda >= 0 && PinManager::allocateMultiplePins(i2c, 2, PinOwner::HW_I2C)) {
     #ifdef ESP32
-    if (!Wire.setPins(i2c_sda, i2c_scl)) { i2c_scl = i2c_sda = -1; } // this will fail if Wire is initialised (Wire.begin() called prior)
-    else Wire.begin();
+    if (Wire.setPins(i2c_sda, i2c_scl)) { Wire.begin(); i2cMoved = true; } // this will fail if Wire is initialised (Wire.begin() called prior)
+    else if (fromFS) { i2c_scl = i2c_sda = -1; }
+    // else config POST on a started bus: keep the new pins, they are used after a reboot (no bus re-initialisation, as on the settings page)
     #else
     Wire.begin(i2c_sda, i2c_scl);
+    i2cMoved = true;
     #endif
   } else {
     i2c_sda = -1;
     i2c_scl = -1;
+  }
+  if (oldI2cPins && !i2cMoved) {
+    // Wire still runs on the old pins until a reboot (there is no Wire.end()), keep them reserved so nothing else takes them
+    PinManagerPinType oldI2c[2] = { { oldSda, true }, { oldScl, true } };
+    PinManager::allocateMultiplePins(oldI2c, 2, PinOwner::HW_I2C);
   }
   JsonArray hw_if_spi = hw[F("if")][F("spi-pin")];
   CJSON(spi_mosi, hw_if_spi[0]);
@@ -564,12 +582,10 @@ bool deserializeConfig(JsonObject doc, bool fromFS) {
   CJSON(strip.autoSegments, light[F("aseg")]);
 
   CJSON(gammaCorrectVal, light["gc"]["val"]); // default 2.2
-  float light_gc_bri = light["gc"]["bri"] | 1.0f; // default to 1.0 (false)
-  float light_gc_col = light["gc"]["col"] | gammaCorrectVal; // default to gammaCorrectVal (true)
-  if (light_gc_bri != 1.0f) gammaCorrectBri = true;
-  else                      gammaCorrectBri = false;
-  if (light_gc_col != 1.0f) gammaCorrectCol = true;
-  else                      gammaCorrectCol = false;
+  JsonVariant gc_bri = light["gc"]["bri"]; // absent = keep current, number: 1.0 = off, bool: as is
+  JsonVariant gc_col = light["gc"]["col"];
+  if (!gc_bri.isNull()) gammaCorrectBri = gc_bri.is<bool>() ? gc_bri.as<bool>() : (gc_bri.as<float>() != 1.0f);
+  if (!gc_col.isNull()) gammaCorrectCol = gc_col.is<bool>() ? gc_col.as<bool>() : (gc_col.as<float>() != 1.0f);
   if (gammaCorrectVal < 0.1f || gammaCorrectVal > 3) {
     gammaCorrectVal = 1.0f; // no gamma correction
     gammaCorrectBri = false;
