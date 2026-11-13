@@ -483,6 +483,9 @@ void WiFiEvent(WiFiEvent_t event)
       break;
     case ARDUINO_EVENT_WIFI_STA_START:
       DEBUG_PRINTLN(F("WiFi-E: STA Started"));
+      #if defined(LWIP_IPV6) && ESP_IDF_VERSION_MAJOR >= 5
+      WLEDNetwork.enableIPv6(); // LwIP needs IPv6 to be enabled every time
+      #endif
       break;
     case ARDUINO_EVENT_WIFI_STA_STOP:
       DEBUG_PRINTLN(F("WiFi-E: STA Stopped"));
@@ -503,6 +506,9 @@ void WiFiEvent(WiFiEvent_t event)
     #if defined(WLED_USE_ETHERNET)
     case ARDUINO_EVENT_ETH_START:
       DEBUG_PRINTLN(F("ETH-E: Started"));
+      #if defined(LWIP_IPV6) && ESP_IDF_VERSION_MAJOR >= 5
+      WLEDNetwork.enableIPv6(); // LwIP needs IPv6 to be enabled every time
+      #endif
       break;
     case ARDUINO_EVENT_ETH_CONNECTED:
       {
