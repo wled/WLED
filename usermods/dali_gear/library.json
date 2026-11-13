@@ -1,0 +1,7 @@
+{
+  "name": "dali_gear",
+  "build": { "libArchive": false },
+  "dependencies": {
+    "qqqDALI": "https://github.com/netmindz/DALI-Lighting-Interface.git#b260a6e6a3509ce9fcc1e8b384573628ae720c93"
+  }
+}
