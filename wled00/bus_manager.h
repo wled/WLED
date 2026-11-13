@@ -71,7 +71,8 @@ uint16_t approximateKelvinFromRGB(uint32_t rgb);
 
 // Govee G1151 ICs consume 90 bits each (not a whole number of bytes), the bit stream is sent through a
 // regular 800kHz "RGB" bus where each 3 byte carrier pixel transports 24 bits of the packed stream
-#define G1151_BITS_PER_IC          90
+#define G1151_BITS_PER_IC          90               // 5 channels x (2 bit current setting + 16 bit value)
+#define G1151_CURRENT_FULL         0b11             // what the original controller sends in each 2 bit current field
 #define NUM_CARRIERS_G1151(len)    (((len)*G1151_BITS_PER_IC + 23) / 24)
 #define WS2812_2CH_3X_SPANS_2_ICS(i) ((i)&0x01)    // every other LED zone is on two different ICs
 
