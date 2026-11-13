@@ -5,6 +5,21 @@
 	<meta content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" name="viewport">
 	<title>Usermod Settings</title>
 	<style> html { visibility: hidden; } </style> <!-- prevent white & ugly display while loading, unhidden in loadResources() -->
+	<style>
+		details.sec > summary {
+			cursor: pointer;
+			list-style: none; /* custom marker below instead of the default triangle */
+		}
+		details.sec > summary::-webkit-details-marker { display: none; }
+		details.sec > summary h3::before {
+			content: '▸ ';
+			display: inline-block;
+			transition: transform 0.15s ease;
+		}
+		details.sec[open] > summary h3::before {
+			content: '▾ ';
+		}
+	</style>
 	<script>
 	var umCfg = {};
 	var urows;
@@ -34,9 +49,9 @@
 			urows="";
 			if (isO(umCfg)) {
 				for (const [k,o] of Object.entries(umCfg)) {
-					urows += `<div class="sec"><h3>${k}</h3>`;
+					urows += `<details class="sec" open><summary><h3>${k}</h3></summary>`;
 					addField(k,'unknown',o);
-					urows += `</div>`;
+					urows += `</details>`;
 				}
 			}
 			if (urows==="") urows = "Usermods configuration not found.<br>Press <i>Save</i> to initialize defaults.";
@@ -262,6 +277,9 @@
 		e.preventDefault();
 		if (d.Sf.checkValidity()) d.Sf.submit(); //https://stackoverflow.com/q/37323914
 	}
+	function setAllUM(open) {
+		gId("um").querySelectorAll("details.sec").forEach(e => { e.open = open; });
+	}
 
 	// TODO: rename this function, needs to be in sync with the now out of tree mod
 	function aOpt(name,el) {
@@ -380,6 +398,8 @@
 			<br><i class="warn">change requires reboot!</i><br>
 			Reboot after save? <input type="checkbox" name="RBT">
 		</div>
+		<button type="button" onclick="setAllUM(true)">Expand all</button>
+		<button type="button" onclick="setAllUM(false)">Collapse all</button>
 		<div id="um">Loading settings...</div>
 		<hr><button type="button" onclick="B()">Back</button><button type="submit">Save</button>
 	</form>
