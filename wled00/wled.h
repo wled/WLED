@@ -476,6 +476,7 @@ WLED_GLOBAL uint16_t DMXAddress _INIT(1);                         // DMX start a
 WLED_GLOBAL uint16_t DMXSegmentSpacing _INIT(0);                  // Number of void/unused channels between each segments DMX channels
 WLED_GLOBAL bool e131Multicast _INIT(false);                      // multicast or unicast
 WLED_GLOBAL bool e131SkipOutOfSequence _INIT(false);              // freeze instead of flickering
+WLED_GLOBAL bool DMXInstantBri _INIT(false);                      // DMX mode "Preset": apply dimmer channel immediately (no brightness transition)
 
 // mqtt
 WLED_GLOBAL unsigned long lastMqttReconnectAttempt _INIT(0);  // used for other periodic tasks too
