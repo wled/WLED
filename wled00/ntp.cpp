@@ -7,10 +7,12 @@
 // forward declarations
 static void sendNTPPacket();
 static bool checkNTPResponse();
+static void applyBootTimerPreset();
 
 // Runtime state private to this file - previously WLED_GLOBAL, a leftover from
 // when all state lived in one big extern block regardless of who used it.
 static byte lastTimerMinute = 0;
+static bool bootTimerApplied = false;  // whether boot-time timer check has been performed
 static unsigned long ntpPacketSentTime = NTP_NEVER;
 static IPAddress ntpServerIP;
 
@@ -342,6 +344,7 @@ static bool checkNTPResponse()
   // if time changed re-calculate sunrise/sunset
   updateLocalTime();
   calculateSunriseAndSunset();
+  applyBootTimerPreset();  // only acts on the first successful NTP sync
   return true;
 }
 
@@ -393,20 +396,25 @@ bool checkCountdown()
   return false;
 }
 
-byte weekdayMondayFirst()
+static byte weekdayMondayFirst(time_t t)
 {
-  byte wd = weekday(localTime) -1;
+  byte wd = weekday(t) -1;
   if (wd == 0) wd = 7;
   return wd;
 }
 
-bool isTodayInDateRange(byte monthStart, byte dayStart, byte monthEnd, byte dayEnd)
+byte weekdayMondayFirst()
+{
+  return weekdayMondayFirst(localTime);
+}
+
+static bool isDateInRange(time_t t, byte monthStart, byte dayStart, byte monthEnd, byte dayEnd)
 {
 	if (monthStart == 0 || dayStart == 0) return true;
 	if (monthEnd == 0) monthEnd = monthStart;
 	if (dayEnd == 0) dayEnd = 31;
-	byte d = day(localTime);
-	byte m = month(localTime);
+	byte d = day(t);
+	byte m = month(t);
 
 	if (monthStart < monthEnd) {
 		if (m > monthStart && m < monthEnd) return true;
@@ -424,6 +432,11 @@ bool isTodayInDateRange(byte monthStart, byte dayStart, byte monthEnd, byte dayE
 	//start month and end month are the same
 	if (dayEnd < dayStart) return (m != monthStart || (d <= dayEnd || d >= dayStart)); //all year, except the designated days in this month
 	return (m == monthStart && d >= dayStart && d <= dayEnd); //just the designated days this month
+}
+
+bool isTodayInDateRange(byte monthStart, byte dayStart, byte monthEnd, byte dayEnd)
+{
+  return isDateInRange(localTime, monthStart, dayStart, monthEnd, dayEnd);
 }
 
 void checkTimers()
@@ -464,6 +477,83 @@ void checkTimers()
         #endif
       }
     }
+  }
+}
+
+static constexpr int MINUTES_PER_DAY = 24 * 60;
+
+/*
+ * Returns the minute-of-day (0-1439) timer t last triggers at on the day containing 'day',
+ * no later than minute-of-day 'latest', or -1 if it doesn't trigger that day by then.
+ * Validates: timer enabled, weekday matches, date range.
+ * For "every hour" timers (hour=24), returns the most recent hourly occurrence.
+ * For sunrise/sunset timers, returns today's calculated trigger time (close enough for yesterday).
+ */
+static int getTimerMinuteOfDay(const Timer& t, time_t day, int latest)
+{
+  if (!t.isEnabled()) return -1;
+  if (!((t.weekdays >> weekdayMondayFirst(day)) & 0x01)) return -1;  // wrong weekday
+  if (!isDateInRange(day, t.monthStart, t.dayStart, t.monthEnd, t.dayEnd)) return -1;
+
+  int m;
+  if (t.isSunrise() || t.isSunset()) {
+    time_t sun = t.isSunrise() ? sunrise : sunset;
+    if (!sun) return -1;
+    m = elapsedSecsToday((sun + t.minute * 60)) / 60;  // extra parentheses: the macro doesn't wrap its argument
+  } else if (t.hour == 24) {
+    m = (latest / 60) * 60 + t.minute;  // "every hour" at this minute
+    if (m > latest) m -= 60;            // not reached yet this hour, so the hour before
+  } else {
+    m = t.hour * 60 + t.minute;
+  }
+  return (m >= 0 && m <= latest) ? m : -1;
+}
+
+/*
+ * Apply the time-controlled preset that triggered most recently, if that was no more than
+ * bootTimerWindow minutes ago. Looks back at most one day, so across midnight too.
+ * Called once after NTP sync on boot to handle powering on after a scheduled time.
+ */
+static void applyBootTimerPreset()
+{
+  if (bootTimerApplied) return;
+  bootTimerApplied = true;  // only the first sync after boot, even if the window is enabled later
+  if (!bootTimerWindow) return;
+
+  const int currentMinuteOfDay = elapsedSecsToday(localTime) / 60;
+  int minutesAgo = MINUTES_PER_DAY + 1;  // more than the lookback, so any timer found is more recent
+  byte latestPreset = 0;
+
+  DEBUG_PRINTLN(F("Checking for boot timer preset..."));
+
+  for (const Timer& t : timers) {
+    int ago;
+    int timerMinute = getTimerMinuteOfDay(t, localTime, currentMinuteOfDay);  // today, up to now
+    if (timerMinute >= 0) {
+      ago = currentMinuteOfDay - timerMinute;
+    } else {
+      // yesterday, but no earlier than this time of day (also skips -1: didn't trigger yesterday)
+      timerMinute = getTimerMinuteOfDay(t, localTime - SECS_PER_DAY, MINUTES_PER_DAY - 1);
+      if (timerMinute < currentMinuteOfDay) continue;
+      ago = currentMinuteOfDay + MINUTES_PER_DAY - timerMinute;
+    }
+
+    // Use <= so that if multiple timers share the same minute, the highest index wins,
+    // matching checkTimers() behavior where all are applied and the last one sticks.
+    if (ago <= minutesAgo) {
+      minutesAgo = ago;
+      latestPreset = t.preset;
+    }
+  }
+
+  if (latestPreset > 0 && minutesAgo <= bootTimerWindow) {
+    DEBUG_PRINTF_P(PSTR("Applying boot timer preset %d (triggered %d min ago)\n"), latestPreset, minutesAgo);
+    applyPreset(latestPreset);
+    // if it is a playlist, continue where it would be by now (timers trigger at the start of the minute)
+    uint32_t elapsedSecs = minutesAgo * 60 + elapsedSecsToday(localTime) % 60;
+    setPlaylistSeek(latestPreset, elapsedSecs * 1000);
+  } else {
+    DEBUG_PRINTLN(F("No applicable boot timer preset found."));
   }
 }
 
