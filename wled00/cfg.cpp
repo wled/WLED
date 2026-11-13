@@ -581,6 +581,7 @@ bool deserializeConfig(JsonObject doc, bool fromFS) {
   int tdd = light_tr["dur"] | -1;
   if (tdd >= 0) transitionDelay = transitionDelayDefault = tdd * 100;
   strip.setTransition(transitionDelayDefault);
+  CJSON(powerAnimation, light_tr[F("pwr")]);
   CJSON(randomPaletteChangeTime, light_tr[F("rpc")]);
   CJSON(useHarmonicRandomPalette, light_tr[F("hrp")]);
 
@@ -1152,6 +1153,7 @@ void serializeConfig(JsonObject root) {
 
   JsonObject light_tr = light.createNestedObject("tr");
   setConfigValue(light_tr, "dur", transitionDelayDefault / 100);
+  setConfigValue(light_tr, F("pwr"), powerAnimation);
   setConfigValue(light_tr, F("rpc"), randomPaletteChangeTime);
   setConfigValue(light_tr, F("hrp"), useHarmonicRandomPalette);
 
