@@ -121,8 +121,12 @@ uint32_t Bus::autoWhiteCalc(uint32_t c, uint8_t &ww, uint8_t &cw) const {
     c = RGBW32(r, g, b, w);
   }
   if (_hasCCT) {
-    cIn.w = w; // need original rgb values in case CCT is derived from RGB
-    calculateCCT(cIn, ww, cw);
+    if (realtimeWhiteBoth && realtimeMode && !realtimeOverride && !useMainSegmentOnly) {
+      ww = cw = w; // realtime RGBW data carries no CCT: drive both white channels at W (see "White drives both white channels")
+    } else {
+      cIn.w = w; // need original rgb values in case CCT is derived from RGB
+      calculateCCT(cIn, ww, cw);
+    }
   }
   return c;
 }

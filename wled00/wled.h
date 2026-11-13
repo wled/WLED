@@ -437,6 +437,7 @@ WLED_GLOBAL uint16_t realtimeTimeoutMs _INIT(2500);               // ms timeout 
 WLED_GLOBAL int arlsOffset _INIT(0);                              // realtime LED offset
 WLED_GLOBAL bool arlsDisableGammaCorrection _INIT(true);          // activate if gamma correction is handled by the source
 WLED_GLOBAL bool arlsForceMaxBri _INIT(false);                    // enable to force max brightness if source has very dark colors that would be black
+WLED_GLOBAL bool realtimeWhiteBoth _INIT(false);                  // realtime RGBW input: W drives both white channels of CCT outputs at full W instead of being split by CCT
 
 #ifdef WLED_ENABLE_DMX
  #if defined(CONFIG_IDF_TARGET_ESP32C5) || defined(CONFIG_IDF_TARGET_ESP32C6) || defined(CONFIG_IDF_TARGET_ESP32C61) || defined(CONFIG_IDF_TARGET_ESP32P4) 

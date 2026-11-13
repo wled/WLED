@@ -561,6 +561,7 @@ void getSettingsJS(byte subPage, Print& settingsScript)
     printSetFormValue(settingsScript,PSTR("ET"),realtimeTimeoutMs);
     printSetFormCheckbox(settingsScript,PSTR("FB"),arlsForceMaxBri);
     printSetFormCheckbox(settingsScript,PSTR("RG"),arlsDisableGammaCorrection);
+    printSetFormCheckbox(settingsScript,PSTR("WB"),realtimeWhiteBoth);
     printSetFormValue(settingsScript,PSTR("WO"),arlsOffset);
     #ifndef WLED_DISABLE_ALEXA
     printSetFormCheckbox(settingsScript,PSTR("AL"),alexaEnabled);
