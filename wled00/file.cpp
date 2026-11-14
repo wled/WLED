@@ -365,12 +365,18 @@ bool readObjectFromFile(const char* file, const char* key, JsonDocument* dest, c
     return false;
   }
 
-  if (filter) deserializeJson(*dest, f, DeserializationOption::Filter(*filter));
-  else        deserializeJson(*dest, f);
+  DeserializationError jsonErr = DeserializationError::Ok;
+  if (filter) jsonErr = deserializeJson(*dest, f, DeserializationOption::Filter(*filter));
+  else        jsonErr = deserializeJson(*dest, f);
 
   f.close();
   DEBUGFS_PRINTF("Read, took %lu ms\n", millis() - s);
-  return true;
+
+  if (jsonErr) {   // EmptyInput, IncompleteInput, InvalidInput, NoMemory, TooDeep
+    DEBUG_PRINTF_P(PSTR("readObjectFromFile(%s): JSON %s !\n"), fileName, jsonErr.c_str());
+    if (jsonErr != DeserializationError::NoMemory) dest->clear(); // prevent callers from using partial invalid data
+    return jsonErr == DeserializationError::NoMemory || jsonErr == DeserializationError::EmptyInput; // NoMemory => data is partial but usable; empty => handled by caller
+  } else return true;
 }
 
 // helper to read comma-separated integers from a JSON array
