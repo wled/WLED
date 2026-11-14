@@ -142,7 +142,7 @@ constexpr size_t  WLED_MAX_USERMOD_PALETTES     = WLED_USERMOD_PALETTE_ID_BASE -
   #ifndef WLED_MAX_DIGITAL_CHANNELS
     #define WLED_MAX_DIGITAL_CHANNELS (WLED_MAX_RMT_CHANNELS + WLED_MAX_PARHW_CHANNELS + WLED_MAX_BB_CHANNELS) // total number of digital channels (RMT + parallel + BitBang)
   #else
-    #warning "buildenv overrides WLED_MAX_DIGITAL_CHANNELS - please check that the value is correct" 
+    #warning "buildenv overrides WLED_MAX_DIGITAL_CHANNELS - please check that the value is correct"
   #endif
 #endif
 // WLED_MAX_BUSSES was used to define the size of busses[] array which is no longer needed
@@ -531,6 +531,8 @@ static_assert(WLED_MAX_BUSSES <= 32, "WLED_MAX_BUSSES exceeds hard limit");
 #define ERR_LOW_BUF     37  // low memory (LED pixels buffer)
 #define ERR_SYS_REBOOT      90  // reboot after error, trying to roll back
 #define ERR_SYS_BROWNOUT    91  // reboot after brownout alert
+#define ERR_REBOOT_NEEDED 98 // reboot needed after changing hardware setting
+#define ERR_POWEROFF_NEEDED 99 // power-cycle needed after changing hardware setting
 #define ERR_PERSISTENT_THRESHOLD 100 // ToDO: errors below this value are non-persistent; persistent errors stay in the UI until restart
 // ERR_PERSISTENT_THRESHOLD is a threshold value only - never assign directly to errorFlag
 #define ERR_REBOOT_NEEDED   100 // reboot needed after changing hardware setting
