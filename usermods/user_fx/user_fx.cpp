@@ -97,6 +97,114 @@ unsigned dataSize = cols * rows;  // SEGLEN (virtual length) is equivalent to vW
 }
 static const char _data_FX_MODE_DIFFUSIONFIRE[] PROGMEM = "Diffusion Fire@!,Spark rate,Diffusion Speed,Turbulence,,Use palette;;Color;;2;pal=35";
 
+struct FireflyParticle {
+  int32_t x;
+  int32_t y;
+  int16_t vx;
+  int16_t vy;
+  uint8_t brightness;
+  uint8_t targetBrightness;
+  uint8_t hue;
+};
+
+static constexpr uint8_t FIREFLY_MAX_PARTICLES = 24;
+
+static int32_t fireflyRandomPosition(uint16_t size) {
+  return (static_cast<uint32_t>(hw_random8()) * size);
+}
+
+static int16_t fireflyRandomVelocity(uint8_t maxVelocity) {
+  return (hw_random8(3) - 1) * hw_random8(maxVelocity / 2, maxVelocity);
+}
+
+static void mode_firefly_garden(void) {
+  if (!strip.isMatrix || !SEGMENT.is2D())
+    FX_FALLBACK_STATIC;
+
+  const uint16_t width = SEG_W;
+  const uint16_t height = SEG_H;
+  const uint8_t glowRadius = map(SEGMENT.custom1, 0, 255, 1, 3);
+  const uint8_t activeParticles = map(SEGMENT.intensity, 0, 255, 4, FIREFLY_MAX_PARTICLES);
+  const uint8_t maxVelocity = map(SEGMENT.speed, 0, 255, 64, 255);
+  const uint16_t motionInterval = map(SEGMENT.speed, 0, 255, 80, 20);
+
+  if (!SEGENV.allocateData(sizeof(FireflyParticle) * FIREFLY_MAX_PARTICLES))
+    FX_FALLBACK_STATIC;
+
+  FireflyParticle* particles = reinterpret_cast<FireflyParticle*>(SEGENV.data);
+  if (SEGENV.call == 0) {
+    for (uint8_t i = 0; i < FIREFLY_MAX_PARTICLES; i++) {
+      particles[i].x = fireflyRandomPosition(width);
+      particles[i].y = fireflyRandomPosition(height);
+      particles[i].vx = fireflyRandomVelocity(maxVelocity);
+      particles[i].vy = fireflyRandomVelocity(maxVelocity);
+      particles[i].brightness = hw_random8(96, 220);
+      particles[i].targetBrightness = hw_random8(48, 255);
+      particles[i].hue = hw_random8();
+    }
+    SEGENV.step = strip.now;
+  }
+
+  const uint16_t elapsed = min<uint32_t>(strip.now - SEGENV.step, 100);
+  if (elapsed >= motionInterval) {
+    SEGENV.step = strip.now;
+    const int32_t maxX = (width - 1) << 8;
+    const int32_t maxY = (height - 1) << 8;
+    for (uint8_t i = 0; i < activeParticles; i++) {
+      FireflyParticle& particle = particles[i];
+
+      if (hw_random8() < SEGMENT.custom2) {
+        particle.vx = fireflyRandomVelocity(maxVelocity);
+        particle.vy = fireflyRandomVelocity(maxVelocity);
+      }
+
+      particle.x = constrain((int32_t)particle.x + (particle.vx * elapsed) / 100, 0, maxX);
+      particle.y = constrain((int32_t)particle.y + (particle.vy * elapsed) / 100, 0, maxY);
+
+      if (particle.x == 0 || particle.x == maxX) particle.vx = -particle.vx;
+      if (particle.y == 0 || particle.y == maxY) particle.vy = -particle.vy;
+    }
+  }
+
+  for (uint8_t i = 0; i < activeParticles; i++) {
+    FireflyParticle& particle = particles[i];
+    if (particle.brightness < particle.targetBrightness) {
+      particle.brightness = min<uint8_t>(particle.targetBrightness, particle.brightness + 4);
+    } else if (particle.brightness > particle.targetBrightness) {
+      particle.brightness = max<uint8_t>(particle.targetBrightness, particle.brightness - 4);
+    }
+    if (abs((int)particle.brightness - particle.targetBrightness) < 8 && hw_random8() < 32) {
+      particle.targetBrightness = hw_random8(48, 255);
+    }
+  }
+
+  SEGMENT.fill(BLACK);
+  for (uint8_t i = 0; i < activeParticles; i++) {
+    const FireflyParticle& particle = particles[i];
+    const uint32_t baseColor = SEGMENT.color_from_palette(particle.hue, true, PALETTE_SOLID_WRAP, 0);
+    const int centerX = particle.x >> 8;
+    const int centerY = particle.y >> 8;
+
+    for (int8_t offsetY = -glowRadius; offsetY <= glowRadius; offsetY++) {
+      for (int8_t offsetX = -glowRadius; offsetX <= glowRadius; offsetX++) {
+        const int8_t distance = abs(offsetX) + abs(offsetY);
+        if (distance > glowRadius) continue;
+
+        const int pixelX = centerX + offsetX;
+        const int pixelY = centerY + offsetY;
+        if (pixelX < 0 || pixelX >= width || pixelY < 0 || pixelY >= height) continue;
+
+        const uint8_t falloff = 255 - distance * (255 / (glowRadius + 1));
+        const uint8_t level = scale8(particle.brightness, falloff);
+        const uint32_t glowColor = color_fade(baseColor, level);
+        const uint32_t existing = SEGMENT.getPixelColorXY(pixelX, pixelY);
+        SEGMENT.setPixelColorXY(pixelX, pixelY, color_add(existing, glowColor, false));
+      }
+    }
+  }
+}
+static const char _data_FX_MODE_FIREFLY_GARDEN[] PROGMEM = "Firefly Garden@Speed,Density,Glow,Drift;;!;2;ix=128,c1=96,c2=96";
+
 
 /*
  * Spinning Wheel effect - LED animates around 1D strip (or each column in a 2D matrix), slows down and stops at random position
@@ -1877,6 +1985,7 @@ class UserFxUsermod : public Usermod {
  public:
   void setup() override {
     strip.addEffect(255, &mode_diffusionfire, _data_FX_MODE_DIFFUSIONFIRE);
+    strip.addEffect(255, &mode_firefly_garden, _data_FX_MODE_FIREFLY_GARDEN);
     strip.addEffect(255, &mode_spinning_wheel, _data_FX_MODE_SPINNINGWHEEL);
     strip.addEffect(255, &mode_2D_lavalamp, _data_FX_MODE_2D_LAVALAMP);
     strip.addEffect(255, &mode_2D_magma, _data_FX_MODE_2D_MAGMA);
