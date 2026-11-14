@@ -28,7 +28,6 @@
 
 ## Checklist
 <!-- Mark each item with an X to confirm -->
-- [ ] _In the case of AI agents being involved:_ As a human contributor, I understand that I am fully responsible for this PR.
 - [ ] I have personally reviewed all changes (incl. source code) before opening this PR.
-- [ ] I am ready to explain my proposed changes line-by-line (without any AI agent responding on my behalf).
+- [ ] I'm ready to explain my proposed source code changes in detail (without an AI agent answering for me).
 - [ ] I agree to follow this project's Code of Conduct
