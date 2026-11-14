@@ -381,14 +381,6 @@ WLED_GLOBAL uint8_t txPower _INIT(WIFI_POWER_19_5dBm);  // ToDO: change to int8_
 WLED_GLOBAL bool turnOnAtBoot _INIT(true);                // turn on LEDs at power-up
 WLED_GLOBAL byte bootPreset   _INIT(0);                   // save preset to load after power-up
 
-//if true, a segment per bus will be created on boot and LED settings save
-//if false, only one segment spanning the total LEDs is created,
-//but not on LED settings save if there is more than one segment currently
-#ifdef ESP8266
-WLED_GLOBAL bool useGlobalLedBuffer _INIT(false); // double buffering disabled on ESP8266
-#else
-WLED_GLOBAL bool useGlobalLedBuffer _INIT(true);  // double buffering enabled on ESP32
-#endif
 #ifdef WLED_USE_IC_CCT
 WLED_GLOBAL bool cctICused          _INIT(true);  // CCT IC used (Athom 15W bulbs)
 #else
