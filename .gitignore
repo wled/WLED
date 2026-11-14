@@ -12,9 +12,13 @@ __pycache__/
 /.dummy
 /dependencies.lock
 /managed_components
+/docs/temp/
+/docs/tmp/
+/docs/ignore/
 
 esp01-update.sh
 platformio_override.ini
+AGENTS.local.md
 platformio_release.ini
 replace_fs.py
 wled-update.sh
