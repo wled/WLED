@@ -128,11 +128,13 @@ static void mode_firefly_garden(void) {
   const uint8_t maxVelocity = map(SEGMENT.speed, 0, 255, 64, 255);
   const uint16_t motionInterval = map(SEGMENT.speed, 0, 255, 80, 20);
 
-  if (!SEGENV.allocateData(sizeof(FireflyParticle) * FIREFLY_MAX_PARTICLES))
+  if (!SEGENV.allocateData(sizeof(FireflyParticle) * FIREFLY_MAX_PARTICLES)) {
+    SEGENV.aux0 = 0;
     FX_FALLBACK_STATIC;
+  }
 
   FireflyParticle* particles = reinterpret_cast<FireflyParticle*>(SEGENV.data);
-  if (SEGENV.call == 0) {
+  if (SEGENV.aux0 != 1) {
     for (uint8_t i = 0; i < FIREFLY_MAX_PARTICLES; i++) {
       particles[i].x = fireflyRandomPosition(width);
       particles[i].y = fireflyRandomPosition(height);
@@ -143,6 +145,7 @@ static void mode_firefly_garden(void) {
       particles[i].hue = hw_random8();
     }
     SEGENV.step = strip.now;
+    SEGENV.aux0 = 1;
   }
 
   const uint16_t elapsed = min<uint32_t>(strip.now - SEGENV.step, 100);
@@ -169,7 +172,7 @@ static void mode_firefly_garden(void) {
   for (uint8_t i = 0; i < activeParticles; i++) {
     FireflyParticle& particle = particles[i];
     if (particle.brightness < particle.targetBrightness) {
-      particle.brightness = min<uint8_t>(particle.targetBrightness, particle.brightness + 4);
+      particle.brightness = min<uint16_t>(particle.targetBrightness, particle.brightness + 4);
     } else if (particle.brightness > particle.targetBrightness) {
       particle.brightness = max<uint8_t>(particle.targetBrightness, particle.brightness - 4);
     }
@@ -181,7 +184,7 @@ static void mode_firefly_garden(void) {
   SEGMENT.fill(BLACK);
   for (uint8_t i = 0; i < activeParticles; i++) {
     const FireflyParticle& particle = particles[i];
-    const uint32_t baseColor = SEGMENT.color_from_palette(particle.hue, true, PALETTE_SOLID_WRAP, 0);
+    const uint32_t baseColor = SEGMENT.color_from_palette(particle.hue, false, PALETTE_SOLID_WRAP, 0);
     const int centerX = particle.x >> 8;
     const int centerY = particle.y >> 8;
 
@@ -1985,7 +1988,6 @@ class UserFxUsermod : public Usermod {
  public:
   void setup() override {
     strip.addEffect(255, &mode_diffusionfire, _data_FX_MODE_DIFFUSIONFIRE);
-    strip.addEffect(255, &mode_firefly_garden, _data_FX_MODE_FIREFLY_GARDEN);
     strip.addEffect(255, &mode_spinning_wheel, _data_FX_MODE_SPINNINGWHEEL);
     strip.addEffect(255, &mode_2D_lavalamp, _data_FX_MODE_2D_LAVALAMP);
     strip.addEffect(255, &mode_2D_magma, _data_FX_MODE_2D_MAGMA);
@@ -1994,6 +1996,7 @@ class UserFxUsermod : public Usermod {
     strip.addEffect(255, &mode_2D_perlinscape, _data_FX_MODE_2D_PERLINSCAPE);
     strip.addEffect(255, &mode_dissolveplus, _data_FX_MODE_DISSOLVEPLUS);
     strip.addEffect(255, &mode_2D_jackolantern, _data_FX_MODE_2D_JACKOLANTERN);
+    strip.addEffect(255, &mode_firefly_garden, _data_FX_MODE_FIREFLY_GARDEN);
 
     ////////////////////////////////////////
     //  add your effect function(s) here  //
