@@ -478,9 +478,10 @@ void handleNotifications()
     notify(notificationSentCallMode,true);
   }
 
-  // show new realtime data once per target frame (the "Target refresh rate" setting; unlimited = MIN_FRAME_DELAY),
-  // but never wait longer than the previous fixed 15 ms
-  const uint32_t realtimeFrameTime = std::min<uint32_t>(strip.getFrameTime(), 16U);
+  // show new realtime data at most every 16 ms: without PUSH a frame may still be missing packets or universes.
+  // A DDP frame that ended with PUSH is complete, so it follows the "Target refresh rate" setting instead
+  // (unlimited = MIN_FRAME_DELAY), but never waits longer than 16 ms
+  const uint32_t realtimeFrameTime = e131NewDataPushed ? std::min<uint32_t>(strip.getFrameTime(), 16U) : 16U;
   if (e131NewData && millis() - strip.getLastShow() >= realtimeFrameTime)
   {
     e131NewData = false;
