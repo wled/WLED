@@ -75,7 +75,9 @@ class ButtonDimmer : public Usermod {
 
     // apply the brightness without fading: a fade restarted on every ramp step would lag behind
     void applyNow(byte callMode) {
-      const uint16_t t = strip.getTransition();
+      // stateUpdated() with a zero duration cancels a one-shot transition (JSON "tt", playlist) and clears its flag,
+      // so its temporary duration must not be put back: return to the normal one instead
+      const uint16_t t = jsonTransitionOnce ? transitionDelay : strip.getTransition();
       strip.setTransition(0);
       stateUpdated(callMode);
       strip.setTransition(t);
@@ -214,6 +216,7 @@ class ButtonDimmer : public Usermod {
 
       if (down) {
         if (!pressed) {                                   // press started
+          if (clicks > 0 && now - tUp >= clickGapMs) fireClicks(); // the earlier clicks timed out without an idle call in between
           pressed = true;
           holding = false;
           tDown = now;
@@ -224,6 +227,7 @@ class ButtonDimmer : public Usermod {
         }
       } else if (pressed) {                               // released
         pressed = false;
+        if (!holding && now - tDown > holdMs) startHold(now); // long press whose hold start was never seen: still a hold
         if (holding) {
           stopHold();
         } else if (now - tDown > debounceMs) {            // a valid click
@@ -261,6 +265,7 @@ class ButtonDimmer : public Usermod {
     bool readFromConfig(JsonObject& root) override {
       JsonObject top = root[FPSTR(_name)];
       bool ok = !top.isNull();
+      const uint8_t oldBtn = btn;
 
       ok &= getJsonValue(top[F("enabled")], enabled);
       ok &= getJsonValue(top[F("button")], btn);
@@ -293,6 +298,10 @@ class ButtonDimmer : public Usermod {
 
       maxClicks = 0;
       for (unsigned i = 0; i < BUTTON_DIMMER_MAX_CLICKS; i++) if (clickSlot[i].action != ACT_NONE) maxClicks = i + 1;
+      if (!enabled || btn != oldBtn) {  // the button is handed back: finish the gesture in progress
+        if (holding) stopHold();        // publishes the final level if a ramp was running
+        pressed = false;
+      }
       clicks = 0;
       return ok;
     }
