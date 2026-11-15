@@ -2004,11 +2004,11 @@ bool WS2812FX::preparePowerAnimation(unsigned long showTime) {
   const bool wanted = (powerAnimation || _powerAnimation.isRunning()) && len > 0 && len <= UINT16_MAX;
   if (_powerAnimation.isAttached() && (!wanted || _powerAnimation.count() != len)) {
     _powerAnimation.detach();
-    d_free(_powerLevels);
+    p_free(_powerLevels);
     _powerLevels = nullptr;
   }
   if (wanted && !_powerAnimation.isAttached()) {
-    _powerLevels = static_cast<uint8_t*>(d_malloc(2 * len));
+    _powerLevels = static_cast<uint8_t*>(allocate_buffer(2 * len, BFRALLOC_PREFER_PSRAM)); // like _pixelCCT: keeps DRAM free when PSRAM exists
     if (!_powerLevels) return false; // not enough memory: plain power on/off
     // nothing has been shown since boot (_lastShow == 0): LEDs are dark, so turning on at boot animates
     _powerAnimation.attach(_powerLevels, len, isMatrix ? Segment::maxWidth : len, _brightness16 > 0 && _lastShow != 0, bri > 0);
