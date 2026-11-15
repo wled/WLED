@@ -368,10 +368,9 @@ void BusDigital::setPixelColor(unsigned pix, uint32_t c) {
   CctPixel cct{};
   if (c > 0) {
     uint8_t bri = _busPtr->getBusBri();
-    if (bri > 0 && bri < 255)
-      bri = gamma8inv(bri + 1); // limit min brightness so gamma does not dim to black
+    bri = gamma8inv(bri); // gamma-invert brightness so dimming is linear after gamma correction (gammaCorrectBri if used is applied in setBrightness())
     c = color_fade(c, bri, false); // apply software brightness scaling (no op for 16bit types, residual scale if HW current scaling is used)
-    c = gamma32(c); // apply gamma correction if (currently) used  TODO: need to re-think the CCT and auto white calc and if the current order is the right one
+    c = gamma32(c); // apply gamma correction if (currently) used
     if (Bus::_cct >= 1900) c = colorBalanceFromKelvin(Bus::_cct, c); //color correction from CCT
     if (hasWhite()) {
       c = autoWhiteCalc(c, cct.ww, cct.cw);
@@ -407,8 +406,7 @@ uint32_t IRAM_ATTR BusDigital::getPixelColor(unsigned pix) const {
   uint32_t c = restoreColorLossy(rawC, _totalBusBri);
   if (__builtin_expect(_hasColorOrderMap, 0)) {
     const uint8_t colorOrder = _colorOrderMap.getPixelColorOrder(globalPix, _colorOrder);
-    // for CCT buses the bus decode returns WW in W(c) (CW is dropped, lossy); pass it via wwcw
-    // so translateColorOrder() can move it to the canonical WW position
+    // for CCT buses the bus decode returns WW in W(c) (CW is dropped, lossy)
     CctPixel cct{};
     cct.ww = W(c);
     const uint8_t numChannels = hasCCT() ? 5 : (hasWhite() ? 4 : 3);
@@ -428,15 +426,15 @@ size_t BusDigital::getBusSize() const {
 }
 
 uint32_t BusDigital::restoreColorLossy(uint32_t c, uint8_t restoreBri) const {
-  c = gamma32inv(c); // note: if ABL is used, this can skew colors (chain is scale->gamma->scaleABL)
+  // Undo linear brightness & ABL scaling in post-gamma space before gamma32inv()
   if (restoreBri < 255) {
     uint8_t* chan = (uint8_t*) &c;
     for (uint_fast8_t i = 0; i < 4; i++) {
-      uint_fast16_t val = chan[i];
-      chan[i] = ((val << 8) + restoreBri) / (restoreBri + 1);
+      uint_fast16_t val = (((uint_fast16_t)chan[i] << 8) + restoreBri) / (restoreBri + 1);
+      chan[i] = val > 255 ? 255 : (uint8_t)val;
     }
   }
-  return c;
+  return gamma32inv(c);
 }
 
 void BusDigital::setColorOrder(uint8_t colorOrder) {
@@ -1328,7 +1326,7 @@ BusHub75Matrix::BusHub75Matrix(const BusConfig &bc) : Bus(bc.type, bc.start, bc.
 
 void IRAM_ATTR BusHub75Matrix::setPixelColor(unsigned pix, uint32_t c) {
   if (!_valid) return; // note: no need to check pix >= _len as that is checked in containsPixel()
-  c = gamma32(c); // apply gamma correction if (currently) used
+  c = gamma32(c); // apply gamma correction if (currently) used  Note: brightness scaling is done by hardware driver, see setBrightness16()
   // if (_cct >= 1900) c = colorBalanceFromKelvin(_cct, c); //color correction from CCT
   #ifdef WLED_HUB75_EXTRA_BUFFER
   if (_ledBuffer) {
@@ -1376,10 +1374,7 @@ uint32_t BusHub75Matrix::getPixelColor(unsigned pix) const {
 void BusHub75Matrix::setBrightness16(uint16_t b) {
   _bri16 = b;
   if (!_valid || !display) return;
-  b = b >> 8;
-  if (b > 0 && b < 255)
-    b = gamma8inv(b + 1); // gamma invert brightness so it is linear after gamma correction (gammaCorrectBri is applied in WS2812FX::setBrightness16())
-  display->setBrightness(b);
+  display->setBrightness(b >> 8);
 }
 
 void BusHub75Matrix::show(void) {
