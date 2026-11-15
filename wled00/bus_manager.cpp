@@ -376,10 +376,6 @@ void BusDigital::setPixelColor(unsigned pix, uint32_t c) {
     if (hasWhite()) {
       c = autoWhiteCalc(c, cct.ww, cct.cw);
     }
-    if (hasCCT()) {
-      cct.cw = ((uint16_t)(cct.cw + 1) * bri) >> 8;
-      cct.ww = ((uint16_t)(cct.ww + 1) * bri) >> 8;
-    }
     if (BusManager::_useABL) {
       // Accumulate brightness-scaled channel values for current estimation.
       // For 16-bit types c is unscaled (bri=255 above); ABL slightly over-estimates at low brightness.
