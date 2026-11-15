@@ -102,7 +102,8 @@ class PowerAnimation {
     uint32_t _offset = 0;          // phase time at that first frame (reversals start part way)
     Frame _frame;                  // prepared by beginFrame()
 
-    // quintic smoothstep 6x^5 - 15x^4 + 10x^3, Q16 in and out
+    // quintic smoothstep 6x^5 - 15x^4 + 10x^3, Q16 in and out: an S-curve from 0 to ONE whose slope and curvature are
+    // both zero at the ends, used for the soft edge across pixels and for the fades, so they start and stop without a kink
     static int32_t smooth(int32_t x) {
       if (x <= 0) return 0;
       if (x >= ONE) return ONE;
@@ -137,6 +138,7 @@ class PowerAnimation {
       f.inverse = uint32_t((uint64_t(1) << 32) / uint32_t(f.width));
       return f;
     }
+    // level (0-255) of the shape in frame f at Q16 position pos: dark ahead of the edge, a smooth ramp over its width, gain behind it
     static uint8_t shapeLevel(const Frame &f, int32_t pos) {
       if (f.uniform >= 0) return f.uniform;
       const int32_t d = f.edge - pos;
