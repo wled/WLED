@@ -2013,6 +2013,11 @@ bool WS2812FX::preparePowerAnimation(unsigned long now) {
     // nothing has been shown since boot (_lastShow == 0): LEDs are dark, so turning on at boot animates
     _powerAnimation.attach(_powerLevels, len, isMatrix ? Segment::maxWidth : len, _brightness16 > 0 && _lastShow != 0, bri > 0);
   }
+  // realtime data shown while off (realtimeLock() raised the strip brightness, briT16 stays 0) is not masked, as without the sweep
+  if (realtimeMode && !realtimeOverride && briT16 == 0 && !_powerAnimation.isRunning()) {
+    _powerAnimation.passThrough();
+    return false;
+  }
   return _powerAnimation.beginFrame(now);
 }
 

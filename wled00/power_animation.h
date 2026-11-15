@@ -46,6 +46,8 @@ class PowerAnimation {
     bool target() const               { return _target; }
     bool isRunning() const            { return _last && (_active || _target != _on); }
     uint8_t sentLevel(unsigned i) const { return (_last && i < _count) ? _last[i] : 255; } // for live previews
+    // the frame is sent unscaled (realtime data shown while off): recorded as fully lit, so the next phase continues from it
+    void passThrough()                { for (unsigned i = 0; i < _count; i++) _last[i] = 255; }
 
     // prepares a frame at time now (ms); returns false if output passes through unchanged
     bool beginFrame(uint32_t now) {
