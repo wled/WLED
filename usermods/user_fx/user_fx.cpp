@@ -97,9 +97,18 @@ unsigned dataSize = cols * rows;  // SEGLEN (virtual length) is equivalent to vW
 }
 static const char _data_FX_MODE_DIFFUSIONFIRE[] PROGMEM = "Diffusion Fire@!,Spark rate,Diffusion Speed,Turbulence,,Use palette;;Color;;2;pal=35";
 
+/*
+ * Firefly Garden effect - 2D matrix effect with drifting fireflies
+ * Firefly Garden uses Q8.8 positions so particles can drift between pixels while
+ * keeping the state small enough for ESP8266 and matrices up to 64x64.
+ * Particle state lives in SEGENV.data and is initialized only after allocation succeeds.
+ * The first slider controls movement speed, the second controls particle density,
+ * the third controls glow radius, and the fourth controls direction changes.
+ * The selected palette supplies firefly colors; the effect is intended for 2D matrix segments.
+ */
 struct FireflyParticle {
-  int32_t x;
-  int32_t y;
+  int16_t x;
+  int16_t y;
   int16_t vx;
   int16_t vy;
   uint8_t brightness;
@@ -109,7 +118,7 @@ struct FireflyParticle {
 
 static constexpr uint8_t FIREFLY_MAX_PARTICLES = 24;
 
-static int32_t fireflyRandomPosition(uint16_t size) {
+static int16_t fireflyRandomPosition(uint16_t size) {
   return (static_cast<uint32_t>(hw_random8()) * size);
 }
 
@@ -118,6 +127,7 @@ static int16_t fireflyRandomVelocity(uint8_t maxVelocity) {
 }
 
 static void mode_firefly_garden(void) {
+  // This effect is intentionally limited to matrix segments.
   if (!strip.isMatrix || !SEGMENT.is2D())
     FX_FALLBACK_STATIC;
 
@@ -151,8 +161,8 @@ static void mode_firefly_garden(void) {
   const uint16_t elapsed = min<uint32_t>(strip.now - SEGENV.step, 100);
   if (elapsed >= motionInterval) {
     SEGENV.step = strip.now;
-    const int32_t maxX = (width - 1) << 8;
-    const int32_t maxY = (height - 1) << 8;
+    const int16_t maxX = (width - 1) << 8;
+    const int16_t maxY = (height - 1) << 8;
     for (uint8_t i = 0; i < activeParticles; i++) {
       FireflyParticle& particle = particles[i];
 
@@ -190,14 +200,16 @@ static void mode_firefly_garden(void) {
 
     for (int8_t offsetY = -glowRadius; offsetY <= glowRadius; offsetY++) {
       for (int8_t offsetX = -glowRadius; offsetX <= glowRadius; offsetX++) {
-        const int8_t distance = abs(offsetX) + abs(offsetY);
-        if (distance > glowRadius) continue;
+        const int distanceSquared = offsetX * offsetX + offsetY * offsetY;
+        const int glowRadiusSquared = glowRadius * glowRadius;
+        if (distanceSquared > glowRadiusSquared) continue;
 
         const int pixelX = centerX + offsetX;
         const int pixelY = centerY + offsetY;
         if (pixelX < 0 || pixelX >= width || pixelY < 0 || pixelY >= height) continue;
 
-        const uint8_t falloff = 255 - distance * (255 / (glowRadius + 1));
+        const int falloffRange = (glowRadius + 1) * (glowRadius + 1);
+        const uint8_t falloff = 255 - (distanceSquared * 255 / falloffRange);
         const uint8_t level = scale8(particle.brightness, falloff);
         const uint32_t glowColor = color_fade(baseColor, level);
         const uint32_t existing = SEGMENT.getPixelColorXY(pixelX, pixelY);
