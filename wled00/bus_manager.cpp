@@ -715,7 +715,7 @@ void BusPwm::show() {
       duty[i] = maxBri - duty[i];
     }
     //stopWaveform(_pins[i]);  // can cause the waveform to miss a cycle. instead we risk crossovers.
-    startWaveformClockCycles(_pins[i], duty, analogPeriod - duty, 0, i ? _pins[0] : -1, hPoint, false);
+    startWaveformClockCycles(_pins[i], duty[i], analogPeriod - duty[i], 0, i ? _pins[0] : -1, hPoint, false);
 
     if (!_reversed) hPoint += duty[i];
     hPoint += deadTime;                      // offset to cascade the signals
