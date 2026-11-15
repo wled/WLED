@@ -1462,12 +1462,14 @@ bool serveLiveLeds(AsyncWebServerRequest* request, uint32_t wsClient)
   strncpy_P(buffer.data(), PSTR("{\"leds\":["), buffer.size());
   buf += 9; // sizeof(PSTR()) from last line
 
+  const bool sweep = powerAnimation || strip.isPowerAnimationRunning(); // per-pixel power sweep levels exist only then
   for (size_t i = 0; i < used; i += n)
   {
 #ifndef WLED_DISABLE_2D
     if (strip.isMatrix && n>1 && (i/Segment::maxWidth)%n) i += Segment::maxWidth * (n-1);
 #endif
-    uint32_t c = color_fade(strip.getPixelColor(i), strip.getPowerAnimationLevel(i)); // show the power animation like the LEDs
+    uint32_t c = strip.getPixelColor(i);
+    if (sweep) c = color_fade(c, strip.getPowerAnimationLevel(i)); // show the power sweep like the LEDs
     uint8_t r = R(c);
     uint8_t g = G(c);
     uint8_t b = B(c);
