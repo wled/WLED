@@ -1999,7 +1999,7 @@ void WS2812FX::show() {
 
 // keeps the power animation buffer in step with the "powerAnimation" setting and the strip length, then prepares
 // the animation for this frame; returns true if show() must scale each pixel by _powerAnimation.level()
-bool WS2812FX::preparePowerAnimation(unsigned long now) {
+bool WS2812FX::preparePowerAnimation(unsigned long showTime) {
   const unsigned len = getLengthTotal();
   const bool wanted = (powerAnimation || _powerAnimation.isRunning()) && len > 0 && len <= UINT16_MAX;
   if (_powerAnimation.isAttached() && (!wanted || _powerAnimation.count() != len)) {
@@ -2018,7 +2018,7 @@ bool WS2812FX::preparePowerAnimation(unsigned long now) {
     _powerAnimation.passThrough();
     return false;
   }
-  return _powerAnimation.beginFrame(now);
+  return _powerAnimation.beginFrame(showTime);
 }
 
 void WS2812FX::setRealtimePixelColor(unsigned i, uint32_t c) {

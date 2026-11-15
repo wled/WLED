@@ -1088,7 +1088,7 @@ class WS2812FX {
     uint8_t  _poweringOnOff; // global power transition in progress: TRANSITION_POWER_ON/OFF, 0 = none (suppresses new segment transitions, see Segment::startTransition())
     PowerAnimation _powerAnimation;  // optional power on/off animation, rendered in show()
     uint8_t *_powerLevels = nullptr; // its buffer (2 bytes per pixel), allocated only while the animation is enabled or running
-    bool preparePowerAnimation(unsigned long now);
+    bool preparePowerAnimation(unsigned long showTime);
 
     bool _isServicing;
     bool _isOffRefreshRequired; //periodic refresh is required for the strip to remain off.
