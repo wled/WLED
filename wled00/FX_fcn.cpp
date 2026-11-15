@@ -1560,10 +1560,8 @@ void WS2812FX::blendSegment(const Segment &topSegment) const {
   const Segment *segO      = topSegment.getOldSegment();
   uint8_t style = blendingStyle; // need a copy as the function may modify it to FADE
   if (segO && style != TRANSITION_FADE) opacityOld = segO->currentBri();  // get old segment opacity note: can not use segO->opacity as that breaks off->on transition
-  if (gammaCorrectCol) {
-    opacity = gamma8inv(opacity); // use inverse gamma on brightness for correct color scaling after gamma correction (see #5343 for details)
-    opacityOld = gamma8inv(opacityOld);
-  }
+  opacity = gamma8inv(opacity); // use inverse gamma on brightness for correct color scaling after gamma correction (see #5343 for details)
+  opacityOld = gamma8inv(opacityOld);
   const bool hasGrouping = topSegment.groupLength() != 1;
 
   #ifdef WLED_DISABLE_GLOBAL_PIXELBUFFER
@@ -1905,7 +1903,7 @@ void WS2812FX::show() {
     return; // no pixels allocated, nothing to show
   }
   #endif
-  BusManager::updateGammaUse(); // update gamma use (and bus brightness correction) in case something changed
+  BusManager::updateGammaUse(); // update gamma use in case something changed
   unsigned long showNow = millis();
   size_t diff = showNow - _lastShow;
   // use color gamma correction if enabled, not in realtime mode with gamma disabled or currently overriding RT mode
@@ -2061,11 +2059,6 @@ void WS2812FX::setBrightness16(uint16_t b, bool direct) {
   if (gammaCorrectBri && b > 0) {
     b = (int)(powf((float)b / maxBri16, gammaCorrectVal) * maxBri16 + 0.5f); // use float math not the gamma LUT to preserve 16bit precision
     if (b < (1U << 8)) b = 1U << 8; // prevent 0 brightness (after shifting) so LEDs do not turn off
-    /*
-    TODO: with gamma at bus level, the brightness correction probably needs adjustment, need to think on what formula to use, before 16bit brightness it was like this:
-    if (b > 0 && gammaCorrectBri)
-    b = gamma8(map(b, 1, 255, gamma8inv(1), 255)); // map from 1 to 255 in gamma space or strip will turn off at low brightness as gamma(b) goes to 0
-    */
   }
   if (_brightness16 == b) return;
   _brightness16 = b;

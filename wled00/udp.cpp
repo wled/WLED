@@ -430,11 +430,7 @@ void realtimeLock(uint32_t timeoutMs, byte md)
     realtimeTimeout = (timeoutMs == 255001 || timeoutMs == 65000) ? UINT32_MAX : millis() + timeoutMs;
   }
   realtimeMode = md;
-  // switch gamma table to unity when realtime mode disables gamma correction, restore otherwise
-  if (arlsDisableGammaCorrection && md != REALTIME_MODE_INACTIVE)
-    NeoGammaWLEDMethod::calcGammaTable(1.0f);
-  else
-    NeoGammaWLEDMethod::calcGammaTable(gammaCorrectVal);
+  BusManager::updateGammaUse();
 
   if (realtimeOverride) return;
   if (arlsForceMaxBri) strip.setBrightness(255, true);
@@ -446,7 +442,7 @@ void exitRealtime() {
   if (realtimeOverride == REALTIME_OVERRIDE_ONCE) realtimeOverride = REALTIME_OVERRIDE_NONE;
   realtimeTimeout = 0; // cancel realtime mode immediately
   realtimeMode = REALTIME_MODE_INACTIVE; // inform UI immediately
-  NeoGammaWLEDMethod::calcGammaTable(gammaCorrectVal); // restore gamma table after realtime mode
+  BusManager::updateGammaUse();
   strip.setBrightness(bri, true);
   realtimeIP[0] = 0;
   if (useMainSegmentOnly) { // unfreeze live segment again

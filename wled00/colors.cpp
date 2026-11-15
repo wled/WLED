@@ -649,7 +649,7 @@ uint16_t approximateKelvinFromRGB(uint32_t rgb) {
   }
 }
 
-// gamma lookup tables used for color correction (filled on 1st use (cfg.cpp & set.cpp))
+// gamma lookup tables used for color correction (filled on 1st use (cfg.cpp & set.cpp), updated in BusManager::updateGammaUse())
 uint8_t NeoGammaWLEDMethod::gammaT[256];
 uint8_t NeoGammaWLEDMethod::gammaT_inv[256];
 
@@ -668,8 +668,7 @@ void NeoGammaWLEDMethod::calcGammaTable(float gamma)
 
 uint8_t NeoGammaWLEDMethod::Correct(uint8_t value)
 {
-  if (!applyGamma) return value; // gamma is (currently) disabled
-  return gammaT[value]; // TODO: gammaT[] uses unity mapping if gammaCorrectCol is false -> is this correct? need to check and maybe remove the redundant applyGamma?
+  return gammaT[value];
 }
 
 uint32_t NeoGammaWLEDMethod::inverseGamma32(uint32_t color)

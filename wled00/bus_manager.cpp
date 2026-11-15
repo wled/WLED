@@ -251,10 +251,6 @@ BusDigital::BusDigital(const BusConfig &bc)
 // if limit is set too low, brightness is limited to 1 to at least show some light
 // to disable brightness limiter for a bus, set LED current to 0
 
-void BusDigital::setBrightness(uint8_t b) {
-  setBrightness16((uint16_t)b << 8);
-}
-
 void BusDigital::setBrightness16(uint16_t b) {
   _bri16 = b;
   if (!_busPtr) return;
@@ -360,14 +356,7 @@ void BusDigital::setStatusPixel(uint32_t c) {
     if (canShow()) _busPtr->show();
   }
 }
-/*
-TODO: need to move the gamma inversion to the correct place
-void BusDigital::setBrightness(uint8_t b) {
-  _bri = b;
-  if (_bri > 0 && _bri < 255 && applyGamma)
-    _bri = gamma8inv(_bri + 1); // limit min brightness so gamma does not dim to black
-}
-*/
+
 // TODO: this function may still need some optimization, making better use of the new bus architecture
 // Note: using WLED_O2_ATTR makes this function ~7% faster at the expense of 600 bytes of flash
 // Note: there is no benefit of putting this in IRAM: IRAM: 34.2fps, no IRAM: 34.3fps
@@ -378,8 +367,10 @@ void BusDigital::setPixelColor(unsigned pix, uint32_t c) {
   pix += _skip;
   CctPixel cct{};
   if (c > 0) {
-    const uint8_t bri = _busPtr->getBusBri();
-    c = color_fade(c, bri, true); // apply software brightness scaling (no op for 16bit types, residual scale if HW current scaling is used)
+    uint8_t bri = _busPtr->getBusBri();
+    if (bri > 0 && bri < 255)
+      bri = gamma8inv(bri + 1); // limit min brightness so gamma does not dim to black
+    c = color_fade(c, bri, false); // apply software brightness scaling (no op for 16bit types, residual scale if HW current scaling is used)
     c = gamma32(c); // apply gamma correction if (currently) used  TODO: need to re-think the CCT and auto white calc and if the current order is the right one
     if (Bus::_cct >= 1900) c = colorBalanceFromKelvin(Bus::_cct, c); //color correction from CCT
     if (hasWhite()) {
@@ -438,18 +429,6 @@ size_t BusDigital::getPins(uint8_t* pinArray) const {
 
 size_t BusDigital::getBusSize() const {
   return sizeof(BusDigital) + (isOk() && _busPtr ? _busPtr->getEncodeBufferSize() : 0);  // does not include common I2S DMA buffer
-}
-
-uint32_t BusDigital::restoreColorLossy(uint32_t c, uint8_t restoreBri) const {
-  c = gamma32inv(c); // note: if ABL is used, this can skew colors (chain is scale->gamma->scaleABL)
-  if (restoreBri < 255) {
-    uint8_t* chan = (uint8_t*) &c;
-    for (uint_fast8_t i = 0; i < 4; i++) {
-      uint_fast16_t val = chan[i];
-      chan[i] = ((val << 8) + restoreBri) / (restoreBri + 1);
-    }
-  }
-  return c;
 }
 
 uint32_t BusDigital::restoreColorLossy(uint32_t c, uint8_t restoreBri) const {
@@ -710,33 +689,39 @@ void BusPwm::show() {
     pwmBri = temp * temp * temp * maxBri;              // pwmBri is in range [0-maxBri]
   }
 
+  unsigned duty[numPins]; // duty cycle at channel resolution
+  unsigned totalDuty = 0; // sum of all channel duties
+
+  for (unsigned i = 0; i < numPins; i++) {
+    bool isLinearChannel = cctICused && ((_type == TYPE_ANALOG_2CH && i == 1) || (_type == TYPE_ANALOG_5CH && i == 4));
+    if (applyGamma && !isLinearChannel) {
+      duty[i] = (unsigned)(powf((float)_data[i] / 255.0f, gammaCorrectVal) * pwmBri); // apply full resolution gamma correction: way more accurate than using gamma8(_data[i])
+    } else {
+      duty[i] = (_data[i] * pwmBri) / 255;
+    }
+    totalDuty += duty[i];
+  }
+
   #ifdef ESP8266
   unsigned hPoint = 0;  // phase shift (0 - maxBri)
   for (unsigned i = 0; i < numPins; i++) {
-    unsigned duty;
-    bool isLinearChannel = cctICused && ((_type == TYPE_ANALOG_2CH && i == 1) || (_type == TYPE_ANALOG_5CH && i == 4));
-    if (applyGamma && !isLinearChannel) {
-      duty = (unsigned)(powf((float)_data[i] / 255.0f, gammaCorrectVal) * pwmBri); // apply full resolution gamma correction: way more accurate than using gamma8(_data[i])
-    } else {
-      duty = (_data[i] * pwmBri) / 255;
-    }
     unsigned deadTime = 0;
 
     if (_type == TYPE_ANALOG_2CH && Bus::_cctBlend <= 0 && !cctICused) {
       deadTime = 1 << bitShift;
       // only shorten the larger signal at (almost) full brightness, otherwise pulses may overlap
-      if ((_bri16 >> 8) >= 254 && duty >= maxBri / 2 && duty < maxBri) {
-        duty -= deadTime << 1;
+      if ((_bri16 >> 8) >= 254 && duty[i] >= maxBri / 2 && duty[i] < maxBri) {
+        duty[i] -= deadTime << 1;
       }
     }
     if (_reversed) {
-      if (i) hPoint += duty;  // align start at time zero
-      duty = maxBri - duty;
+      if (i) hPoint += duty[i];  // align start at time zero
+      duty[i] = maxBri - duty[i];
     }
     //stopWaveform(_pins[i]);  // can cause the waveform to miss a cycle. instead we risk crossovers.
     startWaveformClockCycles(_pins[i], duty, analogPeriod - duty, 0, i ? _pins[0] : -1, hPoint, false);
 
-    if (!_reversed) hPoint += duty;
+    if (!_reversed) hPoint += duty[i];
     hPoint += deadTime;                      // offset to cascade the signals
     if (hPoint >= maxBri) hPoint -= maxBri;  // offset is out of bounds, reset
   }
@@ -751,15 +736,9 @@ void BusPwm::show() {
   // newer LEDC hardware does not support duty wraparound at maxBri i.e. duty+phaseShift must be less than maxBri or duty is reduced by hardware
   // for 2-pin CCT add dead time between signals to prevent shoot-through in case the hardware does not prevent it internally
 
-  unsigned duty[numPins]; // duty cycle at channel resolution
   int pulseGap = 0; // gap added between pulses, positive: spread apart, negative: overlap
-  unsigned totalDuty = 0; // sum of all channel duties
   unsigned runningDuty = 0; // sum of all previous channel duties (+gaps if dutySum < maxBri)
 
-  for (unsigned i = 0; i < numPins; i++) {
-    duty[i] = (_data[i] * pwmBri) / 255.0f;
-    totalDuty += duty[i];
-  }
   int undershoot = maxBri - totalDuty;   // >=0 means signals will fit within one period, <0 means they will overlap
   pulseGap = undershoot / (int)numPins;  // if smaller than 0, distribution formula is used, runningDuty + gap otherwise
 
@@ -1390,7 +1369,7 @@ uint32_t BusHub75Matrix::getPixelColor(unsigned pix) const {
   if (!_valid) return IS_BLACK; // note: no need to check pix >= _len as that is checked in containsPixel()
   #ifdef WLED_HUB75_EXTRA_BUFFER
   if (_ledBuffer)
-    return uint32_t(_ledBuffer[pix]);  // fastled-slim already returns RGB, no need to mask out the upper byte
+    return gamma32inv(uint32_t(_ledBuffer[pix]));  // fastled-slim already returns RGB, no need to mask out the upper byte
   else
     return getBitFromArray(_ledsDirty, pix) ? IS_DARKGREY: IS_BLACK;   // just a hack - we only know if the pixel is black or not
   #else
@@ -1398,14 +1377,13 @@ uint32_t BusHub75Matrix::getPixelColor(unsigned pix) const {
   #endif
 }
 
-void BusHub75Matrix::setBrightness(uint8_t b) {
-  setBrightness16((uint16_t)b << 8);
-}
-
 void BusHub75Matrix::setBrightness16(uint16_t b) {
   _bri16 = b;
   if (!_valid || !display) return;
-  display->setBrightness(_bri16 >> 8);
+  b = b >> 8;
+  if (b > 0 && b < 255)
+    b = gamma8inv(b + 1); // gamma invert brightness so it is linear after gamma correction (gammaCorrectBri is applied in WS2812FX::setBrightness16())
+  display->setBrightness(b);
 }
 
 void BusHub75Matrix::show(void) {
@@ -1723,9 +1701,14 @@ void BusManager::off() {
   _gMilliAmpsUsed = 0; // reset, assume no LED idle current if relay is off
 }
 
-void BusManager::updateGammaUse() {
-  applyGamma = gammaCorrectCol && !(realtimeMode && arlsDisableGammaCorrection && !realtimeOverride);
-  BusManager::setBrightness(scaledBri(bri)); // update brightness for all (digital) buses in case gamma usage changed
+void BusManager::updateGammaUse(bool forceTableUpdate) {
+  const bool useGamma = gammaCorrectCol && !(realtimeMode && arlsDisableGammaCorrection && !realtimeOverride);
+  const bool changed = useGamma != applyGamma;
+  applyGamma = useGamma;
+  if (changed || forceTableUpdate) {
+    NeoGammaWLEDMethod::calcGammaTable(useGamma ? gammaCorrectVal : 1.0f);
+    BusManager::setBrightness16(scaledBri16(strip.getBrightness16())); // refresh all buses brightness (can be affected by gamma value)
+  }
 }
 
 void BusManager::show() {

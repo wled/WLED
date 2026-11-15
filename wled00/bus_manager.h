@@ -240,7 +240,6 @@ class BusDigital : public Bus {
     bool canShow() const override;
     void clearPixels() override;
     void setStatusPixel(uint32_t c) override;
-    void setBrightness(uint8_t b) override;
     [[gnu::hot]] void setPixelColor(unsigned pix, uint32_t c) override;
     void setColorOrder(uint8_t colorOrder) override;
     [[gnu::hot]] uint32_t getPixelColor(unsigned pix) const override;
@@ -253,7 +252,6 @@ class BusDigital : public Bus {
     uint16_t getMaxCurrent() const override  { return _milliAmpsMax; }
     uint8_t  getDriverType() const override  { return _driverType; }
     void     setCurrentLimit(uint16_t milliAmps) { _milliAmpsLimit = milliAmps; }
-    void     setBrightness(uint8_t b) override;
     void     setBrightness16(uint16_t b) override;
     void     estimateCurrent(); // estimate used current from summed colors
     void     applyBriLimit(uint8_t newBri);
@@ -410,7 +408,6 @@ class BusHub75Matrix : public Bus {
     [[gnu::hot]] void setPixelColor(unsigned pix, uint32_t c) override;
     [[gnu::hot]] uint32_t getPixelColor(unsigned pix) const override;
     void show() override;
-    void setBrightness(uint8_t b) override;
     void setBrightness16(uint16_t b) override;
     size_t getPins(uint8_t* pinArray = nullptr) const override;
     void deallocatePins();
@@ -484,7 +481,7 @@ namespace BusManager {
   void on();
   void off();
 
-  void updateGammaUse();
+  void updateGammaUse(bool forceTableUpdate = false);
   [[gnu::hot]] void     setPixelColor(unsigned pix, uint32_t c);
   [[gnu::hot]] uint32_t getPixelColor(unsigned pix);
   void        clearPixels(size_t n); // zero all bus encode buffers for first n physical pixels
