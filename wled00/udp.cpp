@@ -479,9 +479,9 @@ void handleNotifications()
   }
 
   // show new realtime data once per target frame (the "Target refresh rate" setting; unlimited = as soon as possible),
-  // but never wait longer than the previous fixed 15 ms; frames stay pending while the LED driver is still busy
+  // but never wait longer than the previous fixed 15 ms
   const uint32_t realtimeFrameTime = std::min<uint32_t>(strip.getFrameTime(), 16U);
-  if (e131NewData && millis() - strip.getLastShow() >= realtimeFrameTime && !strip.isUpdating())
+  if (e131NewData && millis() - strip.getLastShow() >= realtimeFrameTime)
   {
     e131NewData = false;
     if (useMainSegmentOnly) strip.trigger();
