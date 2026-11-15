@@ -478,7 +478,7 @@ void handleNotifications()
     notify(notificationSentCallMode,true);
   }
 
-  // show new realtime data once per target frame (the "Target refresh rate" setting; unlimited = as soon as possible),
+  // show new realtime data once per target frame (the "Target refresh rate" setting; unlimited = MIN_FRAME_DELAY),
   // but never wait longer than the previous fixed 15 ms
   const uint32_t realtimeFrameTime = std::min<uint32_t>(strip.getFrameTime(), 16U);
   if (e131NewData && millis() - strip.getLastShow() >= realtimeFrameTime)
