@@ -582,6 +582,7 @@ bool deserializeConfig(JsonObject doc, bool fromFS) {
   if (tdd >= 0) transitionDelay = transitionDelayDefault = tdd * 100;
   strip.setTransition(transitionDelayDefault);
   CJSON(powerAnimation, light_tr[F("pwr")]);
+  if (powerAnimation) strip.trigger(); // see handleSettingsSet()
   CJSON(randomPaletteChangeTime, light_tr[F("rpc")]);
   CJSON(useHarmonicRandomPalette, light_tr[F("hrp")]);
 

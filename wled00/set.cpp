@@ -452,6 +452,7 @@ void handleSettingsSet(AsyncWebServerRequest *request, byte subPage)
     t = request->arg(F("TD")).toInt();
     if (t >= 0) transitionDelayDefault = t;
     powerAnimation = request->hasArg(F("PA"));
+    if (powerAnimation) strip.trigger(); // show one frame now (even while off), so the sweep starts out knowing whether the LEDs are lit
     t = request->arg(F("TP")).toInt();
     randomPaletteChangeTime = MIN(255,MAX(1,t));
     useHarmonicRandomPalette = request->hasArg(F("TH"));
