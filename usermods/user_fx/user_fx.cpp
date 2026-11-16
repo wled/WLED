@@ -100,7 +100,7 @@ static const char _data_FX_MODE_DIFFUSIONFIRE[] PROGMEM = "Diffusion Fire@!,Spar
 /*
  * Firefly Garden effect - 2D matrix effect with drifting fireflies
  * Firefly Garden uses Q8.8 positions so particles can drift between pixels while
- * keeping the state small enough for ESP8266 and matrices up to 64x64.
+ * keeping the state small enough for ESP8266 and matrices up to 128x128.
  * Particle state lives in SEGENV.data and is initialized only after allocation succeeds.
  * The first slider controls movement speed, the second controls particle density,
  * the third controls glow radius, and the fourth controls direction changes.
@@ -133,6 +133,9 @@ static void mode_firefly_garden(void) {
 
   const uint16_t width = SEG_W;
   const uint16_t height = SEG_H;
+  if (width > 128 || height > 128)
+    FX_FALLBACK_STATIC;  // Q8.8 positions do not fit in int16_t beyond 128 pixels
+
   const uint8_t glowRadius = map(SEGMENT.custom1, 0, 255, 1, 3);
   const uint8_t activeParticles = map(SEGMENT.intensity, 0, 255, 4, FIREFLY_MAX_PARTICLES);
   const uint8_t maxVelocity = map(SEGMENT.speed, 0, 255, 64, 255);
@@ -140,6 +143,7 @@ static void mode_firefly_garden(void) {
 
   if (!SEGENV.allocateData(sizeof(FireflyParticle) * FIREFLY_MAX_PARTICLES)) {
     SEGENV.aux0 = 0;
+    SEGENV.aux1 = 0;
     FX_FALLBACK_STATIC;
   }
 
@@ -156,6 +160,15 @@ static void mode_firefly_garden(void) {
     }
     SEGENV.step = strip.now;
     SEGENV.aux0 = 1;
+    SEGENV.aux1 = maxVelocity;
+  } else if (SEGENV.aux1 != maxVelocity) {
+    // Rescale retained velocities so Speed changes also work when Drift is zero.
+    const uint8_t previousMaxVelocity = SEGENV.aux1;
+    for (uint8_t i = 0; i < FIREFLY_MAX_PARTICLES; i++) {
+      particles[i].vx = (int32_t)particles[i].vx * maxVelocity / previousMaxVelocity;
+      particles[i].vy = (int32_t)particles[i].vy * maxVelocity / previousMaxVelocity;
+    }
+    SEGENV.aux1 = maxVelocity;
   }
 
   const uint16_t elapsed = min<uint32_t>(strip.now - SEGENV.step, 100);
