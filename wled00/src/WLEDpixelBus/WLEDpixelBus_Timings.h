@@ -67,6 +67,7 @@ static inline uint8_t getTimingIndex(uint8_t wledType) {
     case TYPE_FW1906:        return  8;
     case TYPE_WS2805:        return  9;
     case TYPE_SM16825:       return 10;
+    case TYPE_WS2915:        return  0; // standard WS281x timing
     default:                 return  0; // WS281x fallback: SPI buses ignore LED bit timing; use WS281x as metadata stub
   }
 }

@@ -276,7 +276,7 @@ void BusDigital::setBrightness16(uint16_t b) {
     _busPtr->setApa102HwBri(hwStep + 1); // 0 is off so use 1..31
     _busPtr->setBusBri(residualBri);     // used by color_fade() in setPixelColor()
   } else if (is16bit()) {
-    // 16-bit LED types (SM16825, UCS8903, UCS8904): color_fade() is a no-op (_busBri=255);
+    // 16-bit LED types (SM16825, UCS8903, UCS8904, WS2915): color_fade() is a no-op (_busBri=255);
     // encoder applies full 16-bit precision via channel*_encBri.
     _busPtr->setBusBri(255);
     _busPtr->setEncBri(b);
@@ -454,6 +454,7 @@ std::vector<LEDType> BusDigital::getLEDTypes() {
     {TYPE_FW1906,        "D",  PSTR("FW1906/WS2811 RGBCCT")},
     {TYPE_WS2805,        "D",  PSTR("WS2805 RGBCCT")},
     {TYPE_SM16825,       "D",  PSTR("SM16825 RGBCCT")},
+    {TYPE_WS2915,        "D",  PSTR("WS2915 RGBCCT")},
     {TYPE_WS2812_1CH_X3, "D",  PSTR("WS2811 White")},
     {TYPE_WS2812_WWA,    "D",  PSTR("WS281x WWA")}, // amber = WW
     {TYPE_WS2801,        "2P", PSTR("WS2801 RGB")},
