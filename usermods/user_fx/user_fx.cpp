@@ -122,7 +122,7 @@ static int16_t fireflyRandomPosition(uint16_t size) {
   return (static_cast<uint32_t>(hw_random8()) * size);
 }
 
-static int16_t fireflyRandomVelocity(uint8_t maxVelocity) {
+static int16_t fireflyRandomVelocity(uint8_t maxVelocity = 255) {
   return (hw_random8(3) - 1) * hw_random8(maxVelocity / 2, maxVelocity);
 }
 
@@ -138,12 +138,11 @@ static void mode_firefly_garden(void) {
 
   const uint8_t glowRadius = map(SEGMENT.custom1, 0, 255, 1, 3);
   const uint8_t activeParticles = map(SEGMENT.intensity, 0, 255, 4, FIREFLY_MAX_PARTICLES);
-  const uint8_t maxVelocity = map(SEGMENT.speed, 0, 255, 64, 255);
+  const uint8_t speedScale = map(SEGMENT.speed, 0, 255, 64, 255);
   const uint16_t motionInterval = map(SEGMENT.speed, 0, 255, 80, 20);
 
   if (!SEGENV.allocateData(sizeof(FireflyParticle) * FIREFLY_MAX_PARTICLES)) {
     SEGENV.aux0 = 0;
-    SEGENV.aux1 = 0;
     FX_FALLBACK_STATIC;
   }
 
@@ -152,23 +151,14 @@ static void mode_firefly_garden(void) {
     for (uint8_t i = 0; i < FIREFLY_MAX_PARTICLES; i++) {
       particles[i].x = fireflyRandomPosition(width);
       particles[i].y = fireflyRandomPosition(height);
-      particles[i].vx = fireflyRandomVelocity(maxVelocity);
-      particles[i].vy = fireflyRandomVelocity(maxVelocity);
+      particles[i].vx = fireflyRandomVelocity();
+      particles[i].vy = fireflyRandomVelocity();
       particles[i].brightness = hw_random8(96, 220);
       particles[i].targetBrightness = hw_random8(48, 255);
       particles[i].hue = hw_random8();
     }
     SEGENV.step = strip.now;
     SEGENV.aux0 = 1;
-    SEGENV.aux1 = maxVelocity;
-  } else if (SEGENV.aux1 != maxVelocity) {
-    // Rescale retained velocities so Speed changes also work when Drift is zero.
-    const uint8_t previousMaxVelocity = SEGENV.aux1;
-    for (uint8_t i = 0; i < FIREFLY_MAX_PARTICLES; i++) {
-      particles[i].vx = (int32_t)particles[i].vx * maxVelocity / previousMaxVelocity;
-      particles[i].vy = (int32_t)particles[i].vy * maxVelocity / previousMaxVelocity;
-    }
-    SEGENV.aux1 = maxVelocity;
   }
 
   const uint16_t elapsed = min<uint32_t>(strip.now - SEGENV.step, 100);
@@ -180,12 +170,12 @@ static void mode_firefly_garden(void) {
       FireflyParticle& particle = particles[i];
 
       if (hw_random8() < SEGMENT.custom2) {
-        particle.vx = fireflyRandomVelocity(maxVelocity);
-        particle.vy = fireflyRandomVelocity(maxVelocity);
+        particle.vx = fireflyRandomVelocity();
+        particle.vy = fireflyRandomVelocity();
       }
 
-      particle.x = constrain((int32_t)particle.x + (particle.vx * elapsed) / 100, 0, maxX);
-      particle.y = constrain((int32_t)particle.y + (particle.vy * elapsed) / 100, 0, maxY);
+      particle.x = constrain((int32_t)particle.x + ((int32_t)particle.vx * speedScale * elapsed) / 25500, 0, maxX);
+      particle.y = constrain((int32_t)particle.y + ((int32_t)particle.vy * speedScale * elapsed) / 25500, 0, maxY);
 
       if (particle.x == 0 || particle.x == maxX) particle.vx = -particle.vx;
       if (particle.y == 0 || particle.y == maxY) particle.vy = -particle.vy;
