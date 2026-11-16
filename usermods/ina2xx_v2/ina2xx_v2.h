@@ -72,6 +72,11 @@
   #define INA2XX_MAX_PLAUSIBLE_KWH 1000000.0
 #endif
 
+// Wait this long after MQTT connects for the retained energy state before counting from zero.
+#ifndef INA2XX_RESTORE_TIMEOUT_MS
+  #define INA2XX_RESTORE_TIMEOUT_MS 30000UL
+#endif
+
 #ifndef INA2XX_MQTT_PUBLISH
   #define INA2XX_MQTT_PUBLISH false // Default: do not publish to MQTT
 #endif
@@ -166,6 +171,8 @@ private:
   // Written by the MQTT callback (AsyncTCP task), consumed only by loop().
   volatile bool mqttRestorePending = false;
   bool mqttRestoreDeferredLogged = false;
+  // millis() of the MQTT connect we are waiting on for the retained state; 0 = not waiting.
+  volatile unsigned long mqttRestoreWaitStart = 0;
 
   struct MqttRestoreData {
     bool hasDailyEnergy = false;

@@ -47,6 +47,16 @@ bool UsermodINA2xx::isTimeValid() const {
 }
 
 void UsermodINA2xx::applyMqttRestoreIfReady() {
+	// No retained state with energy fields arrived (first boot, or it was deleted): count from the current values.
+	unsigned long waitStart = mqttRestoreWaitStart;
+	if (!mqttStateRestored && !mqttRestorePending && waitStart != 0 &&
+			millis() - waitStart > INA2XX_RESTORE_TIMEOUT_MS) {
+		mqttStateRestored = true;
+		mqttRestoreWaitStart = 0;
+		_logUsermodInaSensor("No retained energy state received, counting from current values");
+		return;
+	}
+
 	if (!mqttRestorePending || mqttStateRestored) {
 		return;
 	}
@@ -172,6 +182,7 @@ void UsermodINA2xx::applyMqttRestoreIfReady() {
 
 	mqttStateRestored = true;
 	mqttRestorePending = false;
+	mqttRestoreWaitStart = 0;
 	mqttRestoreData = MqttRestoreData{};
 	_logUsermodInaSensor("MQTT energy restore applied");
 }
@@ -443,8 +454,10 @@ void UsermodINA2xx::publishMqtt(float shuntVoltage, float busVoltage, float load
 	snprintf_P(topic, sizeof(topic), "%s/sensor/ina2xx", mqttDeviceTopic);
 	_logUsermodInaSensor("MQTT topic: %s", topic);
 
-	// Publish the serialized JSON data to the specified MQTT topic
-	mqtt->publish(topic, 0, true, buffer, payload_size);
+	// Publish the serialized JSON data to the specified MQTT topic.
+	// Retain only once the energy fields are included: a retained message without them
+	// would replace the stored totals on the broker before we have read them back.
+	mqtt->publish(topic, 0, mqttStateRestored, buffer, payload_size);
 	_logUsermodInaSensor("MQTT publish complete, payload size: %d bytes", payload_size);
 }
 
@@ -583,7 +596,9 @@ bool UsermodINA2xx::onMqttMessage(char* topic, char* payload) {
 		// Only capture the first message: the callback runs on the AsyncTCP task, so
 		// applying here would race loop() and add the restored values twice, and
 		// re-capturing would let our own echo wipe a restore still waiting for NTP.
-		if (!mqttStateRestored && !mqttRestorePending) {
+		// Messages without total_energy_kWh are our own pre-restore publishes; they must
+		// not end the restore, or the totals restart from zero.
+		if (!mqttStateRestored && !mqttRestorePending && jsonDoc.containsKey("total_energy_kWh")) {
 			mqttRestoreData = MqttRestoreData{};
 
 			if (jsonDoc.containsKey("daily_energy_kWh")) {
@@ -654,6 +669,7 @@ void UsermodINA2xx::onMqttConnect(bool sessionPresent) {
 			snprintf_P(subuf, sizeof(subuf), PSTR("%s/sensor/ina2xx"), mqttDeviceTopic);
 			mqtt->subscribe(subuf, 0);
 			_logUsermodInaSensor("Subscribed to MQTT topic: %s", subuf);
+			if (!mqttStateRestored) mqttRestoreWaitStart = millis() | 1UL; // never 0 = not waiting
 		}
 	}
 }
