@@ -199,8 +199,14 @@
   int UsermodSSDR::_checkForNumber(int count, int index, String *map) {
     if (count <= 0 || map == nullptr || index < count) return 0;  // Added safety checks
     
-    String number = (*map).substring(index - count, index);
-    return number.toInt();
+    // Runs for every mapped LED on every frame, so avoid a String allocation here.
+    int number = 0;
+    for (int i = index - count; i < index; i++) {
+      char c = (*map)[i];
+      if (c < '0' || c > '9') break;
+      number = number * 10 + (c - '0');
+    }
+    return number;
   }
 
   void UsermodSSDR::_publishMQTTint_P(const char *subTopic, int value)
@@ -470,7 +476,8 @@
     if (umSSDRMask == nullptr) {
       return;
     }
-    if (!umSSDRDisplayTime || externalLedOutputDisabled) {
+    if (!umSSDRDisplayTime) return; // usermod switched off: leave the strip to WLED
+    if (externalLedOutputDisabled) {
       _setAllFalse();
       _setMaskToLeds();
       return;
