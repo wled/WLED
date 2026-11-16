@@ -472,7 +472,14 @@ void UsermodINA2xx::mqttCreateHassSensor(const String &name, const String &topic
 	uid += "_" + sanitizedName;
 	doc[F("uniq_id")] = uid;
 	_logUsermodInaSensor("Sensor unique ID: %s", uid.c_str());
-	doc[F("val_tpl")] = String("{{ value_json.") + jsonKey + String(" }}");
+	// Energy keys are only published after the retained MQTT state is restored (see
+	// publishMqtt). Until then they are missing from the payload; default('') makes HA
+	// ignore the empty state and keep the last value instead of logging a template error.
+	bool isEnergyKey = (jsonKey == "daily_energy_kWh" || jsonKey == "monthly_energy_kWh" || jsonKey == "total_energy_kWh");
+	if (isEnergyKey)
+		doc[F("val_tpl")] = String("{{ value_json.") + jsonKey + String(" | default('') }}");
+	else
+		doc[F("val_tpl")] = String("{{ value_json.") + jsonKey + String(" }}");
 	if (unitOfMeasurement != "")
 		doc[F("unit_of_meas")] = unitOfMeasurement;
 	if (deviceClass != "")
@@ -488,11 +495,13 @@ void UsermodINA2xx::mqttCreateHassSensor(const String &name, const String &topic
 		// daily/monthly energy resets -> use "total" with last_reset_value_template
 		doc[F("stat_cla")] = "total";
 
-		// Provide last_reset for daily/monthly
+		// Provide last_reset for daily/monthly. The timestamp is missing before the MQTT
+		// state is restored and 0 before the first reset; render '' then, which HA skips
+		// quietly ("none" renders "None", which HA logs as an invalid last_reset).
 		if (jsonKey == "daily_energy_kWh") {
-			doc[F("last_reset_value_template")] = "{{ value_json.dailyResetTimestamp | int | timestamp_local if value_json.dailyResetTimestamp | int > 0 else none }}";
+			doc[F("last_reset_value_template")] = "{{ value_json.dailyResetTimestamp | default(0) | int | timestamp_local if value_json.dailyResetTimestamp | default(0) | int > 0 else '' }}";
 		} else if (jsonKey == "monthly_energy_kWh") {
-			doc[F("last_reset_value_template")] = "{{ value_json.monthlyResetTimestamp | int | timestamp_local if value_json.monthlyResetTimestamp | int > 0 else none }}";
+			doc[F("last_reset_value_template")] = "{{ value_json.monthlyResetTimestamp | default(0) | int | timestamp_local if value_json.monthlyResetTimestamp | default(0) | int > 0 else '' }}";
 		}
 	}
 	else if (jsonKey == "current_A" || jsonKey == "current_mA" ||
