@@ -301,6 +301,13 @@ class ButtonDimmer : public Usermod {
       if (!enabled || btn != oldBtn) {  // the button is handed back: finish the gesture in progress
         if (holding) stopHold();        // publishes the final level if a ramp was running
         pressed = false;
+        // the stock handler did not see this button while it was taken over: clear its frozen press state,
+        // otherwise a stale press would be read as a very long one (AP mode / factory reset on button 0)
+        if (oldBtn < buttons.size()) {
+          buttons[oldBtn].pressedBefore = false;
+          buttons[oldBtn].longPressed   = false;
+          buttons[oldBtn].waitTime      = 0;
+        }
       }
       clicks = 0;
       return ok;
