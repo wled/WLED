@@ -7,7 +7,13 @@ See also: `.github/copilot-instructions.md`, `.github/agent-build.instructions.m
 `docs/cpp.instructions.md`, `docs/web.instructions.md`, `docs/cicd.instructions.md`,
 `docs/hardening.instructions.md`, `docs/securecode.instructions.md`.
 
-Always reference these instructions - including coding guidelines in `docs/` - first and fallback to search or bash commands only when you encounter unexpected information that does not match the info here.
+Always reference these instructions - including coding guidelines in `docs/*.instructions.md` - first and fallback to search or bash commands only when you encounter unexpected information that does not match the info here.
+
+Design documentation and AI agent temporary notes can be placed into `docs/` sub-folders, like `docs/architecture/`, `docs/design/`, `docs/requirements/`, `docs/testing/`, `docs/temp/`. `docs/temp/` is listed in `.gitignore` so its the preferred location for notes that should not become part of a PR.
+
+User-facing documentation should be added in the [WLED-Docs](https://github.com/wled/WLED-Docs) repository via a separate PR.
+
+Important: also read `AGENTS.local.md` if present (gitignored personal learnings file); it supplements this document.
 
 ## Required User Agreement
 
@@ -43,7 +49,6 @@ Co-authored-by: MODEL NAME/VERSION (AGENT PLATFORM) <COAUTHOR EMAIL>
 
 ## Build Commands
 
-Note: also read `AGENTS.local.md` if present (gitignored personal learnings file; it supplements this document).
 
 | Command | Purpose | Timeout |
 |---|---|---|
@@ -361,6 +366,7 @@ These apply to any coding agent (Copilot or otherwise) acting on a contributor's
 - Claim calibration: Do not use 'proves' when the evidence only 'suggests'. Avoid making overly strong or overconfident claims such as 'qualified', 'fully validated' or 'production quality'. Use neutral wording to summarize what was actually tested.
 - **State what's tested.** Distinguish "verified" from "should work based on reading the code" in the PR description.
 - **Disclose AI involvement.** Declare AI assistance in the PR description.
+- **Use the repository's PR template** located at `.github/PULL_REQUEST_TEMPLATE.md`, do not create free-form PR descriptions. Populate every section of the template. If necessary, add extra information below the template.
 - **Let issues start non-technical.** When helping draft an issue or feature request, elicit the human's objective or observation in plain language first - don't lead with a proposed code path or fix. Maintainers are better positioned than you to map that objective onto a technical solution.
 
 ### Supporting Reviews and Discussions

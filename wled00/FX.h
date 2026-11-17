@@ -90,19 +90,13 @@ extern byte realtimeMode;           // used in getMappedPixelIndex()
   #define MAX_NUM_SEGMENTS  32
   #define MAX_SEGMENT_DATA  (20*1024) // 20k by default (S2 is short on free RAM), limit does not apply if PSRAM is available
 #else
-  #ifdef BOARD_HAS_PSRAM
-    #define MAX_NUM_SEGMENTS  64
-  #else
-    #define MAX_NUM_SEGMENTS  32
-  #endif
+  #define MAX_NUM_SEGMENTS  64
   #define MAX_SEGMENT_DATA  (64*1024) // 64k by default, limit does not apply if PSRAM is available
 #endif
 
 /* How much data bytes each segment should max allocate to leave enough space for other segments,
   assuming each segment uses the same amount of data. 256 for ESP8266, 640 for ESP32. */
 #define FAIR_DATA_PER_SEG (MAX_SEGMENT_DATA / MAX_NUM_SEGMENTS)
-
-#define MIN_SHOW_DELAY   (_frametime < 16 ? 8 : 15)
 
 #define NUM_COLORS       3 /* number of colors per segment */
 #define SEGMENT          (*strip._currentSegment)
@@ -875,7 +869,7 @@ class WS2812FX {
       _pixels(nullptr),
       _pixelCCT(nullptr),
       _suspend(false),
-      _brightness(DEFAULT_BRIGHTNESS),
+      _brightness16(DEFAULT_BRIGHTNESS << 8),
       _length(DEFAULT_LED_COUNT),
       _transitionDur(750),
       _frametime(FRAMETIME_FIXED),
@@ -921,6 +915,7 @@ class WS2812FX {
       service(),                                  // executes effect functions when due and calls strip.show()
       setCCT(uint16_t k),                         // sets global CCT (either in relative 0-255 value or in K)
       setBrightness(uint8_t b, bool direct = false),    // sets strip brightness
+      setBrightness16(uint16_t b, bool direct = false),  // sets Q8.8 strip brightness
       setRange(uint16_t i, uint16_t i2, uint32_t col),  // used for clock overlay
       purgeSegments(),                            // removes inactive segments from RAM (may incure penalty and memory fragmentation but reduces vector footprint)
       setMainSegmentId(unsigned n = 0),
@@ -934,7 +929,13 @@ class WS2812FX {
       waitForIt();                                // wait until frame is over (service() has finished or time for 1 frame has passed)
 
     void setRealtimePixelColor(unsigned i, uint32_t c);
-    inline void setPixelColor(unsigned n, uint32_t c) const   { if (n < getLengthTotal()) _pixels[n] = c; }  // paints absolute strip pixel with index n and color c
+    inline void setPixelColor(unsigned n, uint32_t c) const   {
+      #ifdef WLED_DISABLE_GLOBAL_PIXELBUFFER
+      n = getMappedPixelIndex(n); if (n < getLengthTotal()) BusManager::setPixelColor(n, c);
+      #else
+      if (n < getLengthTotal()) _pixels[n] = c;
+      #endif
+    }  // paints absolute strip pixel with index n and color c
     inline void resetTimebase()                               { timebase = 0UL - millis(); }
     inline void setPixelColor(unsigned n, uint8_t r, uint8_t g, uint8_t b, uint8_t w = 0) const
                                                               { setPixelColor(n, RGBW32(r,g,b,w)); }
@@ -974,7 +975,8 @@ class WS2812FX {
     uint8_t getActiveSegsLightCapabilities(bool selectedOnly = false) const;
     uint8_t addEffect(uint8_t id, mode_ptr mode_fn, const char *mode_name);         // add effect to the list - mode_name must point to PROGMEM; defined in FX.cpp;
 
-    inline uint8_t getBrightness() const    { return _brightness; }       // returns current strip brightness
+    inline uint8_t getBrightness() const    { return _brightness16 >> 8; } // returns current strip brightness
+    inline uint16_t getBrightness16() const { return _brightness16; }
     inline static constexpr unsigned getMaxSegments() { return MAX_NUM_SEGMENTS; }  // returns maximum number of supported segments (fixed value)
     inline uint8_t getSegmentsNum() const   { return _segments.size(); }  // returns currently present segments
     inline uint8_t getCurrSegmentId() const { return _segment_index; }    // returns current segment index (only valid while strip.isServicing())
@@ -996,8 +998,20 @@ class WS2812FX {
     };
 
     unsigned long now, timebase;
-    inline uint32_t getPixelColor(unsigned n) const { return (getMappedPixelIndex(n) < getLengthTotal()) ? _pixels[n] : 0; } // returns color of pixel n, black if out of (mapped) bounds
-    inline uint32_t getPixelColorNoMap(unsigned n) const { return (n < getLengthTotal()) ? _pixels[n] : 0; } // ignores mapping table
+    inline uint32_t getPixelColor(unsigned n) const {
+      #ifdef WLED_DISABLE_GLOBAL_PIXELBUFFER
+      n = getMappedPixelIndex(n); return n < getLengthTotal() ? BusManager::getPixelColor(n) : 0;
+      #else
+      return (getMappedPixelIndex(n) < getLengthTotal()) ? _pixels[n] : 0;
+      #endif
+    } // returns color of pixel n, black if out of (mapped) bounds
+    inline uint32_t getPixelColorNoMap(unsigned n) const {
+      #ifdef WLED_DISABLE_GLOBAL_PIXELBUFFER
+      return (n < getLengthTotal()) ? BusManager::getPixelColor(n) : 0;
+      #else
+      return (n < getLengthTotal()) ? _pixels[n] : 0;
+      #endif
+    } // ignores mapping table
     inline uint32_t getLastShow() const             { return _lastShow; }                 // returns millis() timestamp of last strip.show() call
 
     const char *getModeData(unsigned id = 0) const  { return (id && id < _modeCount) ? _modeData[id] : PSTR("Solid"); }
@@ -1059,7 +1073,7 @@ class WS2812FX {
 
     volatile bool _suspend;
 
-    uint8_t  _brightness;
+    uint16_t _brightness16;
     uint16_t _length;
     uint16_t _transitionDur;
 
