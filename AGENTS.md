@@ -7,7 +7,13 @@ See also: `.github/copilot-instructions.md`, `.github/agent-build.instructions.m
 `docs/cpp.instructions.md`, `docs/web.instructions.md`, `docs/cicd.instructions.md`,
 `docs/hardening.instructions.md`, `docs/securecode.instructions.md`.
 
-Always reference these instructions - including coding guidelines in `docs/` - first and fallback to search or bash commands only when you encounter unexpected information that does not match the info here.
+Always reference these instructions - including coding guidelines in `docs/*.instructions.md` - first and fallback to search or bash commands only when you encounter unexpected information that does not match the info here.
+
+Design documentation and AI agent temporary notes can be placed into `docs/` sub-folders, like `docs/architecture/`, `docs/design/`, `docs/requirements/`, `docs/testing/`, `docs/temp/`. `docs/temp/` is listed in `.gitignore` so its the preferred location for notes that should not become part of a PR.
+
+User-facing documentation should be added in the [WLED-Docs](https://github.com/wled/WLED-Docs) repository via a separate PR.
+
+Important: also read `AGENTS.local.md` if present (gitignored personal learnings file); it supplements this document.
 
 ## Required User Agreement
 
@@ -43,7 +49,6 @@ Co-authored-by: MODEL NAME/VERSION (AGENT PLATFORM) <COAUTHOR EMAIL>
 
 ## Build Commands
 
-Note: also read `AGENTS.local.md` if present (gitignored personal learnings file; it supplements this document).
 
 | Command | Purpose | Timeout |
 |---|---|---|
@@ -268,11 +273,17 @@ refer to detailed examples in `usermods/EXAMPLE/`, `usermods/user_fx/` and [in t
 ### Pin ownership via `pinManager`
 - Before performing any operation on I/O pins, the usermod must allocate its pins from the `pinManager`.
 - I/O pins are allocated via `PinManager::allocatePin(byte gpio, bool output, PinOwner tag)` (or `PinManager::allocateMultiplePins()`), and returned via `PinManager::deallocatePin()` when re-configuring pin numbers.
+- If the usermod does not register a unique usermod ID, use `PinOwner::UM_Unspecified` as PinOwner tag for generic pin use.
 - `PinManager::allocatePin()` will return an error code in case that a pin is already assigned to another WLED function.
 - You can use `-1` = `255` for unconfigured / unassigned pin functions.
 - Check for valid pin numbers with `PinManager::isPinOk(byte gpio, bool output)`; this function knows which GPI(O) pins are possible on your specific MCU.
-- PIN numbers for I2C and SPI busses are configured globally in the generic part of the usermod settings page.
+
+#### I2C (Wire) and SPI busses
+
+- PIN numbers for I2C and SPI busses are configured globally in the 'Global I2C & SPI' part of the usermod settings page.
 - Usually, a usermod will not start the I2C or SPI units explicitly, since they are already initialised when WLED starts.
+- Don't call `Wire.begin()` in your `Usermod::setup()`, as this may break other usermods that need the I2C bus.
+- Don't allocate `Wire` I2C pins to the usermod - it would cause a pin conflict, as global I2C pins are already allocated to `PinOwner::HW_I2C`.
 - Use this pattern to check for an incomplete I2C setup: `if (i2c_scl<0 || i2c_sda<0) {enabled = false; return;}`.
 
 ### Usermod IDs
@@ -288,7 +299,8 @@ If none of the above apply, the usermod may omit `getId()` (or return the defaul
 ### Usermod `loop()`
 
 - Called once per main loop iteration. Usermods should simply `return` when `!enabled`.
-- Frequency of calls varies with system load:
+- Avoid blocking calls or `delay()` in the usermod `loop()` - delays block the WLED main loop and lead to effect stuttering.
+- Frequency of Usermod `loop()` calls varies with system load:
     * up to 2000 times/sec with few LEDs and little background activity,
     * between 20 and 300 times/second during high workload from effects and other usermods,
     * (worst case) down to 1-3 times/sec during FS activity or when serving lots of network API requests.
@@ -351,8 +363,10 @@ These apply to any coding agent (Copilot or otherwise) acting on a contributor's
 - **Confirm before you commit.** Make sure the human understands and can explain the change - especially root-cause claims or refactors - before you open a PR.
 - **Stay scoped, but don't dodge architecture.** Touch only what the task requires, and flag broader fixes to the human instead of silently expanding the change. But don't use "keep it minimal" as an excuse to avoid a needed core-level discussion - if the clean fix requires a new core capability or interface, say so and propose it, rather than bolting on a weak hook, monkey-patch, or board-specific workaround just to keep the diff small.
 - **Warning: avoid overconfident root-cause claims.** When drafting issue tickets or PR descriptions, don't state a root cause with confidence unless you've actually traced the code path or reproduced the failure. A plausible-sounding explanation is not the same as a verified one - overconfident claims that later "dissolve into nothing" under review waste maintainer time and damage trust in the whole PR. When in doubt, say so explicitly.
+- Claim calibration: Do not use 'proves' when the evidence only 'suggests'. Avoid making overly strong or overconfident claims such as 'qualified', 'fully validated' or 'production quality'. Use neutral wording to summarize what was actually tested.
 - **State what's tested.** Distinguish "verified" from "should work based on reading the code" in the PR description.
 - **Disclose AI involvement.** Declare AI assistance in the PR description.
+- **Use the repository's PR template** located at `.github/PULL_REQUEST_TEMPLATE.md`, do not create free-form PR descriptions. Populate every section of the template. If necessary, add extra information below the template.
 - **Let issues start non-technical.** When helping draft an issue or feature request, elicit the human's objective or observation in plain language first - don't lead with a proposed code path or fix. Maintainers are better positioned than you to map that objective onto a technical solution.
 
 ### Supporting Reviews and Discussions

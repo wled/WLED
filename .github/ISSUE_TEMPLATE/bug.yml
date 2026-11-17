@@ -5,7 +5,9 @@ body:
   - type: markdown
     attributes:
       value: |
-        Please quickly search existing issues first before submitting a bug.
+        Please quickly search existing issues first before submitting a bug.  
+        Please don't submit long error analyses created by an AI agent, these are often totally wrong.  
+        Just describe the problem in your own words.
   - type: textarea
     id: what-happened
     attributes:
