@@ -33,6 +33,11 @@ class Animated_Staircase : public Usermod {
     /* runtime variables */
     bool initDone = false;
     bool managedStateApplied = false; // true after enable(true) applied staircase segment state
+    bool sentinelOpacitySaved = false;
+    byte savedFirstSegId = 0;
+    byte savedLastSegId = 0;
+    uint8_t savedFirstOpacity = 255;
+    uint8_t savedLastOpacity = 255;
 
     // Time between checking of the sensors
     const unsigned int scanDelay = 100;
@@ -172,16 +177,33 @@ class Animated_Staircase : public Usermod {
       updateSegments();
     }
 
-    // Restore full opacity on sentinel ends after sentinel control stops.
-    void restoreSentinelOpacity() {
+    // Remember the end segments' opacity before sentinel overwrites it.
+    void captureSentinelOpacity() {
+      if (sentinelOpacitySaved) return;
       byte firstSegId, lastSegId;
       getSentinelSegmentIds(firstSegId, lastSegId);
+      savedFirstSegId = firstSegId;
+      savedLastSegId = lastSegId;
       Segment &firstSeg = strip.getSegment(firstSegId);
-      if (firstSeg.isActive()) firstSeg.setOpacity(255);
+      if (firstSeg.isActive()) savedFirstOpacity = firstSeg.opacity;
+      savedLastOpacity = savedFirstOpacity;
       if (lastSegId != firstSegId) {
         Segment &lastSeg = strip.getSegment(lastSegId);
-        if (lastSeg.isActive()) lastSeg.setOpacity(255);
+        if (lastSeg.isActive()) savedLastOpacity = lastSeg.opacity;
       }
+      sentinelOpacitySaved = true;
+    }
+
+    // Put back the opacity sentinel replaced, including values other than 255.
+    void restoreSentinelOpacity() {
+      if (!sentinelOpacitySaved) return;
+      Segment &firstSeg = strip.getSegment(savedFirstSegId);
+      if (firstSeg.isActive()) firstSeg.setOpacity(savedFirstOpacity);
+      if (savedLastSegId != savedFirstSegId) {
+        Segment &lastSeg = strip.getSegment(savedLastSegId);
+        if (lastSeg.isActive()) lastSeg.setOpacity(savedLastOpacity);
+      }
+      sentinelOpacitySaved = false;
     }
 
     void restoreManagedSegmentState() {
@@ -200,6 +222,7 @@ class Animated_Staircase : public Usermod {
     void updateSegments() {
       byte firstSegId, lastSegId;
       getSentinelSegmentIds(firstSegId, lastSegId);
+      if (enabledSentinel) captureSentinelOpacity();
       for (int i = minSegmentId; i < maxSegmentId; i++) {
         Segment &seg = strip.getSegment(i);
         if (!seg.isActive()) continue; // skip gaps
@@ -454,12 +477,14 @@ class Animated_Staircase : public Usermod {
     }
 
     void loop() {
-      // on long/active strips isUpdating() may stay true; still run at least every activeUpdateIntervalMs
-      if (!enabled || (strip.isUpdating() && (millis() - lastLoopRun < activeUpdateIntervalMs))) return;
-      lastLoopRun = millis();
-      refreshManagedSegmentRange();
-      checkSensors();
-      if (on) autoPowerOff();
+      if (!enabled) return;
+      // Sensor reads stay throttled while the bus is still sending. Swipe timing follows segment_delay_ms.
+      if (!strip.isUpdating() || (millis() - lastLoopRun >= activeUpdateIntervalMs)) {
+        lastLoopRun = millis();
+        refreshManagedSegmentRange();
+        checkSensors();
+        if (on) autoPowerOff();
+      }
       updateSwipe();
     }
 
