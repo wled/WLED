@@ -1748,11 +1748,8 @@ uint32_t BusManager::getPixelColor(unsigned pix) {
 void BusManager::clearPixels(size_t n) {
   // memset each bus encode buffer directly — vastly faster than N encode calls.
   // All-zero bytes encode as black for all supported LED protocols (RGB, RGBW, GRB, I2S 4-step, etc).
-  unsigned covered = 0;
   for (auto &bus : busses) {
-    if (covered >= n) break;
-    bus->clearPixels();
-    covered += bus->getLength();
+    if (bus->getStart() < n) bus->clearPixels();
   }
 }
 
@@ -1821,12 +1818,11 @@ void BusManager::applyABL() {
         milliAmpsSum = globalMax; // update total used current
       }
 
-      // apply brightness limit to each bus; resets bus _colorSum for next frame
+      // apply brightness limit to each bus; resets bus _colorSum and updates _totalBusBri for next frame
       for (auto &bus : busses) {
         if (bus->isDigital() && bus->isOk()) {
           BusDigital &busd = static_cast<BusDigital&>(*bus);
-          if (busd.getLEDCurrent() > 0)  // skip buses with LED current set to 0
-            busd.applyBriLimit(newBri);
+          busd.applyBriLimit(busd.getLEDCurrent() > 0 ? newBri : 255);
         }
       }
     }

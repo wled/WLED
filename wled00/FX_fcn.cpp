@@ -1906,8 +1906,6 @@ void WS2812FX::show() {
   BusManager::updateGammaUse(); // update gamma use in case something changed
   unsigned long showNow = millis();
   size_t diff = showNow - _lastShow;
-  // use color gamma correction if enabled, not in realtime mode with gamma disabled or currently overriding RT mode
-  bool useGammaCorrection = gammaCorrectCol && !(realtimeMode && arlsDisableGammaCorrection && !realtimeOverride);
 
   size_t totalLen = getLengthTotal();
   // CCT per-pixel tracking: only needed when multiple active segments have *different* CCT values.
@@ -1931,11 +1929,13 @@ void WS2812FX::show() {
       }
     }
   }
+  #else
+  while (!BusManager::canAllShow()) yield(); // wait for all buses to finish before clear/blend/overlay/show
+  int oldCCT = Bus::getCCT(); // preserve global CCT across per-segment CCT updates
   #endif
 
   if (realtimeMode == REALTIME_MODE_INACTIVE || useMainSegmentOnly || realtimeOverride > REALTIME_OVERRIDE_NONE) {
     #ifdef WLED_DISABLE_GLOBAL_PIXELBUFFER
-    while (!BusManager::canAllShow()) yield(); // wait for all buses to finish sending the previous frame
     // Direct-to-bus mode: clear bus encode buffers then blend segments directly into them.
     // Per-pixel CCT tracking is not supported; CCT is set per-segment in blendSegment().
     if (cctFromRgb) BusManager::setSegmentCCT(-1); // set once; blendSegment skips CCT if cctFromRgb
@@ -1978,7 +1978,7 @@ void WS2812FX::show() {
   p_free(_pixelCCT);
   _pixelCCT = nullptr;
   #else
-  // TODO: implement bus level gamma, see PR #5722
+  Bus::setCCT(oldCCT);
   #endif
 
   // pass the pixels on to the buses and start sending them out
