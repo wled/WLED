@@ -7,9 +7,23 @@
   #include <freertos/semphr.h>
 #endif
 
-// Buffer management
+// Line buffering: output is collected per task (ESP32) or per context
+// (ESP8266: loop vs. network callbacks) until a newline, so every UDP packet
+// carries exactly one complete line and concurrent writers can't mix lines.
+// Longer lines are truncated and end in "...", never split across packets.
 #ifndef SYSLOG_BUFFER_SIZE
-  #define SYSLOG_BUFFER_SIZE 128
+  #ifdef ESP8266
+    #define SYSLOG_BUFFER_SIZE 256
+  #else
+    #define SYSLOG_BUFFER_SIZE 512
+  #endif
+#endif
+#ifndef SYSLOG_LINE_SLOTS
+  #ifdef ESP8266
+    #define SYSLOG_LINE_SLOTS 2
+  #else
+    #define SYSLOG_LINE_SLOTS 4
+  #endif
 #endif
 
 #define SYSLOG_LOCAL0   	16 // local use 0
@@ -53,15 +67,24 @@ class SyslogPrinter : public Print {
     String _cachedSourceDescription;
     const String& cleanedHostname();
 
-    char _buffer[SYSLOG_BUFFER_SIZE]; // Buffer for collecting characters
+    // One partial line per writer. owner == nullptr marks a free slot.
+    struct LineSlot {
+      const void* owner;
+      unsigned long lastWrite;
+      size_t len;
+      bool truncated;
+      char buf[SYSLOG_BUFFER_SIZE];
+    };
+    LineSlot _slots[SYSLOG_LINE_SLOTS];
 
-    size_t _bufferIndex;
-    void flushBuffer();
-    void appendChar(uint8_t c);
+    static const void* currentWriter();
+    LineSlot* slotFor(const void* owner);
+    static void appendChar(LineSlot* slot, uint8_t c);
+    void flushSlot(LineSlot* slot);
     size_t sendPacket(const uint8_t *buf, size_t size, uint8_t severity);
 
-    // Debug output comes from the main loop and from async network callbacks,
-    // which share _buffer and syslogUdp.
+    // Debug output comes from the main loop and from async network tasks,
+    // which share the line slots and syslogUdp.
     bool lock();
     void unlock();
     #ifdef ARDUINO_ARCH_ESP32
@@ -92,4 +115,4 @@ class SyslogPrinter : public Print {
 // Default instance
 extern SyslogPrinter Syslog;
 
-#endif
+#endif
