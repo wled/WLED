@@ -48,7 +48,7 @@ inline const LegacyLayout& getLegacyChannelLayout(uint8_t busType) {
   static const LegacyLayout rgbw    = {4, {LF_R, LF_G, LF_B,  LF_W,   LF_PAD, LF_PAD}}; // UCS8904 (16-bit)
   static const LegacyLayout wrgb    = {4, {LF_W, LF_R, LF_G,  LF_B,   LF_PAD, LF_PAD}}; // TM1814/TM1815 (NeoWrgbTm1814Feature)
   static const LegacyLayout grbcwx  = {6, {LF_G, LF_R, LF_B,  LF_CW,  LF_W,   LF_PAD}}; // FW1906 (NeoGrbcwxFeature, 6th byte unused)
-  static const LegacyLayout rgbcww  = {5, {LF_R, LF_G, LF_B,  LF_CW,  LF_W,   LF_PAD}}; // SM16825 (NeoRgbcwSm16825eFeature, 16-bit)
+  static const LegacyLayout rgbcww  = {5, {LF_R, LF_G, LF_B,  LF_CW,  LF_W,   LF_PAD}}; // SM16825 (NeoRgbcwSm16825eFeature, 16-bit), WS2915 (16-bit)
   static const LegacyLayout rbg     = {3, {LF_R, LF_B, LF_G,  LF_PAD, LF_PAD, LF_PAD}}; // WS2801 (NeoRbgFeature)
   static const LegacyLayout bgr     = {3, {LF_B, LF_G, LF_R,  LF_PAD, LF_PAD, LF_PAD}}; // APA102 (DotStarBgrFeature), P9813 (P9813BgrFeature)
   switch (busType) {
@@ -59,7 +59,8 @@ inline const LegacyLayout& getLegacyChannelLayout(uint8_t busType) {
     case TYPE_TM1815:                 return wrgb;
     case TYPE_FW1906:                 return grbcwx;
     case TYPE_WS2805:                 return grbwwcw;
-    case TYPE_SM16825:                return rgbcww;
+    case TYPE_SM16825: // fallthrough
+    case TYPE_WS2915:                 return rgbcww;
     case TYPE_WS2801:                 return rbg;
     case TYPE_APA102: // fallthrough
     case TYPE_P9813:                  return bgr;
@@ -224,6 +225,9 @@ inline void applyTypeFraming(WLEDpixelBus::BusProperties& props, uint8_t busType
   } else if (busType == TYPE_SM16825) {
     props.suffixLen = WLEDpixelBus::SM16825_SUFFIX_LEN;
     memcpy(props.suffixData, WLEDpixelBus::SM16825_SUFFIX, sizeof(WLEDpixelBus::SM16825_SUFFIX));
+  } else if (busType == TYPE_WS2915) {
+    props.prefixLen = WLEDpixelBus::WS2915_PREFIX_LEN;
+    memcpy(props.prefixData, WLEDpixelBus::WS2915_PREFIX, sizeof(WLEDpixelBus::WS2915_PREFIX));
   }
 }
 
