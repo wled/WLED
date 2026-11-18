@@ -184,10 +184,11 @@ class Animated_Staircase : public Usermod {
       getSentinelSegmentIds(firstSegId, lastSegId);
       if (sentinelOpacitySaved && firstSegId == savedFirstSegId && lastSegId == savedLastSegId) return;
       if (sentinelOpacitySaved) restoreSentinelOpacity();
+      Segment &firstSeg = strip.getSegment(firstSegId);
+      if (!firstSeg.isActive()) return;
       savedFirstSegId = firstSegId;
       savedLastSegId = lastSegId;
-      Segment &firstSeg = strip.getSegment(firstSegId);
-      if (firstSeg.isActive()) savedFirstOpacity = firstSeg.opacity;
+      savedFirstOpacity = firstSeg.opacity;
       savedLastOpacity = savedFirstOpacity;
       if (lastSegId != firstSegId) {
         Segment &lastSeg = strip.getSegment(lastSegId);
