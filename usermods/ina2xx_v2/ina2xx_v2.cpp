@@ -47,6 +47,16 @@ bool UsermodINA2xx::isTimeValid() const {
 }
 
 void UsermodINA2xx::applyMqttRestoreIfReady() {
+	// No retained state with energy fields arrived (first boot, or it was deleted): count from the current values.
+	unsigned long waitStart = mqttRestoreWaitStart;
+	if (!mqttStateRestored && !mqttRestorePending && waitStart != 0 &&
+			millis() - waitStart > INA2XX_RESTORE_TIMEOUT_MS) {
+		mqttStateRestored = true;
+		mqttRestoreWaitStart = 0;
+		_logUsermodInaSensor("No retained energy state received, counting from current values");
+		return;
+	}
+
 	if (!mqttRestorePending || mqttStateRestored) {
 		return;
 	}
@@ -172,6 +182,7 @@ void UsermodINA2xx::applyMqttRestoreIfReady() {
 
 	mqttStateRestored = true;
 	mqttRestorePending = false;
+	mqttRestoreWaitStart = 0;
 	mqttRestoreData = MqttRestoreData{};
 	_logUsermodInaSensor("MQTT energy restore applied");
 }
@@ -302,7 +313,7 @@ String UsermodINA2xx::sanitizeMqttClientID(const String &clientID) {
 ** Function to update energy calculations based on power and duration
 **/
 void UsermodINA2xx::updateEnergy(float power, unsigned long durationMs) {
-	float durationHours = durationMs / 3600000.0; // Milliseconds to hours
+	double durationHours = durationMs / 3600000.0; // Milliseconds to hours
 	_logUsermodInaSensor("Updating energy - Power: %.3f W, Duration: %lu ms (%.6f hours)", power, durationMs, durationHours);
 
 	// Skip time-based resets if time seems invalid (before 2020 or unrealistic future)
@@ -311,7 +322,7 @@ void UsermodINA2xx::updateEnergy(float power, unsigned long durationMs) {
 		return;
 	}
 
-	float energy_kWh = 0.0f;
+	double energy_kWh = 0.0;
 	if (power < 0.01f) {
 		_logUsermodInaSensor("Power too low (%.3f W) – skipping accumulation.", power);
 	} else {
@@ -449,8 +460,10 @@ void UsermodINA2xx::publishMqtt(float shuntVoltage, float busVoltage, float load
 	snprintf_P(topic, sizeof(topic), "%s/sensor/ina2xx", mqttDeviceTopic);
 	_logUsermodInaSensor("MQTT topic: %s", topic);
 
-	// Publish the serialized JSON data to the specified MQTT topic
-	mqtt->publish(topic, 0, true, buffer, payload_size);
+	// Publish the serialized JSON data to the specified MQTT topic.
+	// Retain only once the energy fields are included: a retained message without them
+	// would replace the stored totals on the broker before we have read them back.
+	mqtt->publish(topic, 0, mqttStateRestored, buffer, payload_size);
 	_logUsermodInaSensor("MQTT publish complete, payload size: %d bytes", payload_size);
 }
 
@@ -590,26 +603,31 @@ bool UsermodINA2xx::onMqttMessage(char* topic, char* payload) {
 		}
 
 		// Update the energy values
-		if (!mqttStateRestored) {
+		// Only capture the first message: the callback runs on the AsyncTCP task, so
+		// applying here would race loop() and add the restored values twice, and
+		// re-capturing would let our own echo wipe a restore still waiting for NTP.
+		// Messages without total_energy_kWh are our own pre-restore publishes; they must
+		// not end the restore, or the totals restart from zero.
+		if (!mqttStateRestored && !mqttRestorePending && jsonDoc.containsKey("total_energy_kWh")) {
 			mqttRestoreData = MqttRestoreData{};
 
 			if (jsonDoc.containsKey("daily_energy_kWh")) {
-				float restored = jsonDoc["daily_energy_kWh"];
-				if (!isnan(restored) && restored >= 0) {
+				double restored = jsonDoc["daily_energy_kWh"];
+				if (!isnan(restored) && restored >= 0 && restored <= INA2XX_MAX_PLAUSIBLE_KWH) {
 					mqttRestoreData.hasDailyEnergy = true;
 					mqttRestoreData.dailyEnergy = restored;
 				}
 			}
 			if (jsonDoc.containsKey("monthly_energy_kWh")) {
-				float restored = jsonDoc["monthly_energy_kWh"];
-				if (!isnan(restored) && restored >= 0) {
+				double restored = jsonDoc["monthly_energy_kWh"];
+				if (!isnan(restored) && restored >= 0 && restored <= INA2XX_MAX_PLAUSIBLE_KWH) {
 					mqttRestoreData.hasMonthlyEnergy = true;
 					mqttRestoreData.monthlyEnergy = restored;
 				}
 			}
 			if (jsonDoc.containsKey("total_energy_kWh")) {
-				float restored = jsonDoc["total_energy_kWh"];
-				if (!isnan(restored) && restored >= 0) {
+				double restored = jsonDoc["total_energy_kWh"];
+				if (!isnan(restored) && restored >= 0 && restored <= INA2XX_MAX_PLAUSIBLE_KWH) {
 					mqttRestoreData.hasTotalEnergy = true;
 					mqttRestoreData.totalEnergy = restored;
 				}
@@ -643,8 +661,7 @@ bool UsermodINA2xx::onMqttMessage(char* topic, char* payload) {
 				}
 			}
 
-			mqttRestorePending = true;
-			applyMqttRestoreIfReady();
+			mqttRestorePending = true; // applied from loop()
 		}
 		return true;
 	}
@@ -662,6 +679,7 @@ void UsermodINA2xx::onMqttConnect(bool sessionPresent) {
 			snprintf_P(subuf, sizeof(subuf), PSTR("%s/sensor/ina2xx"), mqttDeviceTopic);
 			mqtt->subscribe(subuf, 0);
 			_logUsermodInaSensor("Subscribed to MQTT topic: %s", subuf);
+			if (!mqttStateRestored) mqttRestoreWaitStart = millis() | 1UL; // never 0 = not waiting
 		}
 	}
 }
@@ -988,7 +1006,7 @@ void UsermodINA2xx::readFromJsonState(JsonObject& root) {
 		}
 
 		if (usermod.containsKey("totalEnergy_kWh")) {
-			float prevTotal = totalEnergy_kWh;
+			double prevTotal = totalEnergy_kWh;
 			totalEnergy_kWh = usermod["totalEnergy_kWh"] | totalEnergy_kWh;
 			if (totalEnergy_kWh != prevTotal) {
 				_logUsermodInaSensor("Total energy updated from JSON: %.6f kWh", totalEnergy_kWh);
@@ -996,7 +1014,7 @@ void UsermodINA2xx::readFromJsonState(JsonObject& root) {
 		}
 
 		if (usermod.containsKey("dailyEnergy_kWh")) {
-			float prevDaily = dailyEnergy_kWh;
+			double prevDaily = dailyEnergy_kWh;
 			dailyEnergy_kWh = usermod["dailyEnergy_kWh"] | dailyEnergy_kWh;
 			if (dailyEnergy_kWh != prevDaily) {
 				_logUsermodInaSensor("Daily energy updated from JSON: %.6f kWh", dailyEnergy_kWh);
@@ -1004,7 +1022,7 @@ void UsermodINA2xx::readFromJsonState(JsonObject& root) {
 		}
 
 		if (usermod.containsKey("monthlyEnergy_kWh")) {
-			float prevMonthly = monthlyEnergy_kWh;
+			double prevMonthly = monthlyEnergy_kWh;
 			monthlyEnergy_kWh = usermod["monthlyEnergy_kWh"] | monthlyEnergy_kWh;
 			if (monthlyEnergy_kWh != prevMonthly) {
 				_logUsermodInaSensor("Monthly energy updated from JSON: %.6f kWh", monthlyEnergy_kWh);
