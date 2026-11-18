@@ -143,7 +143,7 @@ private:
           _showElements(&umSSDRMonths, timeVar, 0, 0);
           break;
         case 'y':
-          timeVar = second(localTime);
+          timeVar = year(localTime) % 100;
           _showElements(&umSSDRYears, timeVar, 0, 0);
           break;
         case 'Y':
@@ -174,7 +174,7 @@ private:
   void _showElements(String *map, int timevar, bool isColon, bool removeZero
 
 ) {
-    if ((map != nullptr) && (*map != nullptr) && !(*map).equals("")) {
+    if ((map != nullptr) && !map->isEmpty()) {
       int length = String(timevar).length();
       bool addZero = false;
       if (length == 1) {
@@ -261,7 +261,7 @@ private:
   }
 
   void _setMaskToLeds() {
-    for(int i = 0; i <= umSSDRLength; i++) {
+    for (int i = 0; i < umSSDRLength; i++) {
       if ((!umSSDRInverted && !umSSDRMask[i]) || (umSSDRInverted && umSSDRMask[i])) {
         strip.setPixelColor(i, 0x000000);
       }
@@ -269,7 +269,7 @@ private:
   }
 
   void _setAllFalse() {
-    for(int i = 0; i <= umSSDRLength; i++) {
+    for (int i = 0; i < umSSDRLength; i++) {
       umSSDRMask[i] = false;
     }
   }
@@ -386,11 +386,8 @@ public:
      */
   void setup() {
     umSSDRLength = strip.getLengthTotal();
-    if (umSSDRMask != 0) {
-      umSSDRMask = (bool*) realloc(umSSDRMask, umSSDRLength * sizeof(bool));
-    } else {
-      umSSDRMask = (bool*) malloc(umSSDRLength * sizeof(bool));
-    }
+    umSSDRMask = (bool*)d_malloc(umSSDRLength * sizeof(bool));
+    if (!umSSDRMask) umSSDRLength = 0;
     _setAllFalse();
 
     #ifdef USERMOD_SN_PHOTORESISTOR
@@ -439,9 +436,17 @@ public:
   }
 
   void handleOverlayDraw() {
-    if (umSSDRDisplayTime) {
-      _overlaySevenSegmentDraw();
+    // the first overlay draw happens in beginStrip(), before setup() has allocated the mask
+    if (!umSSDRDisplayTime || !umSSDRMask) return;
+    if (umSSDRLength != strip.getLengthTotal()) { // the LED count can change at runtime without a reboot
+      umSSDRLength = strip.getLengthTotal();
+      umSSDRMask = (bool*)d_realloc_malloc(umSSDRMask, umSSDRLength * sizeof(bool));
+      if (!umSSDRMask) {
+        umSSDRLength = 0;
+        return;
+      }
     }
+    _overlaySevenSegmentDraw();
   }
 
 /*
