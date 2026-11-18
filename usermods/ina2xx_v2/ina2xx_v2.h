@@ -67,6 +67,16 @@
 	#endif
 #endif
 
+// Retained energy values above this are treated as corrupt and not restored.
+#ifndef INA2XX_MAX_PLAUSIBLE_KWH
+  #define INA2XX_MAX_PLAUSIBLE_KWH 1000000.0
+#endif
+
+// Wait this long after MQTT connects for the retained energy state before counting from zero.
+#ifndef INA2XX_RESTORE_TIMEOUT_MS
+  #define INA2XX_RESTORE_TIMEOUT_MS 30000UL
+#endif
+
 #ifndef INA2XX_MQTT_PUBLISH
   #define INA2XX_MQTT_PUBLISH false // Default: do not publish to MQTT
 #endif
@@ -151,9 +161,9 @@ private:
   float last_sent_power = 0;
   bool last_sent_overflow = false;
 
-  float dailyEnergy_kWh = 0.0; // Daily energy in kWh
-  float monthlyEnergy_kWh = 0.0; // Monthly energy in kWh
-  float totalEnergy_kWh = 0.0; // Total energy in kWh
+  double dailyEnergy_kWh = 0.0; // Daily energy in kWh
+  double monthlyEnergy_kWh = 0.0; // Monthly energy in kWh
+  double totalEnergy_kWh = 0.0; // Total energy in kWh
   unsigned long lastPublishTime = 0; // Track the last publish time
 
   // Variables to store last reset timestamps
@@ -165,8 +175,11 @@ private:
   unsigned long monthlyResetTimestamp = 0;
 
   bool mqttStateRestored = false;
-  bool mqttRestorePending = false;
+  // Written by the MQTT callback (AsyncTCP task), consumed only by loop().
+  volatile bool mqttRestorePending = false;
   bool mqttRestoreDeferredLogged = false;
+  // millis() of the MQTT connect we are waiting on for the retained state; 0 = not waiting.
+  volatile unsigned long mqttRestoreWaitStart = 0;
 
   struct MqttRestoreData {
     bool hasDailyEnergy = false;
@@ -176,9 +189,9 @@ private:
     bool hasMonthlyResetTime = false;
     bool hasDailyResetTimestamp = false;
     bool hasMonthlyResetTimestamp = false;
-    float dailyEnergy = 0.0f;
-    float monthlyEnergy = 0.0f;
-    float totalEnergy = 0.0f;
+    double dailyEnergy = 0.0;
+    double monthlyEnergy = 0.0;
+    double totalEnergy = 0.0;
     uint32_t dailyResetTime = 0;
     uint32_t monthlyResetTime = 0;
     uint32_t dailyResetTimestamp = 0;
