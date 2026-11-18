@@ -178,10 +178,12 @@ class Animated_Staircase : public Usermod {
     }
 
     // Remember the end segments' opacity before sentinel overwrites it.
+    // A later segment edit can move the ends; restore the old snapshot before capturing the new one.
     void captureSentinelOpacity() {
-      if (sentinelOpacitySaved) return;
       byte firstSegId, lastSegId;
       getSentinelSegmentIds(firstSegId, lastSegId);
+      if (sentinelOpacitySaved && firstSegId == savedFirstSegId && lastSegId == savedLastSegId) return;
+      if (sentinelOpacitySaved) restoreSentinelOpacity();
       savedFirstSegId = firstSegId;
       savedLastSegId = lastSegId;
       Segment &firstSeg = strip.getSegment(firstSegId);
@@ -197,12 +199,9 @@ class Animated_Staircase : public Usermod {
     // Put back the opacity sentinel replaced, including values other than 255.
     void restoreSentinelOpacity() {
       if (!sentinelOpacitySaved) return;
-      Segment &firstSeg = strip.getSegment(savedFirstSegId);
-      if (firstSeg.isActive()) firstSeg.setOpacity(savedFirstOpacity);
-      if (savedLastSegId != savedFirstSegId) {
-        Segment &lastSeg = strip.getSegment(savedLastSegId);
-        if (lastSeg.isActive()) lastSeg.setOpacity(savedLastOpacity);
-      }
+      unsigned nSeg = strip.getSegmentsNum();
+      if (savedFirstSegId < nSeg) strip.getSegment(savedFirstSegId).setOpacity(savedFirstOpacity);
+      if (savedLastSegId != savedFirstSegId && savedLastSegId < nSeg) strip.getSegment(savedLastSegId).setOpacity(savedLastOpacity);
       sentinelOpacitySaved = false;
     }
 
@@ -391,7 +390,8 @@ class Animated_Staircase : public Usermod {
         }
         if (oldOn != onIndex || oldOff != offIndex) {
           updateSegments(); // reduce the number of updates to necessary ones
-          if (togglePower && onIndex == offIndex && !offMode && !on) toggleOnOff();  // toggle power off for all segments off
+          // Global off wins over idle sentinels: brightness 0 turns the strip fully off.
+          if (togglePower && onIndex == offIndex && !offMode && !on) toggleOnOff();
         }
       }
     }
@@ -432,6 +432,9 @@ class Animated_Staircase : public Usermod {
         }
         refreshManagedSegmentRange();
         resetSwipeIndices();
+        // Drop latched sensor levels so a pin that is still high counts as a new rising edge.
+        bottomSensorState = false;
+        topSensorState = false;
 
         // shorten the strip transition time to be equal or shorter than segment delay
         transitionDelay = segment_delay_ms;
@@ -561,10 +564,7 @@ class Animated_Staircase : public Usermod {
     }
 
     void appendConfigData() {
-      //oappend(F("dd=addDropdown('staircase','selectfield');"));
-      //oappend(F("addOption(dd,'1st value',0);"));
-      //oappend(F("addOption(dd,'2nd value',1);"));
-      //oappend(F("addInfo('staircase:selectfield',1,'additional info');"));  // 0 is field type, 1 is actual field
+      oappend(F("addInfo('staircase:toggle-on-off',1,'Turns the strip fully off, including sentinel ends.');"));
     }
 
 
