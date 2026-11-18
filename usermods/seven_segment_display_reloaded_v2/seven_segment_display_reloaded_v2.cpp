@@ -417,6 +417,10 @@
   * loop() is called continuously. Here you can check for events, read sensors, etc.
   */
   void UsermodSSDR::loop() {
+    #ifndef WLED_DISABLE_MQTT
+    _processMqttQueue(); // apply settings queued by onMqttMessage() (network task)
+    #endif
+
     if (!umSSDRDisplayTime || strip.isUpdating() || umSSDRMask == nullptr || externalLedOutputDisabled) {
       return;
     }
@@ -637,15 +641,31 @@
         topic[topicLen - 2] == 'e' &&
         topic[topicLen - 1] == 't')
     {
-      //Trim /set and handle it
+      //Trim /set and queue it; loop() applies it via _processMqttQueue()
       topic[topicLen - 4] = '\0';
-      _logUsermodSSDR("Processing setting. Setting='%s', Value='%s'", topic, payload);
-      bool result = _handleSetting(topic, payload);
-      _logUsermodSSDR("Handling result: %s", result ? "success" : "failure");
-      return result;
+      _logUsermodSSDR("Queueing setting. Setting='%s', Value='%s'", topic, payload);
+      if (!_mqttQueue.push(topic, payload)) {
+        _logUsermodSSDR("MQTT queue full or out of memory, dropping setting '%s'", topic);
+      }
+      return true;
     }
-    return false;
     #endif
+    return false;
+  }
+
+  // Runs in loop(): applies MQTT settings queued by onMqttMessage().
+  void UsermodSSDR::_processMqttQueue() {
+    char *setting;
+    char *value;
+    while (_mqttQueue.pop(setting, value)) {
+      if (umSSDRDisplayTime) {
+        _logUsermodSSDR("Processing setting. Setting='%s', Value='%s'", setting, value);
+        bool result = _handleSetting(setting, value);
+        _logUsermodSSDR("Handling result: %s", result ? "success" : "failure");
+      }
+      d_free(setting);
+      d_free(value);
+    }
   }
 
   void UsermodSSDR::addToConfig(JsonObject &root) {
