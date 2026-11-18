@@ -599,62 +599,13 @@ BusPwm::BusPwm(const BusConfig &bc)
 
 void BusPwm::setPixelColor(unsigned pix, uint32_t c) {
   if (pix != 0 || !_valid) return; //only react to first pixel
-  if (Bus::_cct >= 1900 && (_type == TYPE_ANALOG_3CH || _type == TYPE_ANALOG_4CH)) {
-    c = colorBalanceFromKelvin(Bus::_cct, c); //color correction from CCT
-  }
-  uint8_t cctWW, cctCW;
-  if (_type != TYPE_ANALOG_3CH) c = autoWhiteCalc(c, cctWW, cctCW);
-  uint8_t r = R(c), g = G(c), b = B(c), w = W(c);
-  // note: no color scaling, brightness is applied in show()
-
-  switch (_type) {
-    case TYPE_ANALOG_1CH: //one channel (white), relies on auto white calculation
-      _data[0] = w;
-      break;
-    case TYPE_ANALOG_2CH: //warm white + cold white
-      if (cctICused) {
-        _data[0] = w;
-        _data[1] = Bus::_cct < 0 || Bus::_cct > 255 ? 127 : Bus::_cct;
-      } else {
-        _data[0] = cctWW;
-        _data[1] = cctCW;
-      }
-      break;
-    case TYPE_ANALOG_5CH: //RGB + warm white + cold white
-      if (cctICused)
-        _data[4] = Bus::_cct < 0 || Bus::_cct > 255 ? 127 : Bus::_cct;
-      else {
-        w = cctWW;
-        _data[4] = cctCW;
-      }
-      // fall through to set RGBW channels
-    case TYPE_ANALOG_4CH: //RGBW
-      _data[3] = w;
-    case TYPE_ANALOG_3CH: //standard dumb RGB
-      _data[0] = r; _data[1] = g; _data[2] = b;
-      break;
-  }
+  _color = c;
 }
 
 //does no index check
 uint32_t BusPwm::getPixelColor(unsigned pix) const {
   if (!_valid) return 0;
-  // TODO getting the reverse from CCT is involved (a quick approximation when CCT blending is ste to 0 implemented)
-  switch (_type) {
-    case TYPE_ANALOG_1CH: //one channel (white), relies on auto white calculation
-      return RGBW32(0, 0, 0, _data[0]);
-    case TYPE_ANALOG_2CH: //warm white + cold white
-      if (cctICused) return RGBW32(0, 0, 0, _data[0]);
-      else           return RGBW32(0, 0, 0, _data[0] + _data[1]);
-    case TYPE_ANALOG_5CH: //RGB + warm white + cold white
-      if (cctICused) return RGBW32(_data[0], _data[1], _data[2], _data[3]);
-      else           return RGBW32(_data[0], _data[1], _data[2], _data[3] + _data[4]);
-    case TYPE_ANALOG_4CH: //RGBW
-      return RGBW32(_data[0], _data[1], _data[2], _data[3]);
-    case TYPE_ANALOG_3CH: //standard dumb RGB
-      return RGBW32(_data[0], _data[1], _data[2], 0);
-  }
-  return RGBW32(_data[0], _data[0], _data[0], _data[0]);
+  return _color;
 }
 
 void BusPwm::show() {
@@ -686,13 +637,60 @@ void BusPwm::show() {
   unsigned duty[numPins]; // duty cycle at channel resolution
   unsigned totalDuty = 0; // sum of all channel duties
 
+  uint32_t c = _color;
+  if (Bus::_cct >= 1900 && (_type == TYPE_ANALOG_3CH || _type == TYPE_ANALOG_4CH)) {
+    c = colorBalanceFromKelvin(Bus::_cct, c); //color correction from CCT
+  }
+  uint8_t cctWW = 0, cctCW = 0;
+  if (_type != TYPE_ANALOG_3CH) c = autoWhiteCalc(c, cctWW, cctCW); // TODO: if we do autoWhite before gamma the outcome may be color skewed. Needs investigation.
+  uint8_t r = R(c), g = G(c), b = B(c), w = W(c);
+
+  auto calcChannelDuty = [&](uint8_t val) -> float {
+    if (applyGamma) return powf((float)val / 255.0f, gammaCorrectVal) * pwmBri; // apply full resolution gamma correction: way more accurate than using gamma8(val)
+    return (val * pwmBri) / 255.0f;
+  };
+
+  switch (_type) {
+    case TYPE_ANALOG_1CH:
+      duty[0] = (unsigned)calcChannelDuty(w);
+      break;
+    case TYPE_ANALOG_2CH:
+      if (cctICused) {
+        duty[0] = (unsigned)calcChannelDuty(w);
+        uint8_t cctVal = (Bus::_cct < 0 || Bus::_cct > 255) ? 127 : Bus::_cct;
+        duty[1] = (unsigned)((cctVal * pwmBri) / 255);
+      } else {
+        // Apply gamma to white intensity before splitting WW/CW so CCT slider does not dim midpoint
+        float wDuty = calcChannelDuty(w);
+        duty[0] = w ? (unsigned)(wDuty * cctWW / w) : 0;
+        duty[1] = w ? (unsigned)(wDuty * cctCW / w) : 0;
+      }
+      break;
+    case TYPE_ANALOG_5CH:
+      if (cctICused) {
+        duty[3] = (unsigned)calcChannelDuty(w);
+        uint8_t cctVal = (Bus::_cct < 0 || Bus::_cct > 255) ? 127 : Bus::_cct;
+        duty[4] = (unsigned)((cctVal * pwmBri) / 255);
+      } else {
+        float wDuty = calcChannelDuty(w);
+        duty[3] = w ? (unsigned)(wDuty * cctWW / w) : 0;
+        duty[4] = w ? (unsigned)(wDuty * cctCW / w) : 0;
+      }
+      duty[0] = (unsigned)calcChannelDuty(r);
+      duty[1] = (unsigned)calcChannelDuty(g);
+      duty[2] = (unsigned)calcChannelDuty(b);
+      break;
+    case TYPE_ANALOG_4CH:
+      duty[3] = (unsigned)calcChannelDuty(w);
+      // fall through
+    case TYPE_ANALOG_3CH:
+      duty[0] = (unsigned)calcChannelDuty(r);
+      duty[1] = (unsigned)calcChannelDuty(g);
+      duty[2] = (unsigned)calcChannelDuty(b);
+      break;
+  }
+
   for (unsigned i = 0; i < numPins; i++) {
-    bool isLinearChannel = cctICused && ((_type == TYPE_ANALOG_2CH && i == 1) || (_type == TYPE_ANALOG_5CH && i == 4));
-    if (applyGamma && !isLinearChannel) {
-      duty[i] = (unsigned)(powf((float)_data[i] / 255.0f, gammaCorrectVal) * pwmBri); // apply full resolution gamma correction: way more accurate than using gamma8(_data[i])
-    } else {
-      duty[i] = (_data[i] * pwmBri) / 255;
-    }
     totalDuty += duty[i];
   }
 
@@ -745,7 +743,7 @@ void BusPwm::show() {
       deadTime = (2 << bitShift) + (uint64_t(DEADTIME_NS) * _frequency * maxBri) / 1000000000ULL; // _frequency * maxBri is 1/pwmtick,
       int dutyOvershoot = (totalDuty + (deadTime * 2)) - maxBri;
       // if total pwmBri plus two dead-time zones exceed maxBri, shorten the duty proportionally except if one is at 0%
-      if (duty[i] < maxBri && dutyOvershoot > 0 && _data[0] > 0 && _data[1] > 0) {
+      if (duty[i] < maxBri && dutyOvershoot > 0 && duty[0] > 0 && duty[1] > 0) {
         int dutyAdjust = (dutyOvershoot * duty[i]) / totalDuty; // adjust proportionally to signals contribution
         if (dutyAdjust < duty[i]) duty[i] -= dutyAdjust; // subtract overshoot, guard against negative values (should never happen)
         pulseGap = deadTime; // we changed duty, now exactly two deadTime gaps fit

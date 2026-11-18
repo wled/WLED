@@ -301,7 +301,7 @@ class BusPwm : public Bus {
 
   private:
     uint8_t _pins[OUTPUT_MAX_PINS];
-    uint8_t _data[OUTPUT_MAX_PINS];
+    uint32_t _color = 0;
     #ifdef ARDUINO_ARCH_ESP32
     uint8_t _ledcStart;
     #endif
