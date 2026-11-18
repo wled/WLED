@@ -59,6 +59,7 @@ make_unique(Args&&... args)
 
 //colors.cpp
 uint16_t approximateKelvinFromRGB(uint32_t rgb);
+void colorKtoRGB(uint16_t kelvin, byte* rgb);
 
 #define GET_BIT(var,bit)    (((var)>>(bit))&0x01)
 #define SET_BIT(var,bit)    ((var)|=(uint16_t)(0x0001<<(bit)))
@@ -110,9 +111,19 @@ class Bus {
     , _totalBusBri(255)
     , _start(start)
     , _len(std::max(len,(uint16_t)1))
+    , _whiteKelvin(0)
+    , _rwR(WK_RECIP_NEUTRAL) // matches _wR=255 (kept consistent though unused while _whiteKelvin==0)
+    , _rwG(WK_RECIP_NEUTRAL)
+    , _rwB(WK_RECIP_NEUTRAL)
+    , _wR(255)
+    , _wG(255)
+    , _wB(255)
     , _reversed(reversed)
     , _valid(false)
     , _needsRefresh(refresh)
+    , _hasRgb(false)   // derived constructors set the real capabilities;
+    , _hasWhite(false) // defaults keep setWhiteKelvin() well-defined for buses
+    , _hasCCT(false)   // that don't set all three (BusPlaceholder, BusHub75Matrix)
     {
       _autoWhiteMode = Bus::hasWhite(type) ? aw : RGBW_MODE_MANUAL_ONLY;
     };
@@ -156,6 +167,8 @@ class Bus {
     inline  void     setStart(uint16_t start)                   { _start = start; }
     inline  void     setAutoWhiteMode(uint8_t m)                { if (m < 5) _autoWhiteMode = m; }
     inline  uint8_t  getAutoWhiteMode() const                   { return _autoWhiteMode; }
+    inline  uint16_t getWhiteKelvin() const                     { return _whiteKelvin; }
+    void             setWhiteKelvin(uint16_t k);
     inline  uint16_t getStart() const                           { return _start; }
     inline  uint8_t  getType() const                            { return _type; } // 7-bit bus index, highest bit is "off refresh"
     inline  bool     isOk() const                               { return _valid; }
@@ -204,6 +217,20 @@ class Bus {
     uint8_t  _autoWhiteMode; // global Auto White Calculation override
     uint16_t _start;
     uint16_t _len;
+    // Q15 fixed point used by the W Kelvin correction in autoWhiteCalc(): _rwX = WK_Q15_ONE / (_wX + 1),
+    // consumed as (value * _rwX) >> WK_Q15_SHIFT. WK_RECIP_NEUTRAL is the reciprocal for a neutral
+    // (255) coefficient, i.e. the W LED treated as pure white: 32768 / 256 = 128.
+    static constexpr unsigned WK_Q15_SHIFT     = 15;
+    static constexpr uint16_t WK_Q15_ONE       = 1u << WK_Q15_SHIFT;
+    static constexpr uint16_t WK_RECIP_NEUTRAL = WK_Q15_ONE / (255 + 1);
+    // 16-bit members grouped with _start/_len, 8-bit ones with the bools below, to avoid padding
+    uint16_t _whiteKelvin; // physical W channel color temperature in Kelvin (0 = neutral/legacy behavior)
+    uint16_t _rwR;         // Q15 reciprocal of (_wR+1), i.e. WK_Q15_ONE/(_wR+1) in [128,32768], for autoWhiteCalc hot path
+    uint16_t _rwG;
+    uint16_t _rwB;
+    uint8_t  _wR;          // cached W LED RGB equivalent (255,255,255 when _whiteKelvin==0)
+    uint8_t  _wG;
+    uint8_t  _wB;
     //struct { //using bitfield struct adds abour 250 bytes to binary size
       bool _reversed;//     : 1;
       bool _valid;//        : 1;

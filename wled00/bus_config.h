@@ -89,6 +89,7 @@ struct BusConfig {
   // flags
   bool     reversed   = false;
   bool     refreshReq = false;    // requires refresh while off
+  uint16_t whiteKelvin = 0;       // physical W channel colour temperature in K; 0 = correction off
   String   text;                  // network hostname / custom text (config-time only)
 
   BusConfig() = default;

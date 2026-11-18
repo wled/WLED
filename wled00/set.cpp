@@ -226,6 +226,7 @@ void handleSettingsSet(AsyncWebServerRequest *request, byte subPage)
       char sl[4] = "SL"; sl[2] = offset+s; sl[3] = 0; //skip first N LEDs
       char rf[4] = "RF"; rf[2] = offset+s; rf[3] = 0; //refresh required
       char aw[4] = "AW"; aw[2] = offset+s; aw[3] = 0; //auto white mode
+      char wk[4] = "WK"; wk[2] = offset+s; wk[3] = 0; //W channel color temperature (Kelvin)
       char wo[4] = "WO"; wo[2] = offset+s; wo[3] = 0; //channel swap
       char sp[4] = "SP"; sp[2] = offset+s; sp[3] = 0; //bus clock speed (DotStar & PWM)
       char sf[4] = "SF"; sf[2] = offset+s; sf[3] = 0; //bus speed factor (Fast/Default/Slow)
@@ -252,6 +253,10 @@ void handleSettingsSet(AsyncWebServerRequest *request, byte subPage)
         break;  // no parameter
       }
       awmode = request->arg(aw).toInt();
+      // W channel color temperature: 0 or out of range (1000..10000 K) means off.
+      // Validate before narrowing so oversized values can't wrap into range.
+      long wkRaw = request->hasArg(wk) ? request->arg(wk).toInt() : 0;
+      uint16_t whiteK = (wkRaw >= 1000 && wkRaw <= 10000) ? (uint16_t)wkRaw : 0;
       uint16_t freq = request->arg(sp).toInt();
       if (Bus::isPWM(type)) {
         switch (freq) {
@@ -329,6 +334,7 @@ void handleSettingsSet(AsyncWebServerRequest *request, byte subPage)
         }
       }
       if (bc.channels.numChannels == 0) bc.channels.custom = false; // no channels entered: fall back to type defaults
+      bc.whiteKelvin = whiteK; // W channel colour temperature, 0 = correction off
       resolveBusConfigLayout(bc); // fill the wire layout from type + color order unless custom
       busesChanged = true;
     }
