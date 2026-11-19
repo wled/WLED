@@ -1,14 +1,23 @@
 #include "wled.h"
 
+// True while a name packet was sent and its retries are not yet exhausted
+#define NAME_SYNC_PENDING() (_nameSendCount < udpNumRetries)
+
 class UdpNameSync : public Usermod {
 
   private:
 
     bool enabled = false;
-    char segmentName[WLED_MAX_SEGNAME_LEN] = {0};
+    char segmentName[WLED_MAX_SEGNAME_LEN + 1] = {0}; // Segment::setName() accepts up to WLED_MAX_SEGNAME_LEN chars, so keep room for the terminator
     static constexpr uint8_t kPacketType = 200; // custom usermod packet type
     static const char _name[];
     static const char _enabled[];
+    
+    // Retry mechanism variables (similar to core UDP sync)
+    unsigned long _lastNameSentTime = 0;
+    // Starts "exhausted" so no retry is pending before the first name is sent;
+    // sendNamePacket() resets it to 0 on the initial send and increments it per retry
+    uint8_t _nameSendCount = UINT8_MAX;
 
   public:
     /**
@@ -30,37 +39,61 @@ class UdpNameSync : public Usermod {
       if (!enabled) return;
       if (!WLED_CONNECTED) return;
       if (!udpConnected) return;
+      
       Segment& mainseg = strip.getMainSegment();
-      if (segmentName[0] == '\0' && !mainseg.name) return; //name was never set, do nothing
+      // Early return only if name was never set and no retry is pending
+      // This allows empty-name packets to reach the retry branch while retries are pending
+      if (segmentName[0] == '\0' && !mainseg.name && !NAME_SYNC_PENDING()) return; //name was never set, do nothing
 
       const char* curName = mainseg.name ? mainseg.name : "";
-      if (strncmp(curName, segmentName, sizeof(segmentName)) == 0) return; // same name, do nothing
-
+      
+      // Check for name change first - this takes priority over retries
+      if (strncmp(curName, segmentName, sizeof(segmentName)) != 0) {
+        // Name changed, send new name (initial send, reset retry counter)
+        sendNamePacket(false);
+        return;
+      }
+      
+      // Name hasn't changed - check if we need to retry
+      if (NAME_SYNC_PENDING() && ((millis() - _lastNameSentTime) > 250)) {
+        sendNamePacket(true); // retry
+        return;
+      }
+      
+      // Name is in sync, no action needed
+      return;
+    }
+    
+    void sendNamePacket(bool isRetry) {
       IPAddress broadcastIp = uint32_t(WLEDNetwork.localIP()) | ~uint32_t(WLEDNetwork.subnetMask());
       byte udpOut[WLED_MAX_SEGNAME_LEN + 2];
       udpOut[0] = kPacketType; // custom usermod packet type (avoid 0..5 used by core protocols)
-
+      
+      Segment& mainseg = strip.getMainSegment();
+      const char* curName = mainseg.name ? mainseg.name : "";
+      
       if (segmentName[0] != '\0' && !mainseg.name) { // name cleared
-        notifierUdp.beginPacket(broadcastIp, udpPort);
         segmentName[0] = '\0';
-        DEBUG_PRINTLN(F("UdpNameSync: sending empty name"));
+        if (!isRetry) DEBUG_PRINTLN(F("UdpNameSync: sending empty name"));
         udpOut[1] = 0; // explicit empty string
+        notifierUdp.beginPacket(broadcastIp, udpPort);
         notifierUdp.write(udpOut, 2);
         notifierUdp.endPacket();
-        return;
+      } else {
+        size_t nameLen = strlcpy(segmentName, curName, sizeof(segmentName));
+        memcpy((char *)&udpOut[1], segmentName, nameLen + 1); // leave room for header byte
+        notifierUdp.beginPacket(broadcastIp, udpPort);
+        notifierUdp.write(udpOut, 2 + nameLen);
+        notifierUdp.endPacket();
+        if (!isRetry) {
+          DEBUG_PRINT(F("UdpNameSync: Sent segment name : "));
+          DEBUG_PRINTLN(segmentName);
+        }
       }
-
-      notifierUdp.beginPacket(broadcastIp, udpPort);
-      DEBUG_PRINT(F("UdpNameSync: saving segment name "));
-      DEBUG_PRINTLN(curName);
-      strlcpy(segmentName, curName, sizeof(segmentName));
-      strlcpy((char *)&udpOut[1], segmentName, sizeof(udpOut) - 1); // leave room for header byte
-      size_t nameLen = strnlen((char *)&udpOut[1], sizeof(udpOut) - 1);
-      notifierUdp.write(udpOut, 2 + nameLen);
-      notifierUdp.endPacket();
-      DEBUG_PRINT(F("UdpNameSync: Sent segment name : "));
-      DEBUG_PRINTLN(segmentName);
-      return;
+      
+      // Update retry tracking (match core behavior)
+      _lastNameSentTime = millis();
+      _nameSendCount = isRetry ? _nameSendCount + 1 : 0;
     }
 
     bool onUdpPacket(uint8_t * payload, size_t len) override {
@@ -80,6 +113,10 @@ class UdpNameSync : public Usermod {
       return true;
      }
 };
+
+// Static member definitions
+const char UdpNameSync::_name[] PROGMEM = "UDP Name Sync";
+const char UdpNameSync::_enabled[] PROGMEM = "enabled";
 
 static UdpNameSync udp_name_sync;
 REGISTER_USERMOD(udp_name_sync);
