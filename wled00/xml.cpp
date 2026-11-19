@@ -477,6 +477,10 @@ void getSettingsJS(byte subPage, Print& settingsScript)
     printSetFormCheckbox(settingsScript,PSTR("GC"),gammaCorrectCol);
     dtostrf(gammaCorrectVal,3,1,nS); printSetFormValue(settingsScript,PSTR("GV"),nS);
     printSetFormValue(settingsScript,PSTR("TD"),transitionDelayDefault);
+    printSetFormCheckbox(settingsScript,PSTR("PA"),powerAnimation);
+    #ifdef WLED_DISABLE_GLOBAL_PIXELBUFFER
+    settingsScript.print(F("gId('PAS').style.display='none';")); // power sweep needs the global pixel buffer
+    #endif
     printSetFormValue(settingsScript,PSTR("TP"),randomPaletteChangeTime);
     printSetFormCheckbox(settingsScript,PSTR("TH"),useHarmonicRandomPalette);
     printSetFormValue(settingsScript,PSTR("BF"),briMultiplier);
