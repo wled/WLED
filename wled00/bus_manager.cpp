@@ -69,13 +69,14 @@ uint8_t ColorOrderMap::getPixelColorOrder(uint16_t pix, uint8_t defaultColorOrde
 }
 
 
-void Bus::calculateCCT(uint32_t c, uint8_t &ww, uint8_t &cw) {
+// Computes the warm/cold white split using the supplied CCT Value
+CctPixel Bus::calculateCCT(uint32_t c, int16_t cctValue) {
   unsigned cct = 0; //0 - full warm white, 255 - full cold white
   unsigned w = W(c);
 
-  if (_cct > -1) {                                    // using RGB?
-    if (_cct >= 1900)    cct = (_cct - 1900) >> 5;    // convert K in relative format
-    else if (_cct < 256) cct = _cct;                  // already relative
+  if (cctValue > -1) {                                       // using RGB?
+    if (cctValue >= 1900)    cct = (cctValue - 1900) >> 5;   // convert K in relative format
+    else if (cctValue < 256) cct = cctValue;                 // already relative
   } else {
     cct = (approximateKelvinFromRGB(c) - 1900) >> 5;  // convert K (from RGB value) to relative format
   }
@@ -93,15 +94,18 @@ void Bus::calculateCCT(uint32_t c, uint8_t &ww, uint8_t &cw) {
     ww_val = _cctBlend ? ((int32_t)(255 - cct) * 255) / (255 - _cctBlend) : 255 - cct; // additive blending
     cw_val = _cctBlend ? ((int32_t) cct      * 255) / (255 - _cctBlend) : cct;
   }
-  ww = (uint8_t)(ww_val < 0 ? 0 : ww_val > 255 ? 255 : ww_val);
-  cw = (uint8_t)(cw_val < 0 ? 0 : cw_val > 255 ? 255 : cw_val);
+  CctPixel cctResult{};
+  cctResult.ww = (uint8_t)(ww_val < 0 ? 0 : ww_val > 255 ? 255 : ww_val);
+  cctResult.cw = (uint8_t)(cw_val < 0 ? 0 : cw_val > 255 ? 255 : cw_val);
 
-  ww = (w * ww) / 255; //brightness scaling
-  cw = (w * cw) / 255;
+  cctResult.ww = (w * cctResult.ww) / 255; //brightness scaling
+  cctResult.cw = (w * cctResult.cw) / 255;
+  return cctResult;
 }
 
 // calculates white channel and CCT values based on given settings
-uint32_t Bus::autoWhiteCalc(uint32_t c, uint8_t &ww, uint8_t &cw) const {
+uint32_t Bus::autoWhiteCalc(uint32_t c, CctPixel &cctResult, int16_t cctValue) const {
+  cctResult = CctPixel{};
   unsigned aWM = _autoWhiteMode;
   if (_gAWM < AW_GLOBAL_DISABLED) aWM = _gAWM;
   CRGBW cIn = c; // save original color for CCT calculation
@@ -122,7 +126,7 @@ uint32_t Bus::autoWhiteCalc(uint32_t c, uint8_t &ww, uint8_t &cw) const {
   }
   if (_hasCCT) {
     cIn.w = w; // need original rgb values in case CCT is derived from RGB
-    calculateCCT(cIn, ww, cw);
+    cctResult = calculateCCT(cIn, cctValue);
   }
   return c;
 }
@@ -373,7 +377,7 @@ void BusDigital::setPixelColor(unsigned pix, uint32_t c) {
     c = gamma32(c); // apply gamma correction if (currently) used
     if (Bus::_cct >= 1900) c = colorBalanceFromKelvin(Bus::_cct, c); //color correction from CCT
     if (hasWhite()) {
-      c = autoWhiteCalc(c, cct.ww, cct.cw);
+      c = autoWhiteCalc(c, cct, Bus::_cct);
     }
     if (BusManager::_useABL) {
       // Accumulate brightness-scaled channel values for current estimation.
@@ -600,6 +604,7 @@ BusPwm::BusPwm(const BusConfig &bc)
 void BusPwm::setPixelColor(unsigned pix, uint32_t c) {
   if (pix != 0 || !_valid) return; //only react to first pixel
   _color = c;
+  _PWMcct = Bus::_cct; // store CCT value we got from the segment, used in show()
 }
 
 //does no index check
@@ -637,12 +642,13 @@ void BusPwm::show() {
   unsigned duty[numPins]; // duty cycle at channel resolution
   unsigned totalDuty = 0; // sum of all channel duties
 
+  const int16_t PWMcct = _PWMcct;
   uint32_t c = _color;
-  if (Bus::_cct >= 1900 && (_type == TYPE_ANALOG_3CH || _type == TYPE_ANALOG_4CH)) {
-    c = colorBalanceFromKelvin(Bus::_cct, c); //color correction from CCT
+  if (PWMcct >= 1900 && (_type == TYPE_ANALOG_3CH || _type == TYPE_ANALOG_4CH)) {
+    c = colorBalanceFromKelvin(PWMcct, c); //color correction from CCT
   }
-  uint8_t cctWW = 0, cctCW = 0;
-  if (_type != TYPE_ANALOG_3CH) c = autoWhiteCalc(c, cctWW, cctCW); // TODO: if we do autoWhite before gamma the outcome may be color skewed. Needs investigation.
+  CctPixel cct{};
+  if (_type != TYPE_ANALOG_3CH) c = autoWhiteCalc(c, cct, PWMcct); // TODO: if we do autoWhite before gamma the outcome may be color skewed. Needs investigation.
   uint8_t r = R(c), g = G(c), b = B(c), w = W(c);
 
   auto calcChannelDuty = [&](uint8_t val) -> float {
@@ -657,24 +663,24 @@ void BusPwm::show() {
     case TYPE_ANALOG_2CH:
       if (cctICused) {
         duty[0] = (unsigned)calcChannelDuty(w);
-        uint8_t cctVal = (Bus::_cct < 0 || Bus::_cct > 255) ? 127 : Bus::_cct;
+        uint8_t cctVal = (PWMcct < 0 || PWMcct > 255) ? 127 : PWMcct;
         duty[1] = (unsigned)((cctVal * pwmBri) / 255);
       } else {
         // Apply gamma to white intensity before splitting WW/CW so CCT slider does not dim midpoint
         float wDuty = calcChannelDuty(w);
-        duty[0] = w ? (unsigned)(wDuty * cctWW / w) : 0;
-        duty[1] = w ? (unsigned)(wDuty * cctCW / w) : 0;
+        duty[0] = w ? (unsigned)(wDuty * cct.ww / w) : 0;
+        duty[1] = w ? (unsigned)(wDuty * cct.cw / w) : 0;
       }
       break;
     case TYPE_ANALOG_5CH:
       if (cctICused) {
         duty[3] = (unsigned)calcChannelDuty(w);
-        uint8_t cctVal = (Bus::_cct < 0 || Bus::_cct > 255) ? 127 : Bus::_cct;
+        uint8_t cctVal = (PWMcct < 0 || PWMcct > 255) ? 127 : PWMcct;
         duty[4] = (unsigned)((cctVal * pwmBri) / 255);
       } else {
         float wDuty = calcChannelDuty(w);
-        duty[3] = w ? (unsigned)(wDuty * cctWW / w) : 0;
-        duty[4] = w ? (unsigned)(wDuty * cctCW / w) : 0;
+        duty[3] = w ? (unsigned)(wDuty * cct.ww / w) : 0;
+        duty[4] = w ? (unsigned)(wDuty * cct.cw / w) : 0;
       }
       duty[0] = (unsigned)calcChannelDuty(r);
       duty[1] = (unsigned)calcChannelDuty(g);
@@ -908,9 +914,9 @@ BusNetwork::BusNetwork(const BusConfig &bc)
 
 void BusNetwork::setPixelColor(unsigned pix, uint32_t c) {
   if (!_valid || pix >= _len) return;
-  uint8_t ww, cw; // dummy, unused
+  CctPixel cct{}; // dummy, unused
   // note: gamma correction is done by the receiver
-  if (_hasWhite) c = autoWhiteCalc(c, ww, cw);
+  if (_hasWhite) c = autoWhiteCalc(c, cct, Bus::_cct);
   if (Bus::_cct >= 1900) c = colorBalanceFromKelvin(Bus::_cct, c); //color correction from CCT
   unsigned offset = pix * _UDPchannels;
   _data[offset]   = R(c);

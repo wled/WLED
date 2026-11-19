@@ -15,6 +15,7 @@
 
 #include "const.h"
 #include "bus_config.h"
+#include "colors.h"
 #include "pin_manager.h"
 #include <vector>
 #include <memory>
@@ -195,7 +196,7 @@ class Bus {
         if (_cctBlend > WLED_MAX_CCT_BLEND) _cctBlend = WLED_MAX_CCT_BLEND;
       #endif
     }
-    static void calculateCCT(uint32_t c, uint8_t &ww, uint8_t &cw);
+    static CctPixel calculateCCT(uint32_t c, int16_t cctValue);
 
   protected:
     uint8_t  _type;
@@ -227,7 +228,7 @@ class Bus {
 
     uint8_t _busSpeedFactor = 100; // percent, default 100 = default timings
 
-    uint32_t autoWhiteCalc(uint32_t c, uint8_t &ww, uint8_t &cw) const;
+    uint32_t autoWhiteCalc(uint32_t c, CctPixel &cctResult, int16_t cctValue) const;
 };
 
 
@@ -302,6 +303,7 @@ class BusPwm : public Bus {
   private:
     uint8_t _pins[OUTPUT_MAX_PINS];
     uint32_t _color = 0;
+    int16_t  _PWMcct = -1;
     #ifdef ARDUINO_ARCH_ESP32
     uint8_t _ledcStart;
     #endif
