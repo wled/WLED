@@ -1026,6 +1026,12 @@ input[type=text].ptxt {
 	width: calc(100% - 24px);
 }
 
+#fxtxtw {
+	background-color: var(--c-2);
+	padding: 4px 0;
+	text-align: center;
+}
+
 textarea {
 	background: var(--c-2);
 	color: var(--c-f);

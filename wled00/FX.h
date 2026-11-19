@@ -477,6 +477,7 @@ class Segment {
     };
     uint8_t   blendMode;          // segment blending modes: top, bottom, add, subtract, difference, average, multiply, divide, lighten, darken, screen, overlay, hardlight, softlight, dodge, burn, stencil
     char     *name;               // segment name
+    char     *fxText;             // effect text parameter (e.g. scrolling text, image file name), declared in effect metadata
 
     // runtime data
     mutable uint32_t step;  // custom "step" var
@@ -602,6 +603,7 @@ class Segment {
     , check3(false)
     , blendMode(0)
     , name(nullptr)
+    , fxText(nullptr)
     , step(0)
     , call(0)
     , aux0(0)
@@ -635,6 +637,7 @@ class Segment {
       DEBUGFX_PRINTLN();
       #endif
       clearName();
+      clearFxText();
       stopTransition();   // deallocate "_t" (transition) and with it "_segOld" note: _segOld has _t=null, see copy constructor
       #ifdef WLED_ENABLE_GIF
       endImagePlayback(this);
@@ -647,7 +650,7 @@ class Segment {
     Segment& operator= (Segment &&orig) noexcept; // move assignment
 
 #ifdef WLED_DEBUG
-    size_t getSize() const { return sizeof(Segment) + (data?_dataLen:0) + (name?strlen(name):0) + (_t?sizeof(Transition):0) + (pixels?length()*sizeof(uint32_t):0); }
+    size_t getSize() const { return sizeof(Segment) + (data?_dataLen:0) + (name?strlen(name):0) + (fxText?strlen(fxText):0) + (_t?sizeof(Transition):0) + (pixels?length()*sizeof(uint32_t):0); }
 #endif
 
     inline bool     getOption(uint8_t n)   const { return ((options >> n) & 0x01); }
@@ -674,6 +677,7 @@ class Segment {
     inline void     deactivate()                 { setGeometry(0,0); }
     inline Segment &clearName()                  { p_free(name); name = nullptr; return *this; }
     inline Segment &setName(const String &name)  { return setName(name.c_str()); }
+    inline Segment &clearFxText()                { p_free(fxText); fxText = nullptr; return *this; }
 
     inline static unsigned vLength()                       { return Segment::_vLength; }
     inline static unsigned vWidth()                        { return Segment::_vWidth; }
@@ -693,6 +697,7 @@ class Segment {
     Segment &setMode(uint8_t fx, bool loadDefaults = false);
     Segment &setPalette(uint8_t pal);
     Segment &setName(const char* name);
+    Segment &setFxText(const char* text);
     void    refreshLightCapabilities() const;
 
     // runtime data functions

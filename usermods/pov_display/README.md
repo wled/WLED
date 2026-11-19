@@ -16,7 +16,7 @@ To get it working:
 - Rotate your image 90° clockwise (height becomes width).
 - Upload a BMP image (24-bit, uncompressed) to the ESP filesystem using the “/edit” URL.
 - Select the “POV Image” effect.
-- Set the segment name to the absolute filesystem path of the image (e.g., “/myimage.bmp”).
+- Enter the absolute filesystem path of the image (e.g., “/myimage.bmp”) in the effect's “File” field.
 - The path is case-sensitive and must start with “/”.
 - Rotate the pixel strip at approximately 20 RPM.
 - Tune as needed so that one full revolution maps to the image width (if the image appears stretched or compressed, adjust RPM slightly).

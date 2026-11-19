@@ -1,13 +1,13 @@
 #include "wled.h"
 #include "pov.h"
 
-static const char _data_FX_MODE_POV_IMAGE[] PROGMEM = "POV Image@!;;;;";
+static const char _data_FX_MODE_POV_IMAGE[] PROGMEM = "POV Image@!,,,,,,,,File;;;;";
 
 static POV s_pov;
 
 void mode_pov_image(void) {
   Segment& mainseg = strip.getMainSegment();
-  const char* segName = mainseg.name;
+  const char* segName = mainseg.fxText;
   if (!segName) {
      return;
    }
