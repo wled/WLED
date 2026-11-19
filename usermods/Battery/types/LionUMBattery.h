@@ -6,7 +6,7 @@
 
 /**
  *  LiOn Battery
- * 
+ *
  */
 class LionUMBattery : public UMBattery
 {
@@ -24,14 +24,9 @@ class LionUMBattery : public UMBattery
             return this->linearMapping(v, min, max); // basic mapping
         };
 
-        void calculateAndSetLevel(float voltage) override
+        void setMaxVoltage(float newVoltage) override
         {
-            this->setLevel(this->mapVoltage(voltage, this->getMinVoltage(), this->getMaxVoltage()));
-        };
-
-        virtual void setMaxVoltage(float voltage) override
-        {
-            this->maxVoltage = max(getMinVoltage()+1.0f, voltage);
+            this->maxVoltage = max(getMinVoltage()+1.0f, newVoltage);
         }
 };
 
