@@ -181,6 +181,11 @@ The INA2XX sensor communicates via I2C, so the SDA and SCL pins must be correctl
 🚀 **After rebooting, you can enable the **INA2xx** usermod in the settings.**
 
 
+If the sensor is not found at boot, or an INA226 reports an I2C error, the usermod stays enabled and retries: first after 30 s, then backing off up to every 5 minutes (`INA2XX_INIT_RETRY_MIN_MS`, `INA2XX_INIT_RETRY_MAX_MS`). On the first failure it logs every device found on the I2C bus.
+
+### Home Assistant `last_reset`
+Daily and monthly energy use `state_class: total` with a `last_reset`. The device stores the reset time as local wall-clock time, so the discovery template rebuilds that date in Home Assistant's time zone. Home Assistant and WLED must use the same time zone.
+
 ### INA226 Wiring Tip
 
 - Measuring bus voltage: Tie the INA226’s VIN– pin directly to the VBUS line (load side). This ensures the sensor reads the full voltage drop across your bus.
