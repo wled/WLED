@@ -793,6 +793,7 @@ WLED_GLOBAL WiFiUDP ntpUdp;
 WLED_GLOBAL ESPAsyncE131 e131 _INIT_N(((handleE131Packet)));
 WLED_GLOBAL ESPAsyncE131 ddp  _INIT_N(((handleE131Packet)));
 WLED_GLOBAL bool e131NewData _INIT(false);
+WLED_GLOBAL bool e131NewDataPushed _INIT(false); // the pending realtime data is a DDP frame that ended with PUSH
 
 // led fx library object
 WLED_GLOBAL WS2812FX   strip         _INIT(WS2812FX());
