@@ -650,6 +650,7 @@ bool deserializeConfig(JsonObject doc, bool fromFS) {
   CJSON(e131Priority, if_live_dmx[F("e131prio")]);
   if (e131Priority > 200) e131Priority = 200;
   CJSON(DMXMode, if_live_dmx["mode"]);
+  CJSON(DMXInstantBri, if_live_dmx[F("instbri")]);
 
   tdd = if_live[F("timeout")] | -1;
   if (tdd >= 0) realtimeTimeoutMs = tdd * 100;
@@ -1212,6 +1213,7 @@ void serializeConfig(JsonObject root) {
   setConfigValue(if_live_dmx, F("addr"), DMXAddress);
   setConfigValue(if_live_dmx, F("dss"), DMXSegmentSpacing);
   setConfigValue(if_live_dmx, "mode", DMXMode);
+  setConfigValue(if_live_dmx, F("instbri"), DMXInstantBri);
   #ifdef WLED_ENABLE_DMX_INPUT
     setConfigValue(if_live_dmx, F("inputRxPin"), dmxInputTransmitPin);
     setConfigValue(if_live_dmx, F("inputTxPin"), dmxInputReceivePin);

@@ -558,6 +558,7 @@ void getSettingsJS(byte subPage, Print& settingsScript)
     printSetFormValue(settingsScript,PSTR("XX"),DMXSegmentSpacing);
     printSetFormValue(settingsScript,PSTR("PY"),e131Priority);
     printSetFormValue(settingsScript,PSTR("DM"),DMXMode);
+    printSetFormCheckbox(settingsScript,PSTR("DB"),DMXInstantBri);
     printSetFormValue(settingsScript,PSTR("ET"),realtimeTimeoutMs);
     printSetFormCheckbox(settingsScript,PSTR("FB"),arlsForceMaxBri);
     printSetFormCheckbox(settingsScript,PSTR("RG"),arlsDisableGammaCorrection);
