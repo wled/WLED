@@ -14,6 +14,9 @@
 # not see it and these settings will have no effect.
 
 language: en-US
+inheritance: true
+early_access: false
+enable_free_tier: true
 
 reviews:
   # generic review setting, see https://docs.coderabbit.ai/reference/configuration#reference
@@ -60,9 +63,10 @@ reviews:
         2. CHECK for reinvention: search for existing functions/patterns that already solve the same problem.
         3. CHECK for singleton data (defined but never used) and for dead/disabled code, and suggest to remove them.
         4. VERIFY comments match code behavior - AI frequently generates plausible but incorrect comments.
-        5. VERIFY numerical stability / accuracy of arithmetic expressions. AI is often wrong when it comes to math and numbers.
-        6. CHECK for implied but weakly justified assumptions - like usermod loop() call frequency - and ask for clarification.
-        7. FLAG changes that appear unrelated: deleted comments, unnecessary re-formatting or re-factoring, and modifications in files that seem unrelated to the PR description.
+        5. FLAG comment deletions that seem unrelated to the PR objectives. AI tools often miss to preserve existing comments.
+        6. FLAG changes that appear unrelated: deleted code, unnecessary re-formatting or re-factoring, and modifications in files that seem unrelated to the PR description.
+        7. VERIFY numerical stability / accuracy of arithmetic expressions. AI is often wrong when it comes to math and numbers.
+        8. CHECK for implied but weakly justified assumptions - like usermod loop() call frequency - and ask for clarification.
 
     # ── Security hardening — firmware (trust-boundary-aware) ────────────────
     - path: "wled00/**/*.{cpp,h,hpp,ino}"
@@ -125,8 +129,13 @@ reviews:
       instructions: >
         Usermods are community add-ons.
         Each usermod lives in its own directory under usermods/ and is implemented
-        as a .cpp file with a dedicated library.json file to manage dependencies. 
-        Follow the same C++ conventions as the core firmware (docs/cpp.instructions.md).
+        as a .cpp file with a dedicated library.json file to manage dependencies.
+
+        Follow the same C++ conventions as the core firmware (docs/cpp.instructions.md), 
+        and the usermod specific guidelines in AGENTS.md (chapter "Usermods").
+
+        Check for major security risks, including backdoors, potential malware and leaked secrets. 
+        Also check for out-of-scope modifications to the device configuration, and for additional (out-of-scope) functionality not mentioned by the author.
 
     # ── Security hardening — usermods (trust-boundary-aware, narrow scope) ───
     - path: "usermods/**/*.{cpp,h,hpp}"
@@ -257,4 +266,8 @@ reviews:
       enabled: false
     unit_tests:
       # default: true - disabled in WLED: we don't have a unit test framework, this option just confuses contributors
+      enabled: false
+    autofix:
+      enabled: false
+    autopilot:
       enabled: false

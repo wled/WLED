@@ -36,7 +36,7 @@ class UdpNameSync : public Usermod {
       const char* curName = mainseg.name ? mainseg.name : "";
       if (strncmp(curName, segmentName, sizeof(segmentName)) == 0) return; // same name, do nothing
 
-      IPAddress broadcastIp = uint32_t(Network.localIP()) | ~uint32_t(Network.subnetMask());
+      IPAddress broadcastIp = uint32_t(WLEDNetwork.localIP()) | ~uint32_t(WLEDNetwork.subnetMask());
       byte udpOut[WLED_MAX_SEGNAME_LEN + 2];
       udpOut[0] = kPacketType; // custom usermod packet type (avoid 0..5 used by core protocols)
 

@@ -15,6 +15,11 @@ A fast and feature-rich firmware for ESP32 microcontrollers to control addressab
 
 Originally created by [Aircoookie](https://github.com/Aircoookie), now maintained by a community of contributors.
 
+## 🤝 Contributing
+
+Want to help improve WLED? Awesome! Please skim [CONTRIBUTING.md](CONTRIBUTING.md) first - it covers how we like PRs and issues to look, including our take on AI-assisted contributions.
+If you're an AI coding agent, [AGENTS.md](AGENTS.md) is for you - please read it before modifying any files. 😊
+
 ## ⚙️ Features
 
 ### Effects & Visuals
@@ -82,6 +87,8 @@ See the [compatible hardware list](https://kno.wled.ge/basics/compatible-hardwar
 Licensed under the [EUPL v1.2](https://raw.githubusercontent.com/wled-dev/WLED/main/LICENSE).  
 Credits to all [contributors](https://kno.wled.ge/about/contributors/)!  
 CORS proxy by [Corsfix](https://corsfix.com/).
+
+![CodeRabbit Pull Request Reviews](https://img.shields.io/coderabbit/prs/github/wled/WLED?utm_source=oss&utm_medium=github&utm_campaign=wled%2FWLED&labelColor=171717&color=FF570A&link=https%3A%2F%2Fcoderabbit.ai&label=PR+Reviews+supported+by+CodeRabbit)
 
 Join the Discord server to discuss everything about WLED!
 

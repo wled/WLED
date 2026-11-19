@@ -46,7 +46,7 @@ Use these timeout values when running builds:
 3. Then build and test firmware
 
 
-## Before Finishing Work - Testing
+## Before Finishing Work - Testing and Review
 
 **You MUST complete ALL of these before marking work as done:**
 
@@ -56,6 +56,11 @@ Use these timeout values when running builds:
    - Choose `esp32dev` as a common, representative environment
    - If the build fails, fix the issue before proceeding
 3. **For web UI changes**: manually test the interface (see below)
+4. Compare your changes to the previous source code:
+    - All **previous comments have been preserved** or were updated to reflect the new behaviour.
+    - All code changes are correct and necessary to achieve desired behaviour.
+    - No unrelated code has been deleted accidentally.
+    - Any duplication of already existing functionality is strictly necessary.
 
 If any step fails, fix the issue. **Do NOT mark work complete with failing builds or tests.**
 
