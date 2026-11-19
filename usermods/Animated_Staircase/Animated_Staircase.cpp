@@ -621,7 +621,8 @@ class Animated_Staircase : public Usermod {
         return false;
       }
 
-      enabled   = top[FPSTR(_enabled)] | enabled;
+      bool newEnabled = top[FPSTR(_enabled)] | enabled;
+      if (!initDone) enabled = newEnabled;
 
       segment_delay_ms = top[FPSTR(_segmentDelay)] | segment_delay_ms;
       segment_delay_ms = (unsigned long) min((unsigned long)10000,max((unsigned long)10,(unsigned long)segment_delay_ms));  // max delay 10s
@@ -672,6 +673,8 @@ class Animated_Staircase : public Usermod {
           PinManager::deallocatePin(oldBottomBPin, PinOwner::UM_AnimatedStaircase);
         }
         if (oldEnabledSentinel && !enabledSentinel && managedStateApplied) restoreSentinelOpacity();
+        // Go through enable() so managed segment state is taken over or restored on settings-page toggles.
+        if (newEnabled != enabled) enable(newEnabled);
         if (changed) setup();
         if (changedSentinel && enabled) updateSegments();
       }
