@@ -418,18 +418,19 @@ class Animated_Staircase : public Usermod {
         DEBUG_PRINT(on_time_ms / 1000);
         DEBUG_PRINTLN(F(" seconds."));
 
-        if (!useUSSensorBottom)
-          pinMode(bottomPIRorTriggerPin, INPUT_PULLUP);
-        else {
-          pinMode(bottomPIRorTriggerPin, OUTPUT);
-          pinMode(bottomEchoPin, INPUT);
+        // pins are -1 when unused or when setup() failed to allocate them
+        if (!useUSSensorBottom) {
+          if (bottomPIRorTriggerPin >= 0) pinMode(bottomPIRorTriggerPin, INPUT_PULLUP);
+        } else {
+          if (bottomPIRorTriggerPin >= 0) pinMode(bottomPIRorTriggerPin, OUTPUT);
+          if (bottomEchoPin >= 0) pinMode(bottomEchoPin, INPUT);
         }
 
-        if (!useUSSensorTop)
-          pinMode(topPIRorTriggerPin, INPUT_PULLUP);
-        else {
-          pinMode(topPIRorTriggerPin, OUTPUT);
-          pinMode(topEchoPin, INPUT);
+        if (!useUSSensorTop) {
+          if (topPIRorTriggerPin >= 0) pinMode(topPIRorTriggerPin, INPUT_PULLUP);
+        } else {
+          if (topPIRorTriggerPin >= 0) pinMode(topPIRorTriggerPin, OUTPUT);
+          if (topEchoPin >= 0) pinMode(topEchoPin, INPUT);
         }
         refreshManagedSegmentRange();
         resetSwipeIndices();
@@ -674,8 +675,12 @@ class Animated_Staircase : public Usermod {
         }
         if (oldEnabledSentinel && !enabledSentinel && managedStateApplied) restoreSentinelOpacity();
         // Go through enable() so managed segment state is taken over or restored on settings-page toggles.
-        if (newEnabled != enabled) enable(newEnabled);
-        if (changed) setup();
+        // With changed pins, setup() allocates them first and only then calls enable(), so pinMode never touches unallocated pins.
+        if (changed) {
+          if (enabled && !newEnabled) enable(false);
+          enabled = newEnabled;
+          setup();
+        } else if (newEnabled != enabled) enable(newEnabled);
         if (changedSentinel && enabled) updateSegments();
       }
       // use "return !top["newestParameter"].isNull();" when updating Usermod with new features
