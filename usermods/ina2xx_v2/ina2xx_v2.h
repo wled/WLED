@@ -37,7 +37,7 @@
 
 // HA last_reset template. The reset timestamps are local wall-clock seconds, so the
 // date is rebuilt in HA's own time zone instead of converting the number as UTC.
-#define INA2XX_LAST_RESET_TPL(key) "{% set t=value_json." key "|int(0) %}{{ now().replace(" \
+#define INA2XX_LAST_RESET_TPL(key) "{% set t=value_json." key "|default(0)|int(0) %}{{ now().replace(" \
   "year=t|timestamp_custom('%Y',false)|int,month=t|timestamp_custom('%m',false)|int," \
   "day=t|timestamp_custom('%d',false)|int,hour=0,minute=0,second=0,microsecond=0)" \
   ".isoformat() if t>0 else '' }}"
