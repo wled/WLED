@@ -237,9 +237,9 @@ bool Esp8266DmaBus::allocateEncodeBuffer(uint16_t numPixels, uint8_t bytesPerPix
   if (needed == 0) return true;
   _encodeBuffer = (uint8_t*)malloc(needed);
   if (!_encodeBuffer) { _encodeBufferSize = 0; return false; }
-  memset(_encodeBuffer, 0, needed);
   _encodeBufferSize = needed;
   _pixelData = _encodeBuffer + prefixBytes;
+  clearEncodeBuffer();
   updatePrefix(_prefixData, _prefixLen);
   if (_suffixLen > 0) {
     uint32_t* dst = (uint32_t*)(_pixelData + pixelBytes);
@@ -544,13 +544,29 @@ void Esp8266DmaBus::scaleEncodeBuffer(uint8_t scale) {
     uint32_t* encoded = (uint32_t*)(_pixelData + (size_t)pixel * pixelBytes * 4);
     uint8_t decoded[12];
     decodeBytes(encoded, decoded);
-    _encoder.scalePixel(decoded, scale);
+    _encoder.scalePixel(decoded, scale); // note: not the fastest way to scale
     encodeBytes(decoded, encoded);
   }
 }
 
 void Esp8266DmaBus::clearEncodeBuffer() {
-  scaleEncodeBuffer(0); // TODO: this needs optimisation, it is slow
+  if (!_pixelData || _numPixels == 0) return;
+  const uint8_t bytesPerPixel = _encoder.getBytesPerPixel();
+  if (!_encoder.hasInvertedChannels()) {
+    uint32_t* p = (uint32_t*)_pixelData;
+    const uint32_t zeroWord = _inverted ? 0x77777777u : 0x88888888u;
+    size_t words = (size_t)_numPixels * bytesPerPixel;
+    while (words--) *p++ = zeroWord;
+    return;
+  }
+  uint8_t blackPixel[MAX_CUSTOM_CHANNELS * 2] = {};
+  _encoder.scalePixel(blackPixel, 0);
+  uint32_t blackWords[MAX_CUSTOM_CHANNELS * 2];
+  encodeBytes(blackPixel, blackWords);
+  uint32_t* dst = (uint32_t*)_pixelData;
+  for (uint16_t i = 0; i < _numPixels; ++i) {
+    for (uint8_t b = 0; b < bytesPerPixel; ++b) *dst++ = blackWords[b];
+  }
 }
 
 void Esp8266DmaBus::updatePrefix(const uint8_t* data, uint8_t len) {

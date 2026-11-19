@@ -61,6 +61,9 @@ private:
     #if defined(ARDUINO_ARCH_ESP32)
     portMUX_TYPE  mux; // critical-section lock used inside outputParallel()
     #endif
+    #if defined(ESP8266)
+    uint32_t      invertMask;   // GPIO bitmask of inverted ESP8266 channels
+    #endif
     int8_t        pins[WLED_MAX_BB_CHANNELS];
     uint8_t       channelCount;
     uint8_t       stagedCount;  // how many channels have called show() this frame

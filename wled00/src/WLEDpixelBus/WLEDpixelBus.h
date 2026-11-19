@@ -106,8 +106,9 @@ static_assert(DEFAULT_DMA_BUFFER_SIZE <= 4092, "DEFAULT_DMA_BUFFER_SIZE exceeds 
 
 // packed into ColorEncoder::_pixelFormat: upper nibble = flags
 static constexpr uint8_t NCHF_16BIT  = 0x10; // 16-bit per color (UCS8903/8904/SM16825)
+static constexpr uint8_t NCHF_INVERT = 0x20; // at least one inverted color channel: route through encodeGeneric/decodeGeneric
 static constexpr uint8_t NCHF_CUSTOM = 0x40; // custom channel map: _channelMap[] drives encoding
-// 0x20 and 0x80 reserved
+// 0x80 reserved
 
 // Maximum number of color channels in custom channel map (ColorEncoder::_channelMap[]).
 static constexpr uint8_t MAX_CUSTOM_CHANNELS = 6; // note: changing this wont propagate, currently ICs with more than 6 channels are not supported
@@ -269,7 +270,7 @@ public:
 
   void scalePixel(uint8_t* pixel, uint8_t scale) const {
     if (scale == 255) return;
-    scale++; // add 1 for rounding using bitshift
+    if (scale != 0) scale++; // add 1 for rounding using bitshift; keep 0 exact so 16-bit inverted channels zero cleanly
     if (is16Bit()) scalePixel16Bit(pixel, scale); // TODO: we do not really need the functions inlined here but we do in scaleEncodeBuffer(), may need some refinement, also check ESP8266 DMA driver
     else scalePixel8Bit(pixel, scale);
   }
@@ -432,6 +433,10 @@ public:
   // Note: buses with non-linear encoding (e.g. Esp8266DmaBus 4-step) must override this.
   virtual void scaleEncodeBuffer(uint8_t scale) {
     if (scale == 255 || !_pixelData) return;
+    //if (scale == 0) { //  note: function is currently never called using 0 scale
+    //  clearEncodeBuffer();
+    //  return;
+    //}
     scale++; // add 1 for rounding using bitshift
     const size_t bytesPerPixel = _encoder.getBytesPerPixel();
     if (!_encoder.is16Bit()) {
