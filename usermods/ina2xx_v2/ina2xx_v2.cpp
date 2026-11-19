@@ -214,18 +214,24 @@ bool UsermodINA2xx::updateINA2xxSettings() {
 
 	if (!_ina2xx) {
 		_logUsermodInaSensor("Failed to allocate memory for INA2xx sensor!");
-		enabled = false;
+		scheduleInitRetry();
 		return false;
 	}
 
 	_logUsermodInaSensor("Initializing INA2xx sensor");
 	if (!_ina2xx->init()) {
 		_logUsermodInaSensor("INA2xx initialization failed!");
-		enabled = false;
 		delete _ina2xx;
 		_ina2xx = nullptr;
+		if (!i2cScanDone) {
+			i2cScanDone = true;
+			_logUsermodInaSensor("Scanning I2C bus to identify connected devices...");
+			scanI2CDevices();
+		}
+		scheduleInitRetry();
 		return false;
 	}
+	initRetryDelay = 0;
 
 	_logUsermodInaSensor("Setting correction factor to %.4f", correctionFactor);
 	_ina2xx->setCorrectionFactor(correctionFactor);
@@ -508,13 +514,17 @@ void UsermodINA2xx::mqttCreateHassSensor(const String &name, const String &topic
 		// daily/monthly energy resets -> use "total" with last_reset_value_template
 		doc[F("stat_cla")] = "total";
 
-		// Provide last_reset for daily/monthly. The timestamp is missing before the MQTT
-		// state is restored and 0 before the first reset; render '' then, which HA skips
-		// quietly ("none" renders "None", which HA logs as an invalid last_reset).
+		// Provide last_reset for daily/monthly
+		// The reset timestamps hold local wall-clock time (WLED's localTime), not a UTC epoch.
+		// timestamp_local would shift them by the UTC offset, so rebuild the date in HA's
+		// time zone instead. Assumes HA and WLED use the same time zone.
+		// Plain literals: ArduinoJson stores them by pointer instead of copying into doc.
+		// Missing or 0 renders '', which HA skips quietly ("none" renders "None",
+		// which HA logs as an invalid last_reset).
 		if (jsonKey == "daily_energy_kWh") {
-			doc[F("last_reset_value_template")] = "{{ value_json.dailyResetTimestamp | default(0) | int | timestamp_local if value_json.dailyResetTimestamp | default(0) | int > 0 else '' }}";
+			doc[F("last_reset_value_template")] = INA2XX_LAST_RESET_TPL("dailyResetTimestamp");
 		} else if (jsonKey == "monthly_energy_kWh") {
-			doc[F("last_reset_value_template")] = "{{ value_json.monthlyResetTimestamp | default(0) | int | timestamp_local if value_json.monthlyResetTimestamp | default(0) | int > 0 else '' }}";
+			doc[F("last_reset_value_template")] = INA2XX_LAST_RESET_TPL("monthlyResetTimestamp");
 		}
 	}
 	else if (jsonKey == "current_A" || jsonKey == "current_mA" ||
@@ -709,8 +719,38 @@ void UsermodINA2xx::setup() {
 	}
 }
 
+// Log every device that ACKs on the I2C bus; helps when the INA2xx is not found
+void UsermodINA2xx::scanI2CDevices() {
+	_logUsermodInaSensor("Scanning I2C bus (SDA: %d, SCL: %d)", i2c_sda, i2c_scl);
+	int devicesFound = 0;
+	for (uint8_t address = 1; address < 127; address++) {
+		Wire.beginTransmission(address);
+		if (Wire.endTransmission() == 0) {
+			devicesFound++;
+			_logUsermodInaSensor("Found I2C device at address: 0x%02X%s", address,
+				(address == 0x40 || address == 0x41 || address == 0x44 || address == 0x45) ? " (could be INA219/INA226)" : "");
+		}
+	}
+	if (devicesFound == 0) {
+		_logUsermodInaSensor("No I2C devices found! Check wiring, pull-up resistors and the I2C pin configuration.");
+	} else {
+		_logUsermodInaSensor("I2C scan complete. Found %d device(s)", devicesFound);
+	}
+}
+
+// Try the sensor again later, backing off from 30 s to 5 min
+void UsermodINA2xx::scheduleInitRetry() {
+	initDone = false;
+	lastInitAttempt = millis();
+	initRetryDelay = initRetryDelay == 0 ? INA2XX_INIT_RETRY_MIN_MS
+		: (initRetryDelay >= INA2XX_INIT_RETRY_MAX_MS / 2 ? INA2XX_INIT_RETRY_MAX_MS : initRetryDelay * 2);
+	lastPublishTime = 0; // do not integrate energy across the gap
+	_logUsermodInaSensor("Retrying INA2xx init in %lu s", (unsigned long)(initRetryDelay / 1000));
+}
+
 #if INA_SENSOR_TYPE == 226
-void UsermodINA2xx::checkForI2cErrors(){
+// Returns true if the last transfer failed; the readings of that cycle are then discarded
+bool UsermodINA2xx::checkForI2cErrors(){
   byte errorCode = _ina2xx->getI2cErrorCode();
   if(errorCode){
 	    _logUsermodInaSensor("I2C error: %u", errorCode);
@@ -733,18 +773,27 @@ void UsermodINA2xx::checkForI2cErrors(){
       default: 
 		_logUsermodInaSensor("Can't identify the error");
     }
-    if(errorCode){
-		enabled = false;
-		initDone = false;
-		_logUsermodInaSensor("Disabling INA2xx usermod after I2C error");
-    }
+		_logUsermodInaSensor("Discarding this reading and re-initializing the INA2xx");
+		scheduleInitRetry();
+		return true;
   }
+  return false;
 }
 #endif
 
 // Loop function called continuously
 void UsermodINA2xx::loop() {
 	applyMqttRestoreIfReady();
+
+	// Sensor missing at boot or dropped off the bus: retry instead of staying disabled
+	if (enabled && !initDone && initRetryDelay != 0 && millis() - lastInitAttempt >= initRetryDelay) {
+		_logUsermodInaSensor("Retrying INA2xx init");
+		initDone = updateINA2xxSettings();
+		if (initDone) {
+			_logUsermodInaSensor("INA2xx sensor is back");
+			lastCheck = millis() - checkInterval; // read right away
+		}
+	}
 
 	// Check if the usermod is enabled and the check interval has elapsed
 	if (!enabled || !initDone || !_ina2xx || millis() - lastCheck < checkInterval) {
@@ -772,7 +821,7 @@ void UsermodINA2xx::loop() {
 	overflow = _ina2xx->getOverflow() != 0;
 #elif INA_SENSOR_TYPE == 226
 	overflow     = _ina2xx->overflow;
-	checkForI2cErrors();
+	if (checkForI2cErrors()) return;
 #endif
 
 	_logUsermodInaSensor("Sensor readings - Shunt: %.3f mV, Bus: %.3f V, Load: %.3f V", shuntVoltage, busVoltage, loadVoltage);

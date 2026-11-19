@@ -28,6 +28,20 @@
 #ifndef INA2XX_I2C_ADDRESS
   #define INA2XX_I2C_ADDRESS 0x40 // Default I2C address
 #endif
+#ifndef INA2XX_INIT_RETRY_MIN_MS
+  #define INA2XX_INIT_RETRY_MIN_MS 30000UL  // first retry after a failed init or I2C error
+#endif
+#ifndef INA2XX_INIT_RETRY_MAX_MS
+  #define INA2XX_INIT_RETRY_MAX_MS 300000UL // retries back off up to 5 minutes
+#endif
+
+// HA last_reset template. The reset timestamps are local wall-clock seconds, so the
+// date is rebuilt in HA's own time zone instead of converting the number as UTC.
+#define INA2XX_LAST_RESET_TPL(key) "{% set t=value_json." key "|int(0) %}{{ now().replace(" \
+  "year=t|timestamp_custom('%Y',false)|int,month=t|timestamp_custom('%m',false)|int," \
+  "day=t|timestamp_custom('%d',false)|int,hour=0,minute=0,second=0,microsecond=0)" \
+  ".isoformat() if t>0 else '' }}"
+
 #ifndef INA2XX_CHECK_INTERVAL
   #define INA2XX_CHECK_INTERVAL 5 // Default 5 seconds (will be converted to ms)
 #endif
@@ -106,6 +120,9 @@ private:
   bool initDone = false;  // Flag for successful initialization
   unsigned long lastCheck = 0; // Timestamp for the last check
   bool alreadyLoggedDisabled = false;
+  unsigned long lastInitAttempt = 0; // millis() of the last failed sensor init or I2C error
+  uint32_t initRetryDelay = 0;       // ms until the next init attempt; 0 = no retry pending
+  bool i2cScanDone = false;          // the bus scan runs once, on the first failure
 
   // Define the variables using the pre-defined or default values
   bool enabled = INA2XX_ENABLED;
@@ -198,7 +215,9 @@ private:
   float roundDecimals(float val);
   bool hasSignificantChange(float oldValue, float newValue, float threshold = 0.01f);
   bool hasValueChanged();
-  void checkForI2cErrors();
+  bool checkForI2cErrors();
+  void scanI2CDevices();
+  void scheduleInitRetry();
   bool isTimeValid() const;
   void applyMqttRestoreIfReady();
   bool updateINA2xxSettings();
