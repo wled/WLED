@@ -362,7 +362,7 @@ void handleButton()
   }
 }
 
-// handleIO() happens *after* handleTransitions() (see wled.cpp) which may change bri/briT but *before* strip.service()
+// handleIO() happens *after* handleTransitions() (see wled.cpp) which may change bri/briT16 but *before* strip.service()
 // where actual LED painting occurrs
 // this is important for relay control and in the event of turning off on-board LED
 void handleIO()
@@ -376,7 +376,7 @@ void handleIO()
 
 void handleOnOff(bool forceOff)
 {
-  if (strip.getBrightness() && !forceOff) {
+  if (strip.getBrightness16() && !forceOff) {
     lastOnTime = millis();
     if (offMode) {
       BusManager::on();
