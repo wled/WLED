@@ -136,18 +136,20 @@ LED 用電源の容量、配線、共通 GND の接続については、[WLED �
 
 ## Build Environment
 
-公開サンプルが継承するビルド環境:
+公開サンプルで選択するビルド環境:
 
 ```text
 WLED                  17.0.0-devV5
 PlatformIO env        m5stack_cores3
-Platform              Tasmota 2026.05.50
-Arduino Core          3.3.8.260506
-ESP-IDF libraries     5.5.4.260407
-NeoPixelBus            2.9.0+sha.76afe83
+Platform              pioarduino 55.03.39
+Arduino Core          3.3.9
+ESP-IDF libraries     5.5.4
+LED driver            WLEDpixelBus
 ```
 
 `platformio_override.ini` で CoreS3 用の環境を定義しています。
+
+以前の CoreS3 実機確認で使用した pioarduino 環境を明示的に選択しています。親環境の Tasmota とは LittleFS の保存形式が異なるため、既存の実機を更新するときは保存形式の互換性を維持してください。WLED はファイルシステムの読み込みに失敗すると初期化する場合があります。ファームウェアを変更する前に設定とプリセットをバックアップしてください。
 
 主な設定:
 
@@ -157,6 +159,7 @@ default_envs = m5stack_cores3
 
 [env:m5stack_cores3]
 extends = env:esp32s3dev_16MB_opi
+platform = https://github.com/pioarduino/platform-espressif32/releases/download/55.03.39/platform-espressif32.zip
 
 board_build.arduino.memory_type = qio_qspi
 board_build.flash_mode = qio
@@ -169,7 +172,7 @@ CoreS3_Power
 CoreS3_Display
 ```
 
-WLED 標準の汎用 `audioreactive` Usermod も有効化し、CoreS3 内蔵マイクの ES7210 対応に使用します。
+WLED 標準の汎用 `audioreactive_v1` Usermod も有効化し、CoreS3 内蔵マイクの ES7210 対応に使用します。
 
 Audio Reactive 用:
 
@@ -198,6 +201,7 @@ platformio_override.ini
 ```
 
 このサンプルには、CoreS3 Environment、Quad PSRAM 設定、CoreS3 Usermod、および Audio Reactive 定義が含まれています。
+既存の CoreS3 設定を使う場合は、`custom_usermods` の `audioreactive` を `audioreactive_v1` に変更してください。
 
 ## Build
 
@@ -371,7 +375,7 @@ MAIN 画面には、CoreS3 の電源管理 IC である AXP2101 が報告する�
 ## Project Structure
 
 CoreS3 固有 Usermod は `CoreS3_Power` と `CoreS3_Display` です。
-WLED 標準の汎用 `audioreactive` Usermod には、CoreS3 構成で使用する ES7210 source も含まれます。
+WLED 標準の汎用 `audioreactive_v1` Usermod には、CoreS3 構成で使用する ES7210 source も含まれます。
 
 ```text
 WLED/
@@ -379,7 +383,7 @@ WLED/
 └─ usermods/
    ├─ CoreS3_Power/
    ├─ CoreS3_Display/
-   └─ audioreactive/
+   └─ audioreactive_v1/
 ```
 
 ### CoreS3_Power
@@ -405,9 +409,9 @@ WLED/
 - Wi-Fi status
 - Preset UI
 
-### audioreactive
+### audioreactive_v1
 
-audioreactive Usermod は、新しい ES7210 デジタルマイク種別により CoreS3 内蔵マイクに対応しています。
+`audioreactive_v1` Usermod は、新しい ES7210 デジタルマイク種別により CoreS3 内蔵マイクに対応しています。
 
 ---
 

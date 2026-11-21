@@ -16,6 +16,7 @@ __attribute__ ((always_inline)) inline uint8_t  qsub8(uint8_t i, uint8_t j) { in
 __attribute__ ((always_inline)) inline uint8_t  qmul8(uint8_t i, uint8_t j) { unsigned p = (unsigned)i * (unsigned)j; return p > 255 ? 255 : p; }
 __attribute__ ((always_inline)) inline int8_t   abs8(int8_t i) { return i < 0 ? -i : i; }
 __attribute__ ((always_inline)) inline int8_t   lerp8by8(uint8_t a, uint8_t b, uint8_t frac) { return a + ((((int32_t)b - (int32_t)a) * ((int32_t)frac+1)) >> 8); }
+__attribute__ ((always_inline)) inline int16_t  lerp16by8(uint16_t a, uint16_t b, uint8_t frac) { return a + ((((int32_t)b - (int32_t)a) * ((int32_t)frac+1)) >> 8); }
 
 //forward declarations
 struct CRGB;

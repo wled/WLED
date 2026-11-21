@@ -136,18 +136,20 @@ For LED power-supply sizing, wiring, and common-ground connections, follow the [
 
 ## Build Environment
 
-Validated build environment for the public sample:
+Build environment selected by the public sample:
 
 ```text
 WLED                  17.0.0-devV5
 PlatformIO env        m5stack_cores3
-Platform              Tasmota 2026.05.50
-Arduino Core          3.3.8.260506
-ESP-IDF libraries     5.5.4.260407
-NeoPixelBus            2.9.0+sha.76afe83
+Platform              pioarduino 55.03.39
+Arduino Core          3.3.9
+ESP-IDF libraries     5.5.4
+LED driver            WLEDpixelBus
 ```
 
 The CoreS3 environment is defined in `platformio_override.ini`.
+
+The explicit platform selection retains the pioarduino environment used for earlier CoreS3 hardware checks. Its LittleFS disk format differs from the inherited Tasmota platform. Keep a compatible filesystem format when updating an existing device: WLED can format the filesystem if mounting fails. Back up configuration and presets before changing firmware.
 
 Key settings:
 
@@ -157,6 +159,7 @@ default_envs = m5stack_cores3
 
 [env:m5stack_cores3]
 extends = env:esp32s3dev_16MB_opi
+platform = https://github.com/pioarduino/platform-espressif32/releases/download/55.03.39/platform-espressif32.zip
 
 board_build.arduino.memory_type = qio_qspi
 board_build.flash_mode = qio
@@ -169,7 +172,7 @@ CoreS3_Power
 CoreS3_Display
 ```
 
-The generic WLED `audioreactive` usermod is also enabled to provide ES7210 support for the CoreS3 built-in microphones.
+The generic WLED `audioreactive_v1` usermod is also enabled to provide ES7210 support for the CoreS3 built-in microphones.
 
 Audio Reactive definitions:
 
@@ -198,6 +201,7 @@ platformio_override.ini
 ```
 
 The example includes the CoreS3 environment, Quad PSRAM settings, CoreS3 usermods, and Audio Reactive definitions.
+If updating an existing CoreS3 override, change `audioreactive` to `audioreactive_v1` in `custom_usermods`.
 
 ## Build
 
@@ -371,7 +375,7 @@ The MAIN screen displays the battery percentage reported by the CoreS3's AXP2101
 ## Project Structure
 
 The CoreS3-specific usermods are `CoreS3_Power` and `CoreS3_Display`.
-The generic WLED `audioreactive` usermod also contains the ES7210 source used by the CoreS3 configuration.
+The generic WLED `audioreactive_v1` usermod also contains the ES7210 source used by the CoreS3 configuration.
 
 ```text
 WLED/
@@ -379,7 +383,7 @@ WLED/
 └─ usermods/
    ├─ CoreS3_Power/
    ├─ CoreS3_Display/
-   └─ audioreactive/
+   └─ audioreactive_v1/
 ```
 
 ### CoreS3_Power
@@ -405,9 +409,9 @@ Responsibilities:
 - Wi-Fi status
 - Preset UI
 
-### audioreactive
+### audioreactive_v1
 
-The audioreactive usermod supports the CoreS3 built-in microphones with a new ES7210 digital-microphone type.
+The `audioreactive_v1` usermod supports the CoreS3 built-in microphones with a new ES7210 digital-microphone type.
 
 ---
 

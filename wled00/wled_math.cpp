@@ -121,14 +121,14 @@ float atan2_t(float y, float x) {
   float angle;
   if(x < 0) {
     r = -r;
-    angle = M_PI_2 + M_PI_4;
+    angle = (float)M_PI_2 + (float)M_PI_4;
   }
   else
-    angle = M_PI_2 - M_PI_4;
+    angle = (float)M_PI_2 - (float)M_PI_4;
 
   float add = (ATAN2_CONST_A * (r * r) - ATAN2_CONST_B) * r;
 	angle += add;
-  angle = y < 0 ? -angle : angle;
+  angle = y < 0.0f ? -angle : angle;
 	return angle;
 }
 
@@ -143,10 +143,10 @@ float acos_t(float x) {
   ret = ret * xabs;
   ret = ret - 0.2121144f;
   ret = ret * xabs;
-  ret = ret + M_PI_2;
-  ret = ret * sqrt(1.0f-xabs);
+  ret = ret + (float)M_PI_2;
+  ret = ret * sqrtf(1.0f-xabs);
   ret = ret - 2 * negate * ret;
-  float res = negate * M_PI + ret;
+  float res = negate * (float)M_PI + ret;
   #ifdef WLED_DEBUG_MATH
   Serial.printf("acos: %f,%f,%f,(%f)\n",x,res,acos(x),res-acos(x));
   #endif
@@ -154,7 +154,7 @@ float acos_t(float x) {
 }
 
 float asin_t(float x) {
-  float res = M_PI_2 - acos_t(x);
+  float res = (float)M_PI_2 - acos_t(x);
   #ifdef WLED_DEBUG_MATH
   Serial.printf("asin: %f,%f,%f,(%f)\n",x,res,asin(x),res-asin(x));
   #endif
@@ -170,7 +170,7 @@ float atan_t(float x) {
   //For A/B/C, see https://stackoverflow.com/a/42542593
   static const double A { 0.0776509570923569 };
   static const double B { -0.287434475393028 };
-  static const double C { ((M_PI_4) - A - B) };
+  static const double C { (M_PI_4 - A - B) };
   // polynominal factors for approximation between 1 and 5
   static const float C0 {  0.089494f };
   static const float C1 {  0.974207f };
@@ -185,7 +185,7 @@ float atan_t(float x) {
   x = std::abs(x);
   float res;
   if (x > 5.0f) { // atan(x) converges to pi/2 - (1/x) for large values
-    res = M_PI_2 - (1.0f/x);
+    res = (float)M_PI_2 - (1.0f/x);
   } else if (x > 1.0f) { //1 < x < 5
     float xx = x * x;
     res = (C4*xx*xx)+(C3*xx*x)+(C2*xx)+(C1*x)+C0;
