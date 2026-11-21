@@ -194,13 +194,14 @@ A ready-to-use CoreS3 PlatformIO override example is included at:
 usermods/CoreS3_Display/platformio_override.ini.sample
 ```
 
-Copy it to the WLED repository root and rename it to:
+If the WLED repository root has no `platformio_override.ini`, copy the sample there and rename it to:
 
 ```text
 platformio_override.ini
 ```
 
 The example includes the CoreS3 environment, Quad PSRAM settings, CoreS3 usermods, and Audio Reactive definitions.
+If an override already exists, follow the merge instructions in [Build step 2](#2-open-the-wled-source-tree) to preserve its other board configurations.
 If updating an existing CoreS3 override, change `audioreactive` to `audioreactive_v1` in `custom_usermods`.
 
 ## Build
@@ -210,13 +211,19 @@ If updating an existing CoreS3 override, change `audioreactive` to `audioreactiv
 - Visual Studio Code
 - PlatformIO IDE
 - Git
+- Node.js 20 or later and npm, available in `PATH` (required to build the Web UI)
 - USB-C cable
 
 ### 2. Open the WLED source tree
 
 Open the WLED repository in VS Code.
 
-Confirm that `platformio_override.ini` exists at the repository root. If it does not, copy `usermods/CoreS3_Display/platformio_override.ini.sample` to the repository root and rename it to `platformio_override.ini`.
+Prepare `platformio_override.ini` at the repository root:
+
+- If it does not exist, copy `usermods/CoreS3_Display/platformio_override.ini.sample` there and rename it to `platformio_override.ini`.
+- If it already exists, merge the complete `[env:m5stack_cores3]` section from the sample into it, including all options and build flags. If that section already exists, update it in place rather than adding a duplicate.
+
+Preserve the other board environments and the existing `[platformio]` settings, including `default_envs`. Select `m5stack_cores3` explicitly for the CoreS3 build.
 
 ### 3. Build
 

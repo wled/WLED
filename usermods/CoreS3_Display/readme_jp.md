@@ -194,13 +194,14 @@ CoreS3 用の PlatformIO 設定サンプルを次の場所に同梱していま�
 usermods/CoreS3_Display/platformio_override.ini.sample
 ```
 
-このファイルを WLED リポジトリ直下へコピーし、次の名前に変更して使用します。
+WLED リポジトリ直下に `platformio_override.ini` がない場合は、サンプルをそこへコピーし、次の名前に変更して使用します。
 
 ```text
 platformio_override.ini
 ```
 
 このサンプルには、CoreS3 Environment、Quad PSRAM 設定、CoreS3 Usermod、および Audio Reactive 定義が含まれています。
+既存の設定ファイルがある場合は、他のボード設定を保持するため、[Build 手順 2](#2-open-the-wled-source-tree)に従って設定を追加してください。
 既存の CoreS3 設定を使う場合は、`custom_usermods` の `audioreactive` を `audioreactive_v1` に変更してください。
 
 ## Build
@@ -210,13 +211,19 @@ platformio_override.ini
 - Visual Studio Code
 - PlatformIO IDE
 - Git
+- Node.js 20 以上と npm（Web UI のビルドに必要。`PATH` に追加してください）
 - USB-C cable
 
 ### 2. Open the WLED source tree
 
 WLED リポジトリを VS Code で開きます。
 
-`platformio_override.ini` がリポジトリ直下にあることを確認してください。存在しない場合は、`usermods/CoreS3_Display/platformio_override.ini.sample` をリポジトリ直下へコピーし、`platformio_override.ini` にリネームしてください。
+リポジトリ直下の `platformio_override.ini` を次のように準備してください。
+
+- ファイルがない場合は、`usermods/CoreS3_Display/platformio_override.ini.sample` をそこへコピーし、`platformio_override.ini` にリネームしてください。
+- 既にある場合は、サンプルの `[env:m5stack_cores3]` セクション全体を、すべてのオプションとビルドフラグを含めて追加してください。そのセクションが既にある場合は、重複追加せず既存のセクションを更新してください。
+
+他のボードの Environment と、`default_envs` を含む既存の `[platformio]` 設定は保持してください。CoreS3 をビルドするときは、`m5stack_cores3` を明示的に選択してください。
 
 ### 3. Build
 
