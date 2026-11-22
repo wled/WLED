@@ -62,7 +62,7 @@
 		for (var p of Object.entries(presets)) {
 			var id = p[0];
 			var name = p[1].n || ("Preset " + id);
-			sortedPresetOptions += `<option value="${id}">${id}: ${name}</option>`;
+			sortedPresetOptions += `<option value="${esc(id)}">${esc(id)}: ${esc(name)}</option>`;
 		}
 	}
 	function sPSV(sel, value, attrName) { // setPresetSelectValue
