@@ -1812,6 +1812,15 @@ void WS2812FX::waitForIt() {
   #endif
 };
 
+// Wait for bus output to finish with timeout
+void WS2812FX::waitForBus() {
+#if defined(CONFIG_IDF_TARGET_ESP32S2) || defined(CONFIG_IDF_TARGET_ESP32C3)
+  unsigned long waitStart = millis();
+  const unsigned long maxWait = 200;
+  while (!BusManager::canAllShow() && (millis() - waitStart < maxWait)) yield();
+#endif
+}
+
 void WS2812FX::setTargetFps(unsigned fps) {
   if (fps <= 250) _targetFps = fps;
   if (_targetFps > 0) _frametime = 1000 / _targetFps;
