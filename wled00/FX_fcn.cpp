@@ -1817,7 +1817,7 @@ void WS2812FX::waitForBus() {
 #if defined(CONFIG_IDF_TARGET_ESP32S2) || defined(CONFIG_IDF_TARGET_ESP32C3)
   unsigned long waitStart = millis();
   const unsigned long maxWait = 200;
-  while (!BusManager::canAllShow() && (millis() - waitStart < maxWait)) yield();
+  while (!BusManager::canAllShow() && (millis() - waitStart < maxWait)) delay(1);
 #endif
 }
 
