@@ -1543,8 +1543,7 @@ int BusManager::add(const BusConfig &bc, bool placeholder) {
 }
 
 // credit @willmmiles
-static String LEDTypesToJson(const std::vector<LEDType>& types) {
-  String json;
+static void LEDTypesToJson(Print& dest, const std::vector<LEDType>& types, bool& first) {
   for (const auto &type : types) {
     // capabilities follows similar pattern as JSON API
     int capabilities = Bus::hasRGB(type.id) | Bus::hasWhite(type.id)<<1 | Bus::hasCCT(type.id)<<2 | Bus::is16bit(type.id)<<4 | Bus::mustRefresh(type.id)<<5;
@@ -1555,33 +1554,33 @@ static String LEDTypesToJson(const std::vector<LEDType>& types) {
               (unsigned)timing.t0h_ns, (unsigned)timing.t0l_ns,
               (unsigned)timing.t1h_ns, (unsigned)timing.t1l_ns,
               (unsigned)timing.reset_us);
-    json += str;
+    if (!first) dest.print(',');
+    dest.print(str);
+    first = false;
     if (Bus::isDigital(type.id) && !Bus::is2Pin(type.id)) {
       BusChannelLayout layout;
       resolveChannelLayout(layout, type.id, COL_ORDER_GRB);
-      json += F(",cm:\"");
-      for (uint8_t i = 0; i < layout.numChannels; i++) json += char('0' + layout.channelMap[i]);
-      json += layout.invertOutput ? F("\",io:1") : F("\",io:0");
+      dest.print(F(",cm:\""));
+      for (uint8_t i = 0; i < layout.numChannels; i++) dest.print(char('0' + layout.channelMap[i]));
+      dest.print(layout.invertOutput ? F("\",io:1") : F("\",io:0"));
     }
-    json += F("},");
+    dest.print('}');
   }
-  return json;
 }
 
 // credit @willmmiles & @netmindz https://github.com/wled/WLED/pull/4056
-String BusManager::getLEDTypesJSONString() {
-  String json = "[";
-  json += LEDTypesToJson(BusDigital::getLEDTypes());
-  json += LEDTypesToJson(BusOnOff::getLEDTypes());
-  json += LEDTypesToJson(BusPwm::getLEDTypes());
-  json += LEDTypesToJson(BusNetwork::getLEDTypes());
-  //json += LEDTypesToJson(BusVirtual::getLEDTypes());
+void BusManager::printLEDTypesJSON(Print& dest) {
+  dest.print('[');
+  bool first = true; // is set false in first LEDTypesToJson call, passed by reference
+  LEDTypesToJson(dest, BusDigital::getLEDTypes(), first);
+  LEDTypesToJson(dest, BusOnOff::getLEDTypes(), first);
+  LEDTypesToJson(dest, BusPwm::getLEDTypes(), first);
+  LEDTypesToJson(dest, BusNetwork::getLEDTypes(), first);
+  // LEDTypesToJson(dest, BusVirtual::getLEDTypes(), first);
   #ifdef WLED_ENABLE_HUB75MATRIX
-  json += LEDTypesToJson(BusHub75Matrix::getLEDTypes());
+  LEDTypesToJson(dest, BusHub75Matrix::getLEDTypes(), first);
   #endif
-
-  json.setCharAt(json.length()-1, ']'); // replace last comma with bracket
-  return json;
+  dest.print(']');
 }
 
 bool BusManager::allocateHardware(uint8_t busType, const uint8_t* pins, uint8_t& driverType) {
