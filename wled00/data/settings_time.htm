@@ -41,13 +41,15 @@
 		}
 
 		if (!json) {
-			showToast("Please visit the main UI first to load presets", true);
+			fetch(getURL('/presets.json'))
+				.then(res => res.status === 404 ? {} : res.json())
+				.then(loadPresets)
+				.catch(() => showToast("Failed to load presets", true));
 			return;
 		}
-
-		onPresetsLoaded(json);
+		loadPresets(json);
 	}
-	function onPresetsLoaded(json) {
+	function loadPresets(json) {
 		presets = json;
 		delete presets["0"];
 		bSPO();
