@@ -926,7 +926,7 @@ class WS2812FX {
       setTargetFps(unsigned fps),
       setupEffectData(),                          // add default effects to the list; defined in FX.cpp
       waitForIt(),                                // wait until frame is over (service() has finished or time for 1 frame has passed)
-      waitForBus();                               // wait up to 500 ms for bus output to finish
+      waitForBus();                               // wait for bus output to finish with timeout (no-op on dual core MCUs)
 
     void setRealtimePixelColor(unsigned i, uint32_t c);
     inline void setPixelColor(unsigned n, uint32_t c) const   {
