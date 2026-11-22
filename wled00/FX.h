@@ -925,7 +925,8 @@ class WS2812FX {
       show(),                                     // initiates LED output
       setTargetFps(unsigned fps),
       setupEffectData(),                          // add default effects to the list; defined in FX.cpp
-      waitForIt();                                // wait until frame is over (service() has finished or time for 1 frame has passed)
+      waitForIt(),                                // wait until frame is over (service() has finished or time for 1 frame has passed)
+      waitForBus();                               // wait up to 500 ms for bus output to finish
 
     void setRealtimePixelColor(unsigned i, uint32_t c);
     inline void setPixelColor(unsigned n, uint32_t c) const   {
