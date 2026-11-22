@@ -2042,7 +2042,7 @@ void WS2812FX::waitForBus() {
 #if defined(ARDUINO_ARCH_ESP32) && (SOC_CPU_CORES_NUM < 2)
   unsigned long waitStart = millis();
   const unsigned long maxWait = 200; // 200ms is enough for most situations and avoids long UI load delays if network outputs are used
-  while (!BusManager::canAllShow() && (millis() - waitStart < maxWait)) yield();
+  while (!BusManager::canAllShow() && (millis() - waitStart < maxWait)) delay(1);
 #endif
 }
 
