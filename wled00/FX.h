@@ -925,8 +925,15 @@ class WS2812FX {
       show(),                                     // initiates LED output
       setTargetFps(unsigned fps),
       setupEffectData(),                          // add default effects to the list; defined in FX.cpp
-      waitForIt(),                                // wait until frame is over (service() has finished or time for 1 frame has passed)
-      waitForBus();                               // wait for bus output to finish with timeout (no-op on dual core MCUs)
+      waitForIt();                                // wait until frame is over (service() has finished or time for 1 frame has passed)
+
+    inline void waitForBus() {                    // wait for bus output to finish (with timeout)
+    #if defined(ARDUINO_ARCH_ESP32) && (SOC_CPU_CORES_NUM < 2)
+      unsigned long waitStart = millis();
+      const unsigned long maxWait = 200;          // 200ms is enough for most situations and avoids long UI load delays if network outputs are used
+      while (!BusManager::canAllShow() && (millis() - waitStart < maxWait)) delay(1);
+    #endif
+    }
 
     void setRealtimePixelColor(unsigned i, uint32_t c);
     inline void setPixelColor(unsigned n, uint32_t c) const   {
