@@ -712,7 +712,6 @@ uint8_t NeoGammaWLEDMethod::Correct(uint8_t value)
 
 uint32_t NeoGammaWLEDMethod::inverseGamma32(uint32_t color)
 {
-  if (!applyGamma) return color;
   uint8_t w = W(color);
   uint8_t r = R(color);
   uint8_t g = G(color);
