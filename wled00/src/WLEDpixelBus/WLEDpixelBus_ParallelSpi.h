@@ -61,7 +61,6 @@ private:
   intr_handle_t _spiIsrHandle;
   portMUX_TYPE _isrMux;
   spi_dev_t* _hw; // SPI device
-  volatile size_t _framePos;   // current source byte position
   volatile size_t _numBytes;   // total source bytes to send
   volatile int32_t _bitsLeft;  // bits still to send in chained segments (0 = last segment)
   uint32_t _resetBits;         // reset pulse length in transfer bits, derived from LED timing

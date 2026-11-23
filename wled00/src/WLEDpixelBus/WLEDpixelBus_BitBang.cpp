@@ -13,6 +13,7 @@ Each bus can have individual configuration of color channels but all must share 
 -------------------------------------------------------------------------*/
 
 #include "WLEDpixelBus_BitBang.h"
+#if (WLED_MAX_BB_CHANNELS > 0)
 #if defined(ARDUINO_ARCH_ESP32)
 #if ESP_IDF_VERSION >= ESP_IDF_VERSION_VAL(5, 0, 0)
   #include "esp_private/esp_clk.h"
@@ -102,13 +103,14 @@ bool BitBangBus::begin() {
   }
   if (_bitBangState->channelCount >= WLED_MAX_BB_CHANNELS) return false;
 
-  // Configure GPIO as output, drive LOW (idle state for non-inverted LEDs)
+  // Configure idle level & hardware inversion before enabling GPIO output
 #if defined(ARDUINO_ARCH_ESP32)
-  gpio_set_direction((gpio_num_t)_pin, GPIO_MODE_OUTPUT);
   gpio_set_level((gpio_num_t)_pin, 0);
+  esp_rom_gpio_connect_out_signal(_pin, SIG_GPIO_OUT_IDX, _inverted, false);  // route output pin, inverts signal in hardware if needed
+  gpio_set_direction((gpio_num_t)_pin, GPIO_MODE_OUTPUT);
 #elif defined(ESP8266)
+  digitalWrite(_pin, _inverted ? HIGH : LOW);
   pinMode(_pin, OUTPUT);
-  digitalWrite(_pin, LOW);
 #endif
 
   // Convert nanosecond timings to CPU cycles
@@ -143,6 +145,9 @@ bool BitBangBus::begin() {
 #else
   _bitBangState->allMask         |= (1u << _pin);
 #endif
+#if defined(ESP8266)
+  if (_inverted) _bitBangState->invertMask |= (1u << _pin);
+#endif
   _bitBangState->channelCount++;
 
   // Allocate the per-pixel encode buffer (via PixelBus helper)
@@ -154,11 +159,13 @@ bool BitBangBus::begin() {
 #else
     _bitBangState->allMask &= ~(1u << _pin);
 #endif
+#if defined(ESP8266)
+    _bitBangState->invertMask &= ~(1u << _pin);
+#elif defined(ARDUINO_ARCH_ESP32)
+    gpio_reset_pin((gpio_num_t)_pin);
+#endif
     return false;
   }
-#if defined(ARDUINO_ARCH_ESP32)
-  esp_rom_gpio_connect_out_signal(_pin, SIG_GPIO_OUT_IDX, _inverted, false); // route output pin, inverts signal in hardware if needed
-#endif
 
   // Publish per-channel data pointers into the shared static arrays.
   _bitBangState->encodeBuffer[idx] = _encodeBuffer;
@@ -192,6 +199,9 @@ void BitBangBus::end() {
       }
       _bitBangState->channelCount--;
       _bitBangState->allMask = 0;
+#if defined(ESP8266)
+      _bitBangState->invertMask &= ~(1u << _pin);
+#endif
 #ifdef ESP_HAS_HIGH_GPIO_BANK
       _bitBangState->allMaskHigh = 0;
       for (uint8_t i = 0; i < _bitBangState->channelCount; i++) {
@@ -255,6 +265,7 @@ bool IRAM_ATTR __attribute__((noinline)) BitBangBus::outputParallel() {
   const uint32_t t1h = _bitBangState->t1h;
   const uint32_t period = _bitBangState->period;
   const uint32_t latchCycles = _bitBangState->latchCycles;
+  static constexpr uint8_t maxBbCh = WLED_MAX_BB_CHANNELS;
   const uint8_t nCh = _bitBangState->channelCount;
   const bool allowInterrupts = _bitBangState->allowInterrupts;
 #ifdef ESP_HAS_HIGH_GPIO_BANK
@@ -262,15 +273,27 @@ bool IRAM_ATTR __attribute__((noinline)) BitBangBus::outputParallel() {
   const uint32_t setOutputMaskHigh = _bitBangState->allMaskHigh;
 #else
   const uint32_t setOutputMask = _bitBangState->allMask;
+#if defined(ESP8266)
+  const uint32_t invertMask = _bitBangState->invertMask;
+  const uint32_t startHighMask = setOutputMask & ~invertMask;
+  const uint32_t startLowMask  = setOutputMask & invertMask;
+#endif
 #endif
 
+  // Cache channel pointers, sizes, and pin masks locally (avoid VLAs and hot-loop pointer chasing)
   size_t maxBytes = 0;
-  uint32_t chanPinMask[nCh];
+  const uint8_t* chanPtr[maxBbCh];
+  size_t chanLen[maxBbCh];
+  uint8_t curByte[maxBbCh];
+  uint32_t chanPinMask[maxBbCh];
 #ifdef ESP_HAS_HIGH_GPIO_BANK
-  uint32_t chanPinMaskHigh[nCh];
+  uint32_t chanPinMaskHigh[maxBbCh];
 #endif
   for (uint8_t ch = 0; ch < nCh; ++ch) {
-    if (_bitBangState->encodeBufferSize[ch] > maxBytes) maxBytes = _bitBangState->encodeBufferSize[ch];
+    chanPtr[ch] = _bitBangState->encodeBuffer[ch];
+    chanLen[ch] = _bitBangState->encodeBufferSize[ch];
+    curByte[ch] = 0;
+    if (chanLen[ch] > maxBytes) maxBytes = chanLen[ch];
 #ifdef ESP_HAS_HIGH_GPIO_BANK
     if (_bitBangState->pins[ch] >= 32) {
       chanPinMask[ch] = 0;
@@ -289,22 +312,28 @@ bool IRAM_ATTR __attribute__((noinline)) BitBangBus::outputParallel() {
   WLEDPB_BB_ENTERCRITICAL();
 
   for (uint32_t bitIndex = 0; bitIndex < totalBits; ++bitIndex) {
-    const size_t byteIndex = bitIndex >> 3;
-    const uint8_t bitMask = 0x80u >> (bitIndex & 7u);
+    if ((bitIndex & 7u) == 0) {
+      const size_t byteIndex = bitIndex >> 3;
+      for (uint8_t ch = 0; ch < nCh; ++ch) {
+        curByte[ch] = (byteIndex < chanLen[ch]) ? chanPtr[ch][byteIndex] : 0;
+      }
+    }
 #ifdef ESP_HAS_HIGH_GPIO_BANK
     uint32_t zeroMaskLow = 0, zeroMaskHigh = 0;
     for (uint8_t ch = 0; ch < nCh; ++ch) {
-      if (byteIndex >= _bitBangState->encodeBufferSize[ch] || !(_bitBangState->encodeBuffer[ch][byteIndex] & bitMask)) {
+      if (!(curByte[ch] & 0x80u)) {
         zeroMaskLow |= chanPinMask[ch];
         zeroMaskHigh |= chanPinMaskHigh[ch];
       }
+      curByte[ch] <<= 1;
     }
 #else
     uint32_t zeroMask = 0;
     for (uint8_t ch = 0; ch < nCh; ++ch) {
-      if (byteIndex >= _bitBangState->encodeBufferSize[ch] || !(_bitBangState->encodeBuffer[ch][byteIndex] & bitMask)) {
+      if (!(curByte[ch] & 0x80u)) {
         zeroMask |= chanPinMask[ch];
       }
+      curByte[ch] <<= 1;
     }
 #endif
 
@@ -312,6 +341,9 @@ bool IRAM_ATTR __attribute__((noinline)) BitBangBus::outputParallel() {
 #ifdef ESP_HAS_HIGH_GPIO_BANK
     REG_WRITE(GPIO_OUT_W1TS_REG, setOutputMaskLow);
     REG_WRITE(GPIO_OUT1_W1TS_REG, setOutputMaskHigh);
+#elif defined(ESP8266)
+    REG_WRITE(GPIO_OUT_W1TS_REG, startHighMask);
+    REG_WRITE(GPIO_OUT_W1TC_REG, startLowMask);
 #else
     REG_WRITE(GPIO_OUT_W1TS_REG, setOutputMask);
 #endif
@@ -320,6 +352,11 @@ bool IRAM_ATTR __attribute__((noinline)) BitBangBus::outputParallel() {
 #ifdef ESP_HAS_HIGH_GPIO_BANK
     REG_WRITE(GPIO_OUT_W1TC_REG, zeroMaskLow);
     REG_WRITE(GPIO_OUT1_W1TC_REG, zeroMaskHigh);
+#elif defined(ESP8266)
+    const uint32_t clearZeroMask = zeroMask & ~invertMask;
+    const uint32_t setZeroMask   = zeroMask & invertMask;
+    REG_WRITE(GPIO_OUT_W1TC_REG, clearZeroMask);
+    REG_WRITE(GPIO_OUT_W1TS_REG, setZeroMask);
 #else
     REG_WRITE(GPIO_OUT_W1TC_REG, zeroMask);
 #endif
@@ -327,6 +364,9 @@ bool IRAM_ATTR __attribute__((noinline)) BitBangBus::outputParallel() {
 #ifdef ESP_HAS_HIGH_GPIO_BANK
     REG_WRITE(GPIO_OUT_W1TC_REG, setOutputMaskLow);
     REG_WRITE(GPIO_OUT1_W1TC_REG, setOutputMaskHigh);
+#elif defined(ESP8266)
+    REG_WRITE(GPIO_OUT_W1TC_REG, startHighMask);
+    REG_WRITE(GPIO_OUT_W1TS_REG, startLowMask);
 #else
     REG_WRITE(GPIO_OUT_W1TC_REG, setOutputMask);
 #endif
@@ -345,3 +385,4 @@ bool IRAM_ATTR __attribute__((noinline)) BitBangBus::outputParallel() {
   return true;
 }
 } // namespace WLEDpixelBus
+#endif // WLED_MAX_BB_CHANNELS > 0

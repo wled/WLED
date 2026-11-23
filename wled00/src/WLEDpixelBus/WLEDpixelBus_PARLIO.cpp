@@ -372,7 +372,7 @@ bool ParlioBusContext::_allocDmaBuffers() {
 
 // encode4Step: S2/S3 layout, with steps [HIGH,data,data,LOW].
 void IRAM_ATTR ParlioBusContext::encode4Step(uint8_t* dest, size_t destLen, uint8_t maxChannel) {
-  encode4Step8<uint8_t, Step4Layout::Standard>(dest, destLen, maxChannel, _channels);
+  encode4Step8<Step4Layout::Standard>(dest, destLen, maxChannel, _channels);
 }
 
 // bytes of reset period appended at the end of a frame
@@ -382,22 +382,25 @@ uint32_t IRAM_ATTR ParlioBusContext::_calcResetBytes() const {
 }
 
 void IRAM_ATTR __attribute__((noinline)) ParlioBusContext::fillBuffer(uint8_t bufIdx) {
-  uint32_t* buf32 = (uint32_t*)_dmaBuffer[bufIdx];
-  const uint32_t* end = buf32 + (_bufferSize >> 2);
-  while (buf32 < end) *buf32++ = 0; // clear buffer (set all lanes low), DMA buffer is 4 bytes aligned. Note: memset is not IRAM safe and may crash
-
   _endOfFrame[bufIdx] = false;
 
   if (_resetBytesLeft > WLEDPB_PARLIO_XFER_DONE_FLAG) {
-    // reset pulse continuation: this buffer is pure reset level. Long reset periods span several buffers; only the last one is flagged as end of frame. Never let _txLen
+    // reset pulse continuation: this buffer is pure reset level. Long reset periods span several buffers; only the last one is flagged as end of frame.
+    size_t clearBytes;
     if (_resetBytesLeft <= _bufferSize) {
+      clearBytes = (_resetBytesLeft + 3) & ~size_t(3);
+      if (clearBytes > _bufferSize) clearBytes = _bufferSize;
       _txLen[bufIdx] = _resetBytesLeft;
       _resetBytesLeft = WLEDPB_PARLIO_XFER_DONE_FLAG; // flag end of frame, don't queue any more buffers
       _endOfFrame[bufIdx] = true;
     } else {
+      clearBytes = _bufferSize;
       _txLen[bufIdx] = _bufferSize;
       _resetBytesLeft -= _bufferSize; // more pure-reset buffers to come (stays a multiple of 4)
     }
+    uint32_t* buf32 = (uint32_t*)_dmaBuffer[bufIdx];
+    const uint32_t* end = buf32 + (clearBytes >> 2);
+    while (buf32 < end) *buf32++ = 0; // Note: memset is not IRAM safe and may crash
     return; // nothing to encode, keep lines at reset level
   }
 
@@ -411,10 +414,12 @@ void IRAM_ATTR __attribute__((noinline)) ParlioBusContext::fillBuffer(uint8_t bu
     }
   }
 
-  size_t translatedBytes = bytesToEncode * WLEDPB_PARLIO_DMABYTES;
+  size_t translatedBytes = (size_t)bytesToEncode * WLEDPB_PARLIO_DMABYTES;
   if (translatedBytes > _bufferSize) translatedBytes = _bufferSize;
   translatedBytes -= translatedBytes % WLEDPB_PARLIO_DMABYTES;
-  encode4Step(_dmaBuffer[bufIdx], translatedBytes, maxCh);
+  if (translatedBytes > 0) {
+    encode4Step(_dmaBuffer[bufIdx], translatedBytes, maxCh);
+  }
   _txLen[bufIdx] = translatedBytes;
 
   if (translatedBytes < _bufferSize) {
@@ -422,15 +427,21 @@ void IRAM_ATTR __attribute__((noinline)) ParlioBusContext::fillBuffer(uint8_t bu
     size_t resetBytes = _calcResetBytes();
 
     size_t newLen = translatedBytes + resetBytes;
+    size_t clearEnd;
     if (newLen > _bufferSize) {
+      clearEnd = _bufferSize;
       _resetBytesLeft = newLen - _bufferSize; // reset pulse does not fit into this buffer frame, send another one (see above)
       _txLen[bufIdx] = _bufferSize;
-    }
-    else {
+    } else {
+      clearEnd = (newLen + 3) & ~size_t(3);
+      if (clearEnd > _bufferSize) clearEnd = _bufferSize;
       _txLen[bufIdx] = newLen;                        // send the rest (reset level) as a reset
       _endOfFrame[bufIdx] = true;
       _resetBytesLeft = WLEDPB_PARLIO_XFER_DONE_FLAG; // flag end of frame, don't queue any more buffers
     }
+    uint32_t* buf32 = (uint32_t*)(_dmaBuffer[bufIdx] + translatedBytes);
+    const uint32_t* end = (uint32_t*)(_dmaBuffer[bufIdx] + clearEnd);
+    while (buf32 < end) *buf32++ = 0; // only clear appended reset slice (translatedBytes is DMABYTES/4-byte aligned)
   }
 }
 
@@ -455,20 +466,9 @@ bool ParlioBusContext::startTransmit() {
   _resetBytesLeft = 0;
   _txStartMillis = millis();
 
-#if !WLEDPB_PARLIO_SEAMLESS_DMA
-  // The fallback transmits one buffer
-  const size_t requiredBytes = (_maxDataLen * WLEDPB_PARLIO_DMABYTES + _calcResetBytes() + 3) & ~size_t(3);
-  if (_dmaAllocated && requiredBytes > _bufferSize) {
-    hwDeinit();
-    heap_caps_free(_dmaBuffer[0]);
-    _dmaBuffer[0] = nullptr;
-    _bufferSize = 0;
-    _dmaAllocated = false;
-  }
-#endif
-  if (!_dmaAllocated && !_allocDmaBuffers()) return false;
+  if (!_allocDmaBuffers()) return false;
 
-  // (re)create the PARLIO unit on first transmit, or when channels changed
+  // create the PARLIO unit on first transmit
   if (!_txUnit || _unitStale) {
     hwDeinit();
     if (!hwInit()) return false;

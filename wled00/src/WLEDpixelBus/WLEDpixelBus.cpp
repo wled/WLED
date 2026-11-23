@@ -45,7 +45,8 @@ TODO List
 - LPD6803 and LPD8806 encoding is done on RGB only, need to add support for more color channels if such stripes exist
 - ESP8266 DMA output uses a slow path to scale and reset buffers, needs optimisation
 - the "non global buffer" path is not optimised, check if this path should not color-encode on the fly so reading buffer back is faster, then do an encode pass before sending
-- ESP8266 BitBang output does not handle signal inversion, inverted buses (like TM1814) will not work
+- ESP8266 BitBang output does not handle signal inversion, inverted buses (like TM1814) will not work -> is now supported but needs testing (check if inversion works, check bit timing)
+- BB bus should now be faster (no pointer lookups in hot loop) so needs retesting on all platforms to check if timings are still correct
 */
 
 
@@ -91,9 +92,9 @@ ColorEncoder::ColorEncoder(const uint8_t channelMap[MAX_CUSTOM_CHANNELS], uint8_
   memcpy(_channelMap, channelMap, MAX_CUSTOM_CHANNELS);
   _invertMask = invertMask;
 
-  // Try to detect a standard permutation usable on the fast inline encode/decode path
-  // Requirements: no inversion, each color source appears at most once, channel count {3,4,5}
-  bool isPermutation = (invertMask == 0) && (numChannels >= 3) && (numChannels <= 5);
+  // Try to detect a standard permutation usable with direct index lookups
+  // Requirements: each color source appears at most once, channel count {3,4,5}
+  bool isPermutation = (numChannels >= 3) && (numChannels <= 5);
   uint8_t rIdx = 0, gIdx = 1, bIdx = 2, wIdx = 3, cwIdx = 4;
   bool hasR = false, hasG = false, hasB = false, hasW = false, hasCW = false;
 
@@ -131,6 +132,9 @@ ColorEncoder::ColorEncoder(const uint8_t channelMap[MAX_CUSTOM_CHANNELS], uint8_
   if (is16bit) {
     flags |= NCHF_16BIT;
     numChannels *= 2; // 2 wire bytes per logical channel in 16-bit mode
+  }
+  if (invertMask != 0) {
+    flags |= NCHF_INVERT; // forces default case switch in encodeGeneric()/decodeGeneric()
   }
   if (isPermutation) {
     // Standard permutation: populate fast-path indices, skip NCHF_CUSTOM
