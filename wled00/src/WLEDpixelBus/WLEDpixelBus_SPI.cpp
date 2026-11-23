@@ -40,69 +40,9 @@ SpiBus::~SpiBus() {
   end();
 }
 
-bool SpiBus::begin() {
-  if (_initialized) return true;
-
-  if (_useHardware) {
-    // On ESP32 SPI.begin(sck, miso, mosi, ss) must be called with the actual pins so the IO matrix routes the SPI peripheral to the right GPIOs.
-    // On ESP8266 the hardware SPI uses fixed pins (MOSI=GPIO13, SCK=GPIO14) so no pin args are needed.
-#if defined(ARDUINO_ARCH_ESP32)
-    SPI.begin(_clockPin, -1, _dataPin, -1); // note: the Arduino core interprets -1 as "no pin" (in older versions it meant "default pin" this bug was fixed)
-#else
-    SPI.begin();
-#endif
-    // Frequency and mode are applied per-frame via beginTransaction(); do NOT call the deprecated SPI.setFrequency / SPI.setDataMode here
-  } else {
-    // bit banged output
-    pinMode(_dataPin, OUTPUT);
-    pinMode(_clockPin, OUTPUT);
-    // Pre-compute bitmasks so the hot-path bit-bang loop does register writes not the ~10x-slower digitalWrite().
-#if defined(ARDUINO_ARCH_ESP32)
-    _dataHigh = (_dataPin >= 32);
-    _clkHigh  = (_clockPin >= 32);
-    _dataMask = 1UL << (_dataHigh ? (_dataPin - 32) : _dataPin);
-    _clkMask  = 1UL << (_clkHigh  ? (_clockPin - 32) : _clockPin);
-    // Drive both lines LOW initially
-#ifdef ESP_HAS_HIGH_GPIO_BANK
-    if (_dataHigh) REG_WRITE(GPIO_OUT1_W1TC_REG, _dataMask); else REG_WRITE(GPIO_OUT_W1TC_REG, _dataMask);
-    if (_clkHigh)  REG_WRITE(GPIO_OUT1_W1TC_REG, _clkMask);  else REG_WRITE(GPIO_OUT_W1TC_REG, _clkMask);
-#else
-    REG_WRITE(GPIO_OUT_W1TC_REG, _dataMask);
-    REG_WRITE(GPIO_OUT_W1TC_REG, _clkMask);
-#endif
-#elif defined(ARDUINO_ARCH_ESP8266)
-    _dataMask = 1UL << _dataPin;
-    _clkMask  = 1UL << _clockPin;
-    GPOC = _dataMask;
-    GPOC = _clkMask;
-#endif
-  }
-
-  _initialized = true;
-  uint8_t allocBytes = _encoder.getBytesPerPixel();
-  if (_ledType == TYPE_APA102 || _ledType == TYPE_P9813) allocBytes++; // need more space for per-pixel header byte, see show()
-  if (!allocateEncodeBuffer(_numPixels, allocBytes)) { end(); return false; }
-  return true;
-}
-
-void SpiBus::end() {
-  if (!_initialized) return;
-  if (_useHardware) {
-    SPI.end();
-  }
-  #if defined(ARDUINO_ARCH_ESP32)
-  if (_dataPin >= 0)  gpio_reset_pin((gpio_num_t)_dataPin);
-  if (_clockPin >= 0) gpio_reset_pin((gpio_num_t)_clockPin);
-  #else
-  pinMode(_dataPin, INPUT);
-  pinMode(_clockPin, INPUT);
-  #endif
-  releaseEncodeBuffer();
-  _initialized = false;
-}
-
 // Fast inline helpers for bit-bang GPIO register access.
 inline void SpiBus::bbSetData(bool high) const {
+  if (_inverted) high = !high;
 #if defined(ARDUINO_ARCH_ESP32)
 #ifdef ESP_HAS_HIGH_GPIO_BANK
   if (high) {
@@ -142,6 +82,60 @@ inline void SpiBus::bbSetClk(bool high) const {
   if (high) GPOS = _clkMask; // set
   else GPOC = _clkMask;      // clear
 #endif
+}
+
+bool SpiBus::begin() {
+  if (_initialized) return true;
+
+  if (_useHardware) {
+    // On ESP32 SPI.begin(sck, miso, mosi, ss) must be called with the actual pins so the IO matrix routes the SPI peripheral to the right GPIOs.
+    // On ESP8266 the hardware SPI uses fixed pins (MOSI=GPIO13, SCK=GPIO14) so no pin args are needed.
+#if defined(ARDUINO_ARCH_ESP32)
+    SPI.begin(_clockPin, -1, _dataPin, -1); // note: the Arduino core interprets -1 as "no pin" (in older versions it meant "default pin" this bug was fixed)
+#else
+    SPI.begin();
+#endif
+    // Frequency and mode are applied per-frame via beginTransaction(); do NOT call the deprecated SPI.setFrequency / SPI.setDataMode here
+  } else {
+    // bit banged output: pre-compute bitmasks and drive idle level before enabling output
+#if defined(ARDUINO_ARCH_ESP32)
+    _dataHigh = (_dataPin >= 32);
+    _clkHigh  = (_clockPin >= 32);
+    _dataMask = 1UL << (_dataHigh ? (_dataPin - 32) : _dataPin);
+    _clkMask  = 1UL << (_clkHigh  ? (_clockPin - 32) : _clockPin);
+    bbSetData(false); // drives HIGH when _inverted, LOW otherwise
+    bbSetClk(false);
+#elif defined(ARDUINO_ARCH_ESP8266)
+    _dataMask = 1UL << _dataPin;
+    _clkMask  = 1UL << _clockPin;
+    bbSetData(false);
+    bbSetClk(false);
+#endif
+    pinMode(_dataPin, OUTPUT);
+    pinMode(_clockPin, OUTPUT);
+  }
+
+  _initialized = true;
+  uint8_t allocBytes = _encoder.getBytesPerPixel();
+  if (_ledType == TYPE_APA102 || _ledType == TYPE_P9813) allocBytes++; // need more space for per-pixel header byte, see show()
+  if (!allocateEncodeBuffer(_numPixels, allocBytes)) { end(); return false; }
+  return true;
+}
+
+void SpiBus::end() {
+  if (!_initialized) return;
+  if (_useHardware) {
+    SPI.end();
+  }
+  #if defined(ARDUINO_ARCH_ESP32)
+  if (_dataPin >= 0)  gpio_reset_pin((gpio_num_t)_dataPin);
+  if (_clockPin >= 0) gpio_reset_pin((gpio_num_t)_clockPin);
+  #else
+  pinMode(_dataPin, INPUT);
+  pinMode(_clockPin, INPUT);
+  #endif
+  releaseEncodeBuffer();
+  _initialized = false;
 }
 
 void SpiBus::sendByte(uint8_t d) {
