@@ -192,6 +192,7 @@ void ParallelBusContext<MaxChannels>::deinit() {
   releaseResources();  // frees the driver owned DMA buffers/descriptors
   hwDeinit();          // releases the peripheral
   _dmaAllocated = false;
+  _bufferSize = 0;
   _initialized = false;
 }
 
@@ -224,7 +225,6 @@ public:
       _ctx = nullptr;
       return false;
     }
-
     _initialized = true;
     if (!allocateEncodeBuffer(_numPixels, _encoder.getBytesPerPixel())) { end(); return false; }
     return true;
@@ -294,7 +294,7 @@ inline __attribute__((always_inline)) size_t calc4StepResetDmaBytes(const LedTim
 inline size_t calc4StepBufferSize(size_t maxSrcBytes, uint8_t dmaBytesPerSrcByte, uint8_t bufCount, size_t minSize, size_t maxSize) {
   if (bufCount == 0) bufCount = 1;
   size_t sz = (dmaBytesPerSrcByte * maxSrcBytes) / bufCount;
-  sz = (sz + 3) & ~3; // 4-byte align
+  sz = (sz + 3) & ~size_t(3); // 4-byte align
   if (sz > maxSize) sz = maxSize;
   if (sz < minSize) sz = minSize;
   // note: dmaBytesPerSrcByte must be a multiple of 4 for proper alignment (true for current 4-step encoding: its 16, 32 or 64 bytes)
@@ -310,27 +310,27 @@ inline size_t calc4StepBufferSize(size_t maxSrcBytes, uint8_t dmaBytesPerSrcByte
 //   WordSwapped  - half-word swap, memory [S2,S3,S0,S1] = [data,0,HIGH,data]
 enum class Step4Layout : uint8_t { Standard, WordSwapped };
 
-template <typename MASK, Step4Layout Layout>
+template <Step4Layout Layout>
 inline __attribute__((always_inline)) void encode4Step8(uint8_t* dest, size_t destLen, uint8_t maxChannel, ParallelChannel* channels) {
   for (size_t pos = 0; pos + 32 <= destLen; pos += 32) {
-    MASK alwaysMask = 0;
-    MASK b0 = 0, b1 = 0, b2 = 0, b3 = 0;
-    MASK b4 = 0, b5 = 0, b6 = 0, b7 = 0;
+    uint8_t alwaysMask = 0;
+    uint8_t b0 = 0, b1 = 0, b2 = 0, b3 = 0;
+    uint8_t b4 = 0, b5 = 0, b6 = 0, b7 = 0;
 
     for (uint8_t ch = 0; ch < maxChannel; ch++) {
       if (!channels[ch].active) continue;
       if (channels[ch].srcPos >= channels[ch].srcLen) continue;
-      const MASK m = (MASK)(1u << ch);
+      const uint8_t m = (uint8_t)(1u << ch);
       alwaysMask |= m;
       const uint8_t b = channels[ch].srcData[channels[ch].srcPos++];
-      b0 |= m & (MASK)(0u - ((b >> 7) & 1u));
-      b1 |= m & (MASK)(0u - ((b >> 6) & 1u));
-      b2 |= m & (MASK)(0u - ((b >> 5) & 1u));
-      b3 |= m & (MASK)(0u - ((b >> 4) & 1u));
-      b4 |= m & (MASK)(0u - ((b >> 3) & 1u));
-      b5 |= m & (MASK)(0u - ((b >> 2) & 1u));
-      b6 |= m & (MASK)(0u - ((b >> 1) & 1u));
-      b7 |= m & (MASK)(0u - ((b >> 0) & 1u));
+      b0 |= m & (uint8_t)(0u - ((b >> 7) & 1u)); // each bit becomes (0x00 or 0xFF) & mask, all channels are or'd
+      b1 |= m & (uint8_t)(0u - ((b >> 6) & 1u));
+      b2 |= m & (uint8_t)(0u - ((b >> 5) & 1u));
+      b3 |= m & (uint8_t)(0u - ((b >> 4) & 1u));
+      b4 |= m & (uint8_t)(0u - ((b >> 3) & 1u));
+      b5 |= m & (uint8_t)(0u - ((b >> 2) & 1u));
+      b6 |= m & (uint8_t)(0u - ((b >> 1) & 1u));
+      b7 |= m & (uint8_t)(0u - ((b >> 0) & 1u));
     }
     if (!alwaysMask) break; // no active channels produced data
 
@@ -411,32 +411,44 @@ inline __attribute__((always_inline)) void encode4Step16(uint8_t* dest, size_t d
   }
 }
 
-// Encode source bytes as 4-bit quad-SPI symbols; dest must be zeroed for lane ORing.
-template <uint16_t ZeroBit, uint16_t OneBit>
-inline __attribute__((always_inline)) void encode4Step4(uint16_t* dest, size_t srcOffset, size_t srcBytes, uint8_t maxChannel, ParallelChannel* channels) {
-  for (unsigned lane = 0; lane < maxChannel; lane++) {
-    const ParallelChannel& c = channels[lane];
-    if (!c.active || !c.srcData || srcOffset >= c.srcLen) continue;
+// Encode 4 parallel quad-SPI channels using 4-step cadence, 16 DMA bytes per source byte
+// Each 16-bit symbol packs [S0=HIGH, S1=data, S2=data, S3=LOW]; two symbols per 32-bit word
+inline __attribute__((always_inline)) void encode4Step4(uint8_t* dest, size_t destLen, uint8_t maxChannel, ParallelChannel* channels) {
+  for (size_t pos = 0; pos + 16 <= destLen; pos += 16) {
+    uint8_t alwaysMask = 0;
+    uint8_t b0 = 0, b1 = 0, b2 = 0, b3 = 0;
+    uint8_t b4 = 0, b5 = 0, b6 = 0, b7 = 0;
 
-    size_t validBytes = c.srcLen - srcOffset;
-    if (validBytes > srcBytes) validBytes = srcBytes;
-
-    const uint16_t zeroBit = (uint16_t)(ZeroBit << lane);
-    const uint16_t oneBit  = (uint16_t)(OneBit  << lane);
-    const uint8_t* src = c.srcData + srcOffset;
-    uint16_t* pOut = dest;
-
-    for (size_t i = 0; i < validBytes; i++) {
-      const uint8_t b = src[i];
-      *pOut++ |= (b & 0x80) ? oneBit : zeroBit;
-      *pOut++ |= (b & 0x40) ? oneBit : zeroBit;
-      *pOut++ |= (b & 0x20) ? oneBit : zeroBit;
-      *pOut++ |= (b & 0x10) ? oneBit : zeroBit;
-      *pOut++ |= (b & 0x08) ? oneBit : zeroBit;
-      *pOut++ |= (b & 0x04) ? oneBit : zeroBit;
-      *pOut++ |= (b & 0x02) ? oneBit : zeroBit;
-      *pOut++ |= (b & 0x01) ? oneBit : zeroBit;
+    for (uint8_t ch = 0; ch < maxChannel; ch++) {
+      if (!channels[ch].active) continue;
+      if (channels[ch].srcPos >= channels[ch].srcLen) continue;
+      const uint8_t m = (uint8_t)(1u << ch);
+      alwaysMask |= m; // first bit is always high, also used to check for active channels
+      const uint8_t b = channels[ch].srcData[channels[ch].srcPos++];
+      b0 |= m & (uint8_t)(0u - ((b >> 7) & 1u));
+      b1 |= m & (uint8_t)(0u - ((b >> 6) & 1u));
+      b2 |= m & (uint8_t)(0u - ((b >> 5) & 1u));
+      b3 |= m & (uint8_t)(0u - ((b >> 4) & 1u));
+      b4 |= m & (uint8_t)(0u - ((b >> 3) & 1u));
+      b5 |= m & (uint8_t)(0u - ((b >> 2) & 1u));
+      b6 |= m & (uint8_t)(0u - ((b >> 1) & 1u));
+      b7 |= m & (uint8_t)(0u - ((b >> 0) & 1u));
     }
+    if (!alwaysMask) break; // no active channels produced data
+    // [S0,S1,S2,S3] = [HIGH,data,data,LOW]
+    uint32_t* p = (uint32_t*)(dest + pos);
+    const uint32_t s0 = (uint32_t)alwaysMask | ((uint32_t)b0 << 4) | ((uint32_t)b0 << 8); // [alwaysMask, b0, b0, 0]
+    const uint32_t s1 = (uint32_t)alwaysMask | ((uint32_t)b1 << 4) | ((uint32_t)b1 << 8);
+    const uint32_t s2 = (uint32_t)alwaysMask | ((uint32_t)b2 << 4) | ((uint32_t)b2 << 8);
+    const uint32_t s3 = (uint32_t)alwaysMask | ((uint32_t)b3 << 4) | ((uint32_t)b3 << 8);
+    const uint32_t s4 = (uint32_t)alwaysMask | ((uint32_t)b4 << 4) | ((uint32_t)b4 << 8);
+    const uint32_t s5 = (uint32_t)alwaysMask | ((uint32_t)b5 << 4) | ((uint32_t)b5 << 8);
+    const uint32_t s6 = (uint32_t)alwaysMask | ((uint32_t)b6 << 4) | ((uint32_t)b6 << 8);
+    const uint32_t s7 = (uint32_t)alwaysMask | ((uint32_t)b7 << 4) | ((uint32_t)b7 << 8);
+    p[0] = s0 | (s1 << 16);
+    p[1] = s2 | (s3 << 16);
+    p[2] = s4 | (s5 << 16);
+    p[3] = s6 | (s7 << 16);
   }
 }
 

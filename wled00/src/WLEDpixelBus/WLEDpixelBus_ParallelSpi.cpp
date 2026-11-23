@@ -51,11 +51,8 @@ static inline void IRAM_ATTR spi_ll_user_start(spi_dev_t *hw) {
 // SPI2 signals: FSPID (MOSI/D0), FSPIQ (MISO/D1), FSPIWP (D2), FSPIHD (D3)
 static const int WLEDPB_PARALLELSPI_SIGNAL_INDICES[] = { FSPID_OUT_IDX, FSPIQ_OUT_IDX, FSPIWP_OUT_IDX, FSPIHD_OUT_IDX };
 
-// Encoding patterns for SPI quad mode (4-step cadence, LSB first)
-// Each lane is one bit position in a nibble, one byte = two clock cycles, 2 bytes = one 4-step bit
-static constexpr uint16_t WLEDPB_PARALLELSPI_ZERO_BIT = 0x0001;  // output: [1,0,0,0] = 25% high (0000 0000 0000 0001 in binary, output LSB first)
-static constexpr uint16_t WLEDPB_PARALLELSPI_ONE_BIT  = 0x0111;  // output: [1,1,1,0] = 75% high (0000 0001 0001 0001 in binary, output LSB first)
-static constexpr uint32_t WLEDPB_PARALLELSPI_MIN_CLOCK_HZ = 2000000;
+// Minimum/maximum 4-step SPI clock bounds (allows 400 kHz WS2811 @ 1.25 MHz and TM1815 @ 1.35 MHz)
+static constexpr uint32_t WLEDPB_PARALLELSPI_MIN_CLOCK_HZ = 500000;
 static constexpr uint32_t WLEDPB_PARALLELSPI_MAX_CLOCK_HZ = 5000000;
 
 // Maximum bits per SPI user transfer: 18-bit length register SPI_MS_DATA_BITLEN=262143, we need 16bits per source bit (4x parallel, 4 steps) or 128bits per byte
@@ -88,7 +85,6 @@ ParallelSpiBusContext::ParallelSpiBusContext()
   , _dmaChanId(-1)
   , _spiIsrHandle(nullptr)
   , _hw(&GPSPI2)
-  , _framePos(0)
   , _numBytes(0)
   , _bitsLeft(0)
   , _resetBits(0)
@@ -153,21 +149,31 @@ void ParallelSpiBusContext::abortTransferHw() {
 
 //note: using O2 optimization has little to no effect on FPS
 void IRAM_ATTR __attribute__((noinline)) ParallelSpiBusContext::fillBuffer(uint8_t bufIdx) {
-  uint32_t* buf32 = (uint32_t*)_dmaBuffer[bufIdx];
-  const uint32_t* end = buf32 + (_bufferSize >> 2);
-  while (buf32 < end) *buf32++ = 0; // clear buffer (set all lanes low), DMA buffer is 4 bytes aligned. Note: memset is not IRAM safe and may crash
-
-  size_t maxSrcThisChunk = _bufferSize / WLEDPB_PARALLELSPI_DMABYTES;  // 16 DMA bytes per source byte
-  size_t srcBytesLeft = (_framePos < _numBytes) ? (_numBytes - _framePos) : 0;
-  size_t srcThisChunk = (srcBytesLeft < maxSrcThisChunk) ? srcBytesLeft : maxSrcThisChunk;
-
-  if (srcThisChunk == 0) {
-    return; // all pixel data has been encoded, nothing to do, just send out zeroed buffer as idle state
+  uint32_t bytesToEncode = 0;
+  uint8_t maxCh = 0;
+  for (int ch = 0; ch < WLEDPB_PARALLELSPI_MAX_CHANNELS; ch++) {
+    if (_channels[ch].active) {
+      maxCh = ch + 1;
+      uint32_t channelBytesLeft = _channels[ch].srcLen - _channels[ch].srcPos;
+      if (channelBytesLeft > bytesToEncode) bytesToEncode = channelBytesLeft;
+    }
   }
 
-  encode4Step4<WLEDPB_PARALLELSPI_ZERO_BIT, WLEDPB_PARALLELSPI_ONE_BIT>(
-    (uint16_t*)_dmaBuffer[bufIdx], _framePos, srcThisChunk, WLEDPB_PARALLELSPI_MAX_CHANNELS, _channels);
-  _framePos += srcThisChunk;
+  size_t translatedBytes = bytesToEncode * WLEDPB_PARALLELSPI_DMABYTES;
+  if (translatedBytes > _bufferSize) translatedBytes = _bufferSize;
+  translatedBytes -= translatedBytes % WLEDPB_PARALLELSPI_DMABYTES;
+
+  // Clear only the unused tail / pure-reset region; encode4Step4 overwrites [0, translatedBytes).
+  // Note: memset is not IRAM safe and may crash.
+  if (translatedBytes < _bufferSize) {
+    uint32_t* buf32 = (uint32_t*)(_dmaBuffer[bufIdx] + translatedBytes);
+    const uint32_t* end = (uint32_t*)(_dmaBuffer[bufIdx] + _bufferSize);
+    while (buf32 < end) *buf32++ = 0;
+  }
+
+  if (translatedBytes > 0) {
+    encode4Step4(_dmaBuffer[bufIdx], translatedBytes, maxCh, _channels);
+  }
 }
 
 // SPI ISR: handles trans_done (normal completion) and outfifo_empty_err
@@ -424,11 +430,12 @@ bool ParallelSpiBusContext::startTransmit() {
   if (!_allocDmaBuffers()) return false;
   _stagedMask = 0;
 
-  // Calculate actual data length from staged channels
+  // Calculate actual data length from staged channels and reset read positions
   size_t newBytes = 0;
   for (int ch = 0; ch < WLEDPB_PARALLELSPI_MAX_CHANNELS; ch++) {
-    if (_channels[ch].active && _channels[ch].srcLen > newBytes) {
-      newBytes = _channels[ch].srcLen;
+    if (_channels[ch].active) {
+      _channels[ch].srcPos = 0;
+      if (_channels[ch].srcLen > newBytes) newBytes = _channels[ch].srcLen;
     }
   }
   _numBytes = newBytes;
@@ -461,7 +468,6 @@ bool ParallelSpiBusContext::startTransmit() {
   spi_ll_set_mosi_bitlen(_hw, firstBits);
 
   // Re-initialize DMA descriptors and encode initial buffers
-  _framePos = 0;
   _activeBuffer = 0;
   _state = DriverState::Sending;
 

@@ -513,28 +513,31 @@ void IRAM_ATTR I2sBusContext::encode4Step(uint8_t* dest, size_t destLen, uint8_t
 // uses the shared 4-step encoder, only the scatter layout differs per target
 void IRAM_ATTR I2sBusContext::encode4Step(uint8_t* dest, size_t destLen, uint8_t maxChannel) {
 #if defined(CONFIG_IDF_TARGET_ESP32S2) || defined(CONFIG_IDF_TARGET_ESP32S3)
-  encode4Step8<uint8_t, Step4Layout::Standard>(dest, destLen, maxChannel, _channels);
+  encode4Step8<Step4Layout::Standard>(dest, destLen, maxChannel, _channels);
 #else
   // Classic ESP32: half-word swap, memory [S2,S3,S0,S1] = [data,0,HIGH,data]
-  encode4Step8<uint8_t, Step4Layout::WordSwapped>(dest, destLen, maxChannel, _channels);
+  encode4Step8<Step4Layout::WordSwapped>(dest, destLen, maxChannel, _channels);
 #endif
 }
 #endif // WLED_PIXELBUS_16PARALLEL
 
 void IRAM_ATTR __attribute__((noinline)) I2sBusContext::fillBuffer(uint8_t bufIdx) {
-  uint32_t* buf32 = (uint32_t*)_dmaBuffer[bufIdx];
-  const uint32_t* end = buf32 + (_bufferSize >> 2);
-  while (buf32 < end) *buf32++ = 0; // clear buffer (set all lanes low), DMA buffer is 4 bytes aligned. Note: memset is not IRAM safe and may crash
-
   if (_resetBytesLeft > WLEDPB_I2S_XFER_DONE_FLAG) {
+    size_t clearBytes;
     if (_resetBytesLeft <= _bufferSize) {
+      clearBytes = (_resetBytesLeft + 3) & ~size_t(3);
+      if (clearBytes > _bufferSize) clearBytes = _bufferSize;
       descSetLength(_dmaDesc[bufIdx], _resetBytesLeft);
       descSetNext(_dmaDesc[bufIdx], nullptr);
       _resetBytesLeft = WLEDPB_I2S_XFER_DONE_FLAG;
     } else {
+      clearBytes = _bufferSize;
       descSetLength(_dmaDesc[bufIdx], _bufferSize);
       _resetBytesLeft -= _bufferSize;
     }
+    uint32_t* buf32 = (uint32_t*)_dmaBuffer[bufIdx];
+    const uint32_t* end = buf32 + (clearBytes >> 2);
+    while (buf32 < end) *buf32++ = 0; // Note: memset is not IRAM safe and may crash
     return;
   }
 
@@ -552,22 +555,31 @@ void IRAM_ATTR __attribute__((noinline)) I2sBusContext::fillBuffer(uint8_t bufId
   if (translatedBytes > _bufferSize) translatedBytes = _bufferSize;
   translatedBytes -= translatedBytes % WLEDPB_I2S_DMABYTES;
   descSetLength(_dmaDesc[bufIdx], translatedBytes);
-  encode4Step(_dmaBuffer[bufIdx], translatedBytes, maxCh);
+  if (translatedBytes > 0) {
+    encode4Step(_dmaBuffer[bufIdx], translatedBytes, maxCh);
+  }
 
   if (translatedBytes < _bufferSize) {
     // Data ran out before the buffer was full (i.e. we are done), compute the minimum reset period we must send as zero cycles
     size_t resetBytes = calc4StepResetDmaBytes(_timing, WLEDPB_I2S_DMABYTES / 8);
 
     size_t newLen = translatedBytes + resetBytes;
+    size_t clearEnd;
     if (newLen > _bufferSize) {
+      clearEnd = _bufferSize;
       _resetBytesLeft = newLen - _bufferSize; // reset pulse does not fit into this buffer frame, send another one (see above)
       descSetLength(_dmaDesc[bufIdx], _bufferSize);
     }
     else {
+      clearEnd = (newLen + 3) & ~size_t(3);
+      if (clearEnd > _bufferSize) clearEnd = _bufferSize;
       descSetLength(_dmaDesc[bufIdx], newLen);     // send the rest (zeroes) as a reset
       _resetBytesLeft = WLEDPB_I2S_XFER_DONE_FLAG; // flag end of frame, don't queue any more buffers or it will mess up the DMA
       descSetNext(_dmaDesc[bufIdx], nullptr);      // reset fit into this buffer, end transfer after this is sent
     }
+    uint32_t* buf32 = (uint32_t*)(_dmaBuffer[bufIdx] + translatedBytes);
+    const uint32_t* end = (uint32_t*)(_dmaBuffer[bufIdx] + clearEnd);
+    while (buf32 < end) *buf32++ = 0; // only clear appended reset slice (translatedBytes is DMABYTES/4-byte aligned)
   }
 }
 
@@ -588,9 +600,7 @@ bool I2sBusContext::startTransmit() {
   _resetBytesLeft = 0;
   _txStartMillis = millis(); // watchdog start
 
-  if (!_dmaAllocated) {
-    if (!_allocDmaBuffers()) return false;
-  }
+  if (!_dmaAllocated && !_allocDmaBuffers()) return false;
 
   // Fill all buffers initially
   for (int i = 0; i < WLEDPB_I2S_DMA_BUFFER_COUNT; i++) {
