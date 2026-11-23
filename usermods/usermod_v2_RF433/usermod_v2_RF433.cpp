@@ -124,7 +124,7 @@ public:
     char objKey[14];
     bool parsed = false;
 
-    if (!requestJSONBufferLock(22)) return false;
+    if (!requestJSONBufferLock(JSON_LOCK_REMOTE)) return false;
 
     sprintf_P(objKey, PSTR("\"%d\":"), button);
 

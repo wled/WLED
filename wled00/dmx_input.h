@@ -12,7 +12,7 @@
 class DMXInput
 {
 public:
-  void init(uint8_t rxPin, uint8_t txPin, uint8_t enPin, uint8_t inputPortNum);
+  void init(int8_t rxPin, int8_t txPin, int8_t enPin, uint8_t inputPortNum);
   void update();
 
   /**disable dmx receiver (do this before disabling the cache)*/
@@ -42,21 +42,21 @@ private:
   void updateInternal();
 
   // is invoked whenver the dmx start address is changed via rdm
-  friend void rdmAddressChangedCb(dmx_port_t dmxPort, const rdm_header_t *header,
-                                  void *context);
+  friend void rdmAddressChangedCb(dmx_port_t dmxPort, rdm_header_t *request_header,
+                                  rdm_header_t *response_header, void *context);
 
   // is invoked whenever the personality is changed via rdm
-  friend void rdmPersonalityChangedCb(dmx_port_t dmxPort, const rdm_header_t *header,
-                                      void *context);
+  friend void rdmPersonalityChangedCb(dmx_port_t dmxPort, rdm_header_t *request_header,
+                                      rdm_header_t *response_header, void *context);
 
   /// The internal dmx task.
   /// This is the main loop of the dmx receiver. It never returns.
   friend void dmxReceiverTask(void * context);
 
   uint8_t inputPortNum = 255; 
-  uint8_t rxPin = 255;
-  uint8_t txPin = 255;
-  uint8_t enPin = 255;
+  int8_t rxPin = -1;
+  int8_t txPin = -1;
+  int8_t enPin = -1;
 
   /// is written to by the dmx receive task.
   byte dmxdata[DMX_PACKET_SIZE]; 
@@ -72,5 +72,5 @@ private:
   TaskHandle_t task;
   /// Guards access to dmxData
   std::mutex dmxDataLock;
-  
+
 };

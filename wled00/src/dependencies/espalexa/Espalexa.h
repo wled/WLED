@@ -1,4 +1,4 @@
-﻿#ifndef Espalexa_h
+#ifndef Espalexa_h
 #define Espalexa_h
 
 /*
@@ -17,6 +17,14 @@
  */
 
 #include "Arduino.h"
+
+// dummy macro for 8266
+#ifndef ARDUINO_ARCH_ESP32
+#ifndef ESP_IDF_VERSION_VAL
+#define ESP_IDF_VERSION_VAL(n1,n2,n3) 500
+#define ESPALEXA_DEFINED_ESP_IDF_VERSION_VAL 1  // remember to undef this later
+#endif
+#endif
 
 //you can use these defines for library config in your sketch. Just use them before #include <Espalexa.h>
 //#define ESPALEXA_ASYNC
@@ -85,6 +93,7 @@ private:
   IPAddress ipMulti;
   uint32_t mac24; //bottom 24 bits of mac
   String escapedMac=""; //lowercase mac address
+  String bridgeId="";   //uppercase EUI-64 bridge ID (16 hex chars)
   
   //private member functions
   const char* modeString(EspalexaColorMode m)
@@ -215,7 +224,7 @@ private:
   void serveDescription()
   {
     EA_DEBUGLN("# Responding to description.xml ... #\n");
-    IPAddress localIP = Network.localIP();
+    IPAddress localIP = WLEDNetwork.localIP();
     char s[16];
     snprintf(s, sizeof(s), "%d.%d.%d.%d", localIP[0], localIP[1], localIP[2], localIP[3]);
     char buf[1024];
@@ -251,10 +260,10 @@ private:
     #ifdef ESPALEXA_ASYNC
     if (serverAsync == nullptr) {
       serverAsync = new AsyncWebServer(80);
-      serverAsync->onNotFound([=](AsyncWebServerRequest *request){server = request; serveNotFound();});
+      serverAsync->onNotFound([this](AsyncWebServerRequest *request){server = request; serveNotFound();}); // fix: implicit capture of "this"
     }
     
-    serverAsync->onRequestBody([=](AsyncWebServerRequest *request, uint8_t *data, size_t len, size_t index, size_t total){
+    serverAsync->onRequestBody([this](AsyncWebServerRequest *request, uint8_t *data, size_t len, size_t index, size_t total){ // fix: implicit capture of "this"
       char b[len +1];
       b[len] = 0;
       memcpy(b, data, len);
@@ -263,9 +272,9 @@ private:
       EA_DEBUGLN(body);
     });
     #ifndef ESPALEXA_NO_SUBPAGE
-    serverAsync->on("/espalexa", HTTP_GET, [=](AsyncWebServerRequest *request){server = request; servePage();});
+    serverAsync->on("/espalexa", HTTP_GET, [this](AsyncWebServerRequest *request){server = request; servePage();});
     #endif
-    serverAsync->on("/description.xml", HTTP_GET, [=](AsyncWebServerRequest *request){server = request; serveDescription();});
+    serverAsync->on("/description.xml", HTTP_GET, [this](AsyncWebServerRequest *request){server = request; serveDescription();}); // fix: implicit capture of "this"
     serverAsync->begin();
     
     #else
@@ -289,7 +298,7 @@ private:
   //respond to UDP SSDP M-SEARCH
   void respondToSearch()
   {
-    IPAddress localIP = Network.localIP();
+    IPAddress localIP = WLEDNetwork.localIP();
     char s[16];
     sprintf(s, "%d.%d.%d.%d", localIP[0], localIP[1], localIP[2], localIP[3]);
 
@@ -297,13 +306,13 @@ private:
 
     snprintf_P(buf, sizeof(buf), PSTR("HTTP/1.1 200 OK\r\n"
       "EXT:\r\n"
-      "CACHE-CONTROL: max-age=100\r\n" // SSDP_INTERVAL
+      "CACHE-CONTROL: max-age=86400\r\n" // SSDP_INTERVAL
       "LOCATION: http://%s:80/description.xml\r\n"
       "SERVER: FreeRTOS/6.0.5, UPnP/1.0, IpBridge/1.17.0\r\n" // _modelName, _modelNumber
       "hue-bridgeid: %s\r\n"
-      "ST: urn:schemas-upnp-org:device:basic:1\r\n"  // _deviceType
-      "USN: uuid:2f402f80-da50-11e1-9b23-%s::upnp:rootdevice\r\n" // _uuid::_deviceType
-      "\r\n"),s,escapedMac.c_str(),escapedMac.c_str());
+      "ST: urn:schemas-upnp-org:device:Basic:1\r\n"  // _deviceType
+      "USN: uuid:2f402f80-da50-11e1-9b23-%s::urn:schemas-upnp-org:device:Basic:1\r\n" // _uuid::_deviceType
+      "\r\n"),s,bridgeId.c_str(),escapedMac.c_str());
 
     espalexaUdp.beginPacket(espalexaUdp.remoteIP(), espalexaUdp.remotePort());
     #ifdef ARDUINO_ARCH_ESP32
@@ -333,6 +342,11 @@ public:
     escapedMac.replace(":", "");
     escapedMac.toLowerCase();
 
+    // Compute EUI-64 bridge ID from MAC-48: insert standard "FFFE" padding between
+    // the first 6 hex chars (OUI/manufacturer) and last 6 hex chars (device), then uppercase
+    bridgeId = escapedMac.substring(0, 6) + "fffe" + escapedMac.substring(6);
+    bridgeId.toUpperCase();
+
     String macSubStr = escapedMac.substring(6, 12);
     mac24 = strtol(macSubStr.c_str(), 0, 16);
 
@@ -344,7 +358,7 @@ public:
     #ifdef ARDUINO_ARCH_ESP32
     udpConnected = espalexaUdp.beginMulticast(IPAddress(239, 255, 255, 250), 1900);
     #else
-    udpConnected = espalexaUdp.beginMulticast(Network.localIP(), IPAddress(239, 255, 255, 250), 1900);
+    udpConnected = espalexaUdp.beginMulticast(WLEDNetwork.localIP(), IPAddress(239, 255, 255, 250), 1900);
     #endif
 
     if (udpConnected){
@@ -379,7 +393,11 @@ public:
     espalexaUdp.read(packetBuffer, packetSize);
     packetBuffer[packetSize] = 0;
   
-    espalexaUdp.flush();
+    #if defined(ARDUINO_ARCH_ESP32) && (ESP_IDF_VERSION >= ESP_IDF_VERSION_VAL(5, 0, 0))
+      espalexaUdp.clear();  // flush() is deprecated in arduino-esp32 3.x.y
+    #else
+      espalexaUdp.flush();
+    #endif
     if (!discoverable) return; //do not reply to M-SEARCH if not discoverable
   
     const char* request = (const char *) packetBuffer;
@@ -626,5 +644,13 @@ public:
   
   ~Espalexa(){} //note: Espalexa is NOT meant to be destructed
 };
+
+// dummy macro cleanup
+#ifndef ARDUINO_ARCH_ESP32
+#ifdef ESPALEXA_DEFINED_ESP_IDF_VERSION_VAL
+#undef ESP_IDF_VERSION_VAL
+#undef ESPALEXA_DEFINED_ESP_IDF_VERSION_VAL
+#endif
+#endif
 
 #endif

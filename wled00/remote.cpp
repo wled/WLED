@@ -1,6 +1,13 @@
 #include "wled.h"
 #ifndef WLED_DISABLE_ESPNOW
 
+// Sanity check: -P4 does not support esp-now
+#if defined(ARDUINO_ARCH_ESP32) && (ESP_IDF_VERSION_MAJOR > 4)
+  #if CONFIG_ESP_WIFI_REMOTE_ENABLED
+    #error "ESP-NOW is not supported on your MCU. Only SoCs with native Wi-Fi support have ESP-NOW."
+  #endif
+#endif
+
 #define ESPNOW_BUSWAIT_TIMEOUT 24 // one frame timeout to wait for bus to finish updating
 
 #define NIGHT_MODE_DEACTIVATED     -1
@@ -13,6 +20,9 @@
 #define WIZMOTE_BUTTON_TWO         17
 #define WIZMOTE_BUTTON_THREE       18
 #define WIZMOTE_BUTTON_FOUR        19
+#define WIZMOTE_BUTTON_FIVE        20
+#define WIZMOTE_BUTTON_SIX         21
+#define WIZMOTE_BUTTON_SEVEN       22
 #define WIZMOTE_BUTTON_BRIGHT_UP   9
 #define WIZMOTE_BUTTON_BRIGHT_DOWN 8
 
@@ -27,7 +37,7 @@
 typedef struct WizMoteMessageStructure {
   uint8_t program;  // 0x91 for ON button, 0x81 for all others
   uint8_t seq[4];   // Incremetal sequence number 32 bit unsigned integer LSB first
-  uint8_t dt1;      // Button Data Type (0x32)
+  uint8_t dt1;      // Button Data Type (0x20)
   uint8_t button;   // Identifies which button is being pressed
   uint8_t dt2;      // Battery Level Data Type (0x01)
   uint8_t batLevel; // Battery Level 0-100
@@ -109,7 +119,7 @@ static void setOff() {
   }
 }
 
-void presetWithFallback(uint8_t presetID, uint8_t effectID, uint8_t paletteID) {
+static void presetWithFallback(uint8_t presetID, uint8_t effectID, uint8_t paletteID) {
   resetNightMode();
   applyPresetWithFallback(presetID, CALL_MODE_BUTTON_PRESET, effectID, paletteID);
 }
@@ -120,7 +130,7 @@ static bool remoteJson(int button)
   char objKey[10];
   bool parsed = false;
 
-  if (!requestJSONBufferLock(22)) return false;
+  if (!requestJSONBufferLock(JSON_LOCK_REMOTE)) return false;
 
   sprintf_P(objKey, PSTR("\"%d\":"), button);
 
@@ -217,6 +227,9 @@ void handleRemote() {
       case WIZMOTE_BUTTON_TWO            : presetWithFallback(2, FX_MODE_BREATH,        0); break;
       case WIZMOTE_BUTTON_THREE          : presetWithFallback(3, FX_MODE_FIRE_FLICKER,  0); break;
       case WIZMOTE_BUTTON_FOUR           : presetWithFallback(4, FX_MODE_RAINBOW,       0); break;
+      case WIZMOTE_BUTTON_FIVE           : presetWithFallback(5, FX_MODE_CANDLE,        0); break;
+      case WIZMOTE_BUTTON_SIX            : presetWithFallback(6, FX_MODE_RANDOM_COLOR,  0); break;
+      case WIZMOTE_BUTTON_SEVEN          : presetWithFallback(7, FX_MODE_FADE,          0); break;
       case WIZMOTE_BUTTON_NIGHT          : activateNightMode();                             break;
       case WIZMOTE_BUTTON_BRIGHT_UP      : brightnessUp();                                  break;
       case WIZMOTE_BUTTON_BRIGHT_DOWN    : brightnessDown();                                break;

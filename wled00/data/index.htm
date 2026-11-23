@@ -5,13 +5,14 @@
 	<meta charset="utf-8">
 	<meta name="theme-color" content="#222222">
 	<meta content="yes" name="apple-mobile-web-app-capable">
-	<link rel="shortcut icon" href="data:image/x-icon;base64,AAABAAEAEBAAAAEAGACGAAAAFgAAAIlQTkcNChoKAAAADUlIRFIAAAAQAAAAEAgGAAAAH/P/YQAAAE1JREFUOI1j/P//PwOxgNGeAUMxE9G6cQCKDWAhpADZ2f8PMjBS3QW08QK20KaZC2gfC9hCnqouoNgARgY7zMxAyNlUdQHlXiAlO2MDAD63EVqNHAe0AAAAAElFTkSuQmCC"/>
-	<link rel="apple-touch-icon" href="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAALQAAAC0CAMAAAAKE/YAAAAANlBMVEUAAAAAKacAPv8APv8APv8APv8APv8AKacAQv8AJZsAKacAKacAPv8APv8AL8MAPv8APv8AQv/mTD7uAAAAEHRSTlMAf1mvpgzzka9/Vy3wnX9ic6GVaQAAAQhJREFUeNrt3EtuwkAQRdGGYAyYT9j/ZqN4GNkv9gSV4ZwVXJU8cVerGwAAAAAAUNTl9LXY6dJq6J/fiz37VsNuTfSu1SB6hmjRgWjRgWjRgWjRgWjRgehf5y1G70r/2Ha3w5T7foWhvVg3Pbxzq6w7lv5MRa8iWnQgWnQgWnQgWnQgWnQgenQtHT3spzxqT7p/+/MX0aJFj0SLDkSLDkSLDkSLDkSL/s/n7OhXRR8fNXb0q6KvrbSZSXetMtEzRIsORIsORIsORIsORIsORIdr/i+PHvYr3A9Tbsui7egn+2pf83//ky7RokWPRIsORIsORIsORIsORG/2gbhNPsUHAAAAAAD89QMg+PZb+jO0tAAAAABJRU5ErkJggg==" sizes="180x180"/>
+	<link rel="icon" href="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAACAAAAAgBAMAAACBVGfHAAAAGFBMVEUAAAD/awCAgID/hzL////WWgDfGzu7FjCGXipzAAAAAXRSTlMAQObYZgAAAGlJREFUKM+lzoEJwCAMBEBXcAVXyApZwRVcwfX735RQeSkF3yj8oWD5m17NBNaOmMC7O8DtA9y9Yu9hYHVULhaFOQD1jrEolBn/cgCLApNPEIW2QhPAsFsEZQecPBQoOJ9hV2Dy9iFEFC672Cg/j/YptAAAAABJRU5ErkJggg=="/>
+	<link rel="apple-touch-icon" href="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAALQAAAC0BAMAAADP4xsBAAAAIVBMVEUAAAD/awCAgIBoaGj/hzL////WWgDfGzvW1ta7FjDmSGJvCkHaAAAAAXRSTlMAQObYZgAAAQtJREFUaN7t1dENgjAUhWFXYAVWYAVWYAVWYAVWYAWmtOlNjuaSFlR8uf3/By0n5vOlCQ+iW5rnueu6MQcN7VBz1ZiDhk451P0BdOO03IoODQ0NXXennDgt0qFbptd1TYost0BDQ0Of0pZoLdDt0Muy6PNImyhai6MdBR2G3rZtye37Ll30aaKPFHQMWpPcEj3lyrSnoMPQNun81eXzFHQYuu97O9xFi4WOQduX9RvtKegwtDUMQ5rkjp8kVwJ0eLq73DudEOiotPTXY06H0uhuHnRTtD3qUBp186Bj00Xu7CwXuhHacmPlgkK3Q7s3U5X2v4duhFZV2gcNDQ0NDQ0N/VdaQUNDQxNd6AkmvZOlyMjs6gAAAABJRU5ErkJggg==" sizes="180x180"/>
 	<title>WLED</title>
 	<link rel="stylesheet" href="index.css">
 </head>
-<body onload="onLoad()">
+<body>
 
+<div id="devBanner">⚠ DEVELOPMENT BUILD — WORK IN PROGRESS — NOT FOR PRODUCTION USE</div>
 <div id="cv" class="overlay">Loading WLED UI...</div>
 <noscript><div class="overlay" style="opacity:1;">Sorry, WLED UI needs JavaScript!</div></noscript>
 <div id="bg"></div>
@@ -126,12 +127,28 @@
 			<input id="hexc" title="Hex RGB" type="text" class="noslide" onkeydown="hexEnter()" autocomplete="off" maxlength="8" />
 			<button id="hexcnf" class="btn btn-xs" onclick="fromHex();"><i class="icons btn-icon">&#xe390;</i></button>
 		</div>
-		<div style="padding: 8px 0;" id="btns">
-			<button class="btn btn-xs" title="File editor" type="button" id="edit" onclick="window.location.href=getURL('/edit')"><i class="icons btn-icon">&#xe2c6;</i></button>
-			<button class="btn btn-xs" title="Pixel Magic Tool" type="button" id="pxmb" onclick="window.location.href=getURL('/pxmagic.htm')"><i class="icons btn-icon">&#xe410;</i></button>
-			<button class="btn btn-xs" title="Add custom palette" type="button" id="adPal" onclick="window.location.href=getURL('/cpal.htm')"><i class="icons btn-icon">&#xe18a;</i></button>
-			<button class="btn btn-xs" title="Remove last custom palette" type="button" id="rmPal" onclick="palettesData=null;localStorage.removeItem('wledPalx');requestJson({rmcpal:true});setTimeout(loadPalettes,250,loadPalettesData);"><i class="icons btn-icon">&#xe037;</i></button>
+
+		<div style="padding: 12px 0; display:flex; justify-content:center; gap:16px;" id="btns">
+			<div>
+				<button class="btn btn-xs" title="File editor" type="button" onclick="window.location.href=getURL('/edit')">
+				<i class="icons btn-icon">&#xe901;</i>
+				</button>
+				<div class="iconlabel">Files</div>
+			</div>
+			<div>
+				<button class="btn btn-xs" title="PixelForge" type="button" onclick="window.location.href=getURL('/pixelforge.htm')">
+				<i class="icons btn-icon">&#xe900;</i>
+				</button>
+				<div class="iconlabel">PixelForge</div>
+			</div>
+			<div>
+				<button class="btn btn-xs" title="Custom palettes" type="button" onclick="window.location.href=getURL('/cpal.htm')">
+				<i class="icons btn-icon">&#xe2b3;</i>
+				</button>
+				<div class="iconlabel">Palettes</div>
+			</div>
 		</div>
+
 		<p class="labels hd" id="pall"><i class="icons sel-icon" onclick="tglHex()">&#xe2b3;</i> Color palette</p>
 		<div id="palw" class="il">
 			<div class="staytop fnd">
@@ -323,13 +340,13 @@
 <div id="info" class="modal">
 	<button class="btn btn-xs close" onclick="toggleInfo()"><i class="icons rot45">&#xe18a;</i></button>
 	<div id="imgw">
-		<img class="wi" alt="" src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAB0AAAAFCAYAAAC5Fuf5AAAAAXNSR0IArs4c6QAAAARnQU1BAACxjwv8YQUAAAAJcEhZcwAADsMAAA7DAcdvqGQAAABbSURBVChTlY9bDoAwDMNW7n9nwCipytQN4Z8tbrTHmDmF4oPzyldwRqp1SSdnV/NuZuzqerAByxXznBw3igkeFEfXyUuhK/yFM0CxJfyqXZEOc6/Sr9/bf7uIC5Nwd7orMvAPAAAAAElFTkSuQmCC" />
+		<img class="wi" alt="" src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAB0AAAAFAQMAAACD2HW6AAAABlBMVEUAAAD///+l2Z/dAAAAAXRSTlMAQObYZgAAACFJREFUCNdj4AnkK2AQ6BRYwWCwSkaDQWGVgAbDgcBzBQBFXwacy700xAAAAABJRU5ErkJggg==" />
 	</div>
 	<div id="kv">Loading...</div><br>
 	<div>
 		<button class="btn ibtn" onclick="requestJson()">Refresh</button>
 		<button class="btn ibtn" onclick="toggleNodes()">Instance List</button>
-		<button class="btn ibtn" onclick="window.open(getURL('/update'),'_self');">Update WLED</button>
+		<button class="btn ibtn" onclick="window.open(getURL('/update'),'_self');" id="updBt">Update WLED</button>
 		<button class="btn ibtn" id="resetbtn" onclick="cnfReset()">Reboot WLED</button>
 	</div>
 	<br>
@@ -364,8 +381,9 @@
 <!-- 
 	If you want to load iro.js and rangetouch.js as consecutive requests, you can do it like it was done in 0.14.0:
 	https://github.com/wled/WLED/blob/v0.14.0/wled00/data/index.htm
+	A more compact approach is implemented to load iro.js at the beginning of index.js.
 -->
-<script src="iro.js"></script>
+<!--  <script src="iro.js"></script> NOTE: iro.js is loaded at the beginning of index.js -->
 <script src="rangetouch.js"></script>
 <script src="index.js"></script>
 </body>

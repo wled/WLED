@@ -1,12 +1,13 @@
     name: Notify Discord on PR Merge
     on:
       workflow_dispatch:
-      pull_request:
+      pull_request_target:
         types: [closed]
 
     jobs:
       notify:
         runs-on: ubuntu-latest
+        if: github.event.pull_request.merged == true
         steps:
         - name: Get User Permission
           id: checkAccess
@@ -23,11 +24,15 @@
             echo "Current permission level is ${{ steps.checkAccess.outputs.user-permission }}"
             echo "Job originally triggered by ${{ github.actor }}"
             exit 1
-        - name: Checkout code
-          uses: actions/checkout@v3
-          with:
-            ref: ${{  github.event.pull_request.head.sha }} # This is dangerous without the first access check
         - name: Send Discord notification
-          # if: github.event.pull_request.merged == true
+          env:
+            PR_NUMBER: ${{ github.event.pull_request.number }}
+            PR_TITLE: ${{ github.event.pull_request.title }}
+            PR_URL: ${{ github.event.pull_request.html_url }}
+            ACTOR: ${{ github.actor }}
           run: |
-            curl -H "Content-Type: application/json" -d '{"content": "Pull Request ${{ github.event.pull_request.number }} merged by ${{ github.actor }}"}' ${{ secrets.DISCORD_WEBHOOK_BETA_TESTERS }}
+            jq -n \
+              --arg content "Pull Request #${PR_NUMBER} \"${PR_TITLE}\" merged by ${ACTOR}
+            ${PR_URL} . It will be included in the next nightly builds, please test" \
+              '{content: $content}' \
+              | curl -H "Content-Type: application/json" -d @- ${{ secrets.DISCORD_WEBHOOK_BETA_TESTERS }}
