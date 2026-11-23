@@ -39,7 +39,7 @@ static const PROGMEM LedTiming _ledTimings[] = {
  { 300,  900,  700,  500,  300 },  // WS281x
  { 800, 1700, 1600,  900,  300 },  // Generic 400Kbps
  { 300,  900,  800,  400,  200 },  // TM1829 - output inverted!
- { 350,  900,  700,  450,  300 },  // UCS8903 / UCS8904 / UCS7604 (16-bit)
+ { 420,  850,  840,  430,  300 },  // UCS8903 / UCS8904 / UCS7604 (16-bit)
  { 350, 1350, 1350,  350,   50 },  // APA106 / PL9823
  { 360,  890,  720,  530,  250 },  // TM1814 / TM1914 - output inverted!
  { 740, 1780, 1440, 1060,  200 },  // TM1815 - output inverted!
