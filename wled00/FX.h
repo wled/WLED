@@ -895,7 +895,14 @@ class WS2812FX {
       setTargetFps(unsigned fps),
       setupEffectData(),                          // add default effects to the list; defined in FX.cpp
       waitForIt(),                                // wait until frame is over (service() has finished or time for 1 frame has passed)
-      waitForBus();                               // wait for bus output to finish with timeout
+
+    inline void waitForBus() {                    // wait for bus output to finish (with timeout)
+    #if defined(CONFIG_IDF_TARGET_ESP32S2) || defined(CONFIG_IDF_TARGET_ESP32C3)
+      unsigned long waitStart = millis();
+      const unsigned long maxWait = 200;          // 200ms is enough for most situations and avoids long UI load delays if network outputs are used
+      while (!BusManager::canAllShow() && (millis() - waitStart < maxWait)) delay(1);
+    #endif
+    }
 
     void setRealtimePixelColor(unsigned i, uint32_t c);
     inline void setPixelColor(unsigned n, uint32_t c) const   { if (n < getLengthTotal()) _pixels[n] = c; }  // paints absolute strip pixel with index n and color c
