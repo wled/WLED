@@ -1701,7 +1701,7 @@ void BusManager::updateGammaUse(bool forceTableUpdate) {
   const bool changed = useGamma != applyGamma;
   applyGamma = useGamma;
   if (changed || forceTableUpdate) {
-    NeoGammaWLEDMethod::calcGammaTable(useGamma ? gammaCorrectVal : 1.0f);
+    WLEDGamma::calcGammaTable(useGamma ? gammaCorrectVal : 1.0f);
     BusManager::setBrightness16(scaledBri16(strip.getBrightness16())); // refresh all buses brightness (can be affected by gamma value)
   }
 }

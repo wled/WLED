@@ -695,22 +695,17 @@ struct GammaCurve {
 }
 
 // gamma lookup tables used for color correction (filled on 1st use (cfg.cpp & set.cpp), updated in BusManager::updateGammaUse())
-uint8_t NeoGammaWLEDMethod::gammaT[256];
-uint8_t NeoGammaWLEDMethod::gammaT_inv[256];
+uint8_t WLEDGamma::gammaT[256];
+uint8_t WLEDGamma::gammaT_inv[256];
 
 // re-calculates & fills gamma tables
-void NeoGammaWLEDMethod::calcGammaTable(float gamma)
+void WLEDGamma::calcGammaTable(float gamma)
 {
   const GammaCurve curve(gamma);
   curve.fillTables(gammaT, gammaT_inv);
 }
 
-uint8_t NeoGammaWLEDMethod::Correct(uint8_t value)
-{
-  return gammaT[value];
-}
-
-uint32_t NeoGammaWLEDMethod::inverseGamma32(uint32_t color)
+uint32_t WLEDGamma::inverseGamma32(uint32_t color)
 {
   uint8_t w = W(color);
   uint8_t r = R(color);
