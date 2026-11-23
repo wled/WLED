@@ -276,7 +276,7 @@ void BusDigital::setBrightness16(uint16_t b) {
     _busPtr->setApa102HwBri(hwStep + 1); // 0 is off so use 1..31
     _busPtr->setBusBri(residualBri);     // used by color_fade() in setPixelColor()
   } else if (is16bit()) {
-    // 16-bit LED types (SM16825, UCS8903, UCS8904): color_fade() is a no-op (_busBri=255);
+    // 16-bit LED types (SM16825, UCS8903/04/7604): color_fade() is a no-op (_busBri=255);
     // encoder applies full 16-bit precision via channel*_encBri.
     _busPtr->setBusBri(255);
     _busPtr->setEncBri(b);
@@ -429,7 +429,7 @@ size_t BusDigital::getPins(uint8_t* pinArray) const {
 }
 
 size_t BusDigital::getBusSize() const {
-  return sizeof(BusDigital) + (isOk() && _busPtr ? _busPtr->getEncodeBufferSize() : 0);  // does not include common I2S DMA buffer
+  return sizeof(BusDigital) + (isOk() && _busPtr ? _busPtr->getEncodeBufferSize() + _busPtr->getFramingDataSize() : 0);  // does not include common I2S DMA buffer
 }
 
 void BusDigital::setColorOrder(uint8_t colorOrder) {
@@ -449,6 +449,7 @@ std::vector<LEDType> BusDigital::getLEDTypes() {
     {TYPE_TM1914,        "D",  PSTR("TM1914 RGB")},
     {TYPE_SK6812_RGBW,   "D",  PSTR("SK6812/WS2814 RGBW")},
     {TYPE_UCS8904,       "D",  PSTR("UCS8904 RGBW")},
+    {TYPE_UCS7604,       "D",  PSTR("UCS7604 RGBW")},
     {TYPE_TM1814,        "D",  PSTR("TM1814 RGBW")},
     {TYPE_TM1815,        "D",  PSTR("TM1815 RGBW")},
     {TYPE_FW1906,        "D",  PSTR("FW1906/WS2811 RGBCCT")},
@@ -472,7 +473,7 @@ void BusDigital::begin() {
   if (!_valid) return;
   if (!_busPtr->begin()) { cleanup(); return; }
   // TM1914: write the static mode-setting prefix once after the encode buffer is allocated.
-  if (_busProperties.prefixLen > 0)
+  if (_busProperties.prefixLen > 0 && _busProperties.prefixData)
     _busPtr->updatePrefix(_busProperties.prefixData, _busProperties.prefixLen);
 }
 
