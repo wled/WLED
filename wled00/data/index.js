@@ -908,7 +908,7 @@ function populateSegments(s)
 	}
 	if (segCount < 2) {
 		gId(`segd${lSeg}`).classList.add("hide"); // hide delete if only one segment
-		if (parseInt(gId("seg0bri").value)==255) gId(`segp0`).classList.add("hide");
+		if (parseInt(gId("seg0bri").value)==255 && gId("seg0pwr").classList.contains("act")) gId(`segp0`).classList.add("hide");
 		// hide segment controls if there is only one segment in simplified UI
 		if (simplifiedUI) gId("segcont").classList.add("hide");
 	}

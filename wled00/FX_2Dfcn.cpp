@@ -152,39 +152,40 @@ void WS2812FX::setUpMatrix() {
 #ifndef WLED_DISABLE_2D
 // pixel is clipped if it falls outside clipping range
 // if clipping start > stop the clipping range is inverted
-bool Segment::isPixelXYClipped(int x, int y) const {
-  if (blendingStyle != TRANSITION_FADE && isInTransition() && _clipStart != _clipStop) {
+bool Segment::isPixelXYClipped(int x, int y, uint8_t style) const {
+  if (style != TRANSITION_FADE && isInTransition() && _clipStart != _clipStop) {
     const bool invertX = _clipStart  > _clipStop;
     const bool invertY = _clipStartY > _clipStopY;
     const int  cStartX = invertX ? _clipStop   : _clipStart;
     const int  cStopX  = invertX ? _clipStart  : _clipStop;
     const int  cStartY = invertY ? _clipStopY  : _clipStartY;
     const int  cStopY  = invertY ? _clipStartY : _clipStopY;
-    if (blendingStyle == TRANSITION_FAIRY_DUST) {
+    if (style == TRANSITION_FAIRY_DUST) {
       const unsigned width = cStopX - cStartX;          // assumes full segment width (faster than virtualWidth())
       const unsigned len = width * (cStopY - cStartY);  // assumes full segment height (faster than virtualHeight())
       if (len < 2) return false;
       const unsigned shuffled = hashInt(x + y * width) % len;
       const unsigned pos = (shuffled * 0xFFFFU) / len;
-      return progress() <= pos;
+      return spatialProgress() <= pos;
     }
-    if (blendingStyle == TRANSITION_CIRCULAR_IN || blendingStyle == TRANSITION_CIRCULAR_OUT) {
+    if (style == TRANSITION_CIRCULAR_IN || style == TRANSITION_CIRCULAR_OUT) {
       const int cx   = (cStopX-cStartX+1) / 2;
       const int cy   = (cStopY-cStartY+1) / 2;
-      const bool out = (blendingStyle == TRANSITION_CIRCULAR_OUT);
-      const unsigned prog = out ? progress() : 0xFFFFU - progress();
+      const bool out = (style == TRANSITION_CIRCULAR_OUT);
+      unsigned prog = out ? spatialProgress() : invertProgress(spatialProgress());
       int radius2    = max(cx, cy) * prog / 0xFFFF;
       radius2 = 2 * radius2 * radius2;
       if (radius2 == 0) return out;
       const int dx = x - cx;
       const int dy = y - cy;
       const bool outside = dx * dx + dy * dy > radius2;
-      return out ? outside : !outside;
+      const bool clip = out ? outside : !outside;
+      return clip;
     }
     bool xInside = (x >= cStartX && x < cStopX); if (invertX) xInside = !xInside;
     bool yInside = (y >= cStartY && y < cStopY); if (invertY) yInside = !yInside;
-    const bool clip = blendingStyle == TRANSITION_OUTSIDE_IN ? xInside || yInside : xInside && yInside;
-    return !clip;
+    const bool notclipped = style == TRANSITION_OUTSIDE_IN ? xInside || yInside : xInside && yInside;
+    return !notclipped;
   }
   return false;
 }

@@ -41,13 +41,15 @@
 		}
 
 		if (!json) {
-			showToast("Please visit the main UI first to load presets", true);
+			fetch(getURL('/presets.json'))
+				.then(res => res.status === 404 ? {} : res.json())
+				.then(loadPresets)
+				.catch(() => showToast("Failed to load presets", true));
 			return;
 		}
-
-		onPresetsLoaded(json);
+		loadPresets(json);
 	}
-	function onPresetsLoaded(json) {
+	function loadPresets(json) {
 		presets = json;
 		delete presets["0"];
 		bSPO();
@@ -60,7 +62,7 @@
 		for (var p of Object.entries(presets)) {
 			var id = p[0];
 			var name = p[1].n || ("Preset " + id);
-			sortedPresetOptions += `<option value="${id}">${id}: ${name}</option>`;
+			sortedPresetOptions += `<option value="${esc(id)}">${esc(id)}: ${esc(name)}</option>`;
 		}
 	}
 	function sPSV(sel, value, attrName) { // setPresetSelectValue
