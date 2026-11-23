@@ -443,6 +443,9 @@ std::vector<LEDType> BusDigital::getLEDTypes() {
   return {
     {TYPE_WS2812_RGB,    "D",  PSTR("WS281x RGB")},
     {TYPE_WS2811_400KHZ, "D",  PSTR("400kHz RGB")},
+#ifndef ESP8266
+    {TYPE_WS281X_600KHZ, "D",  PSTR("WS281x 600kHz RGB")},
+#endif
     {TYPE_TM1829,        "D",  PSTR("TM1829 RGB")},
     {TYPE_UCS8903,       "D",  PSTR("UCS8903 RGB")},
     {TYPE_APA106,        "D",  PSTR("APA106/PL9823 RGB")},

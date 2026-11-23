@@ -386,6 +386,7 @@ static_assert(WLED_MAX_BUSSES <= 32, "WLED_MAX_BUSSES exceeds hard limit");
 #define TYPE_SM16825             34            //RGB + WW + CW
 #define TYPE_TM1815              35            //RGBW (half speed TM1814)
 #define TYPE_UCS7604             36            //RGBW (16-bit)
+#define TYPE_WS281X_600KHZ       37            //WS281x protocol at 600kHz bit rate (LED curtain)
 //TODO add support for SM16714, see https://wled.discourse.group/t/sm16714-pixel-ic/9794
 #define TYPE_DIGITAL_MAX         39            // last usable digital type
 //"Analog" types (40-47)

@@ -318,10 +318,12 @@ class PixelBusAllocator {
     // Driver fallback order: requested driver -> parallel bus (I2S/LCD/SPI/PARLIO) -> BitBang.
     // If the requested driver has no free channel (or is unsupported on this target), the next
     // available driver is used instead.
+    if (busType == TYPE_WS281X_600KHZ) driverType = BUSDRV_RMT; // only the RMT driver reproduces the exact 600kHz timing (parallel drivers use a 4-step cadence)
     if (driverType == BUSDRV_RMT && _rmtChannelsAssigned < WLED_MAX_RMT_CHANNELS) {
       _rmtChannelsAssigned++;
       return true;
     }
+    if (busType == TYPE_WS281X_600KHZ) return false; // no free RMT channel: refuse instead of running with a wrong bit period
     if (driverType != BUSDRV_BITBANG && _parHwChannelsAssigned < WLED_MAX_PARHW_CHANNELS) {
       // BUSDRV_PARHW maps to the chip's parallel output peripheral: I2S on ESP32/S2, LCD on S3, parallel SPI on C3, PARLIO on C6/H2/C5/P4, all use 4-step cadence
       driverType = BUSDRV_PARHW;
@@ -347,6 +349,7 @@ class PixelBusAllocator {
     }
     return false; // No channels available
     #else
+    if (busType == TYPE_WS281X_600KHZ) return false; // no RMT driver on ESP8266
     // ESP8266: assign driverType based on pin number so BusManager::show() can sequence correctly.
     // GPIO1/2 → UART (async, fire-and-forget ISR)
     // GPIO3   → DMA  (async, I2S SLC DMA)
