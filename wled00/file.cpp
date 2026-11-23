@@ -401,6 +401,7 @@ static const uint8_t *getPresetCache(size_t &size) {
   }
 
   if (!presetsCached) {
+    strip.waitForBus(); // accessing FS can cause output glitches on single core MCUs
     File file = WLED_FS.open(FPSTR(getPresetsFileName()), "r");
     if (file) {
       presetsCachedTime = presetsModifiedTime;
@@ -425,6 +426,7 @@ bool handleFileRead(AsyncWebServerRequest* request, String path){
   DEBUGFS_PRINT(F("WS FileRead: ")); DEBUGFS_PRINTLN(path);
   if(path.endsWith("/")) path += "index.htm";
   if(path.indexOf(F("sec")) > -1) return false;
+  strip.waitForBus(); // accessing FS can cause output glitches on single core MCUs
   #ifdef BOARD_HAS_PSRAM
   if (path.endsWith(FPSTR(getPresetsFileName()))) {
     size_t psize;
