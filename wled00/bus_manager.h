@@ -515,7 +515,7 @@ namespace BusManager {
     for (const auto &bus : busses) if (!(bus->isVirtual() && onlyPhysical)) len += bus->getLength();
     return len;
   }
-  String         getLEDTypesJSONString();
+  void           printLEDTypesJSON(Print& dest);
   ColorOrderMap& getColorOrderMap();
 };
 #endif
