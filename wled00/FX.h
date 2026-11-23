@@ -894,7 +894,7 @@ class WS2812FX {
       show(),                                     // initiates LED output
       setTargetFps(unsigned fps),
       setupEffectData(),                          // add default effects to the list; defined in FX.cpp
-      waitForIt(),                                // wait until frame is over (service() has finished or time for 1 frame has passed)
+      waitForIt();                                // wait until frame is over (service() has finished or time for 1 frame has passed)
 
     inline void waitForBus() {                    // wait for bus output to finish (with timeout)
     #if defined(CONFIG_IDF_TARGET_ESP32S2) || defined(CONFIG_IDF_TARGET_ESP32C3)
