@@ -580,7 +580,7 @@ void WLED::setup()
   findWiFi(true);      // start scanning for available WiFi-s
 
   // all GPIOs are allocated at this point
-#ifdef ARDUINO_USB_CDC_ON_BOOT
+#if defined(ARDUINO_ARCH_ESP32) && ARDUINO_USB_CDC_ON_BOOT
   // USB CDC means USB D+ D- are used .. pin allocator will always return false in this case. force it as enabled instead
   serialCanRX = true;
   serialCanTX = true;
