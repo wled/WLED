@@ -227,11 +227,13 @@ Esp8266DmaBus::~Esp8266DmaBus() {
 }
 
 bool Esp8266DmaBus::allocateEncodeBuffer(uint16_t numPixels, uint8_t bytesPerPixel) {
+  if ((_prefixLen || _suffixLen) && !_framingData) return false;
   // 4-step I2S encoding: each source byte → 4 encoded bytes
   const size_t sourcePixelBytes = (size_t)numPixels * bytesPerPixel;
   const size_t prefixBytes = (size_t)_prefixLen * 4;
   const size_t pixelBytes = sourcePixelBytes * 4;
-  const size_t needed = prefixBytes + pixelBytes + (size_t)_suffixLen * 4;
+  const size_t suffixBytes = (size_t)_suffixLen * 4;
+  const size_t needed = prefixBytes + pixelBytes + suffixBytes;
   if (_encodeBuffer && _encodeBufferSize >= needed) return true;
   releaseEncodeBuffer();
   if (needed == 0) return true;
@@ -240,12 +242,13 @@ bool Esp8266DmaBus::allocateEncodeBuffer(uint16_t numPixels, uint8_t bytesPerPix
   memset(_encodeBuffer, 0, needed);
   _encodeBufferSize = needed;
   _pixelData = _encodeBuffer + prefixBytes;
-  updatePrefix(_prefixData, _prefixLen);
+  updatePrefix(_framingData, _prefixLen);
   if (_suffixLen > 0) {
     uint32_t* dst = (uint32_t*)(_pixelData + pixelBytes);
-    for (uint8_t i = 0; i < _suffixLen; i++) {
+    const uint8_t* suffixData = _framingData + _prefixLen;
+    for (size_t i = 0; i < _suffixLen; i++) {
       uint32_t word = 0;
-      uint8_t v = _suffixData[i];
+      uint8_t v = suffixData[i];
       for (int bit = 7; bit >= 0; bit--) {
         word <<= 4;
         if (_inverted) word |= (v & (1 << bit)) ? 0x1u : 0x7u;
@@ -554,8 +557,9 @@ void Esp8266DmaBus::clearEncodeBuffer() {
 }
 
 void Esp8266DmaBus::updatePrefix(const uint8_t* data, uint8_t len) {
-  if (!_encodeBuffer || !data || _prefixLen == 0 || len == 0) return;
+  if (!_pixelData || !data || _prefixLen == 0 || len == 0) return;
   if (len > _prefixLen) len = _prefixLen;
+  savePrefixData(data, len);
   uint32_t* dst = (uint32_t*)_encodeBuffer;
   for (uint8_t i = 0; i < len; i++) {
     uint32_t word = 0;
@@ -572,6 +576,7 @@ void Esp8266DmaBus::updatePrefix(const uint8_t* data, uint8_t len) {
 void Esp8266DmaBus::updateSuffix(const uint8_t* data, uint8_t len) {
   if (!_pixelData || !data || _suffixLen == 0 || len == 0) return;
   if (len > _suffixLen) len = _suffixLen;
+  saveSuffixData(data, len);
   const size_t pixelBytes = (size_t)_numPixels * _encoder.getBytesPerPixel();
   uint32_t* dst = (uint32_t*)(_pixelData + pixelBytes * 4);
   for (uint8_t i = 0; i < len; i++) {

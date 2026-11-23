@@ -45,7 +45,6 @@ TODO List
 - LPD6803 and LPD8806 encoding is done on RGB only, need to add support for more color channels if such stripes exist
 - ESP8266 DMA output uses a slow path to scale and reset buffers, needs optimisation
 - the "non global buffer" path is not optimised, check if this path should not color-encode on the fly so reading buffer back is faster, then do an encode pass before sending
-- I2S output on the S2 has very strange glitching behaviour exactly at every 32nd LED (=buffer boundry), depends on number of LEDs, anything below 256 is fine.
 - ESP8266 BitBang output does not handle signal inversion, inverted buses (like TM1814) will not work
 */
 
@@ -310,10 +309,10 @@ PixelBus* createBus(BusDriver driver, int8_t pin, const BusProperties& propertie
 // we have a bus, set the parameters
   if (bus) {
     bus->setNumPixels((uint16_t)numPixels);
-    bus->setPrefixLen(properties.prefixLen);
-    bus->setPrefixData(properties.prefixData, properties.prefixLen);
-    bus->setSuffixLen(properties.suffixLen);
-    bus->setSuffixData(properties.suffixData, properties.suffixLen);
+    if (!bus->setFraming(properties.prefixData, properties.prefixLen, properties.suffixData, properties.suffixLen)) {
+      delete bus;
+      return nullptr;
+    }
     bus->setInverted(properties.invertOutput);
     bus->setEncoder(ColorEncoder(properties.channelMap, properties.numChannels, properties.invertMask, properties.is16bit));
   }

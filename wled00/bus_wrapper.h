@@ -54,7 +54,8 @@ inline const LegacyLayout& getLegacyChannelLayout(uint8_t busType) {
   switch (busType) {
     case TYPE_TM1829:                 return brg;
     case TYPE_UCS8903:                return rgb;
-    case TYPE_UCS8904:                return rgbw;
+    case TYPE_UCS8904:
+    case TYPE_UCS7604:                return rgbw;
     case TYPE_TM1814: // fallthrough
     case TYPE_TM1815:                 return wrgb;
     case TYPE_FW1906:                 return grbcwx;
@@ -214,16 +215,19 @@ inline void resolveBusConfigLayout(BusConfig& bc) {
 
 // Type-derived hardware properties: prefix/suffix bytes and output inversion (special chip types only)
 inline void applyTypeFraming(WLEDpixelBus::BusProperties& props, uint8_t busType) {
-  if (busType == TYPE_TM1814 || busType == TYPE_TM1815) {
+  if (busType == TYPE_UCS7604) {
+    props.prefixLen = WLEDpixelBus::UCS7604_PREFIX_LEN;
+    props.prefixData = WLEDpixelBus::UCS7604_PREFIX;
+  } else if (busType == TYPE_TM1814 || busType == TYPE_TM1815) {
     props.prefixLen = WLEDpixelBus::TM1814_PREFIX_LEN; // prefix data is calculated per frame and contains brightness scaling
     props.invertOutput = true;
   } else if (busType == TYPE_TM1914) {
     props.prefixLen = WLEDpixelBus::TM1914_PREFIX_LEN;
-    memcpy(props.prefixData, WLEDpixelBus::TM1914_PREFIX, sizeof(WLEDpixelBus::TM1914_PREFIX));
+    props.prefixData = WLEDpixelBus::TM1914_PREFIX;
     props.invertOutput = true;
   } else if (busType == TYPE_SM16825) {
     props.suffixLen = WLEDpixelBus::SM16825_SUFFIX_LEN;
-    memcpy(props.suffixData, WLEDpixelBus::SM16825_SUFFIX, sizeof(WLEDpixelBus::SM16825_SUFFIX));
+    props.suffixData = WLEDpixelBus::SM16825_SUFFIX;
   }
 }
 

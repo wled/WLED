@@ -2379,13 +2379,24 @@ void mode_meteor() {
   if (SEGLEN <= 1) FX_FALLBACK_STATIC;
   if (!SEGENV.allocateData(SEGLEN)) FX_FALLBACK_STATIC; //allocation failed
   const bool meteorSmooth = SEGMENT.check3;
+  const bool slow = SEGMENT.check2;
   byte* trail = SEGENV.data;
 
   const unsigned meteorSize = 1 + SEGLEN / 20; // 5%
+  // custom3 is not exposed as a slider; it doubles as a one-time init flag (default c3=1 in metadata).
+  // Legacy configs predating the "# of Meteors" control may carry a leftover custom1 value, which would
+  // render an unexpected meteor count. If custom3 is not 1, treat the config as legacy: reset custom1 to
+  // 0 (single meteor) and mark custom3=1 so this migration runs only once.
+  if (SEGMENT.custom3 != 1) {
+    SEGMENT.custom1 = 0;
+    SEGMENT.custom3 = 1;
+  }
+  // clamp to SEGLEN so meteors get distinct start indices on very short segments (avoids duplicates)
+  const unsigned numMeteors = min((unsigned)(1 + (SEGMENT.custom1 >> 5)), (unsigned)SEGLEN); // 1..8 meteors
   uint16_t meteorstart;
   if(meteorSmooth) meteorstart = map((SEGENV.step >> 6 & 0xFF), 0, 255, 0, SEGLEN -1);
   else {
-    unsigned counter = strip.now * ((SEGMENT.speed >> 2) + 8);
+    unsigned counter = strip.now * (slow ? (SEGMENT.speed >> 4) + 1 : (SEGMENT.speed >> 2) + 8);
     meteorstart = (counter * SEGLEN) >> 16;
   }
 
@@ -2417,29 +2428,31 @@ void mode_meteor() {
     }
   }
 
-  // draw meteor
-  for (unsigned j = 0; j < meteorSize; j++) {
-    unsigned index = (meteorstart + j) % SEGLEN;
-    if(meteorSmooth) {
+  // draw meteor(s), evenly spaced along the strip
+  for (unsigned m = 0; m < numMeteors; m++) {
+    unsigned start = (meteorstart + m * SEGLEN / numMeteors) % SEGLEN;
+    for (unsigned j = 0; j < meteorSize; j++) {
+      unsigned index = (start + j) % SEGLEN;
+      if (meteorSmooth) {
         trail[index] = max;
         uint32_t col = SEGMENT.check1 ? SEGMENT.color_from_palette(index, true, false, 0, trail[index]) : SEGMENT.color_from_palette(trail[index], false, true, 255);
         SEGMENT.setPixelColor(index, col);
-    }
-    else{
-      int idx = 255;
-      int i = trail[index] = max;
-      if (!SEGMENT.check1) {
-        i = map(index,0,SEGLEN,0,max);
-        idx = 0;
+      } else {
+        int idx = 255;
+        int i = trail[index] = max;
+        if (!SEGMENT.check1) {
+          i = map(index,0,SEGLEN,0,max);
+          idx = 0;
+        }
+        uint32_t col = SEGMENT.color_from_palette(i, false, false, idx, 255); // full brightness
+        SEGMENT.setPixelColor(index, col);
       }
-      uint32_t col = SEGMENT.color_from_palette(i, false, false, idx, 255); // full brightness
-      SEGMENT.setPixelColor(index, col);
     }
   }
 
-  SEGENV.step += SEGMENT.speed +1;
+  SEGENV.step += (slow ? SEGMENT.speed >> 3 : SEGMENT.speed) + 1;
 }
-static const char _data_FX_MODE_METEOR[] PROGMEM = "Meteor@!,Trail,,,,Gradient,,Smooth;;!;1";
+static const char _data_FX_MODE_METEOR[] PROGMEM = "Meteor@!,Trail,# of Meteors,,,Gradient,Slow,Smooth;;!;1;c1=0,c3=1";
 
 
 //Railway Crossing / Christmas Fairy lights
@@ -5080,6 +5093,151 @@ void mode_FlowStripe(void) {
   }
 } // mode_FlowStripe()
 static const char _data_FX_MODE_FLOWSTRIPE[] PROGMEM = "Flow Stripe@Hue speed,Effect speed;;!;pal=11";
+
+
+/*
+*  Morse Code by Bob Loeffler (#5252) - size optimized and extended by @dedehai
+*  Adapted from code by automaticaddison.com and optimized using claude.ai
+*/
+
+// Bit manipulation macros
+#define SET_BIT8(arr, i) ((arr)[(i) >> 3] |= (1 << ((i) & 7)))
+#define GET_BIT8(arr, i) (((arr)[(i) >> 3] & (1 << ((i) & 7))) != 0)
+
+// Morse lookup as a binary tree: the index in the char array is the morse code (0 = dot, 1 = dash) with a leading "1"
+// for example the second char is 'E' at index 2 (binary 10), discard the "1" -> 0 (dot)
+// Finding the Morse code for a character can be done by finding the index using strchr()
+// Tree structure: the char at index i has its "dot" child at 2i and its "dash" child at 2i+1
+static const char morseTree[] =
+  "  ETIANMSURWDKGO" "HVF L PJBXCYZQ  " "54 3   2& +    1" "6=/   ( 7   8 90" // note: 16-char block strings are concatenated at compile time
+  "            ?   " "     .    @   ' " " -         ! )  " "   ,    :";
+
+#define MORSE_MAX_LEN  1023
+#define MORSE_WORD_GAP 7    // 7 empty pixels in a row mark the end of a word
+
+struct MorseData {
+  uint16_t hash;                               // detects text / option changes
+  uint16_t length;                             // pattern length in pixels
+  uint8_t  words;                              // word count (for color spacing)
+  uint8_t  bits[(MORSE_MAX_LEN + 7) / 8];      // 1 bit per pixel
+};
+
+// Append 'count' pixels (lit or empty) to the pattern
+static void morse_put(MorseData &m, bool on, uint8_t count) {
+  while (count-- && m.length < MORSE_MAX_LEN) {
+    if (on) SET_BIT8(m.bits, m.length);
+    m.length++;
+  }
+}
+
+// Append one character; idx = index of the character in morseTree
+static void morse_addchar(MorseData &m, uint8_t idx) {
+  uint8_t bit = 0x40;
+  while (!(idx & bit)) bit >>= 1;               // skip to the leading 1 (marker bit)
+  while (bit >>= 1) {                           // one pass per dot/dash
+    morse_put(m, true, (idx & bit) ? 3 : 1);    // dot = 1 pixel, dash = 3 pixels
+    morse_put(m, false, 1);                     // 1 gap between elements
+  }
+  morse_put(m, false, 2);                       // +2 = 3 gaps between letters
+}
+
+static void mode_morsecode(void) {
+  if (SEGLEN < 1) FX_FALLBACK_STATIC;
+  if (!SEGENV.allocateData(sizeof(MorseData))) FX_FALLBACK_STATIC;
+  MorseData *m = reinterpret_cast<MorseData*>(SEGENV.data);
+
+  // Get the text to display
+  char text[WLED_MAX_SEGNAME_LEN+1];
+  if (SEGMENT.name && *SEGMENT.name) strlcpy(text, SEGMENT.name, sizeof(text));
+  else strcpy_P(text, PSTR("I Love WLED!"));
+
+  // 16-bit hash of text + option flags decides whether to rebuild the pattern
+  uint16_t hash = SEGMENT.check2 | (SEGMENT.check3 << 1);
+  for (const char *c = text; *c; c++) hash = hash * 33 + *c;
+
+  // ---- Build the pattern (first call, or text/options changed) ----
+  if (SEGENV.call == 0 || hash != m->hash) {
+    m->hash = hash;
+    m->length = 0;
+    memset(m->bits, 0, sizeof(m->bits));
+    uint8_t words = 1;
+
+    for (const char *c = text; *c && m->length <= MORSE_MAX_LEN - 24; c++) {
+      char ch = toupper(*c);
+      if (ch == ' ') {                                  // 3 gaps after the letter + 4 = 7 between words
+        words++;
+        morse_put(*m, false, 4);
+        continue;
+      }
+      if (!isalnum(ch) && !SEGMENT.check2) continue;    // punctuation is optional
+      const char *p = strchr(morseTree, ch);
+      if (!p) continue;                                 // skip characters not in the morseTree
+      uint8_t idx = p - morseTree;                      // index of the character in morseTree = char morse code in binary
+      morse_addchar(*m, idx);
+    }
+
+    if (SEGMENT.check3) morse_addchar(*m, 42);          // end of message ".-.-."
+    morse_put(*m, false, MORSE_WORD_GAP+4);             // double word gap at end of message
+    m->words = words;
+    SEGENV.aux0 = 0;                                    // restart
+  }
+
+  // Timing: advance one step per tick
+  uint32_t it = strip.now / (50 + (255 - SEGMENT.speed) * 3);
+  if (SEGENV.step != it) { SEGENV.aux0++; SEGENV.step = it; }
+
+  const uint16_t length = m->length;                  // length of the Morse code pattern in pixels
+  const uint16_t scroll      = SEGENV.aux0 % length;  // pattern index currently shown on pixel 0
+  const uint8_t  wordSpacing = 255 / m->words;        // spread word colors evenly
+  const uint8_t  hueStep     = SEGMENT.custom3;       // hue change per pixel, 0 = color by word
+  const bool     useWheel    = SEGMENT.palette > 0;   // otherwise use the selected palette
+
+  // Flash mode: whole strip blinks the message
+  if (SEGMENT.check1) {
+    for (int i = 0; i < SEGLEN; i++) {
+      uint8_t colorPos;
+      colorPos = i * hueStep;
+      bool lightUp = GET_BIT8(m->bits, SEGENV.aux0 % length);
+      SEGMENT.setPixelColor(i, lightUp ? SEGMENT.color_wheel(colorPos) : BLACK);
+    }
+    return;
+  }
+  // Scroll mode: paint the message onto the strip with scrolling
+  SEGMENT.fill(BLACK);
+  int word = 0;
+  int emptyRun = 0;
+
+  for (uint16_t index = 0; index < length; index++) {
+    if (!GET_BIT8(m->bits, index)) {
+      emptyRun++;
+      if (emptyRun == MORSE_WORD_GAP) word++; // word gap detected, count word (for coloring below)
+      continue; // skip non-lit pixels
+    }
+    emptyRun = 0;
+
+    // Scrolling means pattern index N is shown on pixel (N - scroll), wrapped around.
+    // If the strip is longer than the pattern, the pattern repeats every 'length' pixels.
+    int firstPixel = (index + length - scroll) % length;
+
+    for (int pixel = firstPixel; pixel < SEGLEN; pixel += length) {
+      uint8_t colorPos;
+
+      if (hueStep == 0) {                           // color by word: each word gets its own color
+        colorPos = word * wordSpacing;
+        if (useWheel) colorPos += SEGENV.aux0 / 4;  // slowly cycle the hue
+      } else {                                      // gradient along the strip, hueStep per pixel
+        colorPos = pixel * hueStep;
+        if (useWheel) colorPos += SEGENV.aux0;      // cycle the hue as it scrolls
+      }
+
+      SEGMENT.setPixelColor(pixel, SEGMENT.color_wheel(colorPos)); // uses HSV color if pal=0, use palette otherwise
+    }
+  }
+}
+static const char _data_FX_MODE_MORSECODE[] PROGMEM = "Morse Code@!,,,,Color,Flash,Punctuation,EndOfMessage;;!;1;sx=192,c3=0,o2=1";
+
+#undef SET_BIT8
+#undef GET_BIT8
 
 /*
   Shimmer effect: moves a gradient with optional modulators across the strip at a given interval, up to 60 seconds
@@ -10058,14 +10216,15 @@ void mode_particleHourglass(void) {
   PartSys->updateSystem(); // update system properties (dimensions and data pointers)
   settingTracker = reinterpret_cast<uint32_t *>(PartSys->PSdataEnd);  //assign data pointer
   direction = reinterpret_cast<bool *>(PartSys->PSdataEnd + 4);  //assign data pointer
-  PartSys->setUsedParticles(1 + ((SEGMENT.intensity * 255) >> 8));
+  const bool fillMode = SEGMENT.intensity == 0; // fill mode drops the particle from outside, filling up the strip
+  PartSys->setUsedParticles(fillMode ? 255 : 1 + ((SEGMENT.intensity * 255) >> 8));
   PartSys->setMotionBlur(SEGMENT.custom2); // anable motion blur
   PartSys->setGravity(map(SEGMENT.custom3, 0, 31, 1, 30));
   PartSys->enableParticleCollisions(true, 64); // hardness value (found by experimentation on different settings)
 
   uint32_t colormode = SEGMENT.custom1 >> 5; // 0-7
 
-  if (SEGMENT.intensity != *settingTracker) { // initialize
+  if (SEGMENT.call == 0 || SEGMENT.intensity != *settingTracker) { // initialize
     *settingTracker = SEGMENT.intensity;
     for (uint32_t i = 0; i < PartSys->usedParticles; i++) {
       PartSys->particleFlags[i].reversegrav = true; // resting particles dont fall
@@ -10123,7 +10282,10 @@ void mode_particleHourglass(void) {
       PartSys->particleFlags[i].collide = true;
       PartSys->particleFlags[i].perpetual = true;
       PartSys->particles[i].ttl = 260;
-      PartSys->particles[i].x = calcTargetPos(i);
+      if (fillMode)
+        PartSys->particles[i].x = PartSys->maxX << 2; // place far outside, we bring them in when dropped
+      else
+        PartSys->particles[i].x = calcTargetPos(i);
       PartSys->particleFlags[i].fixed = true;
     }
   }
@@ -10138,8 +10300,12 @@ void mode_particleHourglass(void) {
       if (SEGENV.aux0 < PartSys->usedParticles) {
         PartSys->particleFlags[SEGENV.aux0].reversegrav = *direction; // let this particle fall or rise
         PartSys->particleFlags[SEGENV.aux0].fixed = false; // unpin
+        if (fillMode) {
+          int dropPosition = PartSys->particleFlags[SEGENV.aux0].reversegrav ? -5 * PS_P_RADIUS_1D : PartSys->maxX + 5 * PS_P_RADIUS_1D;
+          PartSys->particles[SEGENV.aux0].x = dropPosition; // place just outside the strip so particle moves into view
+        }
       }
-      else { // overflow
+      else { // last particle has been dropped
         *direction = !(*direction); // flip direction
         SEGENV.aux1 = (SEGMENT.check2) * SEGMENT.vLength() + 100; // set restart countdown, make it short if auto start is unchecked
       }
@@ -11230,6 +11396,7 @@ void WS2812FX::setupEffectData() {
   addEffect(FX_MODE_WAVESINS, &mode_wavesins, _data_FX_MODE_WAVESINS);
   addEffect(FX_MODE_ROCKTAVES, &mode_rocktaves, _data_FX_MODE_ROCKTAVES);
   addEffect(FX_MODE_SHIMMER, &mode_shimmer, _data_FX_MODE_SHIMMER);
+  addEffect(FX_MODE_MORSECODE, &mode_morsecode, _data_FX_MODE_MORSECODE);
 
   // --- 2D  effects ---
 #ifndef WLED_DISABLE_2D
