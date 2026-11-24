@@ -1338,8 +1338,10 @@ void WS2812FX::finalizeInit() {
   unsigned rmtBusCount = 0;
   unsigned parHwBusCount = 0; // used for debug print only
   #endif
+  for (int pass = 0; pass < 2; pass++) // pass 0: 600kHz buses claim their RMT channels first, pass 1: all other buses
   for (auto &bus : busConfigs) {
     if (!Bus::isDigital(bus.type)) continue;
+    if ((bus.type == TYPE_WS281X_600KHZ) != (pass == 0)) continue;
     if (!BusManager::allocateHardware(bus.type, bus.pins, bus.driverType)) {
       DEBUG_PRINTLN(F("Bus driver allocation failed."));
       continue; // TODO: avoid constructing this bus when no driver could be allocated?
