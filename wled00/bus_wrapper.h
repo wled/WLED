@@ -428,6 +428,7 @@ static WLEDpixelBus::PixelBus* create(uint8_t busType, uint8_t* pins, uint16_t l
     driver = WLEDpixelBus::BusDriver::BitBang;
     #endif
 
+    if (busType == TYPE_WS281X_600KHZ && driver != WLEDpixelBus::BusDriver::RMT) return nullptr; // 600kHz timing is only exact with the RMT driver (also covers ESP8266 and C61)
     if (!properties) return nullptr; // one-wire buses are created from an explicit property set
     WLEDpixelBus::BusProperties wire = *properties;
     // Caller should already have used checkParallelType(). If it did not, keep the shared clock consistent.
