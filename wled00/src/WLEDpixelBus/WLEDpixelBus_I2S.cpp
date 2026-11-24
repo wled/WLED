@@ -180,9 +180,8 @@ void I2sBusContext::hwStartTransfer() {
   LCD_CAM.lcd_user.lcd_start = 1;
 }
 
-void IRAM_ATTR I2sBusContext::stopTransferHwIram() {
+void I2sBusContext::stopTransferHw() {
   LCD_CAM.lcd_user.lcd_start = 0;
-  // Register-level GDMA stop: gdma_stop() lives in flash and must not be called from ISR
   if (_dmaChanId >= 0) GDMA.channel[_dmaChanId].out.link.stop = 1;
   _state = DriverState::Idle;
 }
@@ -400,7 +399,7 @@ void I2sBusContext::hwStartTransfer() {
 
   _i2sDev->int_clr.val = 0xFFFFFFFF;
   _i2sDev->int_ena.out_eof = 1;       // single descriptor transfer finished
-  _i2sDev->int_ena.out_total_eof = 1; // full transfer finished
+  //_i2sDev->int_ena.out_total_eof = 1; // DMA transfer finished -> seems unreliable, fires twice at EOF and before data is finished
 
   _i2sDev->fifo_conf.dscr_en = 1;
   _i2sDev->out_link.start = 0;
@@ -409,7 +408,7 @@ void I2sBusContext::hwStartTransfer() {
   _i2sDev->conf.tx_start = 1;
 }
 
-void IRAM_ATTR I2sBusContext::stopTransferHwIram() {
+void I2sBusContext::stopTransferHw() {
   if (_i2sDev) {
     _i2sDev->int_ena.out_eof = 0;
     _i2sDev->int_ena.out_total_eof = 0;
@@ -527,7 +526,7 @@ void IRAM_ATTR __attribute__((noinline)) I2sBusContext::fillBuffer(uint8_t bufId
   const uint32_t* end = buf32 + (_bufferSize >> 2);
   while (buf32 < end) *buf32++ = 0; // clear buffer (set all lanes low), DMA buffer is 4 bytes aligned. Note: memset is not IRAM safe and may crash
 
-  if (_resetBytesLeft > 0 && _resetBytesLeft != WLEDPB_I2S_XFER_DONE_FLAG) {
+  if (_resetBytesLeft > WLEDPB_I2S_XFER_DONE_FLAG) {
     if (_resetBytesLeft <= _bufferSize) {
       descSetLength(_dmaDesc[bufIdx], _resetBytesLeft);
       descSetNext(_dmaDesc[bufIdx], nullptr);
@@ -587,6 +586,7 @@ bool I2sBusContext::startTransmit() {
   }
 
   _resetBytesLeft = 0;
+  _txStartMillis = millis(); // watchdog start
 
   if (!_dmaAllocated) {
     if (!_allocDmaBuffers()) return false;
@@ -603,7 +603,6 @@ bool I2sBusContext::startTransmit() {
 
   _lastFilled = WLEDPB_I2S_DMA_BUFFER_COUNT - 1; // all buffers were just pre-filled, next to refill is buffer 0
   _state = DriverState::Sending;
-  _txStartMillis = millis(); // watchdog start
 
   hwStartTransfer();
 
@@ -633,11 +632,7 @@ void IRAM_ATTR I2sBusContext::dmaISR(void* arg) {
   uint32_t status = dev->int_st.val;
   dev->int_clr.val = status;
 
-  if (status & I2S_OUT_TOTAL_EOF_INT_ST) { // link terminated: frame fully sent
-    ctx->stopTransferHwIram();
-    return;
-  }
-  if (!(status & I2S_OUT_EOF_INT_ST)) return;
+  if (!(status & I2S_OUT_EOF_INT_ST)) return; // EOF interrupt? (fires when a single descriptor completed)
 
   // which descriptor actually produced this EOF (resyncs even if EOFs were coalesced)
   uint32_t eofAddr = dev->out_eof_des_addr;
@@ -656,8 +651,8 @@ void IRAM_ATTR I2sBusContext::_processEof(int8_t completedBuf) {
 
   // end of frame? checks the just finished descriptor for the terminating nullptr
   if (descGetNext(_dmaDesc[completedBuf]) == nullptr) {
-    stopTransferHwIram();
-    return;
+    _state = DriverState::Idle; // all data transferred to HW buffer, set idle (data out will be done in about 10-20µs, long before the next frame starts)
+    return; // everything already encoded
   }
 
 #if WLEDPB_I2S_DMA_BUFFER_COUNT > 2

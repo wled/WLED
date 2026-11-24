@@ -94,8 +94,7 @@ private:
   void hwDeinit() override;
   void releaseResources() override;
   void hwStartTransfer();
-  void stopTransferHw() override { stopTransferHwIram(); } // base class hook, called from task context only
-  void IRAM_ATTR stopTransferHwIram();                     // called from the DMA ISR
+  void stopTransferHw() override;
   void channelAttached(int8_t idx, int8_t pin, bool inverted) override;
   void channelDetached(int8_t idx, int8_t pin) override;
 
@@ -109,7 +108,6 @@ private:
   static inline DmaDesc_t* descGetNext(DmaDesc_t* d) { return d->next; }
   static inline void descSetEof(DmaDesc_t* d) { d->dw0.suc_eof = 1; }
   static inline void descSetOwnerDma(DmaDesc_t* d) { d->dw0.owner = DMA_DESCRIPTOR_BUFFER_OWNER_DMA; }
-  static inline bool descIsOwnerDma(DmaDesc_t* d) { return d->dw0.owner == DMA_DESCRIPTOR_BUFFER_OWNER_DMA; }
 #else
   using DmaDesc_t = lldesc_t;
   static inline void descSetBuf(DmaDesc_t* d, uint8_t* b) { d->buf = b; }
@@ -119,7 +117,6 @@ private:
   static inline DmaDesc_t* descGetNext(DmaDesc_t* d) { return d->qe.stqe_next; }
   static inline void descSetEof(DmaDesc_t* d) { d->eof = 1; }
   static inline void descSetOwnerDma(DmaDesc_t* d) { d->owner = 1; }
-  static inline bool descIsOwnerDma(DmaDesc_t* d) { return d->owner == 1; }
 #endif
 
 #ifdef CONFIG_IDF_TARGET_ESP32S3
