@@ -142,30 +142,30 @@ uint32_t EspalexaDevice::getRGB()
     if (temp <= 66) { 
       r = 255; 
       g = temp;
-      g = 99.470802 * logf(g) - 161.119568;
+      g = 99.470802f * logf(g) - 161.119568f;
       if (temp <= 19) {
           b = 0;
       } else {
           b = temp-10;
-          b = 138.517731 * logf(b) - 305.044793;
+          b = 138.517731f * logf(b) - 305.044793f;
       }
     } else {
       r = temp - 60;
-      r = 329.698727 * pow(r, -0.13320476);
+      r = 329.698727f * powf(r, -0.13320476f);
       g = temp - 60;
-      g = 288.12217 * pow(g, -0.07551485 );
+      g = 288.12217f * powf(g, -0.07551485f );
       b = 255;
     }
     
-    rgb[0] = (byte)constrain(r,0.1,255.1);
-    rgb[1] = (byte)constrain(g,0.1,255.1);
-    rgb[2] = (byte)constrain(b,0.1,255.1);
+    rgb[0] = (byte)constrain(r,0.1f,255.1f);
+    rgb[1] = (byte)constrain(g,0.1f,255.1f);
+    rgb[2] = (byte)constrain(b,0.1f,255.1f);
     
   } else if (_mode == EspalexaColorMode::hs)
   {
-    float h = ((float)_hue)/65535.0;
-    float s = ((float)_sat)/255.0;
-    byte i = floor(h*6);
+    float h = ((float)_hue)/65535.0f;
+    float s = ((float)_sat)/255.0f;
+    byte i = floorf(h*6);
     float f = h * 6-i;
     float p = 255 * (1-s);
     float q = 255 * (1-f*s);
@@ -230,9 +230,9 @@ uint32_t EspalexaDevice::getRGB()
         b = 1.0f;
       }
     }
-    rgb[0] = 255.0*r;
-    rgb[1] = 255.0*g;
-    rgb[2] = 255.0*b;
+    rgb[0] = 255.0f*r;
+    rgb[1] = 255.0f*g;
+    rgb[2] = 255.0f*b;
   }
   _rgb = ((rgb[0] << 16) | (rgb[1] << 8) | (rgb[2]));
   return _rgb;

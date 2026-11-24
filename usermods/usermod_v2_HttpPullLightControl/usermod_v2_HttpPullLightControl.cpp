@@ -71,6 +71,7 @@ String HttpPullLightControl::generateUniqueId() {
     unsigned char shaResult[20]; // SHA1 produces a hash of 20 bytes  (which is 40 HEX characters)
     mbedtls_sha1_context ctx;
     mbedtls_sha1_init(&ctx);
+#if ESP_IDF_VERSION < ESP_IDF_VERSION_VAL(5, 0, 0)
     status = mbedtls_sha1_starts_ret(&ctx);
     if (status != 0) {
       DEBUG_PRINTLN(F("Error starting SHA1 checksum calculation"));
@@ -83,6 +84,21 @@ String HttpPullLightControl::generateUniqueId() {
     if (status != 0) {
       DEBUG_PRINTLN(F("Error finishing SHA1 checksum calculation"));
     }
+#else
+    // function names have changed in esp-idf V5
+    status = mbedtls_sha1_starts(&ctx);
+    if (status != 0) {
+      DEBUG_PRINTLN(F("Error starting SHA1 checksum calculation"));
+    }
+    status = mbedtls_sha1_update(&ctx, reinterpret_cast<const unsigned char*>(input.c_str()), input.length());
+    if (status != 0) {
+      DEBUG_PRINTLN(F("Error feeding update buffer into ongoing SHA1 checksum calculation"));
+    }
+    status = mbedtls_sha1_finish(&ctx, shaResult);
+    if (status != 0) {
+      DEBUG_PRINTLN(F("Error finishing SHA1 checksum calculation"));
+    }
+#endif
     mbedtls_sha1_free(&ctx);
 
     // Convert the Hash to a hexadecimal string

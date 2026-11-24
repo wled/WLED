@@ -481,7 +481,7 @@ static void mode_2D_lavalamp(void) {
         float distSq = dx*dx + dy*dy;
         float attractRangeSq = attractRange * attractRange;
         if (distSq > 0 && distSq < attractRangeSq) {
-          float dist = sqrt(distSq); // Only compute sqrt when needed
+          float dist = sqrtf(distSq); // Only compute sqrt when needed
           float force = (1.0f - (dist / attractRange)) * 0.0001f;
           p->vx += (dx / dist) * force;
         }
@@ -1258,6 +1258,616 @@ static void mode_morsecode(void) {
 static const char _data_FX_MODE_MORSECODE[] PROGMEM = "Morse Code@Speed,,,,Color mode,Color by Word,Punctuation,EndOfMessage;;!;1;sx=192,c3=8,o1=1,o2=1";
 
 
+/*
+/  Perlinscape effect - a Perlin noise Landscape
+*   Created by stepko as part of Stepko Land on soulmatelights.com
+*   Adapted to WLED by Bob Loeffler with additional features (and help from Claude)
+*   First slider is for speed/movement
+*   Second slider is for zooming in/out (Perlin scaling)
+*   Third slider is the X multiplier
+*   Fourth slider is the Y multiplier
+*   Fifth slider is the rotation speed (0 = do not rotate)
+*   Check1 will randomize the horizontal and vertical directions (8 possible directions controlled by aux1)
+*/
+static void mode_2D_perlinscape(void) {
+  if (!strip.isMatrix || !SEGMENT.is2D()) FX_FALLBACK_STATIC;
+  const uint16_t width = SEG_W;
+  const uint16_t height = SEG_H;
+  if (!SEGENV.allocateData(5 * sizeof(int32_t) + sizeof(uint32_t))) FX_FALLBACK_STATIC;
+
+  uint32_t speedMult = map(SEGMENT.speed, 0, 255, 1, 30);
+  uint32_t t = strip.now / 10;
+  uint8_t  Xmult = map(SEGMENT.custom1, 0, 255, 0, 64);
+  uint8_t  Ymult = map(SEGMENT.custom2, 0, 255, 0, 64);
+
+  int32_t &offX = *(reinterpret_cast<int32_t*>(SEGENV.data) + 0);
+  int32_t &offY = *(reinterpret_cast<int32_t*>(SEGENV.data) + 1);
+  int32_t &stepX = *(reinterpret_cast<int32_t*>(SEGENV.data) + 2);
+  int32_t &stepY = *(reinterpret_cast<int32_t*>(SEGENV.data) + 3);
+  int32_t &angle = *(reinterpret_cast<int32_t*>(SEGENV.data) + 4);
+  uint32_t &prevT = *(reinterpret_cast<uint32_t*>(reinterpret_cast<int32_t*>(SEGENV.data) + 5));
+
+  if (SEGENV.call == 0) {
+    SEGENV.aux0 = hw_random16(5000, 10000);
+    SEGENV.aux1 = 0;
+    offX  = 0;
+    offY  = 0;
+    stepX = 256;   // 1.0 in Q8
+    stepY = 256;   // 1.0 in Q8
+    angle = 0;
+    prevT = t;
+  }
+
+  // change direction
+  if (SEGMENT.check1 && (strip.now - SEGENV.step > SEGENV.aux0)) {
+    SEGENV.aux0 = hw_random16(5000, 10000);
+    SEGENV.aux1 = hw_random8(8);  // random direction
+    SEGENV.step = strip.now;
+  }
+
+  // direction lookup table {targetX, targetY} in Q8 format
+  static const int16_t direction[8][2] = {
+    {   0, -256}, // down
+    { 256, -256}, // down-left
+    { 256,    0}, // left
+    { 256,  256}, // up-left
+    {   0,  256}, // up
+    {-256,  256}, // up-right
+    {-256,    0}, // right
+    {-256, -256}, // down-right
+  };
+
+  int16_t targetX = direction[SEGENV.aux1][0];
+  int16_t targetY = direction[SEGENV.aux1][1];
+
+  stepX += ((targetX - stepX) * 13) >> 8;
+  stepY += ((targetY - stepY) * 13) >> 8;
+
+  // dt in raw milliseconds
+  uint32_t udt = strip.now - prevT;
+  int32_t dt = (udt > 500) ? 0 : (int32_t)udt;
+  offX += (stepX * dt * speedMult) >> 14;
+  offY += (stepY * dt * speedMult) >> 14;
+  prevT = strip.now;
+
+  int32_t tX = static_cast<int32_t>(static_cast<uint16_t>(offX) << 1U);
+  int32_t tY = static_cast<int32_t>(static_cast<uint16_t>(offY) << 1U);
+
+  // Rotation — cos16/sin16 return Q15 (-32768..32767 = -1.0..1.0)
+  int32_t cosA = 1024;  // Q10: 1.0 = 1024
+  int32_t sinA = 0;
+
+  // rotate if rotation speed slider is not 0
+  if (SEGMENT.custom3 > 0) {
+    int32_t dirOffset = 0;
+
+    if (!SEGMENT.check1) {
+      // rotation in one direction
+      angle = ((angle + (int32_t)SEGMENT.custom3 * dt) & 0xFFFF);
+    } else {
+      // rotation on direction change
+      float moveAngle = atan2f((float)stepY, (float)stepX);
+      dirOffset = (int32_t)(moveAngle * 32768.0f / (float)M_PI);
+      int8_t rotDir = (stepX >= 0) ? 1 : -1;  // clockwise vs counter-clockwise
+      angle = ((angle + rotDir * (int32_t)SEGMENT.custom3 * dt) & 0xFFFF);
+    }
+
+    cosA = cos16_t((uint16_t)(angle + dirOffset)) >> 5;
+    sinA = sin16_t((uint16_t)(angle + dirOffset)) >> 5;
+  }
+
+  // Fixed offsets to spread the three Perlin calls into different color regions (300 just looks good)
+  constexpr uint16_t colorOffX = 300, colorOffY = 300;
+
+  // Center in Q8 (avoids 0.5 fractions)
+  int32_t cx256 = (int32_t)width  * 128;
+  int32_t cy256 = (int32_t)height * 128;
+
+  // scale: map intensity 0-255 -> 10-200, then store as Q8 (divide by 100 baked in)
+  int32_t scale_q8 = (int32_t)map(SEGMENT.intensity, 0, 255, 10, 200) * 256 / 100;
+
+  for (uint16_t x = 0; x < width; x++) {
+    for (uint16_t y = 0; y < height; y++) {
+      // (x - cx) and (y - cy) in Q8
+      int32_t dx256 = (int32_t)x * 256 - cx256;
+      int32_t dy256 = (int32_t)y * 256 - cy256;
+
+      // Rotation in Q8: cosA/sinA are Q10, dx/dy are Q8
+      // cosA*dx >> 10 = Q8 result; add cx256 to re-center
+      int32_t rx256 = ((cosA * dx256 - sinA * dy256) >> 10) + cx256;
+      int32_t ry256 = ((sinA * dx256 + cosA * dy256) >> 10) + cy256;
+
+      // scaled_x = rx * Xmult * scale
+      // rx256 is Q8, scale_q8 is Q8 => product is Q16, >> 16 gives integer
+      int32_t scaled_x = int32_t((int64_t(rx256) * Xmult * scale_q8) >> 16);
+      int32_t scaled_y = int32_t((int64_t(ry256) * Ymult * scale_q8) >> 16);
+
+      if (SEGMENT.palette == 0) {
+        SEGMENT.setPixelColorXY(x, y, perlin8(scaled_x + tX, scaled_y + tY, t), perlin8(scaled_x + tX, scaled_y + tY + colorOffY), perlin8(scaled_x + tX + colorOffX, scaled_y + tY));
+      } else {
+        uint8_t paletteIndex = perlin8(scaled_x + tX, scaled_y + tY, t);
+        uint8_t brightness = perlin8(scaled_x + tX + colorOffX, scaled_y + tY + colorOffY);
+        SEGMENT.setPixelColorXY(x, y, SEGMENT.color_from_palette(paletteIndex, false, PALETTE_SOLID_WRAP, brightness));
+      }
+    }
+  }
+}
+static const char _data_FX_MODE_2D_PERLINSCAPE[] PROGMEM = "Perlinscape@!,Zoom (In/Out),X multiplier,Y multiplier,Rotation speed,Random direction;;!;2;c3=0,o1=1,pal=0";
+
+
+/*
+ * Dissolve Plus
+ *   Modifications to original Dissolve effect by Bob Loeffler
+ *   slider 1 is for the delay interval between dissolving and filling
+ *   slider 2 is for the dissolving speed
+ *   slider 3 is for the filling speed
+ *   slider 4 is for the delay when only one LED is lit and when in lastOne mode (not used if Last One checkbox is not selected)
+ *     If set to max value (255), the effect will not redraw any LEDs, so this can be used with a playlist and physical button to,
+ *     for example, restart the animation by unchecking checkbox 3 in a preset and then checking it again with another preset.
+ *     This was requested in https://github.com/wled/WLED/issues/1044
+ *   slider 5 is for the rate at which the LEDs will fade away (if set to 0, they will immediately change to the background color; this is the original Dissolve FX rate)
+ *   checkbox 1 is to select random colors
+ *   checkbox 2 is to force it to wait until all LEDs have been completely filled or dissolved
+ *   checkbox 3 is to select whether one last LED will stay lit (like a "last one standing" or "sole survivor")
+ *   aux0: 3 packed values: phase/stage of dissolve/refill process, whether done dissolving/refilling, and previous value of lastOneMode
+ *   aux1: random survivor pixel index
+ */
+#define DISSOLVE_PHASE          (SEGENV.aux0 & 0xFF)
+#define DISSOLVE_DONE           ((SEGENV.aux0 >> 8) & 0x01)
+#define DISSOLVE_PREV_LAST_ONE  ((SEGENV.aux0 >> 9) & 0x01)
+#define SET_PHASE(p)            (SEGENV.aux0 = (SEGENV.aux0 & 0xFF00) | (p))
+#define SET_DONE(d)             (SEGENV.aux0 = (SEGENV.aux0 & 0xFEFF) | ((d) << 8))
+#define SET_PREV_LAST_ONE(d)    (SEGENV.aux0 = (SEGENV.aux0 & 0xFDFF) | ((d) << 9))
+
+static void mode_dissolveplus(void) {
+  unsigned dataSize = sizeof(uint32_t) * (SEGLEN + 1);
+  if (!SEGENV.allocateData(dataSize)) FX_FALLBACK_STATIC; //allocation failed
+  uint32_t* pixels = reinterpret_cast<uint32_t*>(SEGENV.data);
+  uint32_t& storedBg = pixels[SEGLEN];
+
+  constexpr unsigned PHASE_FILL = 0;
+  constexpr unsigned PHASE_DISSOLVE = 1;
+  constexpr unsigned PHASE_FILL_SURVIVOR = 2;
+  constexpr unsigned PHASE_DISSOLVE_SURVIVOR = 3;
+  constexpr unsigned PHASE_PAUSE_SURVIVOR = 4;
+
+  bool lastOneMode = SEGMENT.check3;
+
+  if (SEGENV.call == 0) {
+    for (unsigned i = 0; i < SEGLEN; i++) pixels[i] = SEGCOLOR(1);
+    storedBg = SEGCOLOR(1);
+    SET_PHASE(PHASE_DISSOLVE);
+    SEGENV.aux1 = hw_random16(SEGLEN);
+    SET_DONE(0);
+    SET_PREV_LAST_ONE(lastOneMode ? 1 : 0);
+  } else if (storedBg != SEGCOLOR(1)) {
+    for (unsigned i = 0; i < SEGLEN; i++) {
+      if (pixels[i] == storedBg) pixels[i] = SEGCOLOR(1);
+    }
+    storedBg = SEGCOLOR(1);
+  }
+
+  // Restart if lastOneMode changed to true
+  if ((bool)DISSOLVE_PREV_LAST_ONE != lastOneMode) {
+    if (lastOneMode) {
+      SET_PHASE(PHASE_DISSOLVE);
+      unsigned attempts = 0;
+      do {
+        SEGENV.aux1 = hw_random16(SEGLEN);
+        attempts++;
+      } while (pixels[SEGENV.aux1] == SEGCOLOR(1) && attempts < SEGLEN);
+    } else {
+      if (DISSOLVE_PHASE == PHASE_DISSOLVE_SURVIVOR) {
+        SET_PHASE(PHASE_DISSOLVE);
+      } else if (DISSOLVE_PHASE == PHASE_FILL_SURVIVOR) {
+        SET_PHASE(PHASE_FILL);      
+      }
+    }
+    SET_DONE(0);
+    SEGENV.step = 0;
+    SET_PREV_LAST_ONE(lastOneMode ? 1 : 0);
+  }
+
+  // Phase 4: pause and keep only one pixel lit
+  if (DISSOLVE_PHASE == PHASE_PAUSE_SURVIVOR) {
+    uint16_t lastOneDelay = SEGMENT.custom2 << 1;
+    if (lastOneDelay < 1) lastOneDelay = 1;
+    bool freezeForever = lastOneMode && SEGMENT.custom2 == 255;
+    if (freezeForever) {
+      SEGENV.step++;
+      return;
+    }
+    if (SEGENV.step >= lastOneDelay) {
+      SEGENV.step = 0;
+      SET_PHASE(PHASE_FILL_SURVIVOR);
+      SET_DONE(0);
+    } else {
+      SEGENV.step++;
+    }
+    for (unsigned i = 0; i < SEGLEN; i++)
+      SEGMENT.setPixelColor(i, pixels[i]);
+    return;
+  }
+
+  bool filling = (DISSOLVE_PHASE == PHASE_FILL || DISSOLVE_PHASE == PHASE_FILL_SURVIVOR);
+  bool forceComplete = lastOneMode && (DISSOLVE_PHASE == PHASE_FILL_SURVIVOR || DISSOLVE_PHASE == PHASE_DISSOLVE_SURVIVOR);
+
+  for (unsigned j = 0; j <= SEGLEN / 15; j++) {
+    if (hw_random8() <= (filling ? SEGMENT.custom1 : SEGMENT.intensity)) { // set the fill or dissolve speed
+      for (size_t times = 0; times < 10; times++) { //attempt to spawn a new pixel 10 times
+        unsigned i = hw_random16(SEGLEN);
+        if (lastOneMode && DISSOLVE_PHASE == PHASE_DISSOLVE_SURVIVOR && i == SEGENV.aux1) continue;
+
+        if (filling) { // fill with primary/palette color
+          if (pixels[i] == storedBg) {
+            uint32_t c;
+            if (SEGMENT.check1) {
+              uint8_t pId = SEGMENT.palette;
+              c = (pId == 0) ? SEGMENT.color_wheel(hw_random8()) : SEGMENT.color_from_palette(hw_random16(SEGLEN), true, PALETTE_SOLID_WRAP, 0);
+              if (c == SEGCOLOR(1)) c ^= 0x00000001;  // flip the last bit to make sure it is slightly different than the background color
+              pixels[i] = c;
+            } else {
+              c = SEGMENT.color_from_palette(i, true, PALETTE_SOLID_WRAP, 0);
+              if (c == SEGCOLOR(1)) c ^= 0x00000001;
+              pixels[i] = c;
+            }
+            break;
+          }
+        } else {  //dissolve to secondary/background color
+          if (pixels[i] != storedBg) {
+            uint8_t fadeRate = SEGENV.custom3;  // (slider values are 0 -> 31)
+            if (fadeRate > 0) {  // fade progressively towards the background color by the fadeRate value
+              uint32_t c = color_blend(pixels[i], SEGCOLOR(1), fadeRate << 2);
+              pixels[i] = c;
+            } else {  // quickly fade to the background color if 0 is selected on custom3 slider)
+              pixels[i] = storedBg;
+            }
+            break;
+          }
+        }
+      }
+    }
+  }
+
+  if (lastOneMode && (DISSOLVE_PHASE == PHASE_FILL_SURVIVOR || DISSOLVE_PHASE == PHASE_DISSOLVE_SURVIVOR)) {
+    if (pixels[SEGENV.aux1] == SEGCOLOR(1)) {
+      uint32_t c;
+      if (SEGMENT.check1) {
+        uint8_t pId = SEGMENT.palette;
+        c = (pId == 0) ? SEGMENT.color_wheel(hw_random8()) : SEGMENT.color_from_palette(hw_random16(SEGLEN), true, PALETTE_SOLID_WRAP, 0);
+      } else {
+        c = SEGMENT.color_from_palette(SEGENV.aux1, true, PALETTE_SOLID_WRAP, 0);
+      }
+      if (c == SEGCOLOR(1)) c ^= 0x00000001;
+      pixels[SEGENV.aux1] = c;
+    }
+  }
+
+  unsigned incompletePixels = 0;
+  for (unsigned i = 0; i < SEGLEN; i++) {
+    SEGMENT.setPixelColor(i, pixels[i]); // fix for #4401
+    if (SEGMENT.check2 || forceComplete) {
+      if (lastOneMode && DISSOLVE_PHASE == PHASE_DISSOLVE_SURVIVOR && i == SEGENV.aux1) continue;
+      if (filling) {
+        if (pixels[i] == storedBg) incompletePixels++;
+      } else {
+        if (pixels[i] != storedBg) incompletePixels++;
+      }
+    }
+  }
+
+  if ((SEGMENT.check2 || forceComplete) && incompletePixels == 0 && !DISSOLVE_DONE) {
+    SET_DONE(1);
+    SEGENV.step = 0;
+  }
+
+  bool stepReady = (DISSOLVE_DONE || (!SEGMENT.check2 && !forceComplete)) && SEGENV.step > (255 - SEGMENT.speed) + 15U;
+
+  if (stepReady) {
+    SEGENV.step = 0;
+    SET_DONE(0);
+    if (!lastOneMode) {
+      SET_PHASE(DISSOLVE_PHASE == PHASE_FILL ? PHASE_DISSOLVE : PHASE_FILL);
+    } else {
+      switch (DISSOLVE_PHASE) {
+        case PHASE_FILL: SET_PHASE(PHASE_DISSOLVE); break;
+        case PHASE_DISSOLVE: SET_PHASE(PHASE_FILL_SURVIVOR); break;
+        case PHASE_FILL_SURVIVOR: {
+          unsigned attempts = 0;
+          do {
+            SEGENV.aux1 = hw_random16(SEGLEN);
+            attempts++;
+          } while (pixels[SEGENV.aux1] == SEGCOLOR(1) && attempts < SEGLEN);
+          SET_PHASE(PHASE_DISSOLVE_SURVIVOR);
+          break;
+        }
+        case PHASE_DISSOLVE_SURVIVOR: SET_PHASE(PHASE_PAUSE_SURVIVOR); break;
+        case PHASE_PAUSE_SURVIVOR: SET_PHASE(PHASE_FILL_SURVIVOR); break;
+      }
+    }
+  } else {
+    SEGENV.step++;
+  }
+}
+#undef DISSOLVE_PHASE
+#undef DISSOLVE_DONE
+#undef DISSOLVE_PREV_LAST_ONE
+#undef SET_PHASE
+#undef SET_DONE
+#undef SET_PREV_LAST_ONE
+
+static const char _data_FX_MODE_DISSOLVEPLUS[] PROGMEM = "Dissolve Plus@Repeat speed,Dissolve speed,Fill speed,Last one delay,Fade rate,Random,Complete,Last one;!,!;!;;o2=1";
+
+
+// AI: below section was generated by an AI
+/*
+ * Jack-o-Lantern (2D, optionally audio reactive)
+ *   A carved pumpkin with a flickering candle inside and an animated mouth.
+ *   The pumpkin is drawn procedurally (no bitmap), so it scales to any matrix size. It is recognizable from about 16x16.
+ *   All shapes are defined in normalized coordinates where the pumpkin body is the unit circle
+ *   (Q8: 256 = 1.0, v grows downwards).
+ *   Pixels are supersampled (up to 4x4 samples) so that edges and the moving mouth look smooth on small matrices.
+ *   Audio: only real AudioReactive data is used (no sound simulation). When AudioReactive is not available, or when it
+ *   stays silent for a few seconds (e.g. no microphone connected), the mouth runs its own animation.
+ *   First slider (speed) sets the speed of the mouth animation when there is no sound
+ *   Second slider (intensity) sets the strength of the candle flicker
+ *   Third slider (custom1) sets how much candle light shines through the pumpkin skin
+ *   Fourth slider (custom2) sets the audio sensitivity
+ *   Checkbox 1 selects a steady "chomp" instead of random "talking" when there is no sound
+ *   Checkbox 2 keeps the mouth animating in silence. If unchecked, the mouth stays shut until sound is heard
+ *   (only when AudioReactive is enabled)
+ *   Checkbox 3 uses the segment colors (1: pumpkin, 2: candle light, 3: stem) instead of the built-in colors
+ */
+
+// geometry in normalized coordinates (Q8, pumpkin body = unit circle)
+constexpr int32_t  JACK_BODY_ASPECT        = 294;      // body width/height ratio (Q8, 1.15 = slightly squat)
+constexpr int32_t  JACK_STEM_BASE          = -200;     // stem starts inside the top of the body
+constexpr int32_t  JACK_STEM_HALF_W        = 32;
+constexpr int32_t  JACK_STEM_LEAN          = 40;       // horizontal lean of the stem per unit of height (Q8)
+constexpr int32_t  JACK_EYE_X              = 100;      // horizontal distance of the eye centers from the middle
+constexpr int32_t  JACK_EYE_TOP            = -150;     // eyes are triangles pointing up
+constexpr int32_t  JACK_EYE_BOTTOM         = -40;
+constexpr int32_t  JACK_EYE_HALF_W         = 58;
+constexpr int32_t  JACK_NOSE_TOP           = -25;
+constexpr int32_t  JACK_NOSE_BOTTOM        = 55;
+constexpr int32_t  JACK_NOSE_HALF_W        = 34;
+constexpr int32_t  JACK_MOUTH_HALF_W       = 180;
+constexpr int32_t  JACK_MOUTH_TOP          = 70;       // upper edge of the mouth at its corners
+constexpr int32_t  JACK_MOUTH_SMILE        = 35;       // how much lower the upper edge is in the middle
+constexpr int32_t  JACK_MOUTH_SHUT         = 40;       // mouth height in the middle when closed
+constexpr int32_t  JACK_MOUTH_OPEN         = 80;       // additional mouth height when fully open
+constexpr int32_t  JACK_TOOTH_X            = 75;       // horizontal distance of the two upper teeth from the middle
+constexpr int32_t  JACK_TOOTH_HALF_W       = 22;
+constexpr int32_t  JACK_TOOTH_LEN          = 115;      // tooth length relative to the local mouth height (Q8)
+constexpr int32_t  JACK_FLAME_V            = 110;      // vertical position of the candle flame
+// shading and colors
+constexpr int32_t  JACK_FLAME_FALLOFF      = 50;       // how fast candle light fades with distance from the flame
+constexpr int32_t  JACK_RIM_DARKEN         = 110;      // darkening of the skin towards the outline
+constexpr uint8_t  JACK_RIB_DEPTH          = 100;      // darkening of the skin between the lobes
+constexpr uint8_t  JACK_SKIN_AMBIENT       = 85;       // skin brightness without any candle light shining through
+constexpr uint32_t JACK_SKIN_COLOR         = 0xFF6000;
+constexpr uint32_t JACK_STEM_COLOR         = 0x3A7A16;
+constexpr uint32_t JACK_FLAME_BRIGHT       = 0xFFD848;
+constexpr uint32_t JACK_FLAME_DIM          = 0xFF8410;
+// animation timing
+constexpr uint32_t JACK_MAX_DT             = 100;      // ms, limits jumps after pauses or time base changes
+constexpr uint32_t JACK_MOUTH_RATE_MIN     = 64;       // mouth animation phase increment per ms (Q8) at speed 0
+constexpr uint32_t JACK_MOUTH_RATE_STEP    = 3;        // additional phase increment per ms for each speed step
+constexpr uint32_t JACK_MOUTH_ATTACK       = 12;       // smoothing of the mouth opening per ms (Q8)
+constexpr uint32_t JACK_MOUTH_RELEASE      = 4;        // smoothing of the mouth closing per ms (Q8)
+constexpr uint8_t  JACK_CHOMP_REST         = 48;       // part of the chomp cycle where the mouth stays shut
+constexpr uint8_t  JACK_TALK_PAUSE         = 100;      // talking pauses while the slow "sentence" noise is below this value
+constexpr uint8_t  JACK_TALK_REST          = 100;      // syllable noise below this value keeps the mouth shut
+constexpr uint8_t  JACK_FLARE_GAIN         = 160;      // candle flare from sound volume
+constexpr uint32_t JACK_FLARE_DECAY        = 128;      // candle flare fade per ms (Q8), a full flare fades out in about 0.5s
+// audio
+constexpr float    JACK_SILENCE_LEVEL      = 2.0f;     // volume (0-255) below this value is silence
+constexpr uint32_t JACK_SILENCE_TIMEOUT_MS = 3000;     // switch to the mouth animation after this much silence
+
+enum JackMaterial : uint8_t { JACK_BACKGROUND, JACK_SKIN, JACK_STEM, JACK_LIGHT };
+
+struct JackState {
+  uint32_t lastFrame; // strip.now of the previous frame
+  uint32_t lastSound; // strip.now when sound was last heard
+  uint32_t phase;     // phase of the mouth animation (Q8)
+  uint16_t mouthOpen; // smoothed mouth opening (0-65535)
+  uint16_t flare;     // extra candle brightness from loud sounds (Q8, keeps fractional fading for any frame time)
+};
+
+/*
+ * Returns what is visible at the normalized position (u,v): background, pumpkin skin, stem or candle light (carved face).
+ * @param stemTop     upper end of the stem (normalized v)
+ * @param mouthHeight current height of the mouth in its middle (normalized)
+ */
+static uint8_t jackMaterialAt(int32_t u, int32_t v, int32_t stemTop, int32_t mouthHeight) {
+  // stem, leaning slightly to the right towards its top
+  if (v < JACK_STEM_BASE && v >= stemTop) {
+    int32_t lean = (JACK_STEM_BASE - v) * JACK_STEM_LEAN / 256;
+    if (abs(u - lean) <= JACK_STEM_HALF_W) return JACK_STEM;
+  }
+  if (u * u + v * v > 65536) return JACK_BACKGROUND; // outside of the body
+  int32_t au = abs(u); // the face is symmetric
+  // eyes: triangles pointing up
+  if (v >= JACK_EYE_TOP && v <= JACK_EYE_BOTTOM && abs(au - JACK_EYE_X) * (JACK_EYE_BOTTOM - JACK_EYE_TOP) <= JACK_EYE_HALF_W * (v - JACK_EYE_TOP)) return JACK_LIGHT;
+  // nose: small triangle pointing up
+  if (v >= JACK_NOSE_TOP && v <= JACK_NOSE_BOTTOM && au * (JACK_NOSE_BOTTOM - JACK_NOSE_TOP) <= JACK_NOSE_HALF_W * (v - JACK_NOSE_TOP)) return JACK_LIGHT;
+  // mouth: smile-shaped slit that tapers towards the corners, its lower edge drops when the mouth opens
+  if (au < JACK_MOUTH_HALF_W) {
+    int32_t profile = 256 - au * au * 256 / (JACK_MOUTH_HALF_W * JACK_MOUTH_HALF_W); // 256 in the middle, 0 at the corners
+    int32_t top = JACK_MOUTH_TOP + JACK_MOUTH_SMILE * profile / 256;
+    int32_t height = mouthHeight * profile / 256;
+    int32_t bottom = top + height;
+    if (v >= top && v <= bottom) {
+      int32_t tooth = height * JACK_TOOTH_LEN / 256;
+      if (abs(au - JACK_TOOTH_X) < JACK_TOOTH_HALF_W && v < top + tooth) return JACK_SKIN; // two upper teeth
+      if (au < JACK_TOOTH_HALF_W && v > bottom - tooth) return JACK_SKIN;                   // one lower tooth
+      return JACK_LIGHT;
+    }
+  }
+  return JACK_SKIN;
+}
+
+static void mode_2D_jackolantern(void) {
+  if (!strip.isMatrix || !SEGMENT.is2D()) FX_FALLBACK_STATIC; // not a 2D set-up
+  if (!SEGENV.allocateData(sizeof(JackState))) FX_FALLBACK_STATIC; // allocation failed
+  JackState* state = reinterpret_cast<JackState*>(SEGENV.data);
+
+  int cols = SEG_W;
+  int rows = SEG_H;
+  uint32_t now = strip.now;
+
+  if (SEGENV.call == 0) {
+    state->lastFrame = now;
+    state->lastSound = now - JACK_SILENCE_TIMEOUT_MS; // start in silence until sound is heard
+    state->phase = 0;
+    state->mouthOpen = 0;
+    state->flare = 0;
+  }
+  uint32_t dt = min(now - state->lastFrame, JACK_MAX_DT);
+  state->lastFrame = now;
+
+  // audio: use real AudioReactive data only, do not use simulated sound
+  um_data_t *um_data;
+  bool haveAudio = UsermodManager::getUMData(&um_data, USERMOD_ID_AUDIOREACTIVE);
+  uint8_t volume = 0;
+  bool peak = false;
+  if (haveAudio) {
+    float volumeSmth = *(float*)um_data->u_data[0];
+    peak = *(uint8_t*)um_data->u_data[3];
+    if (volumeSmth > JACK_SILENCE_LEVEL) state->lastSound = now;
+    volume = constrain(int(volumeSmth * float(SEGMENT.custom2 + 16) / 128.0f), 0, 255); // sensitivity: x0.125 to x2.1
+  }
+  bool hearing = haveAudio && (now - state->lastSound < JACK_SILENCE_TIMEOUT_MS);
+
+  // mouth: follow the sound, otherwise talk or chomp on its own
+  uint8_t target = 0;
+  if (hearing) {
+    target = volume;
+  } else if (!haveAudio || SEGMENT.check2) {
+    state->phase += dt * (JACK_MOUTH_RATE_MIN + SEGMENT.speed * JACK_MOUTH_RATE_STEP);
+    if (SEGMENT.check1) {
+      target = qsub8(sin8_t(uint8_t(state->phase >> 10)), JACK_CHOMP_REST) * 255 / (255 - JACK_CHOMP_REST);
+    } else {
+      // syllables from fast noise, pauses between "sentences" from slow noise
+      // (perlin noise is periodic in 16 bit, so the casts wrap seamlessly)
+      uint8_t sentence = perlin8(uint16_t(state->phase >> 11));
+      uint8_t syllable = perlin8(uint16_t(state->phase >> 8));
+      if (sentence >= JACK_TALK_PAUSE) target = min(qsub8(syllable, JACK_TALK_REST) * 2, 255);
+    }
+  }
+  int32_t diff = (int32_t(target) << 8) - state->mouthOpen;
+  int32_t alpha = min(dt * (diff > 0 ? JACK_MOUTH_ATTACK : JACK_MOUTH_RELEASE), uint32_t(256));
+  state->mouthOpen += diff * alpha / 256;
+  int32_t mouthHeight = JACK_MOUTH_SHUT + (state->mouthOpen >> 8) * JACK_MOUTH_OPEN / 255;
+
+  // candle: two octaves of noise, intensity sets the flicker depth, loud sounds make it flare
+  uint8_t fastNoise = perlin8(uint16_t(now << 1));
+  uint8_t slowNoise = perlin8(uint16_t((now >> 1) + 0x8000));
+  uint8_t level = 255 - scale8(255 - ((fastNoise * 3 + slowNoise) >> 2), SEGMENT.intensity);
+  uint32_t flareFade = dt * JACK_FLARE_DECAY;
+  state->flare = (state->flare > flareFade) ? state->flare - flareFade : 0;
+  if (hearing) {
+    state->flare = max(state->flare, uint16_t(scale8(volume, JACK_FLARE_GAIN) << 8));
+    if (peak) state->flare = 255 << 8;
+  }
+  level += scale8(255 - level, state->flare >> 8);
+  int32_t flameU = (int32_t(slowNoise) - 128) * SEGMENT.intensity / 512; // the flame sways sideways
+  uint8_t skinBri = JACK_SKIN_AMBIENT + scale8(255 - JACK_SKIN_AMBIENT, scale8(level, SEGMENT.custom1));
+
+  bool customColors = SEGMENT.check3;
+  uint32_t skinColor = customColors ? SEGCOLOR(0) : JACK_SKIN_COLOR;
+  uint32_t lightColor = customColors ? SEGCOLOR(1) : JACK_FLAME_BRIGHT;
+  uint32_t dimColor = customColors ? SEGCOLOR(1) : JACK_FLAME_DIM;
+  uint32_t stemColor = customColors ? SEGCOLOR(2) : JACK_STEM_COLOR;
+
+  // size and position of the pumpkin (Q8 pixels): leave 1/8 of the height for the stem, keep the body aspect ratio
+  int32_t ry = rows * 112;
+  int32_t rx = cols * 128;
+  if (rx * 256 > ry * JACK_BODY_ASPECT) {
+    rx = ry * JACK_BODY_ASPECT / 256; // wide matrix: limit the width
+  } else {
+    ry = rx * 256 / JACK_BODY_ASPECT; // square or tall matrix: limit the height
+  }
+  int32_t stemH = ry * 2 / 7;
+  int32_t top = (rows * 256 - 2 * ry - stemH) / 2; // center vertically
+  int32_t cx = cols * 128;
+  int32_t cy = top + stemH + ry;
+  int32_t invRx = (1 << 24) / rx; // pixel (Q8) to normalized (Q8) conversion factors (Q16)
+  int32_t invRy = (1 << 24) / ry;
+  int32_t stemTop = -256 - stemH * 256 / ry;
+  unsigned lobes = (rx >= 6 * 256) ? 5 : 3; // fewer lobes on small matrices to keep the ribs visible
+
+  // supersampling: keep the number of samples per frame roughly constant
+  unsigned pixelCount = cols * rows;
+  unsigned ss = (pixelCount <= 400) ? 4 : (pixelCount <= 1600) ? 2 : 1; // samples per axis
+  unsigned samples = ss * ss;
+  int32_t subU[4], subV[4];
+  for (unsigned i = 0; i < ss; i++) {
+    int32_t offset = int32_t((2 * i + 1) * 128 / ss) - 128; // sample position relative to the pixel center (Q8 pixels)
+    subU[i] = offset * invRx / 65536;
+    subV[i] = offset * invRy / 65536;
+  }
+
+  // only the bounding box of the pumpkin needs to be rendered
+  int yStart = top / 256;
+  int yEnd = min(rows - 1, int((top + 2 * ry + stemH) / 256));
+  int xStart = (cx - rx) / 256;
+  int xEnd = min(cols - 1, int((cx + rx) / 256));
+
+  SEGMENT.fill(BLACK);
+  for (int y = yStart; y <= yEnd; y++) {
+    int32_t vc = (y * 256 + 128 - cy) * invRy / 65536;
+    // half width of the body in this row, used to bend the ribs around the body
+    int32_t rowHalf = max(int32_t(sqrt32_bw(max(int32_t(0), 65536 - vc * vc))), int32_t(16));
+    int32_t rowInv = 65536 / rowHalf;
+    for (int x = xStart; x <= xEnd; x++) {
+      int32_t uc = (x * 256 + 128 - cx) * invRx / 65536;
+      unsigned nSkin = 0, nStem = 0, nLight = 0;
+      for (unsigned j = 0; j < ss; j++) {
+        for (unsigned i = 0; i < ss; i++) {
+          switch (jackMaterialAt(uc + subU[i], vc + subV[j], stemTop, mouthHeight)) {
+            case JACK_SKIN:  nSkin++;  break;
+            case JACK_STEM:  nStem++;  break;
+            case JACK_LIGHT: nLight++; break;
+            default: break;
+          }
+        }
+      }
+      if (nSkin + nStem + nLight == 0) continue; // background
+
+      // average color of the samples that are not carved out (skin, stem and background)
+      uint32_t r = 0, g = 0, b = 0, w = 0;
+      const auto addColor = [&](uint32_t c, unsigned n) { r += R(c) * n; g += G(c) * n; b += B(c) * n; w += W(c) * n; };
+      if (nSkin) {
+        int32_t d2 = min(uc * uc + vc * vc, int32_t(65536));
+        uint8_t rim = 255 - d2 * JACK_RIM_DARKEN / 65536;
+        int32_t lobeU = constrain(uc * rowInv / 256, int32_t(-256), int32_t(256)); // position across the curved surface
+        unsigned lobePos = ((lobeU + 256) * lobes) & 511;                          // position within a lobe
+        uint8_t bump = (sin8_t(lobePos >> 2) - 128) * 2;                           // half sine wave: 0 at the ribs, 254 in the middle of a lobe
+        uint8_t ribs = 255 - scale8(JACK_RIB_DEPTH, 255 - bump);
+        addColor(color_fade(skinColor, scale8(scale8(rim, ribs), skinBri)), nSkin);
+      }
+      if (nStem) addColor(stemColor, nStem);
+      unsigned nOther = samples - nLight;
+      uint32_t color = nOther ? RGBW32(r / nOther, g / nOther, b / nOther, w / nOther) : BLACK;
+      if (nLight) {
+        int32_t du = uc - flameU;
+        int32_t dv = vc - JACK_FLAME_V;
+        uint8_t falloff = min((du * du + dv * dv) * JACK_FLAME_FALLOFF / 65536, int32_t(255));
+        uint8_t bri = scale8(level, 255 - falloff);
+        uint32_t light = color_fade(color_blend(dimColor, lightColor, bri), bri);
+        // the carved face glows: a pixel that is half covered is already fully lit, keeps small faces readable
+        color = color_blend(color, light, min(nLight * 510 / samples, 255u));
+      }
+      SEGMENT.setPixelColorXY(x, y, color);
+    }
+  }
+}
+static const char _data_FX_MODE_2D_JACKOLANTERN[] PROGMEM = "Jack-o-Lantern@Mouth speed,Flicker,Glow,Sensitivity,,Chomp,Animate in silence,Custom colors;Pumpkin,Light,Stem;;2v;sx=96,ix=128,c1=96,c2=128,o2=1";
+// AI: end
+
+
+
 /////////////////////
 //  UserMod Class  //
 /////////////////////
@@ -1272,6 +1882,9 @@ class UserFxUsermod : public Usermod {
     strip.addEffect(255, &mode_2D_magma, _data_FX_MODE_2D_MAGMA);
     strip.addEffect(255, &mode_ants, _data_FX_MODE_ANTS);
     strip.addEffect(255, &mode_morsecode, _data_FX_MODE_MORSECODE);
+    strip.addEffect(255, &mode_2D_perlinscape, _data_FX_MODE_2D_PERLINSCAPE);
+    strip.addEffect(255, &mode_dissolveplus, _data_FX_MODE_DISSOLVEPLUS);
+    strip.addEffect(255, &mode_2D_jackolantern, _data_FX_MODE_2D_JACKOLANTERN);
 
     ////////////////////////////////////////
     //  add your effect function(s) here  //

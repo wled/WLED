@@ -49,6 +49,8 @@ This Usermod integrates the INA219 **and** INA226 sensors with WLED to monitor e
 | `INA2XX_CORRECTION_FACTOR`    | Correction factor for measurements                         | `1.0`          | Any positive float value                               |
 | `INA2XX_MQTT_PUBLISH`         | Publish sensor data to MQTT                                | `false`        | `true`, `false`                                        |
 | `INA2XX_MQTT_PUBLISH_ALWAYS`  | Always publish values, regardless of change                | `false`        | `true`, `false`                                        |
+| `INA2XX_CHANGE_THRESHOLD`     | Publish when bus/load voltage, current or power change by more than this percent of the last published value (minimum step 0.01 V/A/W) | `1.0` | `0` to `100` |
+| `INA2XX_HEARTBEAT_INTERVAL`   | Publish at least every N seconds even without a change (`0` = only on change) | `30` | `0` to `3600` |
 | `INA2XX_HA_DISCOVERY`         | Enable Home Assistant discovery for sensors                | `false`        | `true`, `false`                                        |
 
 ### INA219-Specific Parameters (`INA_SENSOR_TYPE == 219`)
@@ -117,6 +119,16 @@ The `i2cAddress` parameter can be set to the following options:
 | `0x44`              | 0x44 - A1 soldered                 | 0x44    |
 | `0x45`              | 0x45 - A0 and A1 soldered          | 0x45    |
 
+### MQTT publish behaviour
+
+The sensor is read every `check_interval` seconds. A new MQTT message is only sent when
+- bus voltage, load voltage, current or power moved by more than `change_threshold` percent of the last published value (but at least 0.01 V, A or W), or the overflow flag changed, or
+- `heartbeat_interval` seconds passed since the last message, or
+- after boot or an MQTT reconnect, or
+- `mqtt_publish_always` is enabled.
+
+> **Note:** Home Assistant discovery sets `expire_after` to 1800 s, so the sensors become unavailable after 30 minutes without a message. Keep `heartbeat_interval` below 1800. With `0`, sensors whose readings stay steady go unavailable after 30 minutes.
+
 ---
 
 # Compiling
@@ -157,6 +169,8 @@ custom_usermods = ${env:d1_mini.custom_usermods} INA2XX_v2
 #define INA2XX_RANGE               1.3              // INA226 only
 #define INA2XX_MQTT_PUBLISH        false
 #define INA2XX_MQTT_PUBLISH_ALWAYS false
+#define INA2XX_CHANGE_THRESHOLD    1.0              // percent
+#define INA2XX_HEARTBEAT_INTERVAL  30               // seconds, 0 = off
 #define INA2XX_HA_DISCOVERY        false
 ```
 

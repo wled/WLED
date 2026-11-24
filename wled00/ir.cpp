@@ -10,6 +10,10 @@
 
 static IRrecv* irrecv;
 static decode_results results;
+
+// Runtime state private to this file - previously WLED_GLOBAL, a leftover from
+// when all state lived in one big extern block regardless of who used it.
+static byte whiteLast = 128; // white channel before turned off. Used for toggle function
 static unsigned long irCheckedTime = 0;
 static uint32_t lastValidCode = 0;
 static byte lastRepeatableAction = ACTION_NONE;
@@ -174,7 +178,7 @@ static void changeEffectIntensity(int8_t amount)
     int32_t new_val = (int32_t)prim_hsv.s + amount;
     prim_hsv.s = (byte)constrain(new_val,0,255);  // constrain to 0-255
     CRGBW newcolor = prim_hsv;
-    newcolor.w = W(sseg.colors[0]);
+    newcolor.w = W(sseg.colors[0]); // add white channel
     if (irApplyToAllSelected) {
       for (unsigned i = 0; i < strip.getSegmentsNum(); i++) {
         Segment& seg = strip.getSegment(i);

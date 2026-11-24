@@ -18,22 +18,29 @@ float UsermodINA2xx::roundDecimals(float val) {
 	return roundf(val * factor) / factor;
 }
 
-bool UsermodINA2xx::hasSignificantChange(float oldValue, float newValue, float threshold) {
-	bool changed = fabsf(oldValue - newValue) > threshold;
+// A value counts as changed when it moved by more than changeThresholdPct percent of the
+// last published value. The absolute floor of 0.01 (V, A or W) keeps noise around zero
+// from triggering a publish on every check.
+bool UsermodINA2xx::hasSignificantChange(float oldValue, float newValue) {
+	static constexpr float absoluteFloor = 0.01f;
+	float diff = fabsf(oldValue - newValue);
+	float threshold = fabsf(oldValue) * changeThresholdPct / 100.0f;
+	if (threshold < absoluteFloor) threshold = absoluteFloor;
+	bool changed = diff > threshold;
 	if (changed) {
-		_logUsermodInaSensor("Significant change detected: old=%.6f, new=%.6f, diff=%.6f", oldValue, newValue, fabsf(oldValue - newValue));
+		_logUsermodInaSensor("Significant change detected: old=%.6f, new=%.6f, diff=%.6f, threshold=%.6f", oldValue, newValue, diff, threshold);
 	}
 	return changed;
 }
 
+// Only the base-unit readings are compared. current_mA, power_mW and the shunt voltage (mV)
+// are derived from them and only scaled by 1000, so comparing them would let sensor noise
+// trigger a publish on every check.
 bool UsermodINA2xx::hasValueChanged() {
-	bool changed = hasSignificantChange(last_sent_shuntVoltage, shuntVoltage) ||
-		hasSignificantChange(last_sent_busVoltage, busVoltage) ||
+	bool changed = hasSignificantChange(last_sent_busVoltage, busVoltage) ||
 		hasSignificantChange(last_sent_loadVoltage, loadVoltage) ||
 		hasSignificantChange(last_sent_current, current) ||
-		hasSignificantChange(last_sent_current_mA, current_mA) ||
 		hasSignificantChange(last_sent_power, power) ||
-		hasSignificantChange(last_sent_power_mW, power_mW) ||
 		(last_sent_overflow != overflow);
 
 		if (changed) {
@@ -682,6 +689,7 @@ bool UsermodINA2xx::onMqttMessage(char* topic, char* payload) {
 **/
 void UsermodINA2xx::onMqttConnect(bool sessionPresent) {
 	if (!enabled) return;
+	mqttDataPublished = false; // publish fresh data on the next check after (re)connect
 	if (WLED_MQTT_CONNECTED) {
 		char subuf[64];
 		if (mqttDeviceTopic[0] != 0) {
@@ -849,17 +857,18 @@ void UsermodINA2xx::loop() {
 	if (WLED_MQTT_CONNECTED) {
 		if (mqttPublish) {
 			bool valueChanged = hasValueChanged();
-			if (mqttPublishAlways || valueChanged) {
-				_logUsermodInaSensor("Publishing MQTT data (always=%d, changed=%d)", mqttPublishAlways, valueChanged);
+			bool heartbeatDue = !mqttDataPublished ||
+				(heartbeatInterval > 0 && lastCheck - lastMqttPublish >= static_cast<uint32_t>(heartbeatInterval) * 1000UL);
+			if (mqttPublishAlways || valueChanged || heartbeatDue) {
+				_logUsermodInaSensor("Publishing MQTT data (always=%d, changed=%d, heartbeat=%d)", mqttPublishAlways, valueChanged, heartbeatDue);
 				publishMqtt(shuntVoltage, busVoltage, loadVoltage, current, current_mA, power, power_mW, overflow);
+				lastMqttPublish = lastCheck;
+				mqttDataPublished = true;
 
-				last_sent_shuntVoltage = shuntVoltage;
 				last_sent_busVoltage = busVoltage;
 				last_sent_loadVoltage = loadVoltage;
 				last_sent_current = current;
-				last_sent_current_mA = current_mA;
 				last_sent_power = power;
-				last_sent_power_mW = power_mW;
 				last_sent_overflow = overflow;
 
 				mqttPublishSent = true;
@@ -874,6 +883,7 @@ void UsermodINA2xx::loop() {
 			// Publishing an empty retained message to delete the sensor from Home Assistant
 			mqtt->publish(sensorTopic, 0, true, "");
 			mqttPublishSent = false;
+			mqttDataPublished = false;
 		}
 	}
 
@@ -1097,6 +1107,8 @@ void UsermodINA2xx::addToConfig(JsonObject& root) {
 	// Store MQTT settings if MQTT is not disabled
 	top["mqtt_publish"] = mqttPublish;
 	top["mqtt_publish_always"] = mqttPublishAlways;
+	top["change_threshold"] = changeThresholdPct;
+	top["heartbeat_interval"] = heartbeatInterval;
 	top["ha_discovery"] = haDiscovery;
 #endif
 }
@@ -1184,6 +1196,11 @@ void UsermodINA2xx::appendConfigData() {
 		oappend(line.c_str());
 	}
 #endif
+
+#ifndef WLED_DISABLE_MQTT
+	oappend("addInfo('INA2xx:change_threshold',1,'% (publish when V, A or W change by more than this)');");
+	oappend("addInfo('INA2xx:heartbeat_interval',1,'s (publish at least this often, 0 = off)');");
+#endif
 }
 
 /**
@@ -1213,6 +1230,13 @@ bool UsermodINA2xx::readFromConfig(JsonObject& root) {
 #ifndef WLED_DISABLE_MQTT
 	UPDATE_CONFIG(top, "mqtt_publish",         mqttPublish,       "%u");
 	UPDATE_CONFIG(top, "mqtt_publish_always",  mqttPublishAlways, "%u");
+	UPDATE_CONFIG(top, "change_threshold",     changeThresholdPct, "%.2f %%");
+	UPDATE_CONFIG(top, "heartbeat_interval",   heartbeatInterval, "%u s");
+	if (!(changeThresholdPct >= 0.0f && changeThresholdPct <= 100.0f)) { // also catches NaN
+		_logUsermodInaSensor("Invalid change_threshold; using default %.2f %%", (float)INA2XX_CHANGE_THRESHOLD);
+		changeThresholdPct = INA2XX_CHANGE_THRESHOLD;
+	}
+	if (heartbeatInterval > 3600) heartbeatInterval = 3600;
 
 	bool tempHaDiscovery = haDiscovery;
 	UPDATE_CONFIG(top, "ha_discovery", haDiscovery, "%u");
