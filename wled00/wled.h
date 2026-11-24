@@ -381,14 +381,6 @@ WLED_GLOBAL uint8_t txPower _INIT(WIFI_POWER_19_5dBm);  // ToDO: change to int8_
 WLED_GLOBAL bool turnOnAtBoot _INIT(true);                // turn on LEDs at power-up
 WLED_GLOBAL byte bootPreset   _INIT(0);                   // save preset to load after power-up
 
-//if true, a segment per bus will be created on boot and LED settings save
-//if false, only one segment spanning the total LEDs is created,
-//but not on LED settings save if there is more than one segment currently
-#ifdef ESP8266
-WLED_GLOBAL bool useGlobalLedBuffer _INIT(false); // double buffering disabled on ESP8266
-#else
-WLED_GLOBAL bool useGlobalLedBuffer _INIT(true);  // double buffering enabled on ESP32
-#endif
 #ifdef WLED_USE_IC_CCT
 WLED_GLOBAL bool cctICused          _INIT(true);  // CCT IC used (Athom 15W bulbs)
 #else
@@ -617,8 +609,8 @@ WLED_GLOBAL byte colNlT[] _INIT_N(({ 0, 0, 0, 0 }));        // current nightligh
 WLED_GLOBAL bool offMode             _INIT(!turnOnAtBoot);
 WLED_GLOBAL byte briS                _INIT(128);           // default brightness
 WLED_GLOBAL byte bri                 _INIT(briS);          // global brightness (set)
-WLED_GLOBAL byte briOld              _INIT(0);             // global brightness while in transition loop (previous iteration)
-WLED_GLOBAL byte briT                _INIT(0);             // global brightness during transition
+WLED_GLOBAL uint16_t briOld16        _INIT(0);             // Q8.8 global brightness while in transition loop (previous iteration)
+WLED_GLOBAL uint16_t briT16          _INIT(0);             // Q8.8 global brightness during transition
 WLED_GLOBAL byte briLast             _INIT(128);           // brightness before turned off. Used for toggle function
 // whiteLast is private to ir.cpp - see there.
 

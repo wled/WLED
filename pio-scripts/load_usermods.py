@@ -128,7 +128,7 @@ for line in raw_usermods.splitlines():
     for token in line.split():
       if token == '*':
         for mod_path in sorted(usermod_dir.iterdir()):
-          if mod_path.is_dir() and (mod_path / 'library.json').exists():
+          if mod_path.is_dir() and (mod_path / 'library.json').exists() and not (mod_path / 'usermods.ignore').exists():
             _custom_usermod_names.add(mod_path.name)
             usermods_libdeps.append(f"symlink://{mod_path.resolve()}")
       else:

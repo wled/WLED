@@ -455,6 +455,7 @@ static const uint8_t *getPresetCache(size_t &size) {
   }
 
   if (!presetsCached) {
+    strip.waitForBus(); // accessing FS can cause output glitches on single core MCUs
     File file = WLED_FS.open(FPSTR(getPresetsFileName()), "r");
     if (file) {
       presetsCachedTime = presetsModifiedTime;
@@ -490,6 +491,9 @@ bool handleFileRead(AsyncWebServerRequest* request, String path){
     }
   }
   #endif
+
+  strip.waitForBus(); // accessing FS can cause output glitches on single core MCUs
+
   if(WLED_FS.exists(path) || WLED_FS.exists(path + ".gz")) {
     request->send(request->beginResponse(WLED_FS, path, {}, request->hasArg(F("download")), {}));
     return true;
