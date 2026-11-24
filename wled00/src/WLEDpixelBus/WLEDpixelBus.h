@@ -105,19 +105,22 @@ constexpr size_t MAX_DMA_BUFFER_SIZE = 4092; // 12bit in DMA descriptor
 static_assert(DEFAULT_DMA_BUFFER_SIZE <= 4092, "DEFAULT_DMA_BUFFER_SIZE exceeds the maximum possible size");
 
 // packed into ColorEncoder::_pixelFormat: upper nibble = flags
-static constexpr uint8_t NCHF_16BIT  = 0x10; // 16-bit per color (UCS8903/8904/SM16825)
+static constexpr uint8_t NCHF_16BIT  = 0x10; // 16-bit per color (UCS8903/8904/7604, SM16825)
 static constexpr uint8_t NCHF_CUSTOM = 0x40; // custom channel map: _channelMap[] drives encoding
 // 0x20 and 0x80 reserved
 
 // Maximum number of color channels in custom channel map (ColorEncoder::_channelMap[]).
 static constexpr uint8_t MAX_CUSTOM_CHANNELS = 6; // note: changing this wont propagate, currently ICs with more than 6 channels are not supported
 
-static constexpr uint8_t MAX_PREFIX_BYTES = 8;
-static constexpr uint8_t MAX_SUFFIX_BYTES = 8;
-// Chip-specific prefix/suffix bytes
+// Chip-specific prefix/suffix bytes, note: 256bytes max
 static constexpr uint8_t TM1814_PREFIX_LEN  = 8; // C1+C2 current-config prefix
 static constexpr uint8_t TM1914_PREFIX_LEN  = 6; // mode-setting prefix
+static constexpr uint8_t UCS7604_PREFIX_LEN = 15;
 static constexpr uint8_t SM16825_SUFFIX_LEN = 4; // per-frame configuration suffix
+// UCS7604 prefix contains the mode (800kHz, 16bit) and the 5 current scale settings (set to max), see datasheet and fastled issue #2088 for details
+static constexpr uint8_t UCS7604_PREFIX[UCS7604_PREFIX_LEN] = {
+  0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0x00, 0x03, 0x8B, 0x0F, 0x0F, 0x0F, 0x0F, 0x00, 0x00
+};
 // TM1914 mode-setting prefix: 6 bytes (3 data + 3 inverted)
 //static constexpr uint8_t TM1914_PREFIX[6] = { 0xFF, 0xFF, 0xFA, 0x00, 0x00, 0x05 }; // DIN only
 //static constexpr uint8_t TM1914_PREFIX[6] = { 0xFF, 0xFF, 0xF5, 0x00, 0x00, 0x0A }; // FDIN only
@@ -168,9 +171,9 @@ struct BusProperties {
   bool     invertOutput = false;
   LedTiming timing = LedTiming(300, 900, 700, 500, 300);
   uint8_t  prefixLen = 0;
-  uint8_t  prefixData[MAX_PREFIX_BYTES] = {};
+  const uint8_t* prefixData = nullptr;
   uint8_t  suffixLen = 0;
-  uint8_t  suffixData[MAX_SUFFIX_BYTES] = {};
+  const uint8_t* suffixData = nullptr;
 };
 
 enum class DriverState : uint8_t {
@@ -278,7 +281,7 @@ public:
   uint8_t getPixelFormat()      const { return _pixelFormat; }   // lower nibble=wire bytes, upper=NCHF_* flags
   uint8_t getLogicalChannels()  const { return (_pixelFormat & NCHF_16BIT) ? (_pixelFormat & 0x0F) / 2 : (_pixelFormat & 0x0F); } // logical color channels
   uint8_t getBytesPerPixel()    const { return _pixelFormat & 0x0F; } // wire bytes per pixel
-  bool    is16Bit()             const { return (_pixelFormat & NCHF_16BIT) != 0; } // true for UCS8903/8904/SM16825
+  bool    is16Bit()             const { return (_pixelFormat & NCHF_16BIT) != 0; } // true for UCS8903/8904/7604/SM16825
   bool    hasInvertedChannels() const { return _invertMask != 0; } // bus with at least one inverted color channel
   bool    isCustom()            const { return (_pixelFormat & NCHF_CUSTOM) != 0; } // true for non-permutation custom channel maps
 
@@ -310,41 +313,66 @@ protected:
   uint16_t _numPixels = 0;            // number of encoded pixels (bytes per pixel depends on _encoder)
   uint8_t  _prefixLen = 0;            // byte length of chip prefix at start of _encodeBuffer i.e. sent out first
   uint8_t  _suffixLen = 0;            // byte length of chip suffix appended after pixel data i.e. sent out after pixel data
-  uint8_t  _prefixData[MAX_PREFIX_BYTES] = {};
-  uint8_t  _suffixData[MAX_SUFFIX_BYTES] = {};
+  uint8_t* _framingData = nullptr;    // prefix followed by suffix; allocated only when framing bytes are needed
   uint8_t  _ledType   = 0;            // LED chip type (e.g. 31=TM1814); 0 = generic
   bool     _inverted  = false;        // physical output signal inversion (per bus), not to be confused by _invertMask which is per-color channel inversion
   uint8_t  _busBri = 255;             // brightness for color_fade() in setPixelColor() (software scaling, can be on top of hardware scaling)
   uint16_t _encBri = 255U << 8;       // Q8.8 encoder brightness for 16-bit types uses _encBri * colorchannel
   ColorEncoder _encoder;              // color encoder, set by derived class constructors
 
+  void savePrefixData(const uint8_t* data, uint8_t len) {
+    if (!data || !_framingData || !_prefixLen || !len) return;
+    if (len > _prefixLen) len = _prefixLen;
+    if (data != _framingData) memcpy(_framingData, data, len);
+  }
+
+  void saveSuffixData(const uint8_t* data, uint8_t len) {
+    if (!data || !_framingData || !_suffixLen || !len) return;
+    if (len > _suffixLen) len = _suffixLen;
+    uint8_t* suffixData = _framingData + _prefixLen;
+    if (data != suffixData) memcpy(suffixData, data, len);
+  }
+
 public:
-  virtual ~PixelBus() { releaseEncodeBuffer(); }
+  virtual ~PixelBus() {
+    releaseEncodeBuffer();
+    free(_framingData);
+  }
 
   // color data prefix handling
-  void setPrefixLen(uint8_t len) { _prefixLen = len > MAX_PREFIX_BYTES ? MAX_PREFIX_BYTES : len; }
-  void setPrefixData(const uint8_t* data, uint8_t len) {
-    if (!data) return;
-    if (len > MAX_PREFIX_BYTES) len = MAX_PREFIX_BYTES;
-    memcpy(_prefixData, data, len);
+  bool setFraming(const uint8_t* prefixData, uint8_t prefixLen, const uint8_t* suffixData, uint8_t suffixLen) {
+    const size_t framingBytes = (size_t)prefixLen + suffixLen;
+    uint8_t* framingData = nullptr;
+    free(_framingData); // free old data
+    _framingData = nullptr;
+    if (framingBytes) {
+      framingData = (uint8_t*)calloc(framingBytes, sizeof(uint8_t));
+      if (!framingData) return false;
+      if (prefixData && prefixLen) memcpy(framingData, prefixData, prefixLen);
+      if (suffixData && suffixLen) memcpy(framingData + prefixLen, suffixData, suffixLen);
+      _framingData = framingData;
+    }
+    _prefixLen = prefixLen;
+    _suffixLen = suffixLen;
+    return true;
   }
+
   virtual void updatePrefix(const uint8_t* data, uint8_t len) {
-    if (!_encodeBuffer || len == 0) return;
+    if (!data || !_prefixLen || len == 0) return;
     if (len > _prefixLen) len = _prefixLen;
+    savePrefixData(data, len);
+    if (!_encodeBuffer) return;
     memcpy(_encodeBuffer, data, len);
   }
   bool hasPrefix() const { return _prefixLen > 0; }
   uint8_t getPrefixLen() const { return _prefixLen; }
+
   // color data suffix handling
-  void setSuffixLen(uint8_t len) { _suffixLen = len > MAX_SUFFIX_BYTES ? MAX_SUFFIX_BYTES : len; }
-  void setSuffixData(const uint8_t* data, uint8_t len) {
-    if (!data) return;
-    if (len > MAX_SUFFIX_BYTES) len = MAX_SUFFIX_BYTES;
-    memcpy(_suffixData, data, len);
-  }
   virtual void updateSuffix(const uint8_t* data, uint8_t len) {
-    if (!_pixelData || _suffixLen == 0 || len == 0) return;
+    if (!data || !_suffixLen || len == 0) return;
     if (len > _suffixLen) len = _suffixLen;
+    saveSuffixData(data, len);
+    if (!_pixelData) return;
     memcpy(_pixelData + (size_t)_numPixels * _encoder.getBytesPerPixel(), data, len);
   }
   bool hasSuffix() const { return _suffixLen > 0; }
@@ -457,6 +485,7 @@ public:
 
   // Allocate encode buffer (data sent to the LEDs)
   virtual bool allocateEncodeBuffer(uint16_t numPixels, uint8_t bytesPerPixel) {
+    if ((_prefixLen || _suffixLen) && !_framingData) return false;
     const size_t pixelBytes = (size_t)numPixels * bytesPerPixel;
     const size_t needed = _prefixLen + pixelBytes + _suffixLen;
     if (_encodeBuffer && _encodeBufferSize >= needed) return true;
@@ -471,8 +500,8 @@ public:
     memset(_encodeBuffer, 0, needed);
     _encodeBufferSize = needed;
     _pixelData = _encodeBuffer + _prefixLen;
-    if (_prefixLen > 0) memcpy(_encodeBuffer, _prefixData, _prefixLen);
-    if (_suffixLen > 0) memcpy(_pixelData + pixelBytes, _suffixData, _suffixLen);
+    if (_prefixLen > 0) memcpy(_encodeBuffer, _framingData, _prefixLen);
+    if (_suffixLen > 0) memcpy(_pixelData + pixelBytes, _framingData + _prefixLen, _suffixLen);
     return true;
   }
 
@@ -490,6 +519,7 @@ public:
   }
 
   size_t   getEncodeBufferSize() const { return _encodeBufferSize; }
+  size_t   getFramingDataSize() const { return _prefixLen + _suffixLen; }
   virtual uint16_t getNumPixels() const { return _numPixels; }
   void setNumPixels(uint16_t n) { _numPixels = n; }
 };

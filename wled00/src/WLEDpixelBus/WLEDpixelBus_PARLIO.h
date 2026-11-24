@@ -95,7 +95,6 @@ private:
   bool _allocDmaBuffers(); // allocate/reallocate DMA buffers sized for the largest registered channel
   void IRAM_ATTR encode4Step(uint8_t* dest, size_t destLen, uint8_t maxChannel); // 4-step cadence encoding, applies inversion via XOR
   uint32_t IRAM_ATTR _calcResetBytes() const; // bytes of reset period appended at the end of a frame (called from ISR context)
-
   static IRAM_ATTR bool parlioTxDoneISR(parlio_tx_unit_handle_t tx_unit, const parlio_tx_done_event_data_t* edata, void* user_ctx);
 
 #if WLEDPB_PARLIO_SEAMLESS_DMA
