@@ -76,6 +76,12 @@ SYSLOG_HTML = """
 </div>
 """
 
+def syslog_section(page):
+    # Newer WLED settings pages wrap each block in <div class="sec">; match the page's layout
+    if 'class="sec"' in page:
+        return '<div class="sec">\n' + SYSLOG_HTML.strip('\n') + '\n</div>'
+    return SYSLOG_HTML
+
 def inject_syslog_ui(source, target, env, retry_count=0):
     print("\033[44m==== inject_syslog_ui.py (PRE BUILD) ====\033[0m")
     if not is_full_build:
@@ -119,6 +125,7 @@ def inject_syslog_ui(source, target, env, retry_count=0):
             with open(html_path, 'r', encoding='utf8') as f:
                 original = f.read()
             modified = original
+            section = syslog_section(original)
 
             # replace existing section if present
             if '<!-- SYSLOG-START -->' in modified and '<!-- SYSLOG-END -->' in modified:
@@ -126,7 +133,7 @@ def inject_syslog_ui(source, target, env, retry_count=0):
                 end   = modified.index('<!-- SYSLOG-END -->') + len('<!-- SYSLOG-END -->')
                 modified = (
                     modified[:start]
-                    + '<!-- SYSLOG-START -->\n' + SYSLOG_HTML + '\n<!-- SYSLOG-END -->'
+                    + '<!-- SYSLOG-START -->\n' + section + '\n<!-- SYSLOG-END -->'
                     + modified[end:]
                 )
             else:
@@ -140,7 +147,7 @@ def inject_syslog_ui(source, target, env, retry_count=0):
                     return
                 modified = (
                     modified[:idx]
-                    + '<!-- SYSLOG-START -->\n' + SYSLOG_HTML + '\n<!-- SYSLOG-END -->\n'
+                    + '<!-- SYSLOG-START -->\n' + section + '\n<!-- SYSLOG-END -->\n'
                     + modified[idx:]
                 )
 
