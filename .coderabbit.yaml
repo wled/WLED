@@ -200,7 +200,8 @@ reviews:
         Verify outgoing links. Flag broken/unreachable links.
         Request clarification for outgoing links to commercial software/services, promotional sites,
         and for links to software without public source and license evidence.
-        Check for potentially malicious links (security/privacy risks, backdoors, adware/malware, typo-squatting, suspicious redirects, exploit kits, phishing, etc).
+        If a linked site recommends installing unofficial third-party apps, sideloading or risky modifications to users' home equipment, request clarification.
+        Check for potentially malicious links (security/privacy risks, backdoors, adware/malware, typosquatting, suspicious redirects, drive-by downloads, exploit kits, phishing, etc).
 
     # ── Secrets / sensitive information scanning ────────────────────────────
     - path: "platformio*.ini*"
