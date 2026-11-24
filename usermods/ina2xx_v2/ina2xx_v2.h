@@ -97,6 +97,12 @@
 #ifndef INA2XX_MQTT_PUBLISH_ALWAYS
   #define INA2XX_MQTT_PUBLISH_ALWAYS false // Default: only publish on change
 #endif
+#ifndef INA2XX_CHANGE_THRESHOLD
+  #define INA2XX_CHANGE_THRESHOLD 1.0 // Relative change (percent) that triggers an MQTT publish
+#endif
+#ifndef INA2XX_HEARTBEAT_INTERVAL
+  #define INA2XX_HEARTBEAT_INTERVAL 30 // Publish at least every N seconds even without change (0 = off)
+#endif
 #ifndef INA2XX_HA_DISCOVERY
   #define INA2XX_HA_DISCOVERY false // Default: Home Assistant discovery disabled
 #endif
@@ -148,6 +154,10 @@ private:
   bool mqttPublish = INA2XX_MQTT_PUBLISH;
   bool mqttPublishSent = !INA2XX_MQTT_PUBLISH;
   bool mqttPublishAlways = INA2XX_MQTT_PUBLISH_ALWAYS;
+  float changeThresholdPct = INA2XX_CHANGE_THRESHOLD; // percent
+  uint16_t heartbeatInterval = INA2XX_HEARTBEAT_INTERVAL; // seconds, 0 = off
+  unsigned long lastMqttPublish = 0; // millis() of the last data publish
+  bool mqttDataPublished = false; // false until data was published since boot or the last MQTT (re)connect
   bool haDiscovery = INA2XX_HA_DISCOVERY;
   bool haDiscoverySent = !INA2XX_HA_DISCOVERY;
 
@@ -162,13 +172,10 @@ private:
   bool overflow = false;
 
   // Last sent variables
-  float last_sent_shuntVoltage = 0;
   float last_sent_busVoltage = 0;
   float last_sent_loadVoltage = 0;
   float last_sent_current = 0;
-  float last_sent_current_mA = 0;
   float last_sent_power = 0;
-  float last_sent_power_mW = 0;
   bool last_sent_overflow = false;
 
   double dailyEnergy_kWh = 0.0; // Daily energy in kWh
@@ -213,7 +220,7 @@ private:
   INA_SENSOR_CLASS *_ina2xx = nullptr; // INA2xx sensor object
 
   float roundDecimals(float val);
-  bool hasSignificantChange(float oldValue, float newValue, float threshold = 0.01f);
+  bool hasSignificantChange(float oldValue, float newValue);
   bool hasValueChanged();
   bool checkForI2cErrors();
   void scanI2CDevices();
