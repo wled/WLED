@@ -78,8 +78,35 @@ void applyFinalBri() {
   strip.trigger(); // force one last update
 }
 
+static bool powerOffAnimating = false; // strip brightness is kept until the OFF animation has finished, see handleTransitions()
+
+#ifndef WLED_DISABLE_GLOBAL_PIXELBUFFER
+// starts the optional power animation (rendered by WS2812FX::show()) instead of the global power transition
+// returns false if bri does not change the power state, so regular brightness changes still fade as usual
+static bool startPowerAnimation() {
+  const bool on = bri > 0;
+  strip.clearPowerFlag(0xFF); // the animation replaces the global and segment power transitions
+  if (on == strip.getPowerAnimationTarget()) return false;
+  if (on && !strip.isPowerAnimationRunning()) { // from fully off: restart effects like a regular power on
+    strip.setTransitionMode(false);
+    strip.restartRuntime();
+  }
+  strip.requestPowerAnimation(on);
+  if (jsonTransitionOnce) strip.setTransition(transitionDelay); // a one-time "tt" does not apply to the animation
+  jsonTransitionOnce = false;
+  transitionActive = false;
+  powerOffAnimating = !on;
+  if (on) applyFinalBri(); // the animation provides the fade-in
+  else briOld16 = 0;       // keep briT16 (strip brightness) until the animation is dark
+  return true;
+}
+#endif
+
 // local function to handle global brightness transition, called from stateUpdated(). Note: power flags are set in toggleOnOff()
 void handleBriChange() {
+  #ifndef WLED_DISABLE_GLOBAL_PIXELBUFFER
+  if (powerAnimation && startPowerAnimation()) return; // the sweep is applied in the global pixel buffer's output loop
+  #endif
   //DEBUG_PRINTF_P(PSTR("state update: briT16: %d bri: %d briOld16: %d, isPoweron: %d , isPoweroff %d, trigger: %d\n"), (int)briT16, (int)bri, (int)briOld16, (int)strip.isPoweringOn(), (int)strip.isPoweringOff(), (int)strip.isPowerTrigger());
   if (strip.getTransition() == 0) {
     jsonTransitionOnce = false;
@@ -221,6 +248,11 @@ void updateInterfaces(uint8_t callMode) {
 void handleTransitions() {
   //handle still pending interface update
   updateInterfaces(interfaceUpdateCallMode);
+
+  if (powerOffAnimating && !strip.isPowerAnimationRunning()) {
+    powerOffAnimating = false;
+    if (bri == 0 && !transitionActive) applyFinalBri(); // OFF animation is dark: switch off for real (relay, off mode)
+  }
 
   // note: the !stateChanged is a workaround: bri is updated async, this code can run before stateUpdated() is called, causing a jump in the fade
   if (transitionActive && strip.getTransition() > 0 && !stateChanged) {
