@@ -192,10 +192,11 @@ reviews:
            reference section, note this as a suggestion (not a required fix).
 
     # ── writing style and links ────────────────────────────
-    - path: "**/*.md"
+    - path: "**/*.{md,txt,me,htm,js}"
       instructions: >
-        Check for spelling and grammar errors, and for proper markdown syntax.
+        Check user-facing texts for spelling and grammar errors, and for proper markdown or html/css syntax.
         Make sure that statements are technically correct and clear.
+        Suggest simplifications for long or complex user-facing text.
         Embedded code snippets should be syntactically valid.
         Verify outgoing links. Flag broken/unreachable links.
         Request clarification for outgoing links to commercial software/services, promotional sites,
