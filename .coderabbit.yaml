@@ -197,6 +197,7 @@ reviews:
         Check user-facing texts for spelling and grammar errors, and for proper markdown or html/css syntax.
         Make sure that statements are technically correct and clear.
         Suggest simplifications for long or complex user-facing text.
+        Flag offensive, culturally misunderstood, or potentially inappropriate language (see CODE_OF_CONDUCT.md) and suggest alternative wording.
         Embedded code snippets should be syntactically valid.
         Verify outgoing links. Flag broken/unreachable links.
         Request clarification for outgoing links to commercial software/services, promotional sites,
