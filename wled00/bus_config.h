@@ -13,7 +13,7 @@ constexpr bool busTypeHasRGB(uint8_t type) {
 }
 constexpr bool busTypeHasWhite(uint8_t type) {
   return  (type >= TYPE_WS2812_1CH_X3 && type <= TYPE_WS2812_WWA) ||
-          type == TYPE_SK6812_RGBW || type == TYPE_TM1814 || type == TYPE_TM1815 || type == TYPE_UCS8904 ||
+          type == TYPE_SK6812_RGBW || type == TYPE_TM1814 || type == TYPE_TM1815 || type == TYPE_UCS8904 || type == TYPE_UCS7604 ||
           type == TYPE_FW1906 || type == TYPE_WS2805 || type == TYPE_SM16825 ||        // digital types with white channel
           (type > TYPE_ONOFF && type <= TYPE_ANALOG_5CH && type != TYPE_ANALOG_3CH) || // analog types with white channel
           type == TYPE_NET_DDP_RGBW || type == TYPE_NET_ARTNET_RGBW;                   // network types with white channel
@@ -30,7 +30,7 @@ constexpr bool busTypeIsOnOff(uint8_t type)     { return (type == TYPE_ONOFF); }
 constexpr bool busTypeIsPWM(uint8_t type)       { return (type >= TYPE_ANALOG_MIN && type <= TYPE_ANALOG_MAX); }
 constexpr bool busTypeIsVirtual(uint8_t type)   { return (type >= TYPE_VIRTUAL_MIN && type <= TYPE_VIRTUAL_MAX); }
 constexpr bool busTypeIsHub75(uint8_t type)     { return (type >= TYPE_HUB75MATRIX_MIN && type <= TYPE_HUB75MATRIX_MAX); }
-constexpr bool busTypeIs16bit(uint8_t type)     { return type == TYPE_UCS8903 || type == TYPE_UCS8904 || type == TYPE_SM16825; }
+constexpr bool busTypeIs16bit(uint8_t type)     { return type == TYPE_UCS8903 || type == TYPE_UCS8904 || type == TYPE_UCS7604 || type == TYPE_SM16825; }
 constexpr bool busTypeMustRefresh(uint8_t type) { return type == TYPE_TM1814 || type == TYPE_TM1815; }
 constexpr int  busTypeNumPWMPins(uint8_t type)  { return (type - 40); }
 
@@ -57,7 +57,7 @@ struct BusChannelLayout {
   uint8_t  numChannels = 0;       // wire channels per pixel; 0 = not resolved yet
   uint8_t  channelMap[WLEDpixelBus::MAX_CUSTOM_CHANNELS] = {WLEDpixelBus::CH_G, WLEDpixelBus::CH_R, WLEDpixelBus::CH_B, WLEDpixelBus::CH_UNUSED, WLEDpixelBus::CH_UNUSED, WLEDpixelBus::CH_UNUSED}; // GRB default
   uint8_t  invertMask  = 0;       // bitmask: bit i = invert channel i output level
-  bool     is16bit      = false;  // 2 wire bytes per channel (UCS8903/04, SM16825)
+  bool     is16bit      = false;  // 2 wire bytes per channel (UCS8903/04, UCS7604, SM16825)
   bool     invertOutput = false;  // invert the hardware output signal polarity
   bool     custom       = false;  // user-entered override active (replaces CustomBusConfig::active())
   uint16_t t0h = 300;  // '0' bit high time, ns

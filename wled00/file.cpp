@@ -455,6 +455,7 @@ static const uint8_t *getPresetCache(size_t &size) {
   }
 
   if (!presetsCached) {
+    strip.waitForBus(); // accessing FS can cause output glitches on single core MCUs
     File file = WLED_FS.open(FPSTR(getPresetsFileName()), "r");
     if (file) {
       presetsCachedTime = presetsModifiedTime;
@@ -491,9 +492,7 @@ bool handleFileRead(AsyncWebServerRequest* request, String path){
   }
   #endif
 
-  #ifdef CONFIG_IDF_TARGET_ESP32C3
-  while (!BusManager::canAllShow()) yield(); // accessing FS causes glitches due to RMT issue on C3 TODO: remove this when fixed
-  #endif
+  strip.waitForBus(); // accessing FS can cause output glitches on single core MCUs
 
   if(WLED_FS.exists(path) || WLED_FS.exists(path + ".gz")) {
     request->send(request->beginResponse(WLED_FS, path, {}, request->hasArg(F("download")), {}));

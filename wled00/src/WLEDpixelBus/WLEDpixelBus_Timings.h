@@ -39,7 +39,7 @@ static const PROGMEM LedTiming _ledTimings[] = {
  { 300,  900,  700,  500,  300 },  // WS281x
  { 800, 1700, 1600,  900,  300 },  // Generic 400Kbps
  { 300,  900,  800,  400,  200 },  // TM1829 - output inverted!
- { 400,  850,  800,  450,  300 },  // UCS8903 / UCS8904 (16-bit)
+ { 420,  850,  840,  430,  300 },  // UCS8903 / UCS8904 / UCS7604 (16-bit)
  { 350, 1350, 1350,  350,   50 },  // APA106 / PL9823
  { 360,  890,  720,  530,  250 },  // TM1814 / TM1914 - output inverted!
  { 740, 1780, 1440, 1060,  200 },  // TM1815 - output inverted!
@@ -58,7 +58,8 @@ static inline uint8_t getTimingIndex(uint8_t wledType) {
     case TYPE_WS2811_400KHZ: return  1;
     case TYPE_TM1829:        return  2;
     case TYPE_UCS8903:
-    case TYPE_UCS8904:       return  3; // identical timing
+    case TYPE_UCS8904:
+    case TYPE_UCS7604:       return  3; // identical 800 kHz timing
     case TYPE_APA106:        return  4;
     case TYPE_TM1914:
     case TYPE_TM1814:        return  5; // identical timing

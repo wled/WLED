@@ -276,7 +276,7 @@ void BusDigital::setBrightness16(uint16_t b) {
     _busPtr->setApa102HwBri(hwStep + 1); // 0 is off so use 1..31
     _busPtr->setBusBri(residualBri);     // used by color_fade() in setPixelColor()
   } else if (is16bit()) {
-    // 16-bit LED types (SM16825, UCS8903, UCS8904): color_fade() is a no-op (_busBri=255);
+    // 16-bit LED types (SM16825, UCS8903/04/7604): color_fade() is a no-op (_busBri=255);
     // encoder applies full 16-bit precision via channel*_encBri.
     _busPtr->setBusBri(255);
     _busPtr->setEncBri(b);
@@ -429,7 +429,7 @@ size_t BusDigital::getPins(uint8_t* pinArray) const {
 }
 
 size_t BusDigital::getBusSize() const {
-  return sizeof(BusDigital) + (isOk() && _busPtr ? _busPtr->getEncodeBufferSize() : 0);  // does not include common I2S DMA buffer
+  return sizeof(BusDigital) + (isOk() && _busPtr ? _busPtr->getEncodeBufferSize() + _busPtr->getFramingDataSize() : 0);  // does not include common I2S DMA buffer
 }
 
 void BusDigital::setColorOrder(uint8_t colorOrder) {
@@ -449,6 +449,7 @@ std::vector<LEDType> BusDigital::getLEDTypes() {
     {TYPE_TM1914,        "D",  PSTR("TM1914 RGB")},
     {TYPE_SK6812_RGBW,   "D",  PSTR("SK6812/WS2814 RGBW")},
     {TYPE_UCS8904,       "D",  PSTR("UCS8904 RGBW")},
+    {TYPE_UCS7604,       "D",  PSTR("UCS7604 RGBW")},
     {TYPE_TM1814,        "D",  PSTR("TM1814 RGBW")},
     {TYPE_TM1815,        "D",  PSTR("TM1815 RGBW")},
     {TYPE_FW1906,        "D",  PSTR("FW1906/WS2811 RGBCCT")},
@@ -472,7 +473,7 @@ void BusDigital::begin() {
   if (!_valid) return;
   if (!_busPtr->begin()) { cleanup(); return; }
   // TM1914: write the static mode-setting prefix once after the encode buffer is allocated.
-  if (_busProperties.prefixLen > 0)
+  if (_busProperties.prefixLen > 0 && _busProperties.prefixData)
     _busPtr->updatePrefix(_busProperties.prefixData, _busProperties.prefixLen);
 }
 
@@ -1543,8 +1544,7 @@ int BusManager::add(const BusConfig &bc, bool placeholder) {
 }
 
 // credit @willmmiles
-static String LEDTypesToJson(const std::vector<LEDType>& types) {
-  String json;
+static void LEDTypesToJson(Print& dest, const std::vector<LEDType>& types, bool& first) {
   for (const auto &type : types) {
     // capabilities follows similar pattern as JSON API
     int capabilities = Bus::hasRGB(type.id) | Bus::hasWhite(type.id)<<1 | Bus::hasCCT(type.id)<<2 | Bus::is16bit(type.id)<<4 | Bus::mustRefresh(type.id)<<5;
@@ -1555,33 +1555,33 @@ static String LEDTypesToJson(const std::vector<LEDType>& types) {
               (unsigned)timing.t0h_ns, (unsigned)timing.t0l_ns,
               (unsigned)timing.t1h_ns, (unsigned)timing.t1l_ns,
               (unsigned)timing.reset_us);
-    json += str;
+    if (!first) dest.print(',');
+    dest.print(str);
+    first = false;
     if (Bus::isDigital(type.id) && !Bus::is2Pin(type.id)) {
       BusChannelLayout layout;
       resolveChannelLayout(layout, type.id, COL_ORDER_GRB);
-      json += F(",cm:\"");
-      for (uint8_t i = 0; i < layout.numChannels; i++) json += char('0' + layout.channelMap[i]);
-      json += layout.invertOutput ? F("\",io:1") : F("\",io:0");
+      dest.print(F(",cm:\""));
+      for (uint8_t i = 0; i < layout.numChannels; i++) dest.print(char('0' + layout.channelMap[i]));
+      dest.print(layout.invertOutput ? F("\",io:1") : F("\",io:0"));
     }
-    json += F("},");
+    dest.print('}');
   }
-  return json;
 }
 
 // credit @willmmiles & @netmindz https://github.com/wled/WLED/pull/4056
-String BusManager::getLEDTypesJSONString() {
-  String json = "[";
-  json += LEDTypesToJson(BusDigital::getLEDTypes());
-  json += LEDTypesToJson(BusOnOff::getLEDTypes());
-  json += LEDTypesToJson(BusPwm::getLEDTypes());
-  json += LEDTypesToJson(BusNetwork::getLEDTypes());
-  //json += LEDTypesToJson(BusVirtual::getLEDTypes());
+void BusManager::printLEDTypesJSON(Print& dest) {
+  dest.print('[');
+  bool first = true; // is set false in first LEDTypesToJson call, passed by reference
+  LEDTypesToJson(dest, BusDigital::getLEDTypes(), first);
+  LEDTypesToJson(dest, BusOnOff::getLEDTypes(), first);
+  LEDTypesToJson(dest, BusPwm::getLEDTypes(), first);
+  LEDTypesToJson(dest, BusNetwork::getLEDTypes(), first);
+  // LEDTypesToJson(dest, BusVirtual::getLEDTypes(), first);
   #ifdef WLED_ENABLE_HUB75MATRIX
-  json += LEDTypesToJson(BusHub75Matrix::getLEDTypes());
+  LEDTypesToJson(dest, BusHub75Matrix::getLEDTypes(), first);
   #endif
-
-  json.setCharAt(json.length()-1, ']'); // replace last comma with bracket
-  return json;
+  dest.print(']');
 }
 
 bool BusManager::allocateHardware(uint8_t busType, const uint8_t* pins, uint8_t& driverType) {

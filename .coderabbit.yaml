@@ -191,6 +191,20 @@ reviews:
         3. If new AI-facing rules were added without updating a related HUMAN_ONLY
            reference section, note this as a suggestion (not a required fix).
 
+    # ── writing style and links ────────────────────────────
+    - path: "**/*.{md,txt,me,htm,js}"
+      instructions: >
+        Check user-facing texts for spelling and grammar errors, and for proper markdown or html/css syntax.
+        Make sure that statements are technically correct and clear.
+        Suggest simplifications for long or complex user-facing text.
+        Flag offensive, culturally misunderstood, or potentially inappropriate language (see CODE_OF_CONDUCT.md) and suggest alternative wording.
+        Embedded code snippets should be syntactically valid.
+        Verify outgoing links. Flag broken/unreachable links.
+        Request clarification for outgoing links to commercial software/services, promotional sites,
+        and for links to software without public source and license evidence.
+        If a linked site recommends installing unofficial third-party apps, sideloading or risky modifications to users' home equipment, request clarification.
+        Check for potentially malicious links (security/privacy risks, backdoors, adware/malware, typosquatting, suspicious redirects, drive-by downloads, exploit kits, phishing, etc).
+
     # ── Secrets / sensitive information scanning ────────────────────────────
     - path: "platformio*.ini*"
       instructions: >
@@ -269,5 +283,4 @@ reviews:
       enabled: false
     autofix:
       enabled: false
-    autopilot:
-      enabled: false
+
