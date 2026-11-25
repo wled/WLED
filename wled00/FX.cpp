@@ -7074,7 +7074,7 @@ void mode_vu_meter() {
   // Calculate the length of the bar - smooth it with the last values
   const uint16_t amplitudeIn = constrain(volumeScaledToSegLen, 0,SEGLEN - 1); // Keep the sample from overflowing.
   const uint16_t oldAmplitude = vuState->smoothBar;
-  vuState->smoothBar += (amplitudeIn - vuState->smoothBar) * ((255.0 - sliderSmoothing) / 255.0);
+  vuState->smoothBar += (amplitudeIn - vuState->smoothBar) * ((256.0 - sliderSmoothing) / 256.0); // use 256.0 here, so it always stays slightly > 0.0
   const uint16_t amplitude = vuState->smoothBar;
 
   // Fade out old content
@@ -7099,23 +7099,27 @@ void mode_vu_meter() {
     blend = 255;
   }
 
-  float noiseSmoothingFactor;
+  float noiseHeightFactor;
   unsigned long noiseTimebase;
   if (checkNoise) {
-    const float noiseTimeFactor = (1.0 - sliderSmoothing / 255.0 + 0.5);  // 0.5 ... 1.5
-    noiseSmoothingFactor = noiseTimeFactor / 8.0f;  // scale it down to be used for mapping height -> noise coordinates
+    // use the smoothing slider also to scale the coords that go into the noise function, to smooth the noise frequency
+    // the factors and offsets here come from trial and error
+    const float noiseTimeFactor = sliderSmoothing / 255.0f * 32.0f + 4.0f;
+    // calc it relative to SEGLEN, so it looks the same no matter how long the segment is
+    noiseHeightFactor = ((255-sliderSmoothing) / 255.0f / (float)SEGLEN) * 1.0f + 4.0f;
 
     // "slow down" timebase depending on the smoothing setting to make noise more calm
-    noiseTimebase = strip.now * noiseTimeFactor;
+    noiseTimebase = strip.now / noiseTimeFactor;
   }
 
+  // **** draw bar loop ****
   for (int i = 0; i < amplitude; i++) {
     uint8_t colorindex;
     if (checkNoise) {
       // Noise checkbox checked
-      colorindex = perlin8(i * amplitude*noiseSmoothingFactor + noiseTimebase, 5000 + i * amplitude*noiseSmoothingFactor);
-      if (!checkScalePalette) {
-        // if checkbox not checked: map the whole noise range 0..255 onto the part of the palette of the current amplitude
+      colorindex = perlin8((uint16_t)(i * noiseHeightFactor + noiseTimebase), 5000);
+      if (checkScalePalette) {
+        // if checkbox checked: map the whole noise range 0..255 onto the part of the palette of the current amplitude
         // so that only colors are chosen of the corresponding height
         colorindex = mapf(colorindex, 0, 255, 0.0f, (float)i/amplitude*255.0f);
       } // no need to scale it for the other case, as the noise range is already 0..255
