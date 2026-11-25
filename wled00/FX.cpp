@@ -7077,7 +7077,6 @@ void mode_vu_meter() {
   vuState->smoothBar += (amplitudeIn - vuState->smoothBar) * ((255.0 - sliderSmoothing) / 255.0);
   const uint16_t amplitude = vuState->smoothBar;
 
-
   // Fade out old content
   SEGMENT.fade_out(249);
 
@@ -7100,16 +7099,26 @@ void mode_vu_meter() {
     blend = 255;
   }
 
+  float noiseSmoothingFactor;
+  unsigned long noiseTimebase;
+  if (checkNoise) {
+    const float noiseTimeFactor = (1.0 - sliderSmoothing / 255.0 + 0.5);  // 0.5 ... 1.5
+    noiseSmoothingFactor = noiseTimeFactor / 8.0f;  // scale it down to be used for mapping height -> noise coordinates
+
+    // "slow down" timebase depending on the smoothing setting to make noise more calm
+    noiseTimebase = strip.now * noiseTimeFactor;
+  }
+
   for (int i = 0; i < amplitude; i++) {
     uint8_t colorindex;
     if (checkNoise) {
       // Noise checkbox checked
-      colorindex = perlin8(i * volumeLevelScaled + strip.now, 5000 + i * volumeLevelScaled);
-      // Noise checkbox not checked
-      if (checkScalePalette) {
-        // Scale palette checked - map the whole palette into the length of the current bar
-        colorindex = mapf(colorindex, 0, 255, 0, amplitude);
-      }
+      colorindex = perlin8(i * amplitude*noiseSmoothingFactor + noiseTimebase, 5000 + i * amplitude*noiseSmoothingFactor);
+      if (!checkScalePalette) {
+        // if checkbox not checked: map the whole noise range 0..255 onto the part of the palette of the current amplitude
+        // so that only colors are chosen of the corresponding height
+        colorindex = mapf(colorindex, 0, 255, 0.0f, (float)i/amplitude*255.0f);
+      } // no need to scale it for the other case, as the noise range is already 0..255
     } else { // Noise checkbox not checked
       if (checkScalePalette) {
         // Scale palette checked - map the whole palette into the length of the current bar
@@ -7191,7 +7200,7 @@ void mode_vu_meter() {
   }
 }
 
-static const char _data_FX_MODE_VU_METER[] PROGMEM = "VU Meter@Smoothing,Sensitivity,Gravity,Dynamic Brightness,Contrast,Top Pixel,Noise,Scale Palette;!,!,To;!;1v;ix=70,sx=8,c1=128,c2=200,c3=16,o1=1,o2=0,o3=0,m12=2,si=0";
+static const char _data_FX_MODE_VU_METER[] PROGMEM = "VU Meter@Smoothing,Sensitivity,Gravity,Dynamic Brightness,Contrast Top/Bar,Show Top Pixel,Noise,Scale Palette;!,!,To;!;1v;ix=70,sx=8,c1=128,c2=200,c3=16,o1=1,o2=0,o3=0,m12=2,si=0";
 
 // Gravity struct requited for GRAV* effects
 typedef struct Gravity {
