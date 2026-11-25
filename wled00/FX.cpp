@@ -7050,14 +7050,14 @@ struct VuMeterState {
 void mode_vu_meter() {
   if (SEGLEN == 1) FX_FALLBACK_STATIC;
 
-  const uint8_t sliderSmoothing = SEGMENT.speed;   // smooth the bar length against previous length
-  const uint8_t sliderSensitivity = SEGMENT.intensity;  // scale the audio level
-  const uint8_t sliderGravity = SEGMENT.custom1;  // change how fast the top pixel accelerates while falling
+  const uint8_t sliderSmoothing = SEGMENT.speed;           // smooth the bar length against previous length
+  const uint8_t sliderSensitivity = SEGMENT.intensity;     // scale the audio level
+  const uint8_t sliderGravity = SEGMENT.custom1;           // change how fast the top pixel accelerates while falling
   const uint8_t sliderAudioSensitivity = SEGMENT.custom2;  // scale how the audio level changes the blending against the background
-  const uint8_t sliderContrast = SEGMENT.custom3;  // custom3 is due to encoding only 0..31, change the contrast between bar and top pixel
-  const bool checkFallOff = SEGMENT.check1;
-  const bool checkNoise = SEGMENT.check2;
-  const bool checkScalePalette = SEGMENT.check3;
+  const uint8_t sliderContrast = SEGMENT.custom3;          // custom3 is due to encoding only 0..31, change the contrast between bar and top pixel
+  const bool checkFallOff = SEGMENT.check1;                // show falling top pixel
+  const bool checkNoise = SEGMENT.check2;                  // apply color noise to the bar  (only if a palette is used)
+  const bool checkScalePalette = SEGMENT.check3;           // apply color noise to the bar
 
   const uint8_t darkenBar = constrain(constrain(sliderContrast, 0, 16) * 16, 0, 255);  // slider 0..16 maps to 0..255, then stays at 255
 
