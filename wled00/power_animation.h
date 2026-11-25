@@ -32,12 +32,19 @@ class PowerAnimation {
       _last = buffer;
       _seed = buffer + count;
       _count = count;
-      _columns = (columns && columns <= count) ? columns : count;
-      _halfPitch = (1UL << 30) / _columns;
+      _columns = 0;
+      setColumns(columns);
       _on = shownOn;
       _target = targetOn;
       _active = false;
       for (unsigned i = 0; i < count; i++) _last[i] = shownOn ? 255 : 0;
+    }
+    // pixels per matrix row (count for a strip); the layout can change while the LED count stays the same
+    void setColumns(uint16_t columns) {
+      if (!columns || columns > _count) columns = _count;
+      if (columns == _columns || !columns) return;
+      _columns = columns;
+      _halfPitch = (1UL << 30) / columns;
     }
     void detach()                     { _last = _seed = nullptr; _count = 0; _active = false; }
     bool isAttached() const           { return _last != nullptr; }
