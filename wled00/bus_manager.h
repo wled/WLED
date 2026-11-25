@@ -15,6 +15,7 @@
 
 #include "const.h"
 #include "bus_config.h"
+#include "colors.h"
 #include "pin_manager.h"
 #include <vector>
 #include <memory>
@@ -195,7 +196,7 @@ class Bus {
         if (_cctBlend > WLED_MAX_CCT_BLEND) _cctBlend = WLED_MAX_CCT_BLEND;
       #endif
     }
-    static void calculateCCT(uint32_t c, uint8_t &ww, uint8_t &cw);
+    static CctPixel calculateCCT(uint32_t c, int16_t cctValue);
 
   protected:
     uint8_t  _type;
@@ -227,7 +228,7 @@ class Bus {
 
     uint8_t _busSpeedFactor = 100; // percent, default 100 = default timings
 
-    uint32_t autoWhiteCalc(uint32_t c, uint8_t &ww, uint8_t &cw) const;
+    uint32_t autoWhiteCalc(uint32_t c, CctPixel &cctResult, int16_t cctValue) const;
 };
 
 
@@ -252,7 +253,6 @@ class BusDigital : public Bus {
     uint16_t getMaxCurrent() const override  { return _milliAmpsMax; }
     uint8_t  getDriverType() const override  { return _driverType; }
     void     setCurrentLimit(uint16_t milliAmps) { _milliAmpsLimit = milliAmps; }
-    void     setBrightness(uint8_t b) override;
     void     setBrightness16(uint16_t b) override;
     void     estimateCurrent(); // estimate used current from summed colors
     void     applyBriLimit(uint8_t newBri);
@@ -260,6 +260,7 @@ class BusDigital : public Bus {
     bool isParHw(); // true if this bus uses a parallel hardware driver (I2S/LCD/SPI/PARLIO)
     void begin() override;
     void cleanup();
+    uint32_t restoreColorLossy(uint32_t c, uint8_t restoreBri) const;
     const BusChannelLayout& getChannelLayout() const override { return _channels; }
 
     static std::vector<LEDType> getLEDTypes();
@@ -281,17 +282,6 @@ class BusDigital : public Bus {
     BusChannelLayout _channels; // configured channel layout as passed in BusConfig (user-entered when custom)
 
     static uint16_t _milliAmpsTotal; // is overwitten/recalculated on each show()
-
-    inline uint32_t restoreColorLossy(uint32_t c, uint8_t restoreBri) const {
-      if (restoreBri < 255) {
-        uint8_t* chan = (uint8_t*) &c;
-        for (uint_fast8_t i=0; i<4; i++) {
-          uint_fast16_t val = chan[i];
-          chan[i] = ((val << 8) + restoreBri) / (restoreBri + 1); //adding brightness slightly improves recovery / stops degradation on re-scale
-        }
-      }
-      return c;
-    }
 };
 
 
@@ -312,7 +302,8 @@ class BusPwm : public Bus {
 
   private:
     uint8_t _pins[OUTPUT_MAX_PINS];
-    uint8_t _data[OUTPUT_MAX_PINS];
+    uint32_t _color = 0;
+    int16_t  _PWMcct = -1;
     #ifdef ARDUINO_ARCH_ESP32
     uint8_t _ledcStart;
     #endif
@@ -419,7 +410,6 @@ class BusHub75Matrix : public Bus {
     [[gnu::hot]] void setPixelColor(unsigned pix, uint32_t c) override;
     [[gnu::hot]] uint32_t getPixelColor(unsigned pix) const override;
     void show() override;
-    void setBrightness(uint8_t b) override;
     void setBrightness16(uint16_t b) override;
     size_t getPins(uint8_t* pinArray = nullptr) const override;
     void deallocatePins();
@@ -493,6 +483,7 @@ namespace BusManager {
   void on();
   void off();
 
+  void updateGammaUse(bool forceTableUpdate = false);
   [[gnu::hot]] void     setPixelColor(unsigned pix, uint32_t c);
   [[gnu::hot]] uint32_t getPixelColor(unsigned pix);
   void        clearPixels(size_t n); // zero all bus encode buffers for first n physical pixels
@@ -515,7 +506,7 @@ namespace BusManager {
     for (const auto &bus : busses) if (!(bus->isVirtual() && onlyPhysical)) len += bus->getLength();
     return len;
   }
-  String         getLEDTypesJSONString();
+  void           printLEDTypesJSON(Print& dest);
   ColorOrderMap& getColorOrderMap();
 };
 #endif
