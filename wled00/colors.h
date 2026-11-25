@@ -39,11 +39,9 @@ struct CctPixel {
 struct CRGBW; // forward declations
 struct CHSV32;
 
-extern bool gammaCorrectCol;
-// similar to NeoPixelBus NeoGammaTableMethod but allows dynamic changes (superseded by NPB::NeoGammaDynamicTableMethod)
-class NeoGammaWLEDMethod {
+// WLED gamma correction lookup tables with runtime-adjustable gamma
+class WLEDGamma {
   public:
-    [[gnu::hot]] static uint8_t Correct(uint8_t value);             // apply Gamma to single channel
     [[gnu::hot]] static uint32_t inverseGamma32(uint32_t color);    // apply inverse Gamma to RGBW32 color
     static void calcGammaTable(float gamma);                        // re-calculates & fills gamma tables
     static inline uint8_t rawGamma8(uint8_t val) { return gammaT[val]; }            // get value from Gamma table
@@ -55,10 +53,10 @@ class NeoGammaWLEDMethod {
     static uint8_t gammaT[];
     static uint8_t gammaT_inv[];
 };
-#define gamma32(c) NeoGammaWLEDMethod::Correct32(c)
-#define gamma8(c)  NeoGammaWLEDMethod::rawGamma8(c)
-#define gamma32inv(c) NeoGammaWLEDMethod::inverseGamma32(c)
-#define gamma8inv(c)  NeoGammaWLEDMethod::rawInverseGamma8(c)
+#define gamma32(c) WLEDGamma::Correct32(c)
+#define gamma8(c)  WLEDGamma::rawGamma8(c)
+#define gamma32inv(c) WLEDGamma::inverseGamma32(c)
+#define gamma8inv(c)  WLEDGamma::rawInverseGamma8(c)
 [[gnu::hot, gnu::pure]] uint32_t color_blend(uint32_t c1, uint32_t c2 , uint8_t blend);
 inline uint32_t color_blend16(uint32_t c1, uint32_t c2, uint16_t b) { return color_blend(c1, c2, b >> 8); };
 [[gnu::hot, gnu::pure]] uint32_t color_add(uint32_t, uint32_t, bool preserveCR = false);
