@@ -498,7 +498,14 @@ void UsermodINA2xx::mqttCreateHassSensor(const String &name, const String &topic
 	uid += "_" + sanitizedName;
 	doc[F("uniq_id")] = uid;
 	_logUsermodInaSensor("Sensor unique ID: %s", uid.c_str());
-	doc[F("val_tpl")] = String("{{ value_json.") + jsonKey + String(" }}");
+	// Energy keys are only published after the retained MQTT state is restored (see
+	// publishMqtt). Until then they are missing from the payload; default('') makes HA
+	// ignore the empty state and keep the last value instead of logging a template error.
+	bool isEnergyKey = (jsonKey == "daily_energy_kWh" || jsonKey == "monthly_energy_kWh" || jsonKey == "total_energy_kWh");
+	if (isEnergyKey)
+		doc[F("val_tpl")] = String("{{ value_json.") + jsonKey + String(" | default('') }}");
+	else
+		doc[F("val_tpl")] = String("{{ value_json.") + jsonKey + String(" }}");
 	if (unitOfMeasurement != "")
 		doc[F("unit_of_meas")] = unitOfMeasurement;
 	if (deviceClass != "")
@@ -519,6 +526,8 @@ void UsermodINA2xx::mqttCreateHassSensor(const String &name, const String &topic
 		// timestamp_local would shift them by the UTC offset, so rebuild the date in HA's
 		// time zone instead. Assumes HA and WLED use the same time zone.
 		// Plain literals: ArduinoJson stores them by pointer instead of copying into doc.
+		// Missing or 0 renders '', which HA skips quietly ("none" renders "None",
+		// which HA logs as an invalid last_reset).
 		if (jsonKey == "daily_energy_kWh") {
 			doc[F("last_reset_value_template")] = INA2XX_LAST_RESET_TPL("dailyResetTimestamp");
 		} else if (jsonKey == "monthly_energy_kWh") {
