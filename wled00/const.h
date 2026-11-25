@@ -385,6 +385,7 @@ static_assert(WLED_MAX_BUSSES <= 32, "WLED_MAX_BUSSES exceeds hard limit");
 #define TYPE_TM1914              33            //RGB
 #define TYPE_SM16825             34            //RGB + WW + CW
 #define TYPE_TM1815              35            //RGBW (half speed TM1814)
+#define TYPE_UCS7604             36            //RGBW (16-bit)
 //TODO add support for SM16714, see https://wled.discourse.group/t/sm16714-pixel-ic/9794
 #define TYPE_DIGITAL_MAX         39            // last usable digital type
 //"Analog" types (40-47)
@@ -447,7 +448,7 @@ static_assert(WLED_MAX_BUSSES <= 32, "WLED_MAX_BUSSES exceeds hard limit");
 #define BTN_TYPE_TOUCH_SWITCH     9
 
 //Ethernet board types
-#define WLED_NUM_ETH_TYPES        16
+#define WLED_NUM_ETH_TYPES        18
 
 
 #define WLED_ETH_NONE              0
@@ -466,6 +467,8 @@ static_assert(WLED_MAX_BUSSES <= 32, "WLED_MAX_BUSSES exceeds hard limit");
 #define WLED_ETH_GLEDOPTO         13
 #define WLED_ETH_QUINLED_V4_UNOQUAD  14
 #define WLED_ETH_QUINLED_V4_OCTA     15
+#define WLED_ETH_DOMRAEM_ETHV1       16
+#define WLED_ETH_WESP32_RTL8201      17
 
 
 //Hue error codes

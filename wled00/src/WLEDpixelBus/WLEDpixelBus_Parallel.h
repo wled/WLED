@@ -287,7 +287,7 @@ inline __attribute__((always_inline)) size_t calc4StepResetDmaBytes(const LedTim
   uint32_t resetNs = timing.reset_us * 1000;
   uint32_t bitPeriodNs = timing.bitPeriod() + 1; // +1 to prevent div by zero
   uint32_t zeroCycles = resetNs / bitPeriodNs;
-  return (size_t)zeroCycles * dmaBytesPerLedBit;
+  return (size_t)zeroCycles * dmaBytesPerLedBit + 4; // add 4 bytes to ensure non zero and for safety
 }
 
 // Compute a DMA buffer size aligned to 4 bytes, clamped to bounds and source-byte groups
