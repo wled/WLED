@@ -36,7 +36,7 @@ SYSLOG_HTML = """
 <div id="Syslog">
   Enable Syslog: <input type="checkbox" name="SL_en"><br>
   Host: <input type="text" name="SL_host" maxlength="32"><br>
-  Port: <input type="number" name="SL_port" min="1" max="65535" value="%SL_port%"><br>
+  Port: <input type="number" name="SL_port" min="1" max="65535"><br>
 
   <!-- These UI elements are commented out but preserved for potential future use -->
   <!--

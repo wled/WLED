@@ -2,6 +2,9 @@
 #ifdef WLED_ENABLE_SYSLOG
 
 #include "syslog.h"
+#ifdef ESP8266
+  #include <coredecls.h> // can_yield()
+#endif
 
 SyslogPrinter::SyslogPrinter() : 
   _lastOperationSucceeded(true),
@@ -9,8 +12,28 @@ SyslogPrinter::SyslogPrinter() :
   _facility(SYSLOG_LOCAL0), 
   _severity(SYSLOG_DEBUG), 
   _protocol(SYSLOG_PROTO_BSD),
-  _appName("WLED"),
-  _bufferIndex(0) {}
+  _appName("WLED") {
+  memset(_slots, 0, sizeof(_slots));
+  #ifdef ARDUINO_ARCH_ESP32
+    _lock = xSemaphoreCreateRecursiveMutexStatic(&_lockStorage);
+  #endif
+}
+
+bool SyslogPrinter::lock() {
+  #ifdef ARDUINO_ARCH_ESP32
+    if (xPortInIsrContext()) return false;
+    if (xTaskGetSchedulerState() != taskSCHEDULER_RUNNING) return true;
+    return xSemaphoreTakeRecursive(_lock, pdMS_TO_TICKS(SYSLOG_LOCK_TIMEOUT_MS)) == pdTRUE;
+  #else
+    return true;
+  #endif
+}
+
+void SyslogPrinter::unlock() {
+  #ifdef ARDUINO_ARCH_ESP32
+    if (xTaskGetSchedulerState() == taskSCHEDULER_RUNNING) xSemaphoreGiveRecursive(_lock);
+  #endif
+}
 
 void SyslogPrinter::begin(const char* host, uint16_t port,
 					  uint8_t facility, uint8_t severity, uint8_t protocol) {
@@ -48,6 +71,12 @@ bool SyslogPrinter::resolveHostname() {
   // is the hot path for the entire firmware's debug output, and repeated
   // blocking calls here can stall the main loop badly enough to trip the
   // watchdog.
+  #ifdef ESP8266
+    // hostByName() yields, which crashes when called from a network callback
+    // (SYS context). Only the loop context may resolve; callbacks wait for it.
+    if (!can_yield()) return false;
+  #endif
+
   unsigned long now = millis();
   if (_hasAttemptedResolve && (now - _lastResolveAttempt < SYSLOG_RESOLVE_RETRY_MS)) {
     return false;
@@ -78,67 +107,106 @@ const String& SyslogPrinter::cleanedHostname() {
   return _cachedHostname;
 }
 
-void SyslogPrinter::flushBuffer() {
-  if (_bufferIndex == 0) return;
+// Identifies who is writing, so each writer gets its own line buffer.
+const void* SyslogPrinter::currentWriter() {
+  #ifdef ARDUINO_ARCH_ESP32
+    if (xTaskGetSchedulerState() == taskSCHEDULER_NOT_STARTED) return (const void*)1;
+    return xTaskGetCurrentTaskHandle();
+  #else
+    // ESP8266 has no tasks, but network callbacks (SYS context) can run while
+    // the loop has an unfinished line.
+    return can_yield() ? (const void*)1 : (const void*)2;
+  #endif
+}
 
-  // Skip pure "#015" lines
-  if (_bufferIndex == 4 && memcmp(_buffer, "#015", 4) == 0) {
-    _bufferIndex = 0;
-    return;
+// Caller holds the lock. Returns the writer's slot, or claims a free one.
+SyslogPrinter::LineSlot* SyslogPrinter::slotFor(const void* owner) {
+  LineSlot* freeSlot = nullptr;
+  LineSlot* oldest = nullptr;
+  for (size_t i = 0; i < SYSLOG_LINE_SLOTS; i++) {
+    LineSlot* s = &_slots[i];
+    if (s->owner == owner) return s;
+    if (s->owner == nullptr) {
+      if (!freeSlot) freeSlot = s;
+    } else if (!oldest || (long)(s->lastWrite - oldest->lastWrite) < 0) {
+      oldest = s;
+    }
   }
-
-  // Trim trailing CR/LF so we don't send extra blank lines
-  while (_bufferIndex > 0 && (_buffer[_bufferIndex - 1] == '\r' || _buffer[_bufferIndex - 1] == '\n')) {
-    _bufferIndex--;
+  if (!freeSlot) {
+    // More concurrent writers than slots: send the stalest partial line as is
+    // and give its slot to the new writer.
+    flushSlot(oldest);
+    freeSlot = oldest;
   }
-  if (_bufferIndex == 0) return;
+  freeSlot->owner = owner;
+  freeSlot->len = 0;
+  freeSlot->truncated = false;
+  return freeSlot;
+}
 
-  // Check if the message contains only whitespace
+// Caller holds the lock. Sends the collected line (if any) and frees the slot.
+void SyslogPrinter::flushSlot(LineSlot* slot) {
+  size_t len = slot->len;
+  if (slot->truncated && len >= 3) memcpy(slot->buf + len - 3, "...", 3);
+  slot->owner = nullptr;
+  slot->len = 0;
+  slot->truncated = false;
+
+  // Skip lines that are empty or whitespace only
   bool onlyWhitespace = true;
-  for (size_t i = 0; i < _bufferIndex; i++) {
-    if (_buffer[i] != ' ' && _buffer[i] != '\t' && _buffer[i] != '\r' && _buffer[i] != '\n') {
+  for (size_t i = 0; i < len; i++) {
+    if (slot->buf[i] != ' ' && slot->buf[i] != '\t') {
       onlyWhitespace = false;
       break;
     }
   }
-  if (onlyWhitespace) {
-    _bufferIndex = 0;
-    return;
-  }
+  if (onlyWhitespace) return;
 
-  // Null-terminate
-  _buffer[_bufferIndex] = '\0';
+  sendPacket((const uint8_t*)slot->buf, len, _severity);
+}
 
-  // Send the buffer with default severity
-  write((const uint8_t*)_buffer, _bufferIndex, _severity);
-
-  // Reset buffer index
-  _bufferIndex = 0;
+// Caller holds the lock.
+void SyslogPrinter::appendChar(LineSlot* slot, uint8_t c) {
+  slot->lastWrite = millis();
+  if (slot->len < sizeof(slot->buf)) slot->buf[slot->len++] = c;
+  else slot->truncated = true; // keep the start of the line, drop the rest
 }
 
 size_t SyslogPrinter::write(uint8_t c) {
-  // Store in buffer regardless of connection status
-  if (_bufferIndex < sizeof(_buffer) - 1) {
-    _buffer[_bufferIndex++] = c;
-  }
-  
-  // If newline or buffer full, flush buffer
-  if (c == '\n' || _bufferIndex >= sizeof(_buffer) - 1) {
-    flushBuffer();
-  }
-  
-  return 1;
+  return write(&c, 1);
 }
 
 size_t SyslogPrinter::write(const uint8_t *buf, size_t size) {
   if (buf == nullptr || size == 0) return 0;
-  for (size_t i = 0; i < size; i++) {
-    write(buf[i]);
+  if (!lock()) return size;
+  const void* owner = currentWriter();
+  LineSlot* slot = nullptr;
+  for (size_t i = 0; i < SYSLOG_LINE_SLOTS; i++) {
+    if (_slots[i].owner == owner) { slot = &_slots[i]; break; }
   }
+  for (size_t i = 0; i < size; i++) {
+    uint8_t c = buf[i];
+    if (c == '\n') {
+      // only a newline ends a line, so each packet is one complete line
+      if (slot) flushSlot(slot);
+      slot = nullptr;
+    } else if (c != '\r') { // println() ends with "\r\n"; a CR would show as "#015"
+      if (!slot) slot = slotFor(owner);
+      appendChar(slot, c);
+    }
+  }
+  unlock();
   return size;
 }
 
 size_t SyslogPrinter::write(const uint8_t *buf, size_t size, uint8_t severity) {
+  if (!lock()) return 0;
+  size_t sent = sendPacket(buf, size, severity);
+  unlock();
+  return sent;
+}
+
+size_t SyslogPrinter::sendPacket(const uint8_t *buf, size_t size, uint8_t severity) {
   _lastOperationSucceeded = true;
   if (!WLED_CONNECTED) {
     _lastOperationSucceeded = false;
