@@ -369,8 +369,9 @@ extern byte realtimeMode;           // used in getMappedPixelIndex()
 #define FX_MODE_SLOW_TRANSITION        219
 #define FX_MODE_2DANALOGCLOCK          220  // new in 16.1
 #define FX_MODE_MORSECODE              221
+#define FX_MODE_VU_METER               222
 
-#define MODE_COUNT                     222
+#define MODE_COUNT                     223
 
 
 #define TRANSITION_FADE            0x00  // universal
