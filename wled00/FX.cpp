@@ -7164,14 +7164,15 @@ void mode_vu_meter() {
     const float gravity = 8.0f - sliderGravity / 32; // 8f...0f
 
     const float peakTarget = amplitude;
+    const uint8_t peakOffset = 1;
     if (peakTarget > vuState->topLED) {
-      const float diff = (vuState->topLED - peakTarget) / SEGLEN; // diff of old position vs new
+      const float diff = (peakTarget - vuState->topLED) / SEGLEN; // diff of old position vs new
 
       // start with a negative fall velocity, so it jumps a bit up, depending on the diff of the new and old value
       vuState->fallVelocity = - (8.0 - gravity) * diff * 4.0;
 
-      vuState->topLED = peakTarget + 1; // +1 to have a bit of separation
-    } else {
+      vuState->topLED = peakTarget + peakOffset; // +1 to have a bit of separation
+    } else if (peakTarget < vuState->topLED - peakOffset) { // start falling if the bar is lower than it was when we set the last topHeigth
       const float fallAccel = 1 / (gravity * gravity); // fall with (1/gravity²)
       vuState->fallVelocity += fallAccel;
       vuState->topLED = max(0.0f, vuState->topLED - vuState->fallVelocity / TOP_FALL_OFF_SMOOTHING);
@@ -7189,8 +7190,8 @@ void mode_vu_meter() {
 
     color = color_blend(0, color, darkenTopDot);
 
-    // Hide at/below 0 (same as classic Gravimeter topLED > 0): otherwise silence pins the marker on pixel 0.
-    if (vuState->topLED > 0.0f) {
+    // Hide at/below peakOffset, to hide the peak if no bar is shown. also dont draw outside of SEGLEN
+    if (vuState->topLED >= peakOffset && vuState->topLED < SEGLEN) {
       const float pix = vuState->topLED;
       const int pos = (int) pix; // floor
       const float frac = pix - (float) pos; // 0..1 toward pos+1
@@ -7198,7 +7199,7 @@ void mode_vu_meter() {
       const uint8_t wDn = gamma8inv((uint8_t)((1.0f - frac) * 255.0f));
       if (wDn)
           SEGMENT.setPixelColor(pos, color_blend(SEGCOLOR(1), color, wDn));
-      if (wUp)
+      if (wUp && pos + 1 < SEGLEN)
           SEGMENT.setPixelColor(pos+1, color_blend(SEGCOLOR(1), color, wUp));
     }
   }
