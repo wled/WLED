@@ -42,7 +42,7 @@ This Usermod integrates the INA219 **and** INA226 sensors with WLED to monitor e
 |-------------------------------|------------------------------------------------------------|----------------|--------------------------------------------------------|
 | `INA2XX_ENABLED`              | Enable or disable the INA2XX Usermod                       | `false`        | `true`, `false`                                        |
 | `INA2XX_I2C_ADDRESS`          | I2C address of the INA2XX sensor                           | `0x40`         | See options below for available addresses.             |
-| `INA2XX_CHECK_INTERVAL`       | Interval for checking sensor values (seconds)              | `5`            | Any positive integer                                   |
+| `INA2XX_CHECK_INTERVAL`       | Interval for checking sensor values (seconds)              | `5`            | `1` to `600` (web UI)                                  |
 | `INA2XX_CONVERSION_TIME`      | ADC conversion time                                        | `BIT_MODE_12` (219)<br>`CONV_TIME_1100` (226) | Sensor-specific (see below)                |
 | `INA2XX_DECIMAL_FACTOR`       | Number of decimal places for current and power readings    | `3`            | See options below for decimal places.                  |
 | `INA2XX_SHUNT_RESISTOR`       | Value of the shunt resistor in ohms                        | `0.1`          | Any positive float value matching your INA2XX resistor |
@@ -127,17 +127,17 @@ The sensor is read every `check_interval` seconds. A new MQTT message is only se
 - after boot or an MQTT reconnect, or
 - `mqtt_publish_always` is enabled.
 
-> **Note:** Home Assistant discovery sets `expire_after` to 1800 s, so the sensors become unavailable after 30 minutes without a message. Keep `heartbeat_interval` below 1800. With `0`, sensors whose readings stay steady go unavailable after 30 minutes.
+> **Note:** Home Assistant discovery sets `expire_after` to 1800 s, so the sensors become unavailable after 30 minutes without a message. The heartbeat is only checked when the sensor is read, so a message can be up to `check_interval` late: keep `heartbeat_interval` + `check_interval` below 1800. With `0`, sensors whose readings stay steady go unavailable after 30 minutes.
 
 ---
 
 # Compiling
 
-To enable, add `INA2XX_v2` to your `custom_usermods`  (e.g. in `platformio_override.ini`)
+To enable, add `ina2xx_v2` to your `custom_usermods` (e.g. in `platformio_override.ini`). The name is case-sensitive.
 ```ini
-[env:usermod_ina2xx_d1_mini]
-extends = env:d1_mini
-custom_usermods = ${env:d1_mini.custom_usermods} INA2XX_v2
+[env:usermod_ina2xx_nodemcuv2]
+extends = env:nodemcuv2
+custom_usermods = ${env:nodemcuv2.custom_usermods} ina2xx_v2
 ```
 
 ## Usage
@@ -177,6 +177,8 @@ custom_usermods = ${env:d1_mini.custom_usermods} INA2XX_v2
 5. Monitor your energy consumption through the WLED interface or via MQTT.
 
 ## Energy Calculation
+
+Energy is only counted once the time is synced (NTP); readings before that are not added.
 
 - **Total Energy** is calculated continuously.
 - **Daily Energy** resets after 24 hours.

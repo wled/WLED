@@ -49,17 +49,22 @@ bool UsermodINA2xx::hasValueChanged() {
 		return changed;
 }
 
+// Energy values from MQTT or the JSON API must be finite, not negative and plausible
+static bool isPlausibleEnergy(double kWh) {
+	return !isnan(kWh) && kWh >= 0.0 && kWh <= INA2XX_MAX_PLAUSIBLE_KWH; // inf fails the upper bound
+}
+
 bool UsermodINA2xx::isTimeValid() const {
 	return localTime >= 1577836800UL && localTime <= 4102444800UL;
 }
 
 void UsermodINA2xx::applyMqttRestoreIfReady() {
 	// No retained state with energy fields arrived (first boot, or it was deleted): count from the current values.
-	unsigned long waitStart = mqttRestoreWaitStart;
-	if (!mqttStateRestored && !mqttRestorePending && waitStart != 0 &&
-			millis() - waitStart > INA2XX_RESTORE_TIMEOUT_MS) {
+	if (!mqttStateRestored && !mqttRestorePending && mqttRestoreWaiting &&
+			millis() - mqttRestoreWaitStart > INA2XX_RESTORE_TIMEOUT_MS) {
 		mqttStateRestored = true;
-		mqttRestoreWaitStart = 0;
+		mqttRestoreWaiting = false;
+		mqttDataPublished = false; // publish (retained, with energy fields) on the next check, also with heartbeat 0
 		_logUsermodInaSensor("No retained energy state received, counting from current values");
 		return;
 	}
@@ -189,8 +194,9 @@ void UsermodINA2xx::applyMqttRestoreIfReady() {
 
 	mqttStateRestored = true;
 	mqttRestorePending = false;
-	mqttRestoreWaitStart = 0;
+	mqttRestoreWaiting = false;
 	mqttRestoreData = MqttRestoreData{};
+	mqttDataPublished = false; // publish (retained, with energy fields) on the next check, also with heartbeat 0
 	_logUsermodInaSensor("MQTT energy restore applied");
 }
 
@@ -213,6 +219,7 @@ bool UsermodINA2xx::updateINA2xxSettings() {
 		delete _ina2xx;
 		_ina2xx = nullptr;
 	}
+	lastPublishTime = 0; // do not integrate energy across the gap
 
 	if (!enabled) return true;
 
@@ -240,10 +247,10 @@ bool UsermodINA2xx::updateINA2xxSettings() {
 	}
 	initRetryDelay = 0;
 
-	_logUsermodInaSensor("Setting correction factor to %.4f", correctionFactor);
-	_ina2xx->setCorrectionFactor(correctionFactor);
-
 #if INA_SENSOR_TYPE == 219
+	_logUsermodInaSensor("Setting correction factor to %.4f", correctionFactor);
+	_ina2xx->setCorrectionFactor(correctionFactor); // setPGain() re-applies it to the new calibration value
+
 	_logUsermodInaSensor("Setting shunt resistor to %.4f Ohms", shuntResistor);
 	_ina2xx->setShuntSizeInOhms(shuntResistor);
 
@@ -265,6 +272,9 @@ bool UsermodINA2xx::updateINA2xxSettings() {
 	_ina2xx->setAverage(average); 
 	_ina2xx->setConversionTime(conversionTime);
 	_ina2xx->setResistorRange(shuntResistor,currentRange); // choose resistor 100 mOhm (default )and gain range up to 10 A (1.3A default)
+	// setResistorRange() writes the uncorrected calibration value, so the factor must come after it
+	_logUsermodInaSensor("Setting correction factor to %.4f", correctionFactor);
+	_ina2xx->setCorrectionFactor(correctionFactor);
 
 	_ina2xx->readAndClearFlags();
 #endif
@@ -629,21 +639,21 @@ bool UsermodINA2xx::onMqttMessage(char* topic, char* payload) {
 
 			if (jsonDoc.containsKey("daily_energy_kWh")) {
 				double restored = jsonDoc["daily_energy_kWh"];
-				if (!isnan(restored) && restored >= 0 && restored <= INA2XX_MAX_PLAUSIBLE_KWH) {
+				if (isPlausibleEnergy(restored)) {
 					mqttRestoreData.hasDailyEnergy = true;
 					mqttRestoreData.dailyEnergy = restored;
 				}
 			}
 			if (jsonDoc.containsKey("monthly_energy_kWh")) {
 				double restored = jsonDoc["monthly_energy_kWh"];
-				if (!isnan(restored) && restored >= 0 && restored <= INA2XX_MAX_PLAUSIBLE_KWH) {
+				if (isPlausibleEnergy(restored)) {
 					mqttRestoreData.hasMonthlyEnergy = true;
 					mqttRestoreData.monthlyEnergy = restored;
 				}
 			}
 			if (jsonDoc.containsKey("total_energy_kWh")) {
 				double restored = jsonDoc["total_energy_kWh"];
-				if (!isnan(restored) && restored >= 0 && restored <= INA2XX_MAX_PLAUSIBLE_KWH) {
+				if (isPlausibleEnergy(restored)) {
 					mqttRestoreData.hasTotalEnergy = true;
 					mqttRestoreData.totalEnergy = restored;
 				}
@@ -677,7 +687,11 @@ bool UsermodINA2xx::onMqttMessage(char* topic, char* payload) {
 				}
 			}
 
-			mqttRestorePending = true; // applied from loop()
+			if (mqttRestoreData.hasTotalEnergy) {
+				mqttRestorePending = true; // applied from loop()
+			} else {
+				_logUsermodInaSensor("Ignoring retained state with invalid total_energy_kWh");
+			}
 		}
 		return true;
 	}
@@ -696,7 +710,10 @@ void UsermodINA2xx::onMqttConnect(bool sessionPresent) {
 			snprintf_P(subuf, sizeof(subuf), PSTR("%s/sensor/ina2xx"), mqttDeviceTopic);
 			mqtt->subscribe(subuf, 0);
 			_logUsermodInaSensor("Subscribed to MQTT topic: %s", subuf);
-			if (!mqttStateRestored) mqttRestoreWaitStart = millis() | 1UL; // never 0 = not waiting
+			if (!mqttStateRestored) {
+				mqttRestoreWaitStart = millis();
+				mqttRestoreWaiting = true;
+			}
 		}
 	}
 }
@@ -715,6 +732,7 @@ UsermodINA2xx::~UsermodINA2xx() {
 void UsermodINA2xx::setup() {
 	_logUsermodInaSensor("Setting up INA2xx sensor usermod");
 	initDone = updateINA2xxSettings();  // Configure INA2xx settings
+	reinitPending = false; // readFromConfig() before setup() already set it; this init covers it
 #if INA_SENSOR_TYPE == 226
 	if (initDone && _ina2xx) {
 		_ina2xx->waitUntilConversionCompleted(); // first data can be zero without this in continuous mode
@@ -793,6 +811,23 @@ bool UsermodINA2xx::checkForI2cErrors(){
 void UsermodINA2xx::loop() {
 	applyMqttRestoreIfReady();
 
+	// Settings changed in the web UI: re-create the sensor here, not in the web task
+	if (reinitPending) {
+		reinitPending = false;
+		bool prevInitDone = initDone;
+		initDone = updateINA2xxSettings();
+		if (prevInitDone != initDone) {
+			_logUsermodInaSensor("Sensor initialization %s", initDone ? "succeeded" : "failed");
+		}
+	}
+#ifndef WLED_DISABLE_MQTT
+	// Enabled while MQTT was already connected: onMqttConnect() will not run again by itself
+	if (mqttSetupPending) {
+		mqttSetupPending = false;
+		if (enabled && WLED_MQTT_CONNECTED) onMqttConnect(false);
+	}
+#endif
+
 	// Sensor missing at boot or dropped off the bus: retry instead of staying disabled
 	if (enabled && !initDone && initRetryDelay != 0 && millis() - lastInitAttempt >= initRetryDelay) {
 		_logUsermodInaSensor("Retrying INA2xx init");
@@ -822,12 +857,14 @@ void UsermodINA2xx::loop() {
 	float rawPower_mW = _ina2xx->getBusPower();
 	power_mW = roundDecimals(rawPower_mW);
 	power = roundDecimals(rawPower_mW / 1000.0); // Convert from mW to W
+	float rawPower_W = rawPower_mW / 1000.0f; // unrounded, for the energy integration
 
 	loadVoltage = roundDecimals(busVoltage + (shuntVoltage / 1000));
 
 #if INA_SENSOR_TYPE == 219
 	overflow = _ina2xx->getOverflow() != 0;
 #elif INA_SENSOR_TYPE == 226
+	_ina2xx->readAndClearFlags(); // the overflow flag is only refreshed by this call
 	overflow     = _ina2xx->overflow;
 	if (checkForI2cErrors()) return;
 #endif
@@ -838,15 +875,15 @@ void UsermodINA2xx::loop() {
 
 	// Update energy consumption
 	if (lastPublishTime != 0) {
-		if (power >= 0) {
-			// Handle millis() overflow when calculating duration
-			unsigned long duration = (lastCheck >= lastPublishTime)
-					? (lastCheck - lastPublishTime)
-					: (0xFFFFFFFFUL - lastPublishTime + lastCheck + 1);
-			updateEnergy(power, duration);
-		} else {
-			_logUsermodInaSensor("Skipping energy update due to negative power: %.3f W", power);
+		// Handle millis() overflow when calculating duration
+		unsigned long duration = (lastCheck >= lastPublishTime)
+				? (lastCheck - lastPublishTime)
+				: (0xFFFFFFFFUL - lastPublishTime + lastCheck + 1);
+		// Negative power adds no energy, but updateEnergy() must still run for the day/month rollover
+		if (rawPower_W < 0.0f) {
+			_logUsermodInaSensor("Negative power %.3f W, counting it as 0", rawPower_W);
 		}
+		updateEnergy(rawPower_W > 0.0f ? rawPower_W : 0.0f, duration);
 	} else {
 		_logUsermodInaSensor("First reading - establishing baseline for energy calculation");
 	}
@@ -1015,35 +1052,34 @@ void UsermodINA2xx::readFromJsonState(JsonObject& root) {
 
 	JsonObject usermod = root[FPSTR(_name)];
 	if (!usermod.isNull()) {
-		// Read values from JSON or retain existing values if not present
-		if (usermod.containsKey("enabled")) {
-			bool prevEnabled = enabled;
-			enabled = usermod["enabled"] | enabled;
-			if (prevEnabled != enabled) {
-				_logUsermodInaSensor("Enabled state changed: %s", enabled ? "enabled" : "disabled");
-			}
-		}
-
+		// Read values from JSON or retain existing values if not present.
+		// "enabled" is not read here: enabling needs the sensor init, which the usermod settings do.
 		if (usermod.containsKey("totalEnergy_kWh")) {
-			double prevTotal = totalEnergy_kWh;
-			totalEnergy_kWh = usermod["totalEnergy_kWh"] | totalEnergy_kWh;
-			if (totalEnergy_kWh != prevTotal) {
+			double v = usermod["totalEnergy_kWh"] | totalEnergy_kWh;
+			if (!isPlausibleEnergy(v)) {
+				_logUsermodInaSensor("Rejected invalid total energy from JSON");
+			} else if (v != totalEnergy_kWh) {
+				totalEnergy_kWh = v;
 				_logUsermodInaSensor("Total energy updated from JSON: %.6f kWh", totalEnergy_kWh);
 			}
 		}
 
 		if (usermod.containsKey("dailyEnergy_kWh")) {
-			double prevDaily = dailyEnergy_kWh;
-			dailyEnergy_kWh = usermod["dailyEnergy_kWh"] | dailyEnergy_kWh;
-			if (dailyEnergy_kWh != prevDaily) {
+			double v = usermod["dailyEnergy_kWh"] | dailyEnergy_kWh;
+			if (!isPlausibleEnergy(v)) {
+				_logUsermodInaSensor("Rejected invalid daily energy from JSON");
+			} else if (v != dailyEnergy_kWh) {
+				dailyEnergy_kWh = v;
 				_logUsermodInaSensor("Daily energy updated from JSON: %.6f kWh", dailyEnergy_kWh);
 			}
 		}
 
 		if (usermod.containsKey("monthlyEnergy_kWh")) {
-			double prevMonthly = monthlyEnergy_kWh;
-			monthlyEnergy_kWh = usermod["monthlyEnergy_kWh"] | monthlyEnergy_kWh;
-			if (monthlyEnergy_kWh != prevMonthly) {
+			double v = usermod["monthlyEnergy_kWh"] | monthlyEnergy_kWh;
+			if (!isPlausibleEnergy(v)) {
+				_logUsermodInaSensor("Rejected invalid monthly energy from JSON");
+			} else if (v != monthlyEnergy_kWh) {
+				monthlyEnergy_kWh = v;
 				_logUsermodInaSensor("Monthly energy updated from JSON: %.6f kWh", monthlyEnergy_kWh);
 			}
 		}
@@ -1212,11 +1248,17 @@ bool UsermodINA2xx::readFromConfig(JsonObject& root) {
 	bool configComplete = !top.isNull();
 
 	_logUsermodInaSensor("Checking if configuration has changed:");
+	bool wasEnabled = enabled;
+	float prevShuntResistor = shuntResistor;
 	UPDATE_CONFIG(top, "Enabled", enabled, "%u");
 	UPDATE_CONFIG(top, "i2c_address",       _i2cAddress,       "0x%02X");
 	UPDATE_CONFIG(top, "conversion_time",    conversionTime,    "%u");
 	UPDATE_CONFIG(top, "decimals",           _decimalFactor,    "%u");
 	UPDATE_CONFIG(top, "shunt_resistor",     shuntResistor,     "%.6f Ohms");
+	if (!(shuntResistor > 0.0f) || isinf(shuntResistor)) { // also catches NaN; 0 would divide by zero
+		_logUsermodInaSensor("Invalid shunt_resistor; keeping %.6f Ohms", prevShuntResistor);
+		shuntResistor = prevShuntResistor;
+	}
 	UPDATE_CONFIG(top, "correction_factor",  correctionFactor,  "%.3f");
 #if INA_SENSOR_TYPE == 219
 	UPDATE_CONFIG(top, "pga_gain",           pGain,             "%d");
@@ -1259,12 +1301,10 @@ bool UsermodINA2xx::readFromConfig(JsonObject& root) {
 		configComplete = false;
 	}
 
-	bool prevInitDone = initDone;
-	initDone = updateINA2xxSettings();  // Configure INA2xx settings
-
-	if (prevInitDone != initDone) {
-		_logUsermodInaSensor("Sensor initialization %s", initDone ? "succeeded" : "failed");
-	}
+	// This runs in the web server task when settings are saved; loop() may be using _ina2xx
+	// right now, so the sensor is re-created there. At boot, setup() does the first init.
+	reinitPending = true;
+	if (!wasEnabled && enabled) mqttSetupPending = true;
 
 	return configComplete;
 }
