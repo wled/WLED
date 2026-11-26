@@ -6,7 +6,7 @@
 
 /**
  *  LiPo Battery
- * 
+ *
  */
 class LipoUMBattery : public UMBattery
 {
@@ -20,15 +20,15 @@ class LipoUMBattery : public UMBattery
         }
 
         /**
-         * LiPo batteries have a differnt discharge curve, see 
+         * LiPo batteries have a differnt discharge curve, see
          * https://blog.ampow.com/lipo-voltage-chart/
          */
-        float mapVoltage(float v, float min, float max) override 
+        float mapVoltage(float v, float min, float max) override
         {
             float lvl = 0.0f;
             lvl = this->linearMapping(v, min, max); // basic mapping
 
-            if (lvl < 40.0f) 
+            if (lvl < 40.0f)
                 lvl = this->linearMapping(lvl, 0, 40, 0, 12);       // last 45% -> drops very quickly
             else {
             if (lvl < 90.0f)
@@ -40,14 +40,9 @@ class LipoUMBattery : public UMBattery
             return lvl;
         };
 
-        void calculateAndSetLevel(float voltage) override
+        void setMaxVoltage(float newVoltage) override
         {
-            this->setLevel(this->mapVoltage(voltage, this->getMinVoltage(), this->getMaxVoltage()));
-        };
-
-        virtual void setMaxVoltage(float voltage) override
-        {
-            this->maxVoltage = max(getMinVoltage()+0.7f, voltage);
+            this->maxVoltage = max(getMinVoltage()+0.7f, newVoltage);
         }
 };
 
