@@ -514,7 +514,7 @@ class Segment {
     static bool          _modeBlend;          // mode/effect blending semaphore
     // clipping rectangle used for blending
     static uint16_t      _clipStart, _clipStop;
-    static uint8_t       _clipStartY, _clipStopY;
+    static uint16_t      _clipStartY, _clipStopY;
 
     // transition data, holds values during transition (76 bytes/28 bytes)
     struct Transition {
@@ -1035,8 +1035,8 @@ class WS2812FX {
     struct Panel {
       uint16_t xOffset; // x offset relative to the top left of matrix in LEDs
       uint16_t yOffset; // y offset relative to the top left of matrix in LEDs
-      uint8_t  width;   // width of the panel
-      uint8_t  height;  // height of the panel
+      uint16_t width;   // width of the panel
+      uint16_t height;  // height of the panel
       union {
         uint8_t options;
         struct {

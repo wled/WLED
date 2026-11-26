@@ -51,8 +51,8 @@ uint16_t      Segment::_nextPaletteBlend  = 0; // in millis
 bool     Segment::_modeBlend = false;
 uint16_t Segment::_clipStart = 0;
 uint16_t Segment::_clipStop = 0;
-uint8_t  Segment::_clipStartY = 0;
-uint8_t  Segment::_clipStopY = 1;
+uint16_t Segment::_clipStartY = 0;
+uint16_t Segment::_clipStopY = 1;
 
 // copy constructor
 Segment::Segment(const Segment &orig) {
@@ -2358,8 +2358,8 @@ bool WS2812FX::deserializeMap(unsigned n) {
   JsonObject root = pDoc->as<JsonObject>();
   // if we are loading default ledmap (at boot) set matrix width and height from the ledmap (compatible with WLED MM ledmaps)
   if (n == 0 && (!root[F("width")].isNull() || !root[F("height")].isNull())) {
-    Segment::maxWidth  = min(max(root[F("width")].as<int>(), 1), 255);
-    Segment::maxHeight = min(max(root[F("height")].as<int>(), 1), 255);
+    Segment::maxWidth  = min(max(root[F("width")].as<int>(), 1), 256);
+    Segment::maxHeight = min(max(root[F("height")].as<int>(), 1), 256);
     isMatrix = true;
     DEBUG_PRINTF_P(PSTR("LED map width=%d, height=%d\n"), Segment::maxWidth, Segment::maxHeight);
   }
