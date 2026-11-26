@@ -91,6 +91,7 @@ static void handleDDPPacket(e131_packet_t* p, size_t packetLen) {
 
   ddpSeenPush |= push;
   if (!ddpSeenPush || push) { // if we've never seen a push, or this is one, render display
+    e131NewDataPushed = push;
     e131NewData = true;
     int sn = p->sequenceNum & 0xF;
     if (sn) e131LastSequenceNumber[0] = sn;
@@ -380,6 +381,7 @@ void handleDMXData(uint16_t uni, uint16_t dmxChannels, uint8_t* e131_data, uint8
       break;
   }
 
+  e131NewDataPushed = false;
   e131NewData = true;
 }
 
