@@ -44,7 +44,11 @@ void SyslogPrinter::begin(const char* host, uint16_t port,
   DEBUG_PRINTF_P(PSTR(" Port:      %u\n"), (unsigned)port);
   DEBUG_PRINTF_P(PSTR("======================================\n"));
 
-  strlcpy(syslogHost, host, sizeof(syslogHost));
+  // Settings are saved from the web server task while other tasks may be
+  // sending, so change the config only while holding the send lock. If the
+  // lock times out, apply anyway: a lost settings change is worse.
+  bool locked = lock();
+  if (host != syslogHost) strlcpy(syslogHost, host, sizeof(syslogHost));
   syslogPort = port;
   _facility = facility;
   _severity = severity;
@@ -52,10 +56,14 @@ void SyslogPrinter::begin(const char* host, uint16_t port,
 
   // clear any cached IP so resolveHostname() will run next write()  
   syslogHostIP = IPAddress(0,0,0,0);
+  if (locked) unlock();
 }
 
 void SyslogPrinter::setAppName(const String &appName) {
+  if (_appName == appName) return; // avoid reallocating a String another task may be printing
+  bool locked = lock();
   _appName = appName;
+  if (locked) unlock();
 }
 
 bool SyslogPrinter::resolveHostname() {

@@ -530,12 +530,11 @@ void handleSettingsSet(AsyncWebServerRequest *request, byte subPage)
 
     #ifdef WLED_ENABLE_SYSLOG
     syslogEnabled   = request->hasArg(F("SL_en"));
-    strlcpy(syslogHost, request->arg(F("SL_host")).c_str(), sizeof(syslogHost));
 
     t = request->arg(F("SL_port")).toInt();
-    if (t > 0) syslogPort = t;
-    
-    Syslog.begin(syslogHost, syslogPort,
+    // host and port are copied by Syslog.begin() under the syslog lock, because
+    // the loop task may be resolving or sending to them right now
+    Syslog.begin(request->arg(F("SL_host")).c_str(), t > 0 ? t : syslogPort,
       syslogFacility, syslogSeverity, syslogProtocol);
 
     Syslog.setAppName("WLED");
