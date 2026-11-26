@@ -309,7 +309,7 @@ PixelBus* createBus(BusDriver driver, int8_t pin, const BusProperties& propertie
 // we have a bus, set the parameters
   if (bus) {
     bus->setNumPixels((uint16_t)numPixels);
-    if (!bus->setFraming(properties.prefixData, properties.prefixLen, properties.suffixData, properties.suffixLen)) {
+    if (!bus->setFraming(properties.prefixData, properties.prefixLen, properties.suffixData, properties.suffixLen, properties.prefixPadLen)) {
       delete bus;
       return nullptr;
     }

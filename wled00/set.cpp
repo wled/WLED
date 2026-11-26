@@ -196,7 +196,7 @@ void handleSettingsSet(AsyncWebServerRequest *request, byte subPage)
       }
     }
 
-    unsigned colorOrder, type, skip, awmode, channelSwap, maPerLed, driverType;
+    unsigned colorOrder, type, skip, skipch, awmode, channelSwap, maPerLed, driverType;
     unsigned length, start, maMax;
     uint8_t pins[OUTPUT_MAX_PINS] = {255, 255, 255, 255, 255};
     String text;
@@ -224,6 +224,7 @@ void handleSettingsSet(AsyncWebServerRequest *request, byte subPage)
       char ls[4] = "LS"; ls[2] = offset+s; ls[3] = 0; //strip start LED
       char cv[4] = "CV"; cv[2] = offset+s; cv[3] = 0; //strip reverse
       char sl[4] = "SL"; sl[2] = offset+s; sl[3] = 0; //skip first N LEDs
+      char sc[4] = "SC"; sc[2] = offset+s; sc[3] = 0; //skip first N channels (wire bytes)
       char rf[4] = "RF"; rf[2] = offset+s; rf[3] = 0; //refresh required
       char aw[4] = "AW"; aw[2] = offset+s; aw[3] = 0; //auto white mode
       char wo[4] = "WO"; wo[2] = offset+s; wo[3] = 0; //channel swap
@@ -244,6 +245,7 @@ void handleSettingsSet(AsyncWebServerRequest *request, byte subPage)
       }
       type = request->arg(lt).toInt();
       skip = request->arg(sl).toInt();
+      skipch = (Bus::isDigital(type) && !Bus::is2Pin(type)) ? constrain(request->arg(sc).toInt(), 0, 4) : 0; // one-wire digital only, clamp 0..4
       colorOrder = request->arg(co).toInt();
       start = (request->hasArg(ls)) ? request->arg(ls).toInt() : t;
       if (request->hasArg(lc) && request->arg(lc).toInt() > 0) {
@@ -292,6 +294,7 @@ void handleSettingsSet(AsyncWebServerRequest *request, byte subPage)
       bc.colorOrder = colorOrder | (channelSwap<<4);
       bc.reversed = request->hasArg(cv);
       bc.skipAmount = skip;
+      bc.skipChannels = skipch;
       bc.refreshReq = request->hasArg(rf); // off refresh override
       bc.autoWhite = awmode;
       bc.frequency = freq;

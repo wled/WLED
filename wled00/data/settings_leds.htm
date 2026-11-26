@@ -452,6 +452,8 @@
 				gId("dig"+n+"c").style.display = (isAna(t) || isHub75(t)) ? "none":"inline";              // hide count for analog
 				gId("dig"+n+"r").style.display = (isVir(t)) ? "none":"inline";              // hide reversed for virtual
 				gId("dig"+n+"s").style.display = (isVir(t) || isAna(t) || isHub75(t)) ? "none":"inline";  // hide skip 1st for virtual & analog
+				gId("dig"+n+"k").style.display = (canCst(t) && d.Sf.AS.checked) ? "inline":"none"; // skip first channels: single-wire digital only, advanced settings only (hidden field still submits its value)
+				if (!canCst(t)) d.Sf["SC"+n].value = 0;                                     // reset for types that cannot use it
 				gId("dig"+n+"f").style.display = (isDig(t) || (isPWM(t) && maxL>2048)) ? "inline":"none"; // hide refresh (PWM hijacks reffresh for dithering on ESP32)
 				gId("dig"+n+"a").style.display = busHasWhite(n,t) ? "inline":"none";        // auto calculate white
 				gId("dig"+n+"l").style.display = (isD2P(t) || isPWM(t)) ? "inline":"none";  // bus clock speed / PWM speed (relative) (not On/Off)
@@ -700,6 +702,7 @@ LED Timing: <select name="SF${s}">
 <div id="net${s}h" class="hide">Host: <input type="text" name="HS${s}" maxlength="32" pattern="[a-zA-Z0-9_\\-]*" onchange="UI()"/>.local</div>
 <div id="dig${s}r" style="display:inline"><br><span id="rev${s}">Reversed</span>: <input type="checkbox" name="CV${s}"></div>
 <div id="dig${s}s" style="display:inline"><br>Skip first LEDs: <input type="number" name="SL${s}" min="0" max="255" value="0" oninput="UI()"></div>
+<div id="dig${s}k" style="display:none"><br>Skip first channels: <input type="number" name="SC${s}" min="0" max="4" value="0"><br><small>Wire bytes (not LEDs) sent before the first LED. For a sacrificial pixel with a different channel count than the strip.</small></div>
 <div id="dig${s}f" style="display:inline"><br><span id="off${s}">Off Refresh</span>: <input id="rf${s}" type="checkbox" name="RF${s}"></div>
 <div id="dig${s}a" style="display:inline"><br>Auto-calculate W channel from RGB:<br><select name="AW${s}"><option value=0>None</option><option value=1>Brighter</option><option value=2>Accurate</option><option value=3>Dual</option><option value=4>Max</option></select>&nbsp;</div>
 <div id="custtoggle${s}" style="display:none"><br>Customize bus: <input type="checkbox" name="CBen${s}" onchange="if(this.checked) presetCustomDefaults('${s}', parseInt(d.Sf['LT${s}'].value)); UI();"></div>
@@ -930,6 +933,7 @@ Swap: <select id="xw${s}" name="XW${s}">
 							d.getElementsByName("LC"+n)[0].value   = v.len;
 							d.getElementsByName("CO"+n)[0].value   = v.order & 0x0F;
 							d.getElementsByName("SL"+n)[0].value   = v.skip;
+							d.getElementsByName("SC"+n)[0].value   = v.skipch || 0;
 							d.getElementsByName("RF"+n)[0].checked = v.ref;
 							d.getElementsByName("CV"+n)[0].checked = v.rev;
 							d.getElementsByName("AW"+n)[0].value   = v.rgbwm;

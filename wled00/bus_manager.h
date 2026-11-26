@@ -134,6 +134,7 @@ class Bus {
     virtual uint16_t getLength() const                          { return _len; }
     virtual uint8_t  getColorOrder() const                      { return COL_ORDER_RGB; }
     virtual unsigned skippedLeds() const                        { return 0; }
+    virtual unsigned skippedChannels() const                    { return 0; } // zero wire bytes sent before the pixel data (one-wire digital only)
     virtual uint16_t getFrequency() const                       { return 0U; }
     virtual uint16_t getLEDCurrent() const                      { return 0; }
     virtual uint16_t getUsedCurrent() const                     { return 0; }
@@ -247,6 +248,7 @@ class BusDigital : public Bus {
     uint8_t  getColorOrder() const override  { return _colorOrder; }
     size_t   getPins(uint8_t* pinArray = nullptr) const override;
     unsigned skippedLeds() const override    { return _skip; }
+    unsigned skippedChannels() const override { return _skipChannels; }
     uint16_t getFrequency() const override   { return _frequencykHz; }
     uint16_t getLEDCurrent() const override  { return _milliAmpsPerLed; }
     uint16_t getUsedCurrent() const override { return _milliAmpsTotal; }
@@ -267,6 +269,7 @@ class BusDigital : public Bus {
 
   private:
     uint8_t  _skip;
+    uint8_t  _skipChannels; // zero wire bytes sent before the pixel data (one-wire only, 0 for 2-pin buses)
     uint8_t  _colorOrder;   // saved color-order byte. Encoder indices are built from it once, at creation.
     uint8_t  _protocolType; // used wire protocol: timing is shared in parallel buses, color channels can differ
     bool     _hasColorOrderMap = false;
@@ -381,6 +384,7 @@ class BusPlaceholder : public Bus {
     uint8_t  getColorOrder() const override  { return _colorOrder; }
     size_t   getPins(uint8_t* pinArray) const override;
     unsigned skippedLeds() const override    { return _skipAmount; }
+    unsigned skippedChannels() const override { return _skipChannels; }
     uint16_t getFrequency() const override   { return _frequency; }
     uint16_t getLEDCurrent() const override  { return _milliAmpsPerLed; }
     uint16_t getMaxCurrent() const override  { return _milliAmpsMax; }
@@ -394,6 +398,7 @@ class BusPlaceholder : public Bus {
   private:
     uint8_t _colorOrder;
     uint8_t _skipAmount;
+    uint8_t _skipChannels;
     uint8_t _pins[OUTPUT_MAX_PINS];
     uint8_t _driverType;
     uint16_t _frequency;

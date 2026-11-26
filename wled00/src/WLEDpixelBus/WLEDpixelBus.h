@@ -172,6 +172,7 @@ struct BusProperties {
   LedTiming timing = LedTiming(300, 900, 700, 500, 300);
   uint8_t  prefixLen = 0;
   const uint8_t* prefixData = nullptr;
+  uint8_t  prefixPadLen = 0; // zero bytes sent after the chip prefix, before the pixel data (e.g. for a sacrificial pixel with fewer channels)
   uint8_t  suffixLen = 0;
   const uint8_t* suffixData = nullptr;
 };
@@ -311,7 +312,7 @@ protected:
   uint8_t* _pixelData = nullptr;      // _encodeBuffer + _prefixLen, cached to avoid per-call addition
   size_t   _encodeBufferSize = 0;     // allocated size in bytes
   uint16_t _numPixels = 0;            // number of encoded pixels (bytes per pixel depends on _encoder)
-  uint8_t  _prefixLen = 0;            // byte length of chip prefix at start of _encodeBuffer i.e. sent out first
+  uint8_t  _prefixLen = 0;            // byte length of chip prefix at start of _encodeBuffer i.e. sent out first (includes the zero pad bytes, see setFraming())
   uint8_t  _suffixLen = 0;            // byte length of chip suffix appended after pixel data i.e. sent out after pixel data
   uint8_t* _framingData = nullptr;    // prefix followed by suffix; allocated only when framing bytes are needed
   uint8_t  _ledType   = 0;            // LED chip type (e.g. 31=TM1814); 0 = generic
@@ -340,8 +341,12 @@ public:
   }
 
   // color data prefix handling
-  bool setFraming(const uint8_t* prefixData, uint8_t prefixLen, const uint8_t* suffixData, uint8_t suffixLen) {
-    const size_t framingBytes = (size_t)prefixLen + suffixLen;
+  // prefixPadLen zero bytes are appended to the chip prefix (calloc keeps them zero); they are part of _prefixLen and are sent
+  // before the pixel data. updatePrefix() callers pass the chip prefix length only, so the pad bytes are never overwritten.
+  bool setFraming(const uint8_t* prefixData, uint8_t prefixLen, const uint8_t* suffixData, uint8_t suffixLen, uint8_t prefixPadLen = 0) {
+    const size_t totalPrefixLen = (size_t)prefixLen + prefixPadLen;
+    if (totalPrefixLen > UINT8_MAX) return false; // _prefixLen is 8 bit
+    const size_t framingBytes = totalPrefixLen + suffixLen;
     uint8_t* framingData = nullptr;
     free(_framingData); // free old data
     _framingData = nullptr;
@@ -349,10 +354,10 @@ public:
       framingData = (uint8_t*)calloc(framingBytes, sizeof(uint8_t));
       if (!framingData) return false;
       if (prefixData && prefixLen) memcpy(framingData, prefixData, prefixLen);
-      if (suffixData && suffixLen) memcpy(framingData + prefixLen, suffixData, suffixLen);
+      if (suffixData && suffixLen) memcpy(framingData + totalPrefixLen, suffixData, suffixLen);
       _framingData = framingData;
     }
-    _prefixLen = prefixLen;
+    _prefixLen = (uint8_t)totalPrefixLen;
     _suffixLen = suffixLen;
     return true;
   }

@@ -141,6 +141,7 @@ const BusChannelLayout& Bus::getChannelLayout() const {
 BusDigital::BusDigital(const BusConfig &bc)
 : Bus(bc.type, bc.start, bc.autoWhite, bc.count, bc.reversed, (bc.refreshReq || bc.type == TYPE_TM1814 || bc.type == TYPE_TM1815))
 , _skip(bc.skipAmount) //sacrificial pixels
+, _skipChannels(is2Pin(bc.type) ? 0 : std::min(bc.skipChannels, MAX_SKIP_CHANNELS)) // zero wire bytes for a sacrificial pixel with a different channel count (one-wire only)
 , _colorOrder(bc.colorOrder)
 , _protocolType(bc.type)
 , _milliAmpsPerLed(bc.milliAmpsPerLed)
@@ -196,6 +197,7 @@ BusDigital::BusDigital(const BusConfig &bc)
     if (!wireLayout.custom && wireLayout.numChannels == 0)
       resolveChannelLayout(wireLayout, _protocolType, bc.colorOrder);
     _busProperties = makeBusProperties(wireLayout, _protocolType); // single assembly point for the wire descriptor
+    _busProperties.prefixPadLen = _skipChannels; // sent as zero bytes after any chip prefix, before the first pixel (unit is wire bytes, also on 16-bit types)
     if (_busProperties.numChannels == 0 || _busProperties.numChannels > WLEDpixelBus::MAX_CUSTOM_CHANNELS) {
       cleanup();
       return;
@@ -482,6 +484,7 @@ void BusDigital::begin() {
   if (!_valid) return;
   if (!_busPtr->begin()) { cleanup(); return; }
   // TM1914: write the static mode-setting prefix once after the encode buffer is allocated.
+  // prefixLen is the chip prefix only, the zero pad bytes (prefixPadLen) that follow it stay untouched.
   if (_busProperties.prefixLen > 0 && _busProperties.prefixData)
     _busPtr->updatePrefix(_busProperties.prefixData, _busProperties.prefixLen);
 }
@@ -1460,6 +1463,7 @@ BusPlaceholder::BusPlaceholder(const BusConfig &bc)
 : Bus(bc.type, bc.start, bc.autoWhite, bc.count, bc.reversed, bc.refreshReq)
 , _colorOrder(bc.colorOrder)
 , _skipAmount(bc.skipAmount)
+, _skipChannels(std::min(bc.skipChannels, MAX_SKIP_CHANNELS))
 , _driverType(bc.driverType)
 , _frequency(bc.frequency)
 , _milliAmpsPerLed(bc.milliAmpsPerLed)
@@ -1507,12 +1511,13 @@ size_t BusPlaceholder::getPins(uint8_t* pinArray) const {
 }
 
 int BusManager::add(const BusConfig &bc, bool placeholder) {
-  DEBUGBUS_PRINTF_P(PSTR("Bus: Config (%d-%d, type:%d, CO:%d, rev:%d, skip:%d, AW:%d kHz:%d, mA:%d/%d, driver:%s)\n"),
+  DEBUGBUS_PRINTF_P(PSTR("Bus: Config (%d-%d, type:%d, CO:%d, rev:%d, skip:%d, skipch:%d, AW:%d kHz:%d, mA:%d/%d, driver:%s)\n"),
     (int)bc.start, (int)(bc.start+bc.count),
     (int)bc.type,
     (int)bc.colorOrder,
     (int)bc.reversed,
     (int)bc.skipAmount,
+    (int)bc.skipChannels,
     (int)bc.autoWhite,
     (int)bc.frequency,
     (int)bc.milliAmpsPerLed, (int)bc.milliAmpsMax,

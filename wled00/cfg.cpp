@@ -255,6 +255,8 @@ bool deserializeConfig(JsonObject doc, bool fromFS) {
         maMax = 0;
       }
       uint8_t driverType = elm[F("drv")] | 0; // 0=RMT (default), 1=parallel HW (I2S/LCD/SPI/PARLIO, chip-dependent) note: polybus may override this if driver is not available
+      // zero wire bytes ahead of the pixel data, only used by one-wire digital buses
+      uint8_t skipChannels = (Bus::isDigital(ledType) && !Bus::is2Pin(ledType)) ? (uint8_t)constrain((int)(elm[F("skipch")] | 0), 0, (int)MAX_SKIP_CHANNELS) : 0;
 
       String host = elm[F("text")] | String();
       uint8_t bsf = (uint8_t)(elm[F("bsf")] | 100);
@@ -263,6 +265,7 @@ bool deserializeConfig(JsonObject doc, bool fromFS) {
       bc.colorOrder = colorOrder;
       bc.reversed = reversed;
       bc.skipAmount = skipFirst;
+      bc.skipChannels = skipChannels;
       bc.refreshReq = refresh;
       bc.autoWhite = AWmode;
       bc.frequency = freqkHz;
@@ -1036,12 +1039,13 @@ void serializeConfig(JsonObject root) {
     DEBUG_PRINTF_P(PSTR("Cfg: Saving bus #%u\n"), s);
     const Bus *bus = BusManager::getBus(s);
     if (!bus) break;  // Memory corruption, iterator invalid
-    DEBUG_PRINTF_P(PSTR("  (%d-%d, type:%d, CO:%d, rev:%d, skip:%d, AW:%d kHz:%d, mA:%d/%d)\n"),
+    DEBUG_PRINTF_P(PSTR("  (%d-%d, type:%d, CO:%d, rev:%d, skip:%d, skipch:%d, AW:%d kHz:%d, mA:%d/%d)\n"),
       (int)bus->getStart(), (int)(bus->getStart()+bus->getLength()),
       (int)(bus->getType() & 0x7F),
       (int)bus->getColorOrder(),
       (int)bus->isReversed(),
       (int)bus->skippedLeds(),
+      (int)bus->skippedChannels(),
       (int)bus->getAutoWhiteMode(),
       (int)bus->getFrequency(),
       (int)bus->getLEDCurrent(), (int)bus->getMaxCurrent()
@@ -1056,6 +1060,7 @@ void serializeConfig(JsonObject root) {
     setConfigValue(ins, F("order"), bus->getColorOrder());
     setConfigValue(ins, "rev", bus->isReversed());
     setConfigValue(ins, F("skip"), bus->skippedLeds());
+    setConfigValue(ins, F("skipch"), bus->skippedChannels());
     setConfigValue(ins, "type", bus->getType() & 0x7F);
     setConfigValue(ins, "ref", bus->isOffRefreshRequired());
     setConfigValue(ins, F("rgbwm"), bus->getAutoWhiteMode());

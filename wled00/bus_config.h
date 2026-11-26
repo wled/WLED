@@ -44,6 +44,9 @@ constexpr size_t busTypeGetNumberOfChannels(uint8_t type) {
   return (type == TYPE_WS2812_1CH_X3 || type == TYPE_WS2812_WWA) ? 3 : (busTypeHasWhite(type) + 3*busTypeHasRGB(type) + busTypeHasCCT(type));
 }
 
+// upper limit for BusConfig::skipChannels (zero wire bytes ahead of the pixel data, e.g. for a 3-channel sacrificial pixel in front of an RGBW strip)
+constexpr uint8_t MAX_SKIP_CHANNELS = 4;
+
 // Driver preference for digital LED buses: stored in BusConfig::driverType and BusDigital::_driverType
 enum BusDriverType : uint8_t {
   BUSDRV_RMT     = 0, // RMT peripheral (default on most ESP32 variants)
@@ -78,6 +81,7 @@ struct BusConfig {
   // color
   uint8_t  colorOrder = COL_ORDER_GRB; // lower nibble: RGB permutation, upper nibble: W/WWCW swap
   uint8_t  skipAmount = 0;
+  uint8_t  skipChannels = 0; // extra zero wire bytes sent before the pixel data, 0..MAX_SKIP_CHANNELS (one-wire digital only; unit is wire bytes, also on 16-bit types)
   BusChannelLayout channels; // wire layout: resolved from type+colorOrder, or user override when channels.custom
   uint8_t  autoWhite  = RGBW_MODE_MANUAL_ONLY;
   // driver & electrical

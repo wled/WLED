@@ -378,6 +378,7 @@ void getSettingsJS(byte subPage, Print& settingsScript)
       char ls[4] = "LS"; ls[2] = offset+s; ls[3] = 0; //strip start LED
       char cv[4] = "CV"; cv[2] = offset+s; cv[3] = 0; //strip reverse
       char sl[4] = "SL"; sl[2] = offset+s; sl[3] = 0; //skip 1st LED
+      char sc[4] = "SC"; sc[2] = offset+s; sc[3] = 0; //skip 1st channels (wire bytes)
       char rf[4] = "RF"; rf[2] = offset+s; rf[3] = 0; //off refresh
       char aw[4] = "AW"; aw[2] = offset+s; aw[3] = 0; //auto white mode
       char wo[4] = "WO"; wo[2] = offset+s; wo[3] = 0; //swap channels
@@ -400,6 +401,7 @@ void getSettingsJS(byte subPage, Print& settingsScript)
       printSetFormValue(settingsScript,ls,bus->getStart());
       printSetFormCheckbox(settingsScript,cv,bus->isReversed());
       printSetFormValue(settingsScript,sl,bus->skippedLeds());
+      printSetFormValue(settingsScript,sc,bus->skippedChannels());
       printSetFormCheckbox(settingsScript,rf,bus->isOffRefreshRequired());
       printSetFormValue(settingsScript,aw,bus->getAutoWhiteMode());
       printSetFormValue(settingsScript,wo,bus->getColorOrder() >> 4);
