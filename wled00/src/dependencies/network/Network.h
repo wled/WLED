@@ -17,6 +17,14 @@ public:
   void localMAC(uint8_t* MAC);
   bool isConnected();
   bool isEthernet();
+
+#if defined(ARDUINO_ARCH_ESP32) && defined(LWIP_IPV6) && ESP_IDF_VERSION_MAJOR >= 5
+  void enableIPv6();
+  bool hasLinkLocalIPv6();
+  bool hasGlobalIPv6();
+  IPAddress localIPv6LinkLocal();
+  IPAddress localIPv6Global();
+#endif
 };
 
 extern WLEDNetworkClass WLEDNetwork;
