@@ -195,8 +195,13 @@ private:
   // Written by the MQTT callback (AsyncTCP task), consumed only by loop().
   volatile bool mqttRestorePending = false;
   bool mqttRestoreDeferredLogged = false;
-  // millis() of the MQTT connect we are waiting on for the retained state; 0 = not waiting.
+  // millis() of the MQTT connect we are waiting on for the retained state; only valid while mqttRestoreWaiting.
   volatile unsigned long mqttRestoreWaitStart = 0;
+  volatile bool mqttRestoreWaiting = false;
+  // Set by readFromConfig() (web task); loop() re-creates the sensor, so it never uses a freed _ina2xx.
+  volatile bool reinitPending = false;
+  // Set when the usermod gets enabled at runtime; loop() then subscribes if MQTT is already connected.
+  volatile bool mqttSetupPending = false;
 
   struct MqttRestoreData {
     bool hasDailyEnergy = false;
