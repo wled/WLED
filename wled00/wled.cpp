@@ -770,6 +770,16 @@ void WLED::initConnection()
   }
 #endif
 
+ #ifdef ARDUINO_ARCH_ESP32
+  // Stop mDNS before the netif is destroyed below (WIFI_MODE_NULL). Otherwise mDNS can
+  // use a stale netif and crash (#5945). initInterfaces() restarts it after reconnecting.
+  DEBUG_PRINTLN(F("Stopping mDNS and arduinoOTA before Wi-Fi teardown."));
+  #ifdef WLED_ENABLE_AOTA
+  ArduinoOTA.end();
+  #endif
+  MDNS.end(); 
+#endif
+
   DEBUG_PRINTLN(F("WiFi disconnect."));
   WiFi.disconnect(true); // close old connections
   delay(5);              // wait for hardware to be ready
