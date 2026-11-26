@@ -1,0 +1,4 @@
+{
+  "name": "fs_sync",
+  "build": { "libArchive": false }
+}
