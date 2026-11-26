@@ -1,0 +1,5 @@
+{
+  "name": "espnow_json_handler",
+  "build": { "libArchive": false },
+  "dependencies": {}
+}
