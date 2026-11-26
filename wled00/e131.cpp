@@ -162,7 +162,7 @@ void handleE131Packet(e131_packet_t* p, IPAddress clientIP, byte protocol, size_
   unsigned previousUniverses = uni - e131Universe;
 
   if (e131SkipOutOfSequence)
-    if (seq < e131LastSequenceNumber[previousUniverses] && seq > 20 && e131LastSequenceNumber[previousUniverses] < 250){
+    if (seq < e131LastSequenceNumber[previousUniverses] && seq > 20 && e131LastSequenceNumber[previousUniverses] < 250){  // ToDO: fix the code. Currently we have unsequenced "holes" at both ends
       DEBUG_PRINTF_P(PSTR("skipping E1.31 frame (last seq=%d, current seq=%d, universe=%d)\n"), e131LastSequenceNumber[previousUniverses], seq, uni);
       return;
     }
@@ -385,6 +385,7 @@ void handleDMXData(uint16_t uni, uint16_t dmxChannels, uint8_t* e131_data, uint8
 
 static void handleArtnetPollReply(IPAddress ipAddress) {
   ArtPollReply artnetPollReply;
+  memset(&artnetPollReply, 0, sizeof(ArtPollReply)); // zero the reply initially so it does not contain trailing junk.
   prepareArtnetPollReply(&artnetPollReply);
 
   unsigned startUniverse = e131Universe;
