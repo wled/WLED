@@ -4,6 +4,9 @@ on:
   pull_request:
     paths:
       - usermods/**
+  push:
+    paths:
+      - usermods/**
 
 env:
   FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
@@ -12,36 +15,60 @@ jobs:
 
   get_usermod_envs:
     # Only run for pull requests from forks (not from branches within wled/WLED)
-    if: github.event.pull_request.head.repo.full_name != github.repository
+    if: github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name != github.repository
     name: Gather Usermods
     runs-on: ubuntu-latest
     steps:
     - uses: actions/checkout@v4
-    - uses: actions/setup-python@v5
       with:
-        python-version: '3.12'
-        cache: 'pip'
-    - name: Install PlatformIO
-      run: pip install -r requirements.txt
-    - name: Get default environments
+        fetch-depth: 0
+    - name: Get changed usermod build matrix
       id: envs
+      env:
+        BASE_SHA: ${{ github.event.pull_request.base.sha }}
       run: |
-        echo "usermods=$(find usermods/ -name library.json | xargs dirname | xargs -n 1 basename | jq -R | grep -v PWM_fan | grep -v BME68X_v2| grep -v pixels_dice_tray | jq --slurp -c)" >> $GITHUB_OUTPUT
+        # Usermods whose directories changed in this PR
+        changed=$(git diff --name-only "$BASE_SHA" HEAD \
+          | grep '^usermods/' | cut -d/ -f2 | sort -u || true)
+
+        # Shared override defining the standard build environments
+        default_ini="usermods/platformio_override.usermods.ini"
+
+        matrix='[]'
+        for mod in $changed; do
+          # Skip usermods known to be incompatible
+          case "$mod" in BME68X_v2|pixels_dice_tray) continue ;; esac
+          # Only build usermods that ship a library.json
+          [ -f "usermods/$mod/library.json" ] || continue
+
+          # A usermod may provide its own build environments via a sample override;
+          # otherwise the standard environments from the shared override are used.
+          # Either way, the env list comes from the ini file rather than being
+          # duplicated here.
+          sample="usermods/$mod/platformio_override.ini.sample"
+          [ -f "$sample" ] && ini="$sample" || ini="$default_ini"
+          envs=$(grep -oE '^\[env:[^]]+\]' "$ini" | sed 's/^\[env:\(.*\)\]$/\1/')
+
+          for env in $envs; do
+            matrix=$(echo "$matrix" | jq --arg u "$mod" --arg e "$env" -c '. + [{usermod: $u, env: $e}]')
+          done
+        done
+        echo "matrix=$matrix" >> $GITHUB_OUTPUT
     outputs:
-      usermods: ${{ steps.envs.outputs.usermods }}
+      matrix: ${{ steps.envs.outputs.matrix }}
 
 
   build:
     # Only run for pull requests from forks (not from branches within wled/WLED)
-    if: github.event.pull_request.head.repo.full_name != github.repository
-    name: Build Enviornments
+    # Skip when no buildable usermods were found (e.g. only non-library changes)
+    if: github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name != github.repository && needs.get_usermod_envs.outputs.matrix != '[]'
+    name: Build (${{ matrix.usermod }} / ${{ matrix.env }})
     runs-on: ubuntu-latest
     needs: get_usermod_envs
     strategy:
       fail-fast: false
       matrix:
-        usermod: ${{ fromJSON(needs.get_usermod_envs.outputs.usermods) }}
-        environment: [usermods_esp32, usermods_esp32c3, usermods_esp32s2, usermods_esp32s3]
+        include: ${{ fromJSON(needs.get_usermod_envs.outputs.matrix) }}
     steps:
     - uses: actions/checkout@v4
     - name: Set up Node.js
@@ -57,8 +84,8 @@ jobs:
               ~/.platformio/.cache
               ~/.buildcache
               build_output
-        key: pio-${{ runner.os }}-${{ matrix.environment }}-${{ hashFiles('platformio.ini', 'pio-scripts/output_bins.py') }}-${{ hashFiles('wled00/**', 'usermods/**') }}
-        restore-keys: pio-${{ runner.os }}-${{ matrix.environment }}-${{ hashFiles('platformio.ini', 'pio-scripts/output_bins.py') }}-
+        key: pio-${{ runner.os }}-${{ matrix.env }}-${{ hashFiles('platformio.ini', 'pio-scripts/output_bins.py') }}-${{ hashFiles('wled00/**', 'usermods/**') }}
+        restore-keys: pio-${{ runner.os }}-${{ matrix.env }}-${{ hashFiles('platformio.ini', 'pio-scripts/output_bins.py') }}-
     - name: Set up Python
       uses: actions/setup-python@v5
       with:
@@ -66,12 +93,23 @@ jobs:
           cache: 'pip'
     - name: Install PlatformIO
       run: pip install -r requirements.txt
-    - name: Add usermods environment
+    - name: Configure build environment
+      env:
+        USERMOD: ${{ matrix.usermod }}
       run: |
-        cp -v usermods/platformio_override.usermods.ini platformio_override.ini
-        echo >> platformio_override.ini
-        echo  "custom_usermods = ${{ matrix.usermod }}" >> platformio_override.ini
+        # Use the usermod's own override when it provides one, otherwise apply
+        # the shared usermods override with this usermod enabled.
+        sample="usermods/${USERMOD}/platformio_override.ini.sample"
+        if [ -f "$sample" ]; then
+          cp -v "$sample" platformio_override.ini
+        else
+          cp -v usermods/platformio_override.usermods.ini platformio_override.ini
+          echo >> platformio_override.ini
+          echo "custom_usermods = ${USERMOD}" >> platformio_override.ini
+        fi
         cat platformio_override.ini
 
     - name: Build firmware
-      run: pio run -e ${{ matrix.environment }}    
+      env:
+        BUILD_ENV: ${{ matrix.env }}
+      run: pio run -e "$BUILD_ENV"
