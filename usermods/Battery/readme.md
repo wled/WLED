@@ -16,6 +16,7 @@ Enables battery level monitoring of your project.
 
 - 💯 Displays current battery voltage
 - 🚥 Displays battery level
+- 🔌 Charging state detection (voltage trend based)
 - 🚫 Auto-off with configurable threshold
 - 🚨 Low power indicator with many configuration possibilities
 
@@ -50,6 +51,30 @@ In `platformio_override.ini` (or `platformio.ini`)<br>Under: `custom_usermods =`
 </tr>
 </table>
 
+### Multi-cell packs (2S, 3S, ...)
+
+Packs with cells in series work too. Set `min-voltage` / `max-voltage` to the **whole-pack** values (per-cell voltage × cell count) — the usermod maps the pack range onto the battery type's discharge curve. Pick the voltage divider (R1 from battery + to the tap, R2 from the tap to GND, tap to the ADC pin) so the tapped voltage stays below 3.3 V at full charge:
+
+```text
+1. voltage-multiplier ≥ max-voltage / 3.3 V     (round up for safety margin)
+2. pick R2                                      (100 kΩ is a good default)
+3. R1 = R2 × (voltage-multiplier − 1)
+4. check: max-voltage / voltage-multiplier < 3.3 V
+
+where: voltage-multiplier = (R1 + R2) / R2
+```
+
+Example — 3S Li-Ion (18650), 7.8 – 12.6 V:
+
+1. 12.6 V / 3.3 V = 3.8 → round up: `voltage-multiplier` = **4.0**
+2. R2 = 100 kΩ
+3. R1 = 100 kΩ × (4.0 − 1) = **300 kΩ**
+4. tap at full charge: 12.6 V / 4.0 = 3.15 V ✔
+
+Settings: type `Li-Ion`, `min-voltage` = **7.8**, `max-voltage` = **12.6**, `voltage-multiplier` = **4.0**
+
+Use 1 % resistors and fine-tune with the `calibration` offset against a multimeter reading. Power the ESP through a buck converter; the divider is for measurement only.
+
 <br><br>
 
 ## Define Your Options
@@ -79,10 +104,31 @@ All parameters can be configured at runtime via the Usermods settings page.
 
 **NOTICE:** Each Battery type can be pre-configured individualy (in `my_config.h`)
 
-| Name            | Alias         | `my_config.h` example                 |
-| --------------- | ------------- | ------------------------------------- |
-| Lithium Polymer | lipo (Li-Po)  | `USERMOD_BATTERY_lipo_MIN_VOLTAGE`    |
-| Lithium Ionen   | lion (Li-Ion) | `USERMOD_BATTERY_lion_TOTAL_CAPACITY` |
+| Name                    | Alias           | `my_config.h` example                    |
+| ----------------------- | --------------- | ---------------------------------------- |
+| Lithium Polymer         | lipo (Li-Po)    | `USERMOD_BATTERY_LIPO_MIN_VOLTAGE`       |
+| Lithium Ion             | lion (Li-Ion)   | `USERMOD_BATTERY_LION_MIN_VOLTAGE`       |
+| Lithium Iron Phosphate  | lifepo4 (LFP)   | `USERMOD_BATTERY_LIFEPO4_MIN_VOLTAGE`    |
+
+The level is derived from a per-type discharge lookup table (1S cell voltages). The configured `min-voltage` / `max-voltage` range is mapped onto that table, so the defaults give the plain 1S curve and multi-cell packs or custom limits still work. The previous "Unknown" type (plain linear mapping) was removed; existing configs with that type fall back to LiPo.
+
+<br><br>
+
+## 🔋 Adding a Custom Battery Type
+
+If none of the built-in battery types match your cell chemistry, you can add your own.
+
+### Step-by-step
+
+1. **Create a new header** in [`types/`](types/), e.g. `MyBattery.h`, using an existing type as a template — [`Lifepo4UMBattery.h`](types/Lifepo4UMBattery.h) is the simplest. Your class inherits from [`UMBattery`](UMBattery.h), sets its voltage limits in the constructor and implements `mapVoltage()` via `lutInterpolate()` with its own discharge lookup table (voltage descending → percentage, data from your cell's datasheet). Keep the table definitions in the header like the built-in types do — `Battery.cpp` is the only translation unit that includes battery-type headers; do not include the header from other `.cpp` files.
+
+2. **Add a new enum value** to `batteryType` in [`battery_defaults.h`](battery_defaults.h) (e.g. `mybattery=4`). Keep the `uint8_t` base.
+
+3. **Register defaults** (optional) in [`battery_defaults.h`](battery_defaults.h): `USERMOD_BATTERY_MYBATTERY_MIN_VOLTAGE` / `_MAX_VOLTAGE` guarded with `#ifndef`, following the existing types.
+
+4. **Wire it up** in [`Battery.cpp`](Battery.cpp): add the `#include "types/MyBattery.h"`, a `case mybattery:` in `createBattery()`, and a dropdown option in `appendConfigData()` (`addOption(td,'My Battery','4')`).
+
+5. **Compile and flash** — select your new type from the Battery settings page.
 
 <br><br>
 
@@ -128,6 +174,34 @@ Specification from: [Molicel INR18650-M35A, 3500mAh 10A Lithium-ion battery, 3.6
 <br><br>
 
 ## 📝 Change Log
+
+2026-11-03 (charging detection)
+
+- Charging detection from the voltage trend over the last 2.5 minutes (info panel, JSON state, MQTT `charging` topic and Home Assistant binary sensor)
+- Battery voltage, level, charging state and type are exposed to other usermods via `getUMData()`
+
+2026-11-03 (discharge curves)
+
+- Battery level comes from per-type discharge lookup tables instead of linear / piecewise mapping
+- Added LiFePO4 battery type
+- Removed the "Unknown" battery type, existing configs fall back to LiPo
+- Configured min/max voltage range is mapped onto the 1S table, multi-cell packs keep working
+- Readme: multi-cell wiring guide and step-by-step guide for custom battery types
+
+2026-11-03
+
+- Code cleanup: removed dead code, template comments and unused getters/setters
+- Battery type selection moved into a `createBattery()` factory, base class got a virtual destructor
+- `calculateAndSetLevel()` moved into the base class, battery types only implement `mapVoltage()`
+- Config reading consolidated into `readFromConfig()`, `override` added to all overridden methods
+- MQTT sensor registration moved into a `registerMqttSensor()` helper
+- Out-of-range voltage readings are rejected: voltage and level become `invalid` instead of poisoning the smoothing filter
+- Auto-off and low power indicator wait for the first valid reading instead of acting on the initial level
+- Low power indication always finishes its duration, also when the level recovers or becomes invalid meanwhile
+- Low power thresholds are clamped to 0-100 %, reactivation threshold stays reachable
+- `addToConfig()` no longer reads the ADC as a side effect, `addToJsonState()` is guarded during boot
+- "Next update" in the info panel no longer wraps when a reading is overdue
+- `batteryType` enum has a fixed `uint8_t` base, `batteryConfig` is seeded with `USERMOD_BATTERY_DEFAULT_TYPE`
 
 2024-08-19
 
