@@ -101,6 +101,7 @@ void handleSettingsSet(AsyncWebServerRequest *request, byte subPage)
       while (cnt--) multiWiFi.pop_back();
       multiWiFi.shrink_to_fit(); // release memory
     }
+    if (multiWiFi.empty()) multiWiFi.emplace_back(); // always keep one entry, readers index [0] unchecked
 
     if (request->hasArg(F("D0"))) {
       dnsAddress = IPAddress(request->arg(F("D0")).toInt(),request->arg(F("D1")).toInt(),request->arg(F("D2")).toInt(),request->arg(F("D3")).toInt());
