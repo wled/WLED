@@ -385,6 +385,53 @@ button {
 	max-width: 280px;
 }
 
+/* Compact per-segment output-smoothing rows: [icon] [label] [slider] [value] */
+.seg-sm {
+	margin: 6px 0 4px;
+}
+.sm-row {
+	display: flex;
+	align-items: center;
+	gap: 4px;
+	margin: 0 0 2px;
+	padding: 0;
+}
+.sm-row .sm-icon {
+	position: static;
+	flex: 0 0 22px;
+	font-size: 20px !important;
+	cursor: default;
+	color: var(--c-d);
+	line-height: 1;
+}
+.sm-row .sm-lbl {
+	flex: 0 0 3.6em;
+	font-size: 13px;
+	line-height: 1;
+	text-align: left;
+	color: var(--c-d);
+}
+.sm-row .sliderwrap {
+	flex: 1 1 auto;
+	width: auto;
+	max-width: none;
+	left: 0;
+	height: 26px;
+}
+.sm-row .sliderbubble {
+	position: static;
+	flex: 0 0 auto;
+	opacity: 1;
+	visibility: visible;
+	width: auto;
+	min-width: 2.8em;
+	white-space: nowrap;
+	padding: 2px 6px;
+	top: auto;
+	right: auto;
+	font-size: 12px;
+}
+
 #putil, #segutil, #segutil2, #bsp {
 	min-height: 42px;
 	margin: 0 auto;

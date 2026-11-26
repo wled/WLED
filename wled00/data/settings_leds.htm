@@ -322,6 +322,10 @@
 			if (isAna(t)) return 5;	// analog
 			let len = parseInt(d.Sf["LC"+n].value) + parseInt(d.Sf["SL"+n].value);
 			let pbfr = len * 8; // pixel buffers: global buffer + segment buffer
+			// Per-segment temporal history while default SMT > 0: ~12 B/LED RGB, 16 B/LED RGBW.
+			// Use 16 as worst-case for the memory estimate. Overlapping smoothed segments add up.
+			let smt = d.Sf.SMT ? parseInt(d.Sf.SMT.value)||0 : 0;
+			if (smt > 0) pbfr += len * 16;
 			let ch = getChannels(t, n);
 
 			let mem = 0;
@@ -1401,6 +1405,13 @@ Swap: <select id="xw${s}" name="XW${s}">
 		<div id="fpsNone" class="warn" style="display: none;">&#9888; Unlimited FPS Mode is experimental &#9888;<br></div>
 		<div id="fpsHigh" class="warn" style="display: none;">&#9888; High FPS Mode is experimental.<br></div>
 		<div id="fpsWarn" class="warn" style="display: none;">Please <a class="lnk" href="sec#backup">backup</a> WLED configuration and presets first!<br></div>
+		<br>
+		<div id="Smoothing">
+		Smoothing defaults for new segments (applied at boot; live per-segment tuning is in each Segments panel):<br>
+		Spatial: <input type="number" class="s" min="0" max="50" name="SMX" oninput="UI()" required> (0.1 LED, 0–50 = 0–5 LEDs)<br>
+		Temporal: <input type="number" class="s" min="0" max="100" name="SMT" oninput="UI()" required> (10 ms, 0–100 = 0–1000 ms)<br>
+		<small>Each segment with temporal smoothing uses ~12 bytes/LED (RGB) or ~16 bytes/LED (RGBW) of that segment's length. A reusable mapped layer adds ~5 bytes per LED of the largest smoothed segment.</small><br>
+		</div>
 		<br><br>
 	</div>
 	<div id="cfg">Config template: <input type="file" name="data2" accept=".json"><button type="button" class="sml" onclick="loadCfg(d.Sf.data2)">Apply</button><br></div>

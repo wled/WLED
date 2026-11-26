@@ -391,6 +391,11 @@ WLED_GLOBAL bool applyGamma         _INIT(true);  // apply gamma correction to c
 WLED_GLOBAL bool gammaCorrectBri    _INIT(false); // use gamma correction on brightness
 WLED_GLOBAL float gammaCorrectVal   _INIT(2.2f);  // gamma correction value
 
+#ifndef WLED_DISABLE_OUTPUT_SMOOTHING
+WLED_GLOBAL byte smoothDefaultX     _INIT(0);     // default spatial smoothing (0.1 LED units, 0..50), applied at boot
+WLED_GLOBAL byte smoothDefaultT     _INIT(0);     // default temporal smoothing (10 ms units, 0..100 = 0..1000 ms), applied at boot
+#endif
+
 WLED_GLOBAL byte colPri[] _INIT_N(({ 0, 0, 0, 0 }));   // current RGB(W) primary color. colPri[] should be updated if you want to change the color.
 WLED_GLOBAL byte colSec[] _INIT_N(({ 0, 0, 0, 0 }));   // current RGB(W) secondary color
 

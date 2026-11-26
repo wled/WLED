@@ -752,6 +752,8 @@ function populateSegments(s)
 	var cn = "";
 	let li = lastinfo;
 	segCount = 0; lowestUnused = 0; lSeg = 0;
+	// Firmware omits seg.sm when built with WLED_DISABLE_OUTPUT_SMOOTHING.
+	const hasSmooth = (s.seg || []).some(seg => seg.sm != null);
 
 	for (var inst of (s.seg||[])) {
 		segCount++;
@@ -877,6 +879,33 @@ function populateSegments(s)
 					`</table>`+
 					`<div class="h bp" id="seg${i}len"></div>`+
 					blend +
+					(hasSmooth ? (()=>{
+						let sx = (inst.sm && inst.sm.x!=null) ? parseInt(inst.sm.x)||0 : 0;
+						let st = (inst.sm && inst.sm.t!=null) ? parseInt(inst.sm.t)||0 : 0;
+						let px = smSpatialToPos(sx / 10);
+						let pt = smMsToPos(st * 10);
+						return `<div class="lbl-l">Smoothing<br>`+
+							`<div class="seg-sm" id="seg${i}sm">`+
+							`<div class="slider sm-row">`+
+								`<i class="icons sm-icon">&#xe34b;</i>`+
+								`<span class="sm-lbl">Linear</span>`+
+								`<div class="sliderwrap il">`+
+									`<input id="seg${i}smx" class="noslide" data-sm="x" onchange="setSmooth(${i})" oninput="updateTrail(this); formatSmoothLabel(this)" max="1000" min="0" type="range" value="${px}" />`+
+									`<div class="sliderdisplay"></div>`+
+								`</div>`+
+								`<output class="sliderbubble" id="seg${i}smxOut">${smPosToSpatial(px).toFixed(2)}</output>`+
+							`</div>`+
+							`<div class="slider sm-row">`+
+								`<i class="icons sm-icon">&#xe325;</i>`+
+								`<span class="sm-lbl">Time</span>`+
+								`<div class="sliderwrap il">`+
+									`<input id="seg${i}smt" class="noslide" data-sm="t" onchange="setSmooth(${i})" oninput="updateTrail(this); formatSmoothLabel(this)" max="1000" min="0" type="range" value="${pt}" />`+
+									`<div class="sliderdisplay"></div>`+
+								`</div>`+
+								`<output class="sliderbubble" id="seg${i}smtOut">${Math.round(smPosToMs(pt))} ms</output>`+
+							`</div>`+
+						`</div></div>`;
+					})() : '') +
 					(!isMSeg ? rvXck : '') +
 					(isMSeg&&stoY-staY>1&&stoX-staX>1 ? map2D : '') +
 					(s.AudioReactive && s.AudioReactive.on ? "" : sndSim) +
@@ -904,6 +933,9 @@ function populateSegments(s)
 		if (!gId(`seg${i}`)) continue;
 		updateLen(i);
 		updateTrail(gId(`seg${i}bri`));
+		let sx = gId(`seg${i}smx`), st = gId(`seg${i}smt`);
+		if (sx) { updateTrail(sx); formatSmoothLabel(sx); }
+		if (st) { updateTrail(st); formatSmoothLabel(st); }
 		gId(`segr${i}`).classList.add("hide");
 	}
 	if (segCount < 2) {
@@ -1179,7 +1211,8 @@ function updateTrail(e)
 		sd.style.backgroundImage = val;
 	}
 	var b = e.parentNode.parentNode.getElementsByTagName('output')[0];
-	if (b) b.innerHTML = e.value;
+	// Per-segment smoothing rows keep a formatted label (LEDs / ms); formatSmoothLabel owns that text.
+	if (b && !e.parentNode.parentNode.classList.contains('sm-row')) b.innerHTML = e.value;
 }
 
 // rangetouch slider function
@@ -2473,6 +2506,53 @@ function setBri()
 {
 	var obj = {"bri": parseInt(gId('sliderBri').value)};
 	requestJson(obj);
+}
+
+// Per-segment output smoothing: send on release (like opacity/brightness).
+// Slider position is 0..1000 with a piecewise log map (finer resolution at the low end):
+//   Linear (spatial): first half → 0–1 LED,  second half → 1–5 LED (log)
+//   Time (temporal):  first half → 0–100 ms, second half → 100–1000 ms (log)
+// API keeps seg.sm.x in 0.1 LED units (0..50) and seg.sm.t in 10 ms units (0..100).
+var SM_POS_MAX = 1000, SM_POS_MID = 500;
+function smPosToSpatial(pos)
+{
+	pos = Math.max(0, Math.min(SM_POS_MAX, +pos || 0));
+	if (pos <= SM_POS_MID) return (pos / SM_POS_MID) * 1;
+	return Math.pow(5, (pos - SM_POS_MID) / SM_POS_MID); // 1..5
+}
+function smSpatialToPos(led)
+{
+	led = Math.max(0, Math.min(5, +led || 0));
+	if (led <= 1) return Math.round(led * SM_POS_MID);
+	return Math.round(SM_POS_MID + (Math.log(led) / Math.log(5)) * SM_POS_MID);
+}
+function smPosToMs(pos)
+{
+	pos = Math.max(0, Math.min(SM_POS_MAX, +pos || 0));
+	if (pos <= SM_POS_MID) return (pos / SM_POS_MID) * 100;
+	return 100 * Math.pow(10, (pos - SM_POS_MID) / SM_POS_MID); // 100..1000
+}
+function smMsToPos(ms)
+{
+	ms = Math.max(0, Math.min(1000, +ms || 0));
+	if (ms <= 100) return Math.round((ms / 100) * SM_POS_MID);
+	return Math.round(SM_POS_MID + Math.log10(ms / 100) * SM_POS_MID);
+}
+function formatSmoothLabel(el)
+{
+	let o = gId(el.id + 'Out');
+	if (!o) return;
+	let pos = parseInt(el.value)||0;
+	o.innerHTML = (el.dataset.sm === 'x') ? smPosToSpatial(pos).toFixed(2) : Math.round(smPosToMs(pos)) + ' ms';
+}
+
+function setSmooth(s)
+{
+	var sx = gId(`seg${s}smx`), st = gId(`seg${s}smt`);
+	if (!sx || !st) return;
+	let x = Math.round(Math.min(50, Math.max(0, smPosToSpatial(sx.value) * 10)));
+	let t = Math.round(Math.min(100, Math.max(0, smPosToMs(st.value) / 10)));
+	requestJson({"seg":{"id":s,"sm":{"x":x,"t":t}}});
 }
 
 function setSpeed()
