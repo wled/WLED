@@ -682,6 +682,7 @@ void getSettingsJS(byte subPage, Print& settingsScript)
                                timer.monthStart, timer.dayStart, timer.monthEnd, timer.dayEnd);
       }
     }
+    printSetFormValue(settingsScript,PSTR("TB"),bootTimerWindow);
   }
 
   if (subPage == SUBPAGE_SEC)
