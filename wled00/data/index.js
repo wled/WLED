@@ -289,6 +289,7 @@ function onLoad()
 	// Load initial data sequentially, no parallel requests to avoid "503" errors when heap is low (slower but much more reliable)
 	(async ()=>{
 		try {
+			await loadFxPalCfg();
 			await loadPalettes();        // loads base palettes and builds #pallist (safe first)
 			await loadFXData();          // loads fx data
 			await loadFX();              // populates effect list
@@ -927,6 +928,16 @@ function populateSegments(s)
 	tooltip("#Segments");
 }
 
+var fxpalCfg={fx:[],pal:[]};
+async function loadFxPalCfg(){try{fxpalCfg=await(await fetch(getURL('/fxpal-config.json'))).json()}catch(e){}}
+function applyHidden(id,ids){
+	const l=gId(id),h=[...l.querySelectorAll('.lstI')].filter(e=>ids.includes(+e.dataset.id));
+	if(!h.length)return;
+	const b=d.createElement('details');
+	b.innerHTML=`<summary class="btn btn-s">Show All (${h.length})<i class="icons e-icon flr">&#xe395;</i></summary>`;
+	b.append(...h);l.append(b);
+}
+
 function populateEffects()
 {
 	var effects = eJson;
@@ -972,6 +983,7 @@ function populateEffects()
 	}
 
 	gId('fxlist').innerHTML=html;
+	applyHidden('fxlist',fxpalCfg.fx);
 }
 
 function populatePalettes()
@@ -1023,6 +1035,7 @@ function populatePalettes()
 			);
 		}
 	}
+	applyHidden('pallist',fxpalCfg.pal);
 	updateSelectedPalette(selectedPal); // update selection after adding usermod and custom palettes
 }
 
@@ -1340,6 +1353,7 @@ function updateSelectedPalette(s)
 	var selectedPalette = parent.querySelector(`.lstI[data-id="${s}"]`);
 	if (!selectedPalette) return; // palette not yet loaded (custom palette on initial load)
 	selectedPalette.classList.add('selected');
+	selectedPalette.closest('details')?.setAttribute('open','');
 
 	// Display selected palette name on button in simplified UI
 	let selectedName = selectedPalette.querySelector(".lstIname").innerText;
@@ -1373,6 +1387,7 @@ function updateSelectedFx()
 	var selectedEffect = parent.querySelector(`.lstI[data-id="${selectedFx}"]`);
 	if (selectedEffect) {
 		selectedEffect.classList.add('selected');
+		selectedEffect.closest('details')?.setAttribute('open','');
 		setEffectParameters(selectedFx);
 		// hide non-0D effects if segment only has 1 pixel (0D)
 		parent.querySelectorAll('.lstI').forEach((fx)=>{
@@ -2935,6 +2950,7 @@ function search(field, listId = null) {
 	// do not search if filter is active
 	if (gId("filters").querySelectorAll("input[type=checkbox]:checked").length) return;
 
+	gId(listId).querySelectorAll('details').forEach(b=>b.open=search);
 	// filter list items but leave (Default & Solid) always visible
 	const listItems = gId(listId).querySelectorAll('.lstI');
 	listItems.forEach((listItem, i) => {
@@ -2964,8 +2980,11 @@ function search(field, listId = null) {
 		return aName.localeCompare(bName);
 	});
 	sortedListItems.forEach(item => {
-		gId(listId).append(item);
+		item.parentNode.append(item);
 	});
+	const L=gId(listId),hb=L.querySelector(':scope>details');
+	if(listId!=='pcont')L.prepend(listItems[0]); // Solid/Default first
+	if(hb)L.append(hb); // hidden section last
 
 	// scroll to first search result
 	const firstVisibleItem = sortedListItems.find(item => item.style.display !== 'none' && !item.classList.contains('sticky') && !item.classList.contains('selected'));
