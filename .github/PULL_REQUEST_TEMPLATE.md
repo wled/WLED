@@ -13,7 +13,7 @@
 <!-- Please be honest about any AI assistance used for this PR. If you haven't used any AI tools, simply delete this section. -->
 
 * What the AI drafted: _e.g. the initial fix in usermod X, refactoring of function Y_
-* What I designed/coded myself: _e.g. I wrote the main effect source code myself. AI helped me integrate it into WLED's effect framework_
+* What I designed/coded myself: _e.g. I wrote the main effect source code myself. AI helped me integrate it into WLED's effect framework._
 * What I verified/tested myself: _e.g. read through the diff, tested on ESP32 + WS2812B, confirmed the root cause with a debug build_
 * Untested / unsure about: _anything you didn't get to verify_
 
@@ -29,6 +29,7 @@
 
 ## Checklist
 <!-- Mark each item with an X to confirm -->
+
 - [ ] I have personally reviewed all changes (incl. source code) before opening this PR.
 - [ ] I'm ready to explain my proposed source code changes in detail (without an AI agent answering for me).
-- [ ] I agree to follow this project's Code of Conduct
+- [ ] I agree to follow this project's Code of Conduct.
