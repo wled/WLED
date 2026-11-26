@@ -649,31 +649,64 @@ uint16_t approximateKelvinFromRGB(uint32_t rgb) {
   }
 }
 
-// gamma lookup tables used for color correction (filled on 1st use (cfg.cpp & set.cpp))
-uint8_t NeoGammaWLEDMethod::gammaT[256];
-uint8_t NeoGammaWLEDMethod::gammaT_inv[256];
+namespace {
+struct GammaCurve {
+  // generate gamma curves with a "linear toe" for better low end colors
+  static constexpr float SRGB_BLACK = 0.0009f; // lower black level means shorter toe (0 is what WLED 16.0 used, 0.003 = sRGB but it does not look good)
+
+  float g = 1.0f, ginv = 1.0f;
+  float b = 0.0f, c = 0.0f;
+  float c1 = 1.0f;
+  float k = 1.0f, kinv = 1.0f;
+
+  explicit GammaCurve(float gamma) {
+    setup(gamma);
+  }
+
+  // setup constants so the exp. curve & toe generate a continuous function with a continuouse derivative
+  void setup(float gamma) {
+    // note: gamma must be > 0, this is ensured in set.cpp and cfg.cpp
+    g = gamma;
+    ginv = 1.0f / gamma;
+    const float t = powf(SRGB_BLACK, ginv);
+    b = t / (g - t * (g - 1.0f)); // horizontal coordinate of transition point
+    c = b * (g - 1.0f);           // horizontal offset for exponential part
+    c1 = 1.0f + c;                // factor for exponential normalisation (so curve ends at 1.0)
+    k = SRGB_BLACK / b;           // slope for linear toe
+    kinv = b / SRGB_BLACK;        // inverse slope for linear toe
+  }
+
+  float decode(float x) const {
+    return (x <= b) ? x * k : powf((x + c) / c1, g); // decode sRGB to linear RGB
+  }
+
+  float encode(float y) const {
+    return (y <= SRGB_BLACK) ? y * kinv : c1 * powf(y, ginv) - c; // encode sRGB from linear RGB
+  }
+
+  void fillTables(uint8_t *dec, uint8_t *enc) const {
+    for (int i = 0; i < 256; i++) {
+      const float x = (float)i * (1.0f / 255.0f);
+      dec[i] = (uint8_t)(decode(x) * 255.0f + 0.5f);
+      if (enc) enc[i] = (uint8_t)(encode(x) * 255.0f + 0.5f);
+    }
+  }
+};
+}
+
+// gamma lookup tables used for color correction (filled on 1st use (cfg.cpp & set.cpp), updated in BusManager::updateGammaUse())
+uint8_t WLEDGamma::gammaT[256];
+uint8_t WLEDGamma::gammaT_inv[256];
 
 // re-calculates & fills gamma tables
-void NeoGammaWLEDMethod::calcGammaTable(float gamma)
+void WLEDGamma::calcGammaTable(float gamma)
 {
-  float gamma_inv = 1.0f / gamma; // inverse gamma
-  for (size_t i = 1; i < 256; i++) {
-    gammaT[i] = (int)(powf((float)i / 255.0f, gamma) * 255.0f + 0.5f);
-    gammaT_inv[i] = (int)(powf(((float)i - 0.5f) / 255.0f, gamma_inv) * 255.0f + 0.5f);
-    //DEBUG_PRINTF_P(PSTR("gammaT[%d] = %d gammaT_inv[%d] = %d\n"), i, gammaT[i], i, gammaT_inv[i]);
-  }
-  gammaT[0] = 0;
-  gammaT_inv[0] = 0;
+  const GammaCurve curve(gamma);
+  curve.fillTables(gammaT, gammaT_inv);
 }
 
-uint8_t NeoGammaWLEDMethod::Correct(uint8_t value)
+uint32_t WLEDGamma::inverseGamma32(uint32_t color)
 {
-  return gammaT[value]; // gammaT[] uses unity mapping if gammaCorrectCol is false
-}
-
-uint32_t NeoGammaWLEDMethod::inverseGamma32(uint32_t color)
-{
-  if (!gammaCorrectCol) return color;
   uint8_t w = W(color);
   uint8_t r = R(color);
   uint8_t g = G(color);

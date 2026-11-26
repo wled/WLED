@@ -309,10 +309,10 @@ PixelBus* createBus(BusDriver driver, int8_t pin, const BusProperties& propertie
 // we have a bus, set the parameters
   if (bus) {
     bus->setNumPixels((uint16_t)numPixels);
-    bus->setPrefixLen(properties.prefixLen);
-    bus->setPrefixData(properties.prefixData, properties.prefixLen);
-    bus->setSuffixLen(properties.suffixLen);
-    bus->setSuffixData(properties.suffixData, properties.suffixLen);
+    if (!bus->setFraming(properties.prefixData, properties.prefixLen, properties.suffixData, properties.suffixLen)) {
+      delete bus;
+      return nullptr;
+    }
     bus->setInverted(properties.invertOutput);
     bus->setEncoder(ColorEncoder(properties.channelMap, properties.numChannels, properties.invertMask, properties.is16bit));
   }

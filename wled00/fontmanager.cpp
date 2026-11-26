@@ -35,9 +35,7 @@ void FontManager::getFontFileName(uint8_t fontNum, char* buffer, bool scanAll) {
     meta->availableFonts = 0; // reset available fonts before scanning
   }
   buffer[0] = '\0'; // invalidate
-  #ifdef CONFIG_IDF_TARGET_ESP32C3
-    while (!BusManager::canAllShow()) yield(); // accessing FS causes glitches due to RMT issue on C3 TODO: remove this when fixed
-  #endif
+  strip.waitForBus(); // accessing FS can cause output glitches on single core MCUs
   File rootdir = WLED_FS.open("/", "r");
   File rootfile = rootdir.openNextFile();
   uint8_t i = 0;
@@ -166,9 +164,7 @@ void FontManager::rebuildCache(const char* text) {
     char fileName[FONT_NAME_BUFFER_SIZE];
     getFontFileName(_fontNum, fileName);
 
-    #ifdef CONFIG_IDF_TARGET_ESP32C3
-    while (!BusManager::canAllShow()) yield(); // accessing FS causes glitches due to RMT issue on C3 TODO: remove this when fixed
-    #endif
+    strip.waitForBus(); // accessing FS can cause output glitches on single core MCUs
     file = WLED_FS.open(fileName, "r");
 
     // fallback logic - try other available fonts

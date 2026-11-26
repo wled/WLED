@@ -337,7 +337,9 @@ void getSettingsJS(byte subPage, Print& settingsScript)
   {
     appendGPIOinfo(settingsScript);
 
-    settingsScript.printf_P(PSTR("d.ledTypes=%s;"), BusManager::getLEDTypesJSONString().c_str());
+    settingsScript.print(F("d.ledTypes="));
+    BusManager::printLEDTypesJSON(settingsScript);
+    settingsScript.print(';');
 
     // set limits
     settingsScript.printf_P(PSTR("bLimits(%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d);"),

@@ -307,7 +307,6 @@ extern byte realtimeMode;           // used in getMappedPixelIndex()
 #define FX_MODE_GRAVFREQ               158
 #define FX_MODE_DJLIGHT                159
 #define FX_MODE_2DFUNKYPLANK           160
-//#define FX_MODE_2DCENTERBARS           161
 #define FX_MODE_SHIMMER                161  // gap fill, non SR 1D effect
 #define FX_MODE_2DPULSER               162
 #define FX_MODE_BLURZ                  163
@@ -369,8 +368,9 @@ extern byte realtimeMode;           // used in getMappedPixelIndex()
 #define FX_MODE_COLORCLOUDS            218
 #define FX_MODE_SLOW_TRANSITION        219
 #define FX_MODE_2DANALOGCLOCK          220  // new in 16.1
+#define FX_MODE_MORSECODE              221
 
-#define MODE_COUNT                     221
+#define MODE_COUNT                     222
 
 
 #define TRANSITION_FADE            0x00  // universal
@@ -926,6 +926,14 @@ class WS2812FX {
       setTargetFps(unsigned fps),
       setupEffectData(),                          // add default effects to the list; defined in FX.cpp
       waitForIt();                                // wait until frame is over (service() has finished or time for 1 frame has passed)
+
+    inline void waitForBus() {                    // wait for bus output to finish (with timeout)
+    #if defined(ARDUINO_ARCH_ESP32) && (SOC_CPU_CORES_NUM < 2)
+      unsigned long waitStart = millis();
+      const unsigned long maxWait = 200;          // 200ms is enough for most situations and avoids long UI load delays if network outputs are used
+      while (!BusManager::canAllShow() && (millis() - waitStart < maxWait)) delay(1);
+    #endif
+    }
 
     void setRealtimePixelColor(unsigned i, uint32_t c);
     inline void setPixelColor(unsigned n, uint32_t c) const   {
