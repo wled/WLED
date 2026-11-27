@@ -1289,8 +1289,8 @@ static const char _data_FX_MODE_COMET[] PROGMEM = "Lighthouse@!,Fade rate;!,!;!"
  */
 void mode_fireworks() {
   if (SEGLEN <= 1) FX_FALLBACK_STATIC;
-  const uint16_t width  = SEGMENT.is2D() ? SEG_W : SEGLEN;
-  const uint16_t height = SEG_H;
+  const uint16_t width  = SEGMENT.is2D() ? min(255U, SEG_W) : SEGLEN; // in 2D mode, coordinates are packed in 16bit so we limit dimensions to 255, to avoid overflows
+  const uint16_t height = min(255U, SEG_H);
 
   if (SEGENV.call == 0) {
     SEGENV.aux0 = UINT16_MAX;
@@ -1298,7 +1298,7 @@ void mode_fireworks() {
   }
   SEGMENT.fade_out(128);
 
-  uint8_t x = SEGENV.aux0%width, y = SEGENV.aux0/width; // 2D coordinates stored in upper and lower byte
+  unsigned x = SEGENV.aux0%width, y = SEGENV.aux0/width; // 2D coordinates stored as "flat x/y index" using aux0 (uint16_t)
   if (!SEGENV.step) {
     // fireworks mode (blur flares)
     bool valid1 = (SEGENV.aux0 < width*height);
@@ -2496,7 +2496,7 @@ static const char _data_FX_MODE_RAILWAY[] PROGMEM = "Railway@!,Smoothness;1,2;!;
 typedef struct Ripple {
   uint8_t state;
   uint8_t color;
-  uint16_t pos;
+  uint16_t pos;  // pixel position, or packed X/Y coordinate in 2D mode 
 } ripple;
 
 #ifdef ESP8266
@@ -2511,6 +2511,10 @@ static void ripple_base(uint8_t blurAmount = 0) {
   if (!SEGENV.allocateData(dataSize)) FX_FALLBACK_STATIC; //allocation failed
 
   Ripple* ripples = reinterpret_cast<Ripple*>(SEGENV.data);
+
+  // in 2D mode, the effect packs X/Y into one uint16_t => limit effect to 255x255 pixels max size
+  const int cols = min(SEG_W, 256U);
+  const int rows = min(SEG_H, 256U);
 
   //draw wave
   for (unsigned i = 0; i < maxRipples; i++) {
@@ -2547,7 +2551,7 @@ static void ripple_base(uint8_t blurAmount = 0) {
     } else {//randomly create new wave
       if (hw_random16(IBN + 10000) <= (SEGMENT.intensity >> (SEGMENT.is2D()*3))) {
         ripples[i].state = 1;
-        ripples[i].pos = SEGMENT.is2D() ? ((hw_random8(SEG_W)<<8) | (hw_random8(SEG_H))) : hw_random16(SEGLEN);
+        ripples[i].pos = SEGMENT.is2D() ? ((hw_random8(cols)<<8) | (hw_random8(rows))) : hw_random16(SEGLEN);
         ripples[i].color = hw_random8(); //color
       }
     }
@@ -5903,11 +5907,11 @@ void mode_2DLissajous(void) {            // By: Andrew Tuline
   for (int i=0; i < 256; i ++) {
     //float xlocn = float(sin8_t(now/4+i*(SEGMENT.speed>>5))) / 255.0f;
     //float ylocn = float(cos8_t(now/4+i*2)) / 255.0f;
-    uint_fast8_t xlocn = sin8_t(phase/2 + (i*SEGMENT.speed)/32);
-    uint_fast8_t ylocn = cos8_t(phase/2 + i*2);
+    unsigned xlocn = sin8_t(phase/2 + (i*SEGMENT.speed)/32);
+    unsigned ylocn = cos8_t(phase/2 + i*2);
     xlocn = (cols < 2) ? 1 : (map(2*xlocn, 0,511, 0,2*(cols-1)) +1) /2;    // softhack007: "(2* ..... +1) /2" for proper rounding
     ylocn = (rows < 2) ? 1 : (map(2*ylocn, 0,511, 0,2*(rows-1)) +1) /2;    // "rows > 1" is needed to avoid div/0 in map()
-    SEGMENT.setPixelColorXY((uint8_t)xlocn, (uint8_t)ylocn, SEGMENT.color_from_palette(strip.now/100+i, false, PALETTE_SOLID_WRAP, 0));
+    SEGMENT.setPixelColorXY((int)xlocn, (int)ylocn, SEGMENT.color_from_palette(strip.now/100+i, false, PALETTE_SOLID_WRAP, 0));
   }
   SEGMENT.blur(SEGMENT.custom1 >> (1 + SEGMENT.check1 * 3), SEGMENT.check1);
 } // mode_2DLissajous()
