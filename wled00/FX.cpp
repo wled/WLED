@@ -894,7 +894,7 @@ static const char _data_FX_MODE_ANDROID[] PROGMEM = "Android@!,Width;!,!;!;;m12=
  */
 static void chase(uint32_t color1, uint32_t color2, uint32_t color3, bool do_palette) {
   uint16_t counter = strip.now * ((SEGMENT.speed >> 2) + 1);
-  uint16_t a = (counter * SEGLEN) >> 16;
+  uint16_t a = (unsigned(counter) * SEGLEN) >> 16;
 
   bool chase_random = (SEGMENT.mode == FX_MODE_CHASE_RANDOM);
   if (chase_random) {
@@ -910,9 +910,9 @@ static void chase(uint32_t color1, uint32_t color2, uint32_t color3, bool do_pal
   // Use intensity setting to vary chase up to 1/2 string length
   unsigned size = 1 + ((SEGMENT.intensity * SEGLEN) >> 10);
 
-  uint16_t b = a + size; //"trail" of chase, filled with color1
+  unsigned b = a + size; //"trail" of chase, filled with color1
   if (b > SEGLEN) b -= SEGLEN;
-  uint16_t c = b + size;
+  unsigned c = b + size;
   if (c > SEGLEN) c -= SEGLEN;
 
   //background
@@ -932,7 +932,7 @@ static void chase(uint32_t color1, uint32_t color2, uint32_t color3, bool do_pal
   }
 
   //fill between points a and b with color2
-  if (a < b)
+  if (unsigned(a) < b)
   {
     for (unsigned i = a; i < b; i++)
       SEGMENT.setPixelColor(i, color2);
@@ -1265,7 +1265,7 @@ static const char _data_FX_MODE_DUAL_LARSON_SCANNER[] PROGMEM = "Scanner Dual@!,
 void mode_comet(void) {
   if (SEGLEN <= 1) FX_FALLBACK_STATIC;
   unsigned counter = (strip.now * ((SEGMENT.speed >>2) +1)) & 0xFFFF;
-  unsigned index = (counter * SEGLEN) >> 16;
+  unsigned index = ((counter * SEGLEN) >> 16) & 0xFFFF;   // only use lowest 16 bits from the result
   if (SEGENV.call == 0) SEGENV.aux0 = index;
 
   SEGMENT.fade_out(SEGMENT.intensity);
@@ -1289,8 +1289,8 @@ static const char _data_FX_MODE_COMET[] PROGMEM = "Lighthouse@!,Fade rate;!,!;!"
  */
 void mode_fireworks() {
   if (SEGLEN <= 1) FX_FALLBACK_STATIC;
-  const uint16_t width  = SEGMENT.is2D() ? SEG_W : SEGLEN;
-  const uint16_t height = SEG_H;
+  const uint16_t width  = SEGMENT.is2D() ? min(255U, SEG_W) : SEGLEN; // in 2D mode, coordinates are packed in 16bit so we limit dimensions to 255, to avoid overflows
+  const uint16_t height = min(255U, SEG_H);
 
   if (SEGENV.call == 0) {
     SEGENV.aux0 = UINT16_MAX;
@@ -1298,7 +1298,7 @@ void mode_fireworks() {
   }
   SEGMENT.fade_out(128);
 
-  uint8_t x = SEGENV.aux0%width, y = SEGENV.aux0/width; // 2D coordinates stored in upper and lower byte
+  unsigned x = SEGENV.aux0%width, y = SEGENV.aux0/width; // 2D coordinates stored as "flat x/y index" using aux0 (uint16_t)
   if (!SEGENV.step) {
     // fireworks mode (blur flares)
     bool valid1 = (SEGENV.aux0 < width*height);
@@ -1394,7 +1394,7 @@ static const char _data_FX_MODE_FIRE_FLICKER[] PROGMEM = "Fire Flicker@!,!;!;!;0
 void gradient_base(bool loading) {
   if (SEGLEN <= 1) FX_FALLBACK_STATIC;
   uint16_t counter = strip.now * ((SEGMENT.speed >> 2) + 1);
-  uint16_t pp = (counter * SEGLEN) >> 16;
+  uint16_t pp = (unsigned(counter) * SEGLEN) >> 16;
   if (SEGENV.call == 0) pp = 0;
   int val; //0 = sec 1 = pri
   int brd = 1 + loading ? SEGMENT.intensity/2 : SEGMENT.intensity/4;
@@ -1822,14 +1822,15 @@ void mode_random_chase(void) {
   uint32_t it = strip.now / cycleTime;
   uint32_t color = SEGENV.step;
   prng.setSeed(SEGENV.aux0);
+  int sLen = SEGLEN; // caching this value creates a small speedup
 
-  for (int i = SEGLEN -1; i >= 0; i--) {
+  for (int i = sLen -1; i >= 0; i--) {
     uint8_t r = prng.random8(6) != 0 ? (color >> 16 & 0xFF) : prng.random8();
     uint8_t g = prng.random8(6) != 0 ? (color >> 8  & 0xFF) : prng.random8();
     uint8_t b = prng.random8(6) != 0 ? (color       & 0xFF) : prng.random8();
     color = RGBW32(r, g, b, 0);
     SEGMENT.setPixelColor(i, color);
-    if (i == SEGLEN -1U && SEGENV.aux1 != (it & 0xFFFFU)) { //new first color in next frame
+    if (i == sLen -1U && SEGENV.aux1 != (it & 0xFFFFU)) { //new first color in next frame
       SEGENV.step = color;
       SEGENV.aux0 = prng.getSeed();
     }
@@ -1856,16 +1857,18 @@ typedef struct Oscillator {
 void mode_oscillate(void) {
   constexpr unsigned numOscillators = 3;
   constexpr unsigned dataSize = sizeof(oscillator) * numOscillators;
+  if (SEGLEN < 2) FX_FALLBACK_STATIC;
+  const unsigned sLen = SEGLEN; // caching this value creates a small speedup
 
   if (!SEGENV.allocateData(dataSize)) FX_FALLBACK_STATIC; //allocation failed
 
   Oscillator* oscillators = reinterpret_cast<Oscillator*>(SEGENV.data);
 
   if (SEGENV.call == 0)
-  {
-    oscillators[0] = {(uint16_t)(SEGLEN/4),   (uint8_t)(SEGLEN/8),  1, 1};
-    oscillators[1] = {(uint16_t)(SEGLEN/4*3), (uint8_t)(SEGLEN/8),  1, 2};
-    oscillators[2] = {(uint16_t)(SEGLEN/4*2), (uint8_t)(SEGLEN/8), -1, 1};
+  { // need to clamp the "size" at 255, otherwise we have a strange look with > 2048 pixels
+    oscillators[0] = {(uint16_t)(SEGLEN/4),   (uint8_t)(min(255U, SEGLEN/8)),  1, 1};
+    oscillators[1] = {(uint16_t)(SEGLEN/4*3), (uint8_t)(min(255U, SEGLEN/8)),  1, 2};
+    oscillators[2] = {(uint16_t)(SEGLEN/4*2), (uint8_t)(min(255U, SEGLEN/8)), -1, 1};
   }
 
   uint32_t cycleTime = 20 + (2 * (uint32_t)(255 - SEGMENT.speed));
@@ -1874,21 +1877,21 @@ void mode_oscillate(void) {
   for (unsigned i = 0; i < numOscillators; i++) {
     // if the counter has increased, move the oscillator by the random step
     if (it != SEGENV.step) oscillators[i].pos += oscillators[i].dir * oscillators[i].speed;
-    oscillators[i].size = SEGLEN/(3+SEGMENT.intensity/8);
-    if((oscillators[i].dir == -1) && (oscillators[i].pos > SEGLEN << 1)) { // use integer overflow
+    oscillators[i].size = min(255U, sLen/(3+SEGMENT.intensity/8)); //  new oscillator size - must fit in 8bit
+    if((oscillators[i].dir == -1) && (oscillators[i].pos >= sLen)) { // left-moving pos wraps above sLen
       oscillators[i].pos = 0;
       oscillators[i].dir = 1;
       // make bigger steps for faster speeds
       oscillators[i].speed = SEGMENT.speed > 100 ? hw_random8(2, 4):hw_random8(1, 3);
     }
-    if((oscillators[i].dir == 1) && (oscillators[i].pos >= (SEGLEN - 1))) {
-      oscillators[i].pos = SEGLEN - 1;
+    if((oscillators[i].dir == 1) && (oscillators[i].pos >= (sLen - 1))) {
+      oscillators[i].pos = sLen - 1;
       oscillators[i].dir = -1;
       oscillators[i].speed = SEGMENT.speed > 100 ? hw_random8(2, 4):hw_random8(1, 3);
     }
   }
 
-  for (unsigned i = 0; i < SEGLEN; i++) {
+  for (unsigned i = 0; i < sLen; i++) {
     uint32_t color = BLACK;
     for (unsigned j = 0; j < numOscillators; j++) {
       if((int)i >= (int)oscillators[j].pos - oscillators[j].size && i <= oscillators[j].pos + oscillators[j].size) {
@@ -2165,8 +2168,7 @@ void mode_fire_2012() {
   struct virtualStrip {
     static void runStrip(uint16_t stripNr, byte* heat, uint32_t it) {
 
-      const uint8_t ignition = MAX(3,SEGLEN/10);  // ignition area: 10% of segment length or minimum 3 pixels
-
+      const uint8_t ignition = min(255U, min(SEGLEN, max(3U,SEGLEN/10)));  // ignition area: 10% of segment length or minimum 3 pixels, never more than segment length; max 255 pixels to prevent 8bit overflow
       // Step 1.  Cool down every cell a little
       for (unsigned i = 0; i < SEGLEN; i++) {
         uint8_t cool = (it != SEGENV.step) ? hw_random8((((20 + SEGMENT.speed/3) * 16) / SEGLEN)+2) : hw_random8(4);
@@ -2494,7 +2496,7 @@ static const char _data_FX_MODE_RAILWAY[] PROGMEM = "Railway@!,Smoothness;1,2;!;
 typedef struct Ripple {
   uint8_t state;
   uint8_t color;
-  uint16_t pos;
+  uint16_t pos;  // pixel position, or packed X/Y coordinate in 2D mode 
 } ripple;
 
 #ifdef ESP8266
@@ -2509,6 +2511,10 @@ static void ripple_base(uint8_t blurAmount = 0) {
   if (!SEGENV.allocateData(dataSize)) FX_FALLBACK_STATIC; //allocation failed
 
   Ripple* ripples = reinterpret_cast<Ripple*>(SEGENV.data);
+
+  // in 2D mode, the effect packs X/Y into one uint16_t => limit effect to 255x255 pixels max size
+  const int cols = min(SEG_W, 256U);
+  const int rows = min(SEG_H, 256U);
 
   //draw wave
   for (unsigned i = 0; i < maxRipples; i++) {
@@ -2545,7 +2551,7 @@ static void ripple_base(uint8_t blurAmount = 0) {
     } else {//randomly create new wave
       if (hw_random16(IBN + 10000) <= (SEGMENT.intensity >> (SEGMENT.is2D()*3))) {
         ripples[i].state = 1;
-        ripples[i].pos = SEGMENT.is2D() ? ((hw_random8(SEG_W)<<8) | (hw_random8(SEG_H))) : hw_random16(SEGLEN);
+        ripples[i].pos = SEGMENT.is2D() ? ((hw_random8(cols)<<8) | (hw_random8(rows))) : hw_random16(SEGLEN);
         ripples[i].color = hw_random8(); //color
       }
     }
@@ -3063,8 +3069,9 @@ typedef struct RollingBall {
 } rball_t;
 
 static void mode_rolling_balls(void) {
+  if (SEGLEN < 2) FX_FALLBACK_STATIC; // effect needs at least 2 pixels
   //allocate segment data
-  const unsigned maxNumBalls = 16; // 255/16 + 1
+  constexpr unsigned maxNumBalls = 16; // 255/16 + 1
   unsigned dataSize = sizeof(rball_t) * maxNumBalls;
   if (!SEGENV.allocateData(dataSize)) FX_FALLBACK_STATIC; //allocation failed
 
@@ -3179,8 +3186,9 @@ static void mode_pacman(void) {
   constexpr uint32_t PACMAN = 0;   // PacMan is character[0]
   constexpr uint32_t ghostColors[] = {RED, PURPLEISH, CYAN, ORANGEISH};
 
-  uint32_t maxPowerDots = min(SEGLEN / 10U, 255U);  // cap the max so packed state fits in 8 bits
-  uint32_t numPowerDots = map(SEGMENT.intensity, 0, 255, 1, maxPowerDots);
+  if (SEGLEN < 2) FX_FALLBACK_STATIC; // effect needs at least 2 pixels
+  uint32_t maxPowerDots = max(1U, min(SEGLEN / 10U, 255U));  // cap the max so packed state fits in 8 bits
+  uint32_t numPowerDots = map(SEGMENT.intensity, 0, 255, 1, maxPowerDots); // must be > 0
   uint32_t numGhosts = map(SEGMENT.custom3, 0, 31, 2, 8);
   bool smearMode = SEGMENT.check2;
 
@@ -3462,7 +3470,8 @@ void mode_popcorn(void) {
   struct virtualStrip {
     static void runStrip(uint16_t stripNr, Spark* popcorn, unsigned usablePopcorns) {
       float gravity = -0.0001f - (SEGMENT.speed/200000.0f); // m/s/s
-      gravity *= SEGLEN;
+      unsigned sLenBase0 = max(2U, SEGLEN) -1; // cache to avoid repeated calculation
+      gravity *= sLenBase0 + 1;                // avoid gravity = 0
 
       unsigned numPopcorn = SEGMENT.intensity * usablePopcorns / 255;
       if (numPopcorn == 0) numPopcorn = 1;
@@ -3476,7 +3485,7 @@ void mode_popcorn(void) {
             popcorn[i].pos = 0.01f;
 
             unsigned peakHeight = 128 + hw_random8(128); //0-255
-            peakHeight = (peakHeight * (SEGLEN -1)) >> 8;
+            peakHeight = (peakHeight * sLenBase0) >> 8;
             popcorn[i].vel = sqrtf(-2.0f * gravity * peakHeight);
 
             if (SEGMENT.palette)
@@ -4430,6 +4439,7 @@ static const char _data_FX_MODE_SINEWAVE[] PROGMEM = "Sine@!,Scale;;!";
  */
 void mode_flow(void)
 {
+  if (SEGLEN < 2) FX_FALLBACK_STATIC; // can't flow with 1 pixel only
   unsigned counter = 0;
   if (SEGMENT.speed != 0)
   {
@@ -4670,7 +4680,7 @@ static const char _data_FX_MODE_IMAGE[] PROGMEM = "Image@!,Blur,;;;12;sx=128,ix=
   Modified, originally by Mark Kriegsman https://gist.github.com/kriegsman/1f7ccbbfa492a73c015e
 */
 void mode_blends(void) {
-  unsigned pixelLen = SEGLEN > UINT8_MAX ? UINT8_MAX : SEGLEN;
+  unsigned pixelLen = min(SEGLEN, unsigned(UINT8_MAX));
   unsigned dataSize = sizeof(uint32_t) * (pixelLen + 1);  // max segment length of 56 pixels on 16 segment ESP8266
   if (!SEGENV.allocateData(dataSize)) FX_FALLBACK_STATIC; //allocation failed
   uint32_t* pixels = reinterpret_cast<uint32_t*>(SEGENV.data);
@@ -5367,8 +5377,8 @@ static const char _data_FX_MODE_2DANALOGCLOCK[] PROGMEM = "Analog Clock 2D@,,,,,
 void mode_2DBlackHole(void) {            // By: Stepko https://editor.soulmatelights.com/gallery/1012 , Modified by: Andrew Tuline
   if (!strip.isMatrix || !SEGMENT.is2D()) FX_FALLBACK_STATIC; // not a 2D set-up
 
-  const int cols = SEG_W;
-  const int rows = SEG_H;
+  const int cols = min(SEG_W, 256U); // effect passes the width and height to beatsin8_t, which has 8-bit bounds
+  const int rows = min(SEG_H, 256U);
   int x, y;
 
   SEGMENT.fadeToBlackBy(16 + (SEGMENT.speed>>3)); // create fading trails
@@ -5467,7 +5477,7 @@ static const char _data_FX_MODE_2DDNA[] PROGMEM = "DNA@Scroll speed,Blur,,,,Smea
 void mode_2DDNASpiral() {               // By: ldirko  https://editor.soulmatelights.com/gallery/512-dna-spiral-variation , modified by: Andrew Tuline
   if (!strip.isMatrix || !SEGMENT.is2D()) FX_FALLBACK_STATIC; // not a 2D set-up
 
-  const int cols = SEG_W;
+  const int cols = min(SEG_W, 256U); // effect passes the width to beatsin8_t, which has 8-bit bounds
   const int rows = SEG_H;
 
   if (SEGENV.call == 0) {
@@ -5572,8 +5582,8 @@ static const char _data_FX_MODE_2DFIRENOISE[] PROGMEM = "Firenoise@X scale,Y sca
 void mode_2DFrizzles(void) {                 // By: Stepko https://editor.soulmatelights.com/gallery/640-color-frizzles , Modified by: Andrew Tuline
   if (!strip.isMatrix || !SEGMENT.is2D()) FX_FALLBACK_STATIC; // not a 2D set-up
 
-  const int cols = SEG_W;
-  const int rows = SEG_H;
+  const int cols = min(SEG_W, 256U); // effect passes the width and height to beatsin8_t, which has 8-bit bounds
+  const int rows = min(SEG_H, 256U);
 
   SEGMENT.fadeToBlackBy(16 + SEGMENT.check1 * 10);
   for (size_t i = 8; i > 0; i--) {
@@ -5897,11 +5907,11 @@ void mode_2DLissajous(void) {            // By: Andrew Tuline
   for (int i=0; i < 256; i ++) {
     //float xlocn = float(sin8_t(now/4+i*(SEGMENT.speed>>5))) / 255.0f;
     //float ylocn = float(cos8_t(now/4+i*2)) / 255.0f;
-    uint_fast8_t xlocn = sin8_t(phase/2 + (i*SEGMENT.speed)/32);
-    uint_fast8_t ylocn = cos8_t(phase/2 + i*2);
+    unsigned xlocn = sin8_t(phase/2 + (i*SEGMENT.speed)/32);
+    unsigned ylocn = cos8_t(phase/2 + i*2);
     xlocn = (cols < 2) ? 1 : (map(2*xlocn, 0,511, 0,2*(cols-1)) +1) /2;    // softhack007: "(2* ..... +1) /2" for proper rounding
     ylocn = (rows < 2) ? 1 : (map(2*ylocn, 0,511, 0,2*(rows-1)) +1) /2;    // "rows > 1" is needed to avoid div/0 in map()
-    SEGMENT.setPixelColorXY((uint8_t)xlocn, (uint8_t)ylocn, SEGMENT.color_from_palette(strip.now/100+i, false, PALETTE_SOLID_WRAP, 0));
+    SEGMENT.setPixelColorXY((int)xlocn, (int)ylocn, SEGMENT.color_from_palette(strip.now/100+i, false, PALETTE_SOLID_WRAP, 0));
   }
   SEGMENT.blur(SEGMENT.custom1 >> (1 + SEGMENT.check1 * 3), SEGMENT.check1);
 } // mode_2DLissajous()
@@ -5914,7 +5924,7 @@ static const char _data_FX_MODE_2DLISSAJOUS[] PROGMEM = "Lissajous@X frequency,F
 void mode_2Dmatrix(void) {                  // Matrix2D. By Jeremy Williams. Adapted by Andrew Tuline & improved by merkisoft and ewowi, and softhack007.
   if (!strip.isMatrix || !SEGMENT.is2D()) FX_FALLBACK_STATIC; // not a 2D set-up
 
-  const int cols = SEG_W;
+  const int cols = min(SEG_W, 256U); // effect cannot handle more than 256 columns
   const int rows = SEG_H;
   const auto XY = [&](int x, int y) { return (x%cols) + (y%rows) * cols; };
 
@@ -5965,7 +5975,7 @@ void mode_2Dmatrix(void) {                  // Matrix2D. By Jeremy Williams. Ada
 
     // spawn new falling code
     if (hw_random8() <= SEGMENT.intensity || emptyScreen) {
-      uint8_t spawnX = hw_random8(cols);
+      uint8_t spawnX = hw_random8(cols);  // ToDO: this line limits us to 256 columns
       SEGMENT.setPixelColorXY(spawnX, 0, spawnColor);
       // update hint for next run
       unsigned index = XY(spawnX, 0) >> 3;
@@ -7040,7 +7050,7 @@ typedef struct Gravity {
 // Gravcenter base function for Gravcenter (0), Gravcentric (1), Gravimeter (2), Gravfreq (3) (merged by @dedehai)
 
 void mode_gravcenter_base(unsigned mode) {
-  if (SEGLEN == 1) FX_FALLBACK_STATIC;
+  if (SEGLEN <= 1) FX_FALLBACK_STATIC;
 
   const unsigned dataSize = sizeof(gravity);
   if (!SEGENV.allocateData(dataSize)) FX_FALLBACK_STATIC; //allocation failed
@@ -8187,10 +8197,10 @@ static const char _data_FX_MODE_2DSOAP[] PROGMEM = "Soap@!,Smoothness,Density;;!
 void mode_2Doctopus() {
   if (!strip.isMatrix || !SEGMENT.is2D()) FX_FALLBACK_STATIC; // not a 2D set-up
 
-  const int cols = SEG_W;
-  const int rows = SEG_H;
+  const int cols = min(255U, SEG_W); // effect is limited to 8bit width/height
+  const int rows = min(255U, SEG_H);
   const auto XY = [&](int x, int y) { return (x%cols) + (y%rows) * cols; };
-  const uint8_t mapp = 180 / MAX(cols,rows);
+  const uint8_t mapp = max(1U, 180U / max(cols,rows)); // must not be 0 even when one dimension exceeds 180 pixels
 
   typedef struct {
     uint8_t angle;
@@ -8218,7 +8228,7 @@ void mode_2Doctopus() {
         int dx = (x - C_X);
         int dy = (y - C_Y);
         rMap[XY(x, y)].angle  = int(40.7436f * atan2_t(dy, dx));  // avoid 128*atan2()/PI
-        rMap[XY(x, y)].radius = sqrtf(dx * dx + dy * dy) * mapp; //thanks Sutaburosu
+        rMap[XY(x, y)].radius = min(255U, unsigned(sqrtf(dx * dx + dy * dy) * mapp)); //thanks Sutaburosu // clamped to 255 - wrapping would draw a visible ring
       }
     }
   }
@@ -8272,7 +8282,7 @@ static const char _data_FX_MODE_2DWAVINGCELL[] PROGMEM = "Waving Cell@!,Blur,Amp
 */
 #define NUMBEROFSOURCES 8
 void mode_particlevortex(void) {
-  if (SEGLEN == 1)
+  if (SEGLEN <= 1)
     FX_FALLBACK_STATIC;
   ParticleSystem2D *PartSys = nullptr;
   uint32_t i, j;
