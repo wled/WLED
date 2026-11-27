@@ -1878,7 +1878,7 @@ void mode_oscillate(void) {
     // if the counter has increased, move the oscillator by the random step
     if (it != SEGENV.step) oscillators[i].pos += oscillators[i].dir * oscillators[i].speed;
     oscillators[i].size = min(255U, sLen/(3+SEGMENT.intensity/8)); //  new oscillator size - must fit in 8bit
-    if((oscillators[i].dir == -1) && (oscillators[i].pos > sLen << 1)) { // use integer overflow
+    if((oscillators[i].dir == -1) && (oscillators[i].pos >= sLen)) { // left-moving pos wraps above sLen
       oscillators[i].pos = 0;
       oscillators[i].dir = 1;
       // make bigger steps for faster speeds
