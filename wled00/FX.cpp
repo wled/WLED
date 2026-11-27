@@ -8193,10 +8193,10 @@ static const char _data_FX_MODE_2DSOAP[] PROGMEM = "Soap@!,Smoothness,Density;;!
 void mode_2Doctopus() {
   if (!strip.isMatrix || !SEGMENT.is2D()) FX_FALLBACK_STATIC; // not a 2D set-up
 
-  const int cols = SEG_W;
-  const int rows = SEG_H;
+  const int cols = min(255U, SEG_W); // effect is limited to 8bit width/height
+  const int rows = min(255U, SEG_H);
   const auto XY = [&](int x, int y) { return (x%cols) + (y%rows) * cols; };
-  const uint8_t mapp = 180 / MAX(cols,rows);
+  const uint8_t mapp = max(1U, 180U / max(cols,rows)); // must not be 0 even when one dimension exceeds 180 pixels
 
   typedef struct {
     uint8_t angle;
@@ -8224,7 +8224,7 @@ void mode_2Doctopus() {
         int dx = (x - C_X);
         int dy = (y - C_Y);
         rMap[XY(x, y)].angle  = int(40.7436f * atan2_t(dy, dx));  // avoid 128*atan2()/PI
-        rMap[XY(x, y)].radius = sqrtf(dx * dx + dy * dy) * mapp; //thanks Sutaburosu
+        rMap[XY(x, y)].radius = min(255U, unsigned(sqrtf(dx * dx + dy * dy) * mapp)); //thanks Sutaburosu // clamped to 255 - wrapping would draw a visible ring
       }
     }
   }
