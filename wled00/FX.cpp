@@ -1877,7 +1877,7 @@ void mode_oscillate(void) {
   for (unsigned i = 0; i < numOscillators; i++) {
     // if the counter has increased, move the oscillator by the random step
     if (it != SEGENV.step) oscillators[i].pos += oscillators[i].dir * oscillators[i].speed;
-    oscillators[i].size = sLen/(3+SEGMENT.intensity/8);
+    oscillators[i].size = min(255U, sLen/(3+SEGMENT.intensity/8)); //  new oscillator size - must fit in 8bit
     if((oscillators[i].dir == -1) && (oscillators[i].pos > sLen << 1)) { // use integer overflow
       oscillators[i].pos = 0;
       oscillators[i].dir = 1;
@@ -2168,8 +2168,7 @@ void mode_fire_2012() {
   struct virtualStrip {
     static void runStrip(uint16_t stripNr, byte* heat, uint32_t it) {
 
-      const uint8_t ignition = min(255U, max(3U,SEGLEN/10));  // ignition area: 10% of segment length or minimum 3 pixels; max 255 pixels to prevent 8bit overflow
-
+      const uint8_t ignition = min(255U, min(SEGLEN, max(3U,SEGLEN/10)));  // ignition area: 10% of segment length or minimum 3 pixels, never more than segment length; max 255 pixels to prevent 8bit overflow
       // Step 1.  Cool down every cell a little
       for (unsigned i = 0; i < SEGLEN; i++) {
         uint8_t cool = (it != SEGENV.step) ? hw_random8((((20 + SEGMENT.speed/3) * 16) / SEGLEN)+2) : hw_random8(4);
@@ -3468,7 +3467,7 @@ void mode_popcorn(void) {
     static void runStrip(uint16_t stripNr, Spark* popcorn, unsigned usablePopcorns) {
       float gravity = -0.0001f - (SEGMENT.speed/200000.0f); // m/s/s
       unsigned sLenBase0 = max(2U, SEGLEN) -1; // cache to avoid repeated calculation
-      gravity *= sLenBase0;                    // avoid gravity = 0
+      gravity *= sLenBase0 + 1;                // avoid gravity = 0
 
       unsigned numPopcorn = SEGMENT.intensity * usablePopcorns / 255;
       if (numPopcorn == 0) numPopcorn = 1;
