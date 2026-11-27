@@ -7069,12 +7069,15 @@ void mode_vu_meter() {
   um_data_t *um_data = getAudioData();
   float volumeLevel = *(float *) um_data->u_data[0]; // 0f..255f
   float volumeLevelScaled = volumeLevel * (float) sliderSensitivity / 128.0f; // 0f..512f
-  float volumeScaledToSegLen = mapf(volumeLevelScaled, 0, 255, 0, SEGLEN - 1);
+  // Peak marker needs one pixel of headroom; without it the bar may fill the segment.
+  const float maxBar = checkFallOff ? float(SEGLEN - 1) : float(SEGLEN);
+  float volumeScaledToSegLen = mapf(volumeLevelScaled, 0, 255, 0, maxBar);
 
   // Calculate the length of the bar - smooth it with the last values
-  const uint16_t amplitudeIn = constrain(volumeScaledToSegLen, 0,SEGLEN - 1); // Keep the sample from overflowing.
+  const uint16_t amplitudeIn = constrain(volumeScaledToSegLen, 0.0f, maxBar); // Keep the sample from overflowing.
   const uint16_t oldAmplitude = vuState->smoothBar;
   vuState->smoothBar += (amplitudeIn - vuState->smoothBar) * ((256.0 - sliderSmoothing) / 256.0); // use 256.0 here, so it always stays slightly > 0.0
+  if (vuState->smoothBar > maxBar) vuState->smoothBar = maxBar;
   const uint16_t amplitude = vuState->smoothBar;
 
   // Fade out old content
@@ -7139,7 +7142,8 @@ void mode_vu_meter() {
     }
     uint32_t color;
     uint8_t blendPixel = blend;
-    if (i == amplitude-1) {
+    // Skip fractional fade when the bar fills the segment (frac would be 0 and blank the last pixel).
+    if (i == amplitude - 1 && amplitude < SEGLEN) {
       // draw the last pixel of the bar faded out, according to the fractional value of vuState->smoothBar,
       // to get sub-pixel antialiasing
       const float frac = vuState->smoothBar - (float)(int)vuState->smoothBar;
@@ -7151,7 +7155,7 @@ void mode_vu_meter() {
     color = color_blend(SEGCOLOR(1), targetColor, blendPixel);
     SEGMENT.setPixelColor(i, color);
   }
-  for (int i=amplitude; i<=oldAmplitude; i++) {
+  for (int i = amplitude; i <= oldAmplitude && i < (int)SEGLEN; i++) {
     // draw a background pixel up to the previous amplitude, to ensure older pixels are cleanly deleted
     SEGMENT.setPixelColor(i, SEGCOLOR(1));
   }
