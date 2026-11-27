@@ -7172,11 +7172,11 @@ void mode_vu_meter() {
       // start with a negative fall velocity, so it jumps a bit up, depending on the diff of the new and old value
       vuState->fallVelocity = - (8.0 - gravity) * diff * 4.0;
 
-      vuState->topLED = peakTarget + peakOffset; // +1 to have a bit of separation
+      vuState->topLED = min(SEGLEN - 1.0f, peakTarget + peakOffset); // +1 to have a bit of separation
     } else if (peakTarget < vuState->topLED - peakOffset) { // start falling if the bar is lower than it was when we set the last topHeigth
       const float fallAccel = 1 / (gravity * gravity); // fall with (1/gravity²)
       vuState->fallVelocity += fallAccel;
-      vuState->topLED = max(0.0f, vuState->topLED - vuState->fallVelocity / TOP_FALL_OFF_SMOOTHING);
+      vuState->topLED = constrain(vuState->topLED - vuState->fallVelocity / TOP_FALL_OFF_SMOOTHING, 0.0f, SEGLEN-1);
     }
 
     uint32_t color;
@@ -7185,7 +7185,7 @@ void mode_vu_meter() {
       color = SEGCOLOR(2);
     } else {
       // otherwise use the color from the palette at the current height
-      const uint8_t topColorIdx = mapf(vuState->topLED, 0, SEGLEN - 1, 0, 255);
+      const uint8_t topColorIdx = min(255, mapf(vuState->topLED, 0, SEGLEN - 1, 0, 255));
       color = SEGMENT.color_from_palette(topColorIdx, false, PALETTE_SOLID_WRAP, 0);
     }
 
@@ -7194,7 +7194,7 @@ void mode_vu_meter() {
     // Hide at/below peakOffset, to hide the peak if no bar is shown. also dont draw outside of SEGLEN
     if (vuState->topLED >= peakOffset && vuState->topLED < SEGLEN) {
       const float pix = vuState->topLED;
-      const int pos = (int) pix; // floor
+      const uint16_t pos = (int) pix; // floor
       const float frac = pix - (float) pos; // 0..1 toward pos+1
       const uint8_t wUp = gamma8inv((uint8_t)(frac * 255.0f));
       const uint8_t wDn = gamma8inv((uint8_t)((1.0f - frac) * 255.0f));
