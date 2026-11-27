@@ -894,7 +894,7 @@ static const char _data_FX_MODE_ANDROID[] PROGMEM = "Android@!,Width;!,!;!;;m12=
  */
 static void chase(uint32_t color1, uint32_t color2, uint32_t color3, bool do_palette) {
   uint16_t counter = strip.now * ((SEGMENT.speed >> 2) + 1);
-  uint16_t a = (counter * SEGLEN) >> 16;
+  uint16_t a = (unsigned(counter) * SEGLEN) >> 16;
 
   bool chase_random = (SEGMENT.mode == FX_MODE_CHASE_RANDOM);
   if (chase_random) {
@@ -1265,7 +1265,7 @@ static const char _data_FX_MODE_DUAL_LARSON_SCANNER[] PROGMEM = "Scanner Dual@!,
 void mode_comet(void) {
   if (SEGLEN <= 1) FX_FALLBACK_STATIC;
   unsigned counter = (strip.now * ((SEGMENT.speed >>2) +1)) & 0xFFFF;
-  unsigned index = (counter * SEGLEN) >> 16;
+  unsigned index = ((counter * SEGLEN) >> 16) & 0xFFFF;   // only use lowest 16 bits from the result
   if (SEGENV.call == 0) SEGENV.aux0 = index;
 
   SEGMENT.fade_out(SEGMENT.intensity);
@@ -1394,7 +1394,7 @@ static const char _data_FX_MODE_FIRE_FLICKER[] PROGMEM = "Fire Flicker@!,!;!;!;0
 void gradient_base(bool loading) {
   if (SEGLEN <= 1) FX_FALLBACK_STATIC;
   uint16_t counter = strip.now * ((SEGMENT.speed >> 2) + 1);
-  uint16_t pp = (counter * SEGLEN) >> 16;
+  uint16_t pp = (unsigned(counter) * SEGLEN) >> 16;
   if (SEGENV.call == 0) pp = 0;
   int val; //0 = sec 1 = pri
   int brd = 1 + loading ? SEGMENT.intensity/2 : SEGMENT.intensity/4;
@@ -1822,14 +1822,15 @@ void mode_random_chase(void) {
   uint32_t it = strip.now / cycleTime;
   uint32_t color = SEGENV.step;
   prng.setSeed(SEGENV.aux0);
+  int sLen = SEGLEN; // caching this value creates a small speedup
 
-  for (int i = SEGLEN -1; i >= 0; i--) {
+  for (int i = sLen -1; i >= 0; i--) {
     uint8_t r = prng.random8(6) != 0 ? (color >> 16 & 0xFF) : prng.random8();
     uint8_t g = prng.random8(6) != 0 ? (color >> 8  & 0xFF) : prng.random8();
     uint8_t b = prng.random8(6) != 0 ? (color       & 0xFF) : prng.random8();
     color = RGBW32(r, g, b, 0);
     SEGMENT.setPixelColor(i, color);
-    if (i == SEGLEN -1U && SEGENV.aux1 != (it & 0xFFFFU)) { //new first color in next frame
+    if (i == sLen -1U && SEGENV.aux1 != (it & 0xFFFFU)) { //new first color in next frame
       SEGENV.step = color;
       SEGENV.aux0 = prng.getSeed();
     }
@@ -1856,16 +1857,18 @@ typedef struct Oscillator {
 void mode_oscillate(void) {
   constexpr unsigned numOscillators = 3;
   constexpr unsigned dataSize = sizeof(oscillator) * numOscillators;
+  if (SEGLEN < 2) FX_FALLBACK_STATIC;
+  const unsigned sLen = SEGLEN; // caching this value creates a small speedup
 
   if (!SEGENV.allocateData(dataSize)) FX_FALLBACK_STATIC; //allocation failed
 
   Oscillator* oscillators = reinterpret_cast<Oscillator*>(SEGENV.data);
 
   if (SEGENV.call == 0)
-  {
-    oscillators[0] = {(uint16_t)(SEGLEN/4),   (uint8_t)(SEGLEN/8),  1, 1};
-    oscillators[1] = {(uint16_t)(SEGLEN/4*3), (uint8_t)(SEGLEN/8),  1, 2};
-    oscillators[2] = {(uint16_t)(SEGLEN/4*2), (uint8_t)(SEGLEN/8), -1, 1};
+  { // need to clamp the "size" at 255, otherwise we have a strange look with > 2048 pixels
+    oscillators[0] = {(uint16_t)(SEGLEN/4),   (uint8_t)(min(255U, SEGLEN/8)),  1, 1};
+    oscillators[1] = {(uint16_t)(SEGLEN/4*3), (uint8_t)(min(255U, SEGLEN/8)),  1, 2};
+    oscillators[2] = {(uint16_t)(SEGLEN/4*2), (uint8_t)(min(255U, SEGLEN/8)), -1, 1};
   }
 
   uint32_t cycleTime = 20 + (2 * (uint32_t)(255 - SEGMENT.speed));
@@ -1874,21 +1877,21 @@ void mode_oscillate(void) {
   for (unsigned i = 0; i < numOscillators; i++) {
     // if the counter has increased, move the oscillator by the random step
     if (it != SEGENV.step) oscillators[i].pos += oscillators[i].dir * oscillators[i].speed;
-    oscillators[i].size = SEGLEN/(3+SEGMENT.intensity/8);
-    if((oscillators[i].dir == -1) && (oscillators[i].pos > SEGLEN << 1)) { // use integer overflow
+    oscillators[i].size = sLen/(3+SEGMENT.intensity/8);
+    if((oscillators[i].dir == -1) && (oscillators[i].pos > sLen << 1)) { // use integer overflow
       oscillators[i].pos = 0;
       oscillators[i].dir = 1;
       // make bigger steps for faster speeds
       oscillators[i].speed = SEGMENT.speed > 100 ? hw_random8(2, 4):hw_random8(1, 3);
     }
-    if((oscillators[i].dir == 1) && (oscillators[i].pos >= (SEGLEN - 1))) {
-      oscillators[i].pos = SEGLEN - 1;
+    if((oscillators[i].dir == 1) && (oscillators[i].pos >= (sLen - 1))) {
+      oscillators[i].pos = sLen - 1;
       oscillators[i].dir = -1;
       oscillators[i].speed = SEGMENT.speed > 100 ? hw_random8(2, 4):hw_random8(1, 3);
     }
   }
 
-  for (unsigned i = 0; i < SEGLEN; i++) {
+  for (unsigned i = 0; i < sLen; i++) {
     uint32_t color = BLACK;
     for (unsigned j = 0; j < numOscillators; j++) {
       if((int)i >= (int)oscillators[j].pos - oscillators[j].size && i <= oscillators[j].pos + oscillators[j].size) {
@@ -2165,7 +2168,7 @@ void mode_fire_2012() {
   struct virtualStrip {
     static void runStrip(uint16_t stripNr, byte* heat, uint32_t it) {
 
-      const uint8_t ignition = MAX(3,SEGLEN/10);  // ignition area: 10% of segment length or minimum 3 pixels
+      const uint8_t ignition = min(255U, max(3U,SEGLEN/10));  // ignition area: 10% of segment length or minimum 3 pixels; max 255 pixels to prevent 8bit overflow
 
       // Step 1.  Cool down every cell a little
       for (unsigned i = 0; i < SEGLEN; i++) {
@@ -3063,8 +3066,9 @@ typedef struct RollingBall {
 } rball_t;
 
 static void mode_rolling_balls(void) {
+  if (SEGLEN < 2) FX_FALLBACK_STATIC; // effect needs at least 2 pixels
   //allocate segment data
-  const unsigned maxNumBalls = 16; // 255/16 + 1
+  constexpr unsigned maxNumBalls = 16; // 255/16 + 1
   unsigned dataSize = sizeof(rball_t) * maxNumBalls;
   if (!SEGENV.allocateData(dataSize)) FX_FALLBACK_STATIC; //allocation failed
 
@@ -3179,8 +3183,9 @@ static void mode_pacman(void) {
   constexpr uint32_t PACMAN = 0;   // PacMan is character[0]
   constexpr uint32_t ghostColors[] = {RED, PURPLEISH, CYAN, ORANGEISH};
 
-  uint32_t maxPowerDots = min(SEGLEN / 10U, 255U);  // cap the max so packed state fits in 8 bits
-  uint32_t numPowerDots = map(SEGMENT.intensity, 0, 255, 1, maxPowerDots);
+  if (SEGLEN < 2) FX_FALLBACK_STATIC; // effect needs at least 2 pixels
+  uint32_t maxPowerDots = max(1U, min(SEGLEN / 10U, 255U));  // cap the max so packed state fits in 8 bits
+  uint32_t numPowerDots = map(SEGMENT.intensity, 0, 255, 1, maxPowerDots); // must be > 0
   uint32_t numGhosts = map(SEGMENT.custom3, 0, 31, 2, 8);
   bool smearMode = SEGMENT.check2;
 
@@ -3462,7 +3467,8 @@ void mode_popcorn(void) {
   struct virtualStrip {
     static void runStrip(uint16_t stripNr, Spark* popcorn, unsigned usablePopcorns) {
       float gravity = -0.0001f - (SEGMENT.speed/200000.0f); // m/s/s
-      gravity *= SEGLEN;
+      unsigned sLenBase0 = max(2U, SEGLEN) -1; // cache to avoid repeated calculation
+      gravity *= sLenBase0;                    // avoid gravity = 0
 
       unsigned numPopcorn = SEGMENT.intensity * usablePopcorns / 255;
       if (numPopcorn == 0) numPopcorn = 1;
@@ -3476,7 +3482,7 @@ void mode_popcorn(void) {
             popcorn[i].pos = 0.01f;
 
             unsigned peakHeight = 128 + hw_random8(128); //0-255
-            peakHeight = (peakHeight * (SEGLEN -1)) >> 8;
+            peakHeight = (peakHeight * sLenBase0) >> 8;
             popcorn[i].vel = sqrtf(-2.0f * gravity * peakHeight);
 
             if (SEGMENT.palette)
@@ -4430,6 +4436,7 @@ static const char _data_FX_MODE_SINEWAVE[] PROGMEM = "Sine@!,Scale;;!";
  */
 void mode_flow(void)
 {
+  if (SEGLEN < 2) FX_FALLBACK_STATIC; // can't flow with 1 pixel only
   unsigned counter = 0;
   if (SEGMENT.speed != 0)
   {
@@ -4670,7 +4677,7 @@ static const char _data_FX_MODE_IMAGE[] PROGMEM = "Image@!,Blur,;;;12;sx=128,ix=
   Modified, originally by Mark Kriegsman https://gist.github.com/kriegsman/1f7ccbbfa492a73c015e
 */
 void mode_blends(void) {
-  unsigned pixelLen = SEGLEN > UINT8_MAX ? UINT8_MAX : SEGLEN;
+  unsigned pixelLen = min(SEGLEN, unsigned(UINT8_MAX));
   unsigned dataSize = sizeof(uint32_t) * (pixelLen + 1);  // max segment length of 56 pixels on 16 segment ESP8266
   if (!SEGENV.allocateData(dataSize)) FX_FALLBACK_STATIC; //allocation failed
   uint32_t* pixels = reinterpret_cast<uint32_t*>(SEGENV.data);
@@ -7040,7 +7047,7 @@ typedef struct Gravity {
 // Gravcenter base function for Gravcenter (0), Gravcentric (1), Gravimeter (2), Gravfreq (3) (merged by @dedehai)
 
 void mode_gravcenter_base(unsigned mode) {
-  if (SEGLEN == 1) FX_FALLBACK_STATIC;
+  if (SEGLEN <= 1) FX_FALLBACK_STATIC;
 
   const unsigned dataSize = sizeof(gravity);
   if (!SEGENV.allocateData(dataSize)) FX_FALLBACK_STATIC; //allocation failed
@@ -8272,7 +8279,7 @@ static const char _data_FX_MODE_2DWAVINGCELL[] PROGMEM = "Waving Cell@!,Blur,Amp
 */
 #define NUMBEROFSOURCES 8
 void mode_particlevortex(void) {
-  if (SEGLEN == 1)
+  if (SEGLEN <= 1)
     FX_FALLBACK_STATIC;
   ParticleSystem2D *PartSys = nullptr;
   uint32_t i, j;
