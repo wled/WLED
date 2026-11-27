@@ -7105,8 +7105,9 @@ void mode_vu_meter() {
     // use the smoothing slider also to scale the coords that go into the noise function, to smooth the noise frequency
     // the factors and offsets here come from trial and error
     const float noiseTimeFactor = sliderSmoothing / 255.0f * 32.0f + 4.0f;
+
     // calc it relative to SEGLEN, so it looks the same no matter how long the segment is
-    noiseHeightFactor = ((255-sliderSmoothing) / 255.0f / (float)SEGLEN) * 1.0f + 4.0f;
+    noiseHeightFactor = ((255 - sliderSmoothing) / 255.0f + 560.0f) / (float)SEGLEN;
 
     // "slow down" timebase depending on the smoothing setting to make noise more calm
     noiseTimebase = strip.now / noiseTimeFactor;
