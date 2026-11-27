@@ -910,9 +910,9 @@ static void chase(uint32_t color1, uint32_t color2, uint32_t color3, bool do_pal
   // Use intensity setting to vary chase up to 1/2 string length
   unsigned size = 1 + ((SEGMENT.intensity * SEGLEN) >> 10);
 
-  uint16_t b = a + size; //"trail" of chase, filled with color1
+  unsigned b = a + size; //"trail" of chase, filled with color1
   if (b > SEGLEN) b -= SEGLEN;
-  uint16_t c = b + size;
+  unsigned c = b + size;
   if (c > SEGLEN) c -= SEGLEN;
 
   //background
@@ -932,7 +932,7 @@ static void chase(uint32_t color1, uint32_t color2, uint32_t color3, bool do_pal
   }
 
   //fill between points a and b with color2
-  if (a < b)
+  if (unsigned(a) < b)
   {
     for (unsigned i = a; i < b; i++)
       SEGMENT.setPixelColor(i, color2);
