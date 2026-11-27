@@ -5377,8 +5377,8 @@ static const char _data_FX_MODE_2DANALOGCLOCK[] PROGMEM = "Analog Clock 2D@,,,,,
 void mode_2DBlackHole(void) {            // By: Stepko https://editor.soulmatelights.com/gallery/1012 , Modified by: Andrew Tuline
   if (!strip.isMatrix || !SEGMENT.is2D()) FX_FALLBACK_STATIC; // not a 2D set-up
 
-  const int cols = SEG_W;
-  const int rows = SEG_H;
+  const int cols = min(SEG_W, 256U); // effect passes the width and height to beatsin8_t, which has 8-bit bounds
+  const int rows = min(SEG_H, 256U);
   int x, y;
 
   SEGMENT.fadeToBlackBy(16 + (SEGMENT.speed>>3)); // create fading trails
@@ -5477,7 +5477,7 @@ static const char _data_FX_MODE_2DDNA[] PROGMEM = "DNA@Scroll speed,Blur,,,,Smea
 void mode_2DDNASpiral() {               // By: ldirko  https://editor.soulmatelights.com/gallery/512-dna-spiral-variation , modified by: Andrew Tuline
   if (!strip.isMatrix || !SEGMENT.is2D()) FX_FALLBACK_STATIC; // not a 2D set-up
 
-  const int cols = SEG_W;
+  const int cols = min(SEG_W, 256U); // effect passes the width to beatsin8_t, which has 8-bit bounds
   const int rows = SEG_H;
 
   if (SEGENV.call == 0) {
@@ -5582,8 +5582,8 @@ static const char _data_FX_MODE_2DFIRENOISE[] PROGMEM = "Firenoise@X scale,Y sca
 void mode_2DFrizzles(void) {                 // By: Stepko https://editor.soulmatelights.com/gallery/640-color-frizzles , Modified by: Andrew Tuline
   if (!strip.isMatrix || !SEGMENT.is2D()) FX_FALLBACK_STATIC; // not a 2D set-up
 
-  const int cols = SEG_W;
-  const int rows = SEG_H;
+  const int cols = min(SEG_W, 256U); // effect passes the width and height to beatsin8_t, which has 8-bit bounds
+  const int rows = min(SEG_H, 256U);
 
   SEGMENT.fadeToBlackBy(16 + SEGMENT.check1 * 10);
   for (size_t i = 8; i > 0; i--) {
