@@ -5924,7 +5924,7 @@ static const char _data_FX_MODE_2DLISSAJOUS[] PROGMEM = "Lissajous@X frequency,F
 void mode_2Dmatrix(void) {                  // Matrix2D. By Jeremy Williams. Adapted by Andrew Tuline & improved by merkisoft and ewowi, and softhack007.
   if (!strip.isMatrix || !SEGMENT.is2D()) FX_FALLBACK_STATIC; // not a 2D set-up
 
-  const int cols = SEG_W;
+  const int cols = min(SEG_W, 256U); // effect cannot handle more than 256 columns
   const int rows = SEG_H;
   const auto XY = [&](int x, int y) { return (x%cols) + (y%rows) * cols; };
 
@@ -5975,7 +5975,7 @@ void mode_2Dmatrix(void) {                  // Matrix2D. By Jeremy Williams. Ada
 
     // spawn new falling code
     if (hw_random8() <= SEGMENT.intensity || emptyScreen) {
-      uint8_t spawnX = hw_random8(cols);
+      uint8_t spawnX = hw_random8(cols);  // ToDO: this line limits us to 256 columns
       SEGMENT.setPixelColorXY(spawnX, 0, spawnColor);
       // update hint for next run
       unsigned index = XY(spawnX, 0) >> 3;
