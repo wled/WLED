@@ -268,7 +268,7 @@ static_assert(WLED_MAX_BUSSES <= 32, "WLED_MAX_BUSSES exceeds hard limit");
 #define USERMOD_ID_STAIRWAY_WIPE         44     //Usermod "stairway-wipe-usermod-v2.h"
 #define USERMOD_ID_ANIMARTRIX            45     //Usermod "usermod_v2_animartrix.h"
 #define USERMOD_ID_HTTP_PULL_LIGHT_CONTROL 46   //usermod "usermod_v2_HttpPullLightControl.h"
-#define USERMOD_ID_TETRISAI              47     //Usermod "usermod_v2_tetris.h"
+#define USERMOD_ID_TETRISAI              47     //Usermod Tetris AI, moved out of tree to https://github.com/muebau/wled-usermod-tetrisai
 #define USERMOD_ID_MAX17048              48     //Usermod "usermod_max17048.h"
 #define USERMOD_ID_BME68X                49     //Usermod "usermod_bme68x.h
 #define USERMOD_ID_INA226                50     //Usermod "usermod_ina226.h"
