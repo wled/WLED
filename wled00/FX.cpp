@@ -7027,6 +7027,191 @@ static const char _data_FX_MODE_2DWAVERLY[] PROGMEM = "Waverly@Amplification,Sen
 
 #endif // WLED_DISABLE_2D
 
+/////////////////////////
+//    * VU Meter       //
+/////////////////////////
+
+// Renders a VU-Meter (Volume Unit) effect
+//   depends on audio level, draws a bar and a fall-off pixel
+//   Similar to GravMETER, but tries to be a smooth as possible and allow various options for styling
+//
+// Options:
+
+// Sub-pixel factor for peak position and antialiasing between adjacent LEDs.
+static constexpr int TOP_FALL_OFF_SMOOTHING = 10;
+
+struct VuMeterState {
+  float topLED; // peak position in FP units (pixel * TOP_FALL_OFF_SMOOTHING)
+  float fallVelocity; // downward speed in FP units per frame (accelerates while falling)
+  float smoothBrightness; // VuMeter bar brightness, store it so we can smooth it between frames (blend 0..255)
+  float smoothBar; // VuMeter bar length, store it so we can smooth it between frames
+};
+
+void mode_vu_meter() {
+  if (SEGLEN == 1) FX_FALLBACK_STATIC;
+
+  const uint8_t sliderSmoothing = SEGMENT.speed;           // smooth the bar length against previous length
+  const uint8_t sliderSensitivity = SEGMENT.intensity;     // scale the audio level
+  const uint8_t sliderGravity = SEGMENT.custom1;           // change how fast the top pixel accelerates while falling
+  const uint8_t sliderAudioSensitivity = SEGMENT.custom2;  // scale how the audio level changes the blending against the background
+  const uint8_t sliderContrast = SEGMENT.custom3;          // custom3 is due to encoding only 0..31, change the contrast between bar and top pixel
+  const bool checkFallOff = SEGMENT.check1;                // show falling top pixel
+  const bool checkNoise = SEGMENT.check2;                  // apply color noise to the bar  (only if a palette is used)
+  const bool checkScalePalette = SEGMENT.check3;           // apply color noise to the bar
+
+  const uint8_t darkenBar = constrain(constrain(sliderContrast, 0, 16) * 16, 0, 255);  // slider 0..16 maps to 0..255, then stays at 255
+
+  constexpr unsigned dataSize = sizeof(VuMeterState);
+  if (!SEGENV.allocateData(dataSize)) FX_FALLBACK_STATIC; //allocation failed
+  VuMeterState *vuState = reinterpret_cast<VuMeterState *>(SEGENV.data);
+
+  // Audio Level
+  um_data_t *um_data = getAudioData();
+  float volumeLevel = *(float *) um_data->u_data[0]; // 0f..255f
+  float volumeLevelScaled = volumeLevel * (float) sliderSensitivity / 128.0f; // 0f..512f
+  // Peak marker needs one pixel of headroom; without it the bar may fill the segment.
+  const float maxBar = checkFallOff ? float(SEGLEN - 1) : float(SEGLEN);
+  float volumeScaledToSegLen = mapf(volumeLevelScaled, 0, 255, 0, maxBar);
+
+  // Calculate the length of the bar - smooth it with the last values
+  const uint16_t amplitudeIn = constrain(volumeScaledToSegLen, 0.0f, maxBar); // Keep the sample from overflowing.
+  const uint16_t oldAmplitude = vuState->smoothBar;
+  vuState->smoothBar += (amplitudeIn - vuState->smoothBar) * ((256.0 - sliderSmoothing) / 256.0); // use 256.0 here, so it always stays slightly > 0.0
+  if (vuState->smoothBar > maxBar) vuState->smoothBar = maxBar;
+  const uint16_t amplitude = vuState->smoothBar;
+
+  // Fade out old content
+  SEGMENT.fade_out(249);
+
+  // calculate the brightness
+  uint8_t blend;
+  if (sliderAudioSensitivity > 0) {
+    // the bar should have a min brightness and react more or less to the audio level, depending on custom1
+    const float minBrightness = 32.0f;
+    const float v = fmin(volumeLevel / 180.0f, 1.0f); // 0f .. 1f
+    const float audioBrightnessScale = (sliderAudioSensitivity / 255.0f) * (sliderAudioSensitivity / 255.0f);  // 0 = ignore audio, 1 = full reaction, quadratic sensitivity mapping
+    const float audioBri = minBrightness + v * (255 - minBrightness);
+    const float barBrightness = 255 * (1.0f - audioBrightnessScale) + audioBri * audioBrightnessScale;
+
+    // Smooth the changes of the brightness against the previous value
+    const float alpha = mapf(sliderAudioSensitivity, 0, 255, 0.1, 0.5); // Bar Brightness smoothing factor
+    vuState->smoothBrightness += (barBrightness - vuState->smoothBrightness) * alpha;
+    blend = (uint8_t) vuState->smoothBrightness;
+  } else {
+    // no need spend cycles on the calculation, if slider is 0, then its always 255
+    blend = 255;
+  }
+
+  float noiseHeightFactor;
+  unsigned long noiseTimebase;
+  if (checkNoise) {
+    // use the smoothing slider also to scale the coords that go into the noise function, to smooth the noise frequency
+    // the factors and offsets here come from trial and error
+    const float noiseTimeFactor = sliderSmoothing / 255.0f * 32.0f + 4.0f;
+
+    // calc it relative to SEGLEN, so it looks the same no matter how long the segment is
+    noiseHeightFactor = ((255 - sliderSmoothing) / 255.0f + 560.0f) / (float)SEGLEN;
+
+    // "slow down" timebase depending on the smoothing setting to make noise more calm
+    noiseTimebase = strip.now / noiseTimeFactor;
+  }
+
+  // **** draw bar loop ****
+  for (int i = 0; i < amplitude; i++) {
+    uint8_t colorindex;
+    if (checkNoise) {
+      // Noise checkbox checked
+      colorindex = perlin8((uint16_t)(i * noiseHeightFactor + noiseTimebase), 5000);
+      if (checkScalePalette) {
+        // if checkbox checked: map the whole noise range 0..255 onto the part of the palette of the current amplitude
+        // so that only colors are chosen of the corresponding height
+        colorindex = mapf(colorindex, 0, 255, 0.0f, (float)i/amplitude*255.0f);
+      } // no need to scale it for the other case, as the noise range is already 0..255
+    } else { // Noise checkbox not checked
+      if (checkScalePalette) {
+        // Scale palette checked - map the whole palette into the length of the current bar
+        if (amplitude>1) {
+          colorindex = mapf(i, 0, amplitude - 1, 0, 255);
+        } else {
+          colorindex = 0;
+        }
+      } else {
+        // Scale palette not checked - map the palette over the length of the full segment
+        colorindex = mapf(i, 0,SEGLEN - 1, 0, 255);
+      }
+    }
+    uint32_t color;
+    uint8_t blendPixel = blend;
+    // Skip fractional fade when the bar fills the segment (frac would be 0 and blank the last pixel).
+    if (i == amplitude - 1 && amplitude < SEGLEN) {
+      // draw the last pixel of the bar faded out, according to the fractional value of vuState->smoothBar,
+      // to get sub-pixel antialiasing
+      const float frac = vuState->smoothBar - (float)(int)vuState->smoothBar;
+      blendPixel = blend * frac;
+    }
+    uint32_t targetColor = SEGMENT.color_from_palette(colorindex, false, PALETTE_SOLID_WRAP, 0);
+    targetColor = color_blend(0, targetColor, darkenBar);
+
+    color = color_blend(SEGCOLOR(1), targetColor, blendPixel);
+    SEGMENT.setPixelColor(i, color);
+  }
+  for (int i = amplitude; i <= oldAmplitude && i < (int)SEGLEN; i++) {
+    // draw a background pixel up to the previous amplitude, to ensure older pixels are cleanly deleted
+    SEGMENT.setPixelColor(i, SEGCOLOR(1));
+  }
+
+  // Draw falling top pixel
+  if (checkFallOff) {
+
+    // slider 16..32 maps to 255..0, 0-15 stays at 255 - 32 to have a slight overlap where both are 255
+    const uint8_t darkenTopDot = constrain(constrain(32 - sliderContrast, 0, 16) * 16, 0, 255);
+
+    const float gravity = 8.0f - sliderGravity / 32; // 8f...0f
+
+    const float peakTarget = amplitude;
+    const uint8_t peakOffset = 1;
+    if (peakTarget > vuState->topLED) {
+      const float diff = (peakTarget - vuState->topLED) / SEGLEN; // diff of old position vs new
+
+      // start with a negative fall velocity, so it jumps a bit up, depending on the diff of the new and old value
+      vuState->fallVelocity = - (8.0 - gravity) * diff * 4.0;
+
+      vuState->topLED = min(SEGLEN - 1.0f, peakTarget + peakOffset); // +1 to have a bit of separation
+    } else if (peakTarget < vuState->topLED - peakOffset) { // start falling if the bar is lower than it was when we set the last topHeigth
+      const float fallAccel = 1 / (gravity * gravity); // fall with (1/gravity²)
+      vuState->fallVelocity += fallAccel;
+      vuState->topLED = constrain(vuState->topLED - vuState->fallVelocity / TOP_FALL_OFF_SMOOTHING, 0.0f, SEGLEN-1);
+    }
+
+    uint32_t color;
+    if (SEGCOLOR(2) != 0) {
+      // if the third color is not black, us this for the fall-off pixel
+      color = SEGCOLOR(2);
+    } else {
+      // otherwise use the color from the palette at the current height
+      const uint8_t topColorIdx = min(255, mapf(vuState->topLED, 0, SEGLEN - 1, 0, 255));
+      color = SEGMENT.color_from_palette(topColorIdx, false, PALETTE_SOLID_WRAP, 0);
+    }
+
+    color = color_blend(0, color, darkenTopDot);
+
+    // Hide at/below peakOffset, to hide the peak if no bar is shown. also dont draw outside of SEGLEN
+    if (vuState->topLED >= peakOffset && vuState->topLED < SEGLEN) {
+      const float pix = vuState->topLED;
+      const uint16_t pos = (int) pix; // floor
+      const float frac = pix - (float) pos; // 0..1 toward pos+1
+      const uint8_t wUp = gamma8inv((uint8_t)(frac * 255.0f));
+      const uint8_t wDn = gamma8inv((uint8_t)((1.0f - frac) * 255.0f));
+      if (wDn)
+          SEGMENT.setPixelColor(pos, color_blend(SEGCOLOR(1), color, wDn));
+      if (wUp && pos + 1 < SEGLEN)
+          SEGMENT.setPixelColor(pos+1, color_blend(SEGCOLOR(1), color, wUp));
+    }
+  }
+}
+
+static const char _data_FX_MODE_VU_METER[] PROGMEM = "VU Meter@Smoothing,Sensitivity,Gravity,Dynamic Brightness,Contrast Top/Bar,Show Top Pixel,Noise,Scale Palette;!,!,To;!;1v;ix=70,sx=8,c1=128,c2=200,c3=16,o1=1,o2=0,o3=0,m12=2,si=0";
+
 // Gravity struct requited for GRAV* effects
 typedef struct Gravity {
   int    topLED;
@@ -11390,6 +11575,7 @@ void WS2812FX::setupEffectData() {
   addEffect(FX_MODE_GRAVCENTER, &mode_gravcenter, _data_FX_MODE_GRAVCENTER);
   addEffect(FX_MODE_GRAVCENTRIC, &mode_gravcentric, _data_FX_MODE_GRAVCENTRIC);
   addEffect(FX_MODE_GRAVFREQ, &mode_gravfreq, _data_FX_MODE_GRAVFREQ);
+  addEffect(FX_MODE_VU_METER, &mode_vu_meter, _data_FX_MODE_VU_METER);
   addEffect(FX_MODE_DJLIGHT, &mode_DJLight, _data_FX_MODE_DJLIGHT);
   addEffect(FX_MODE_BLURZ, &mode_blurz, _data_FX_MODE_BLURZ);
   addEffect(FX_MODE_FLOWSTRIPE, &mode_FlowStripe, _data_FX_MODE_FLOWSTRIPE);
